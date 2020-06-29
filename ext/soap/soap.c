@@ -17,7 +17,7 @@
   |          Dmitry Stogov <dmitry@zend.com>                             |
   +----------------------------------------------------------------------+
 */
-/* $Id: soap.c,v 1.156.2.28.2.18 2007/01/18 16:21:32 tony2001 Exp $ */
+/* $Id: soap.c,v 1.156.2.28.2.23 2007/05/02 08:22:13 dmitry Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -444,8 +444,7 @@ static void php_soap_prepare_globals()
 		if (defaultEncoding[i].details.type_str) {
 			if (defaultEncoding[i].details.ns != NULL) {
 				char *ns_type;
-				ns_type = emalloc(strlen(defaultEncoding[i].details.ns) + strlen(defaultEncoding[i].details.type_str) + 2);
-				sprintf(ns_type, "%s:%s", defaultEncoding[i].details.ns, defaultEncoding[i].details.type_str);
+				spprintf(&ns_type, 0, "%s:%s", defaultEncoding[i].details.ns, defaultEncoding[i].details.type_str);
 				zend_hash_add(&defEnc, ns_type, strlen(ns_type) + 1, &enc, sizeof(encodePtr), NULL);
 				efree(ns_type);
 			} else {
@@ -480,6 +479,7 @@ static void php_soap_init_globals(zend_soap_globals *soap_globals TSRMLS_DC)
 	soap_globals->sdl = NULL;
 	soap_globals->soap_version = SOAP_1_1;
 	soap_globals->mem_cache = NULL;
+	soap_globals->ref_map = NULL;
 }
 
 PHP_MSHUTDOWN_FUNCTION(soap)
@@ -654,6 +654,8 @@ PHP_MINIT_FUNCTION(soap)
 	REGISTER_LONG_CONSTANT("XSD_ANYTYPE", XSD_ANYTYPE, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("XSD_ANYXML", XSD_ANYXML, CONST_CS | CONST_PERSISTENT);
 
+	REGISTER_LONG_CONSTANT("APACHE_MAP", APACHE_MAP, CONST_CS | CONST_PERSISTENT);
+
 	REGISTER_LONG_CONSTANT("SOAP_ENC_OBJECT", SOAP_ENC_OBJECT, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SOAP_ENC_ARRAY", SOAP_ENC_ARRAY, CONST_CS | CONST_PERSISTENT);
 
@@ -664,6 +666,7 @@ PHP_MINIT_FUNCTION(soap)
 
 	REGISTER_LONG_CONSTANT("SOAP_SINGLE_ELEMENT_ARRAYS", SOAP_SINGLE_ELEMENT_ARRAYS, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SOAP_WAIT_ONE_WAY_CALLS", SOAP_WAIT_ONE_WAY_CALLS, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SOAP_USE_XSI_ARRAY_TYPE", SOAP_USE_XSI_ARRAY_TYPE, CONST_CS | CONST_PERSISTENT);
 
 	REGISTER_LONG_CONSTANT("WSDL_CACHE_NONE",   WSDL_CACHE_NONE,   CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("WSDL_CACHE_DISK",   WSDL_CACHE_DISK,   CONST_CS | CONST_PERSISTENT);
@@ -2050,10 +2053,10 @@ static void soap_error_handler(int error_num, const char *error_filename, const 
 			INIT_ZVAL(outbuflen);
 #ifdef va_copy
 			va_copy(argcopy, args);
-			buffer_len = vsnprintf(buffer, sizeof(buffer)-1, format, argcopy);
+			buffer_len = vslprintf(buffer, sizeof(buffer)-1, format, argcopy);
 			va_end(argcopy);
 #else
-			buffer_len = vsnprintf(buffer, sizeof(buffer)-1, format, args);
+			buffer_len = vslprintf(buffer, sizeof(buffer)-1, format, args);
 #endif
 			buffer[sizeof(buffer)-1]=0;
 			if (buffer_len > sizeof(buffer) - 1 || buffer_len < 0) {
@@ -2110,10 +2113,10 @@ static void soap_error_handler(int error_num, const char *error_filename, const 
 
 #ifdef va_copy
 			va_copy(argcopy, args);
-			buffer_len = vsnprintf(buffer, sizeof(buffer)-1, format, argcopy);
+			buffer_len = vslprintf(buffer, sizeof(buffer)-1, format, argcopy);
 			va_end(argcopy);
 #else
-			buffer_len = vsnprintf(buffer, sizeof(buffer)-1, format, args);
+			buffer_len = vslprintf(buffer, sizeof(buffer)-1, format, args);
 #endif
 			buffer[sizeof(buffer)-1]=0;
 			if (buffer_len > sizeof(buffer) - 1 || buffer_len < 0) {
@@ -2583,7 +2586,9 @@ static void do_soap_call(zval* this_ptr,
 			xmlFreeDoc(request);
 
 			if (ret && Z_TYPE(response) == IS_STRING) {
+				encode_reset_ns();
 				ret = parse_packet_soap(this_ptr, Z_STRVAL(response), Z_STRLEN(response), fn, NULL, return_value, output_headers TSRMLS_CC);
+				encode_finish();
 			}
 
 			zval_dtor(&response);
@@ -2626,7 +2631,9 @@ static void do_soap_call(zval* this_ptr,
 			xmlFreeDoc(request);
 
 			if (ret && Z_TYPE(response) == IS_STRING) {
+				encode_reset_ns();
 				ret = parse_packet_soap(this_ptr, Z_STRVAL(response), Z_STRLEN(response), NULL, function, return_value, output_headers TSRMLS_CC);
+				encode_finish();
 			}
 
 			zval_dtor(&response);
@@ -3282,6 +3289,8 @@ static sdlFunctionPtr deserialize_function_call(sdlPtr sdl, xmlDocPtr request, c
 	xmlAttrPtr attr;
 	sdlFunctionPtr function;
 
+	encode_reset_ns();
+
 	/* Get <Envelope> element */
 	env = NULL;
 	trav = request->children;
@@ -3530,6 +3539,9 @@ ignore_header:
 		func = func->children;
 	}
 	deserialize_parameters(func, function, num_params, parameters);
+	
+	encode_finish();
+
 	return function;
 }
 
@@ -3982,6 +3994,8 @@ static xmlDocPtr serialize_response_call(sdlFunctionPtr function, char *function
 		}
 	}
 
+	encode_finish();
+
 	if (function && function->responseName == NULL && 
 	    body->children == NULL && head == NULL) {
 		xmlFreeDoc(doc);
@@ -4195,6 +4209,8 @@ static xmlDocPtr serialize_function_call(zval *this_ptr, sdlFunctionPtr function
 			}
 		}
 	}
+
+	encode_finish();
 
 	return doc;
 }

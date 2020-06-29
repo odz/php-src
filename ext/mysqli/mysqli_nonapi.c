@@ -15,7 +15,7 @@
   | Author: Georg Richter <georg@php.net>                                |
   +----------------------------------------------------------------------+
 
-  $Id: mysqli_nonapi.c,v 1.54.2.7.2.2 2007/01/01 09:36:03 sebastian Exp $ 
+  $Id: mysqli_nonapi.c,v 1.54.2.7.2.4 2007/04/23 09:27:07 tony2001 Exp $ 
 */
 
 #ifdef HAVE_CONFIG_H

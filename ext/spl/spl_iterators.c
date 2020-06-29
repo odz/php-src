@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: spl_iterators.c,v 1.73.2.30.2.22 2007/01/01 09:36:07 sebastian Exp $ */
+/* $Id: spl_iterators.c,v 1.73.2.30.2.27 2007/03/04 14:01:06 helly Exp $ */
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -57,6 +57,7 @@ PHPAPI zend_class_entry *spl_ce_EmptyIterator;
 PHPAPI zend_class_entry *spl_ce_AppendIterator;
 PHPAPI zend_class_entry *spl_ce_RegexIterator;
 PHPAPI zend_class_entry *spl_ce_RecursiveRegexIterator;
+PHPAPI zend_class_entry *spl_ce_Countable;
 
 zend_function_entry spl_funcs_RecursiveIterator[] = {
 	SPL_ABSTRACT_ME(RecursiveIterator, hasChildren,  NULL)
@@ -1335,41 +1336,6 @@ SPL_METHOD(ParentIterator, __construct)
 	spl_dual_it_construct(INTERNAL_FUNCTION_PARAM_PASSTHRU, spl_ce_ParentIterator, spl_ce_RecursiveIterator, DIT_ParentIterator);
 } /* }}} */
 
-/* {{{ proto bool ParentIterator::hasChildren()
-   Check whether the inner iterator's current element has children */
-SPL_METHOD(ParentIterator, hasChildren)
-{
-	spl_dual_it_object   *intern;
-	zval                 *retval;
-
-	intern = (spl_dual_it_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
-
-	zend_call_method_with_0_params(&intern->inner.zobject, intern->inner.ce, NULL, "haschildren", &retval);
-	if (retval) {
-		RETURN_ZVAL(retval, 0, 1);
-	} else {
-		RETURN_FALSE;
-	}
-} /* }}} */
-
-/* {{{ proto ParentIterator ParentIterator::getChildren()
-   Return the inner iterator's children contained in a ParentIterator */
-SPL_METHOD(ParentIterator, getChildren)
-{
-	spl_dual_it_object   *intern;
-	zval                 *retval;
-
-	intern = (spl_dual_it_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
-
-	zend_call_method_with_0_params(&intern->inner.zobject, intern->inner.ce, NULL, "getchildren", &retval);
-	if (!EG(exception) && retval) {
-		spl_instantiate_arg_ex1(Z_OBJCE_P(getThis()), &return_value, 0, retval TSRMLS_CC);
-	}
-	if (retval) {
-		zval_ptr_dtor(&retval);
-	}
-} /* }}} */
-
 #if HAVE_PCRE || HAVE_BUNDLED_PCRE
 /* {{{ proto void RegexIterator::__construct(Iterator it, string regex [, int mode [, int flags [, int preg_flags]]]) 
    Create an RegexIterator from another iterator and a regular expression */
@@ -1389,7 +1355,7 @@ SPL_METHOD(RegexIterator, accept)
 
 	if (intern->u.regex.flags & REGIT_USE_KEY) {
 		if (intern->current.key_type == HASH_KEY_IS_LONG) {
-			subject_len = snprintf(tmp, sizeof(tmp), "%ld", intern->current.int_key);
+			subject_len = slprintf(tmp, sizeof(tmp), "%ld", intern->current.int_key);
 			subject = &tmp[0];
 			use_copy = 0;
 		} else {
@@ -1664,7 +1630,6 @@ ZEND_END_ARG_INFO();
 
 static zend_function_entry spl_funcs_RecursiveFilterIterator[] = {
 	SPL_ME(RecursiveFilterIterator,  __construct,      arginfo_parent_it___construct, ZEND_ACC_PUBLIC)
-	SPL_MA(ParentIterator,  accept,  RecursiveFilterIterator, hasChildren, NULL, ZEND_ACC_PUBLIC)
 	SPL_ME(RecursiveFilterIterator,  hasChildren,      NULL, ZEND_ACC_PUBLIC)
 	SPL_ME(RecursiveFilterIterator,  getChildren,      NULL, ZEND_ACC_PUBLIC)
 	{NULL, NULL, NULL}
@@ -1672,10 +1637,7 @@ static zend_function_entry spl_funcs_RecursiveFilterIterator[] = {
 
 static zend_function_entry spl_funcs_ParentIterator[] = {
 	SPL_ME(ParentIterator,  __construct,      arginfo_parent_it___construct, ZEND_ACC_PUBLIC)
-	SPL_MA(ParentIterator,  accept,           ParentIterator, hasChildren, NULL, ZEND_ACC_PUBLIC)
-	SPL_ME(ParentIterator,  hasChildren,      NULL, ZEND_ACC_PUBLIC)
-	SPL_ME(ParentIterator,  getChildren,      NULL, ZEND_ACC_PUBLIC)
-	SPL_ME(dual_it,         getInnerIterator, NULL, ZEND_ACC_PUBLIC)
+	SPL_MA(ParentIterator,  accept,           RecursiveFilterIterator, hasChildren, NULL, ZEND_ACC_PUBLIC)
 	{NULL, NULL, NULL}
 };
 
@@ -1726,9 +1688,9 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_rec_regex_it___construct, 0, 0, 2)
 ZEND_END_ARG_INFO();
 
 static zend_function_entry spl_funcs_RecursiveRegexIterator[] = {
-	SPL_ME(RecursiveRegexIterator, __construct,      arginfo_rec_regex_it___construct, ZEND_ACC_PUBLIC)
-	SPL_ME(ParentIterator,         hasChildren,      NULL, ZEND_ACC_PUBLIC)
-	SPL_ME(RecursiveRegexIterator, getChildren,      NULL, ZEND_ACC_PUBLIC)
+	SPL_ME(RecursiveRegexIterator,  __construct,      arginfo_rec_regex_it___construct, ZEND_ACC_PUBLIC)
+	SPL_ME(RecursiveFilterIterator, hasChildren,      NULL, ZEND_ACC_PUBLIC)
+	SPL_ME(RecursiveRegexIterator,  getChildren,      NULL, ZEND_ACC_PUBLIC)
 	{NULL, NULL, NULL}
 };
 #endif
@@ -2231,6 +2193,23 @@ SPL_METHOD(CachingIterator, setFlags)
 }
 /* }}} */
 
+/* {{{ proto void CachingIterator::count()
+   Number of cached elements */
+SPL_METHOD(CachingIterator, count)
+{
+	spl_dual_it_object   *intern;
+
+	intern = (spl_dual_it_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
+
+	if (!(intern->u.caching.flags & CIT_FULL_CACHE))	{
+		zend_throw_exception_ex(spl_ce_BadMethodCallException, 0 TSRMLS_CC, "%v does not use a full cache (see CachingIterator::__construct)", Z_OBJCE_P(getThis())->name);
+		return;
+	}
+
+	RETURN_LONG(zend_hash_num_elements(HASH_OF(intern->u.caching.zcache)));
+}
+/* }}} */
+
 static
 ZEND_BEGIN_ARG_INFO_EX(arginfo_caching_it___construct, 0, 0, 1) 
 	ZEND_ARG_OBJ_INFO(0, iterator, Iterator, 0)
@@ -2270,6 +2249,7 @@ static zend_function_entry spl_funcs_CachingIterator[] = {
 	SPL_ME(CachingIterator, offsetUnset,      arginfo_caching_it_offsetGet,   ZEND_ACC_PUBLIC)
 	SPL_ME(CachingIterator, offsetExists,     arginfo_caching_it_offsetGet,   ZEND_ACC_PUBLIC)
 	SPL_ME(CachingIterator, getCache,         NULL, ZEND_ACC_PUBLIC)
+	SPL_ME(CachingIterator, count,            NULL, ZEND_ACC_PUBLIC)
 	{NULL, NULL, NULL}
 };
 
@@ -2844,6 +2824,11 @@ static zend_function_entry spl_funcs_OuterIterator[] = {
 	{NULL, NULL, NULL}
 };
 
+static zend_function_entry spl_funcs_Countable[] = {
+	SPL_ABSTRACT_ME(Countable, count,   NULL)
+	{NULL, NULL, NULL}
+};
+
 /* {{{ PHP_MINIT_FUNCTION(spl_iterators)
  */
 PHP_MINIT_FUNCTION(spl_iterators)
@@ -2886,6 +2871,7 @@ PHP_MINIT_FUNCTION(spl_iterators)
 
 	REGISTER_SPL_SUB_CLASS_EX(ParentIterator, RecursiveFilterIterator, spl_dual_it_new, spl_funcs_ParentIterator);
 
+	REGISTER_SPL_INTERFACE(Countable);
 	REGISTER_SPL_INTERFACE(SeekableIterator);
 	REGISTER_SPL_ITERATOR(SeekableIterator);
 
@@ -2893,6 +2879,7 @@ PHP_MINIT_FUNCTION(spl_iterators)
 
 	REGISTER_SPL_SUB_CLASS_EX(CachingIterator, IteratorIterator, spl_dual_it_new, spl_funcs_CachingIterator);
 	REGISTER_SPL_IMPLEMENTS(CachingIterator, ArrayAccess);
+	REGISTER_SPL_IMPLEMENTS(CachingIterator, Countable);
 
 	REGISTER_SPL_CLASS_CONST_LONG(CachingIterator, "CALL_TOSTRING",        CIT_CALL_TOSTRING); 
 	REGISTER_SPL_CLASS_CONST_LONG(CachingIterator, "CATCH_GET_CHILD",      CIT_CATCH_GET_CHILD); 

@@ -339,7 +339,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_language_parser.y,v 1.160.2.4.2.3 2007/01/10 15:58:07 dmitry Exp $ */
+/* $Id: zend_language_parser.y,v 1.160.2.4.2.4 2007/04/04 00:42:42 iliaa Exp $ */
 
 /*
  * LALR shift/reduce conflicts and how they are resolved:
@@ -3079,7 +3079,7 @@ yyreduce:
 
   case 9:
 
-    { zval c; if (zend_get_constant("__COMPILER_HALT_OFFSET__", sizeof("__COMPILER_HALT_OFFSET__") - 1, &c TSRMLS_CC)) { zval_dtor(&c); zend_error(E_COMPILE_ERROR, "__HALT_COMPILER() can only be used once per request"); } else { REGISTER_MAIN_LONG_CONSTANT("__COMPILER_HALT_OFFSET__", zend_get_scanned_file_offset(TSRMLS_C), CONST_CS); } YYACCEPT; }
+    { zend_do_halt_compiler_register(TSRMLS_C); YYACCEPT; }
     break;
 
   case 10:

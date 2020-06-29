@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_hash.c,v 1.121.2.4.2.6 2007/01/20 23:10:02 tony2001 Exp $ */
+/* $Id: zend_hash.c,v 1.121.2.4.2.7 2007/02/21 14:11:00 dmitry Exp $ */
 
 #include "zend.h"
 
@@ -1025,7 +1025,9 @@ ZEND_API int zend_hash_get_pointer(HashTable *ht, HashPointer *ptr)
 
 ZEND_API int zend_hash_set_pointer(HashTable *ht, const HashPointer *ptr)
 {
-	if (ht->pInternalPointer != ptr->pos) {
+	if (ptr->pos == NULL) {
+		ht->pInternalPointer = NULL;
+	} else if (ht->pInternalPointer != ptr->pos) {
 		Bucket *p;
 
 		IS_CONSISTENT(ht);

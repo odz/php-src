@@ -935,9 +935,6 @@
 /* Whether to use Roxen in ZTS mode */
 #undef ROXEN_USE_ZTS
 
-/* whether write(2) works */
-#undef PHP_WRITE_STDOUT
-
 /*   */
 #undef FORCE_CGI_REDIRECT
 
@@ -961,6 +958,9 @@
 
 /* Define if processor uses big-endian word */
 #undef WORDS_BIGENDIAN
+
+/* whether write(2) works */
+#undef PHP_WRITE_STDOUT
 
 /*   */
 #undef HAVE_SOCKET
@@ -1521,6 +1521,9 @@
 #undef HAVE_GD_FONTCACHESHUTDOWN
 
 /*   */
+#undef HAVE_GD_FONTMUTEX
+
+/*   */
 #undef HAVE_GD_DYNAMIC_CTX_EX
 
 /*   */
@@ -1624,6 +1627,9 @@
 
 /*   */
 #undef HAVE_GD_FREEFONTCACHE
+
+/*   */
+#undef HAVE_GD_FONTMUTEX
 
 /*   */
 #undef HAVE_GD_DYNAMIC_CTX_EX
@@ -2383,6 +2389,9 @@
 
 /* PostgreSQL 7.4 or later */
 #undef HAVE_PQGETCOPYDATA
+
+/* PostgreSQL 7.4 or later */
+#undef HAVE_PQFREEMEM
 
 /* PostgreSQL 7.4 or later */
 #undef HAVE_PQSETERRORVERBOSITY

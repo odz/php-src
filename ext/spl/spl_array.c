@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: spl_array.c,v 1.71.2.17.2.7 2007/01/07 03:52:44 iliaa Exp $ */
+/* $Id: spl_array.c,v 1.71.2.17.2.11 2007/04/06 17:57:10 helly Exp $ */
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -41,8 +41,6 @@ PHPAPI zend_class_entry  *spl_ce_ArrayObject;
 zend_object_handlers spl_handler_ArrayIterator;
 PHPAPI zend_class_entry  *spl_ce_ArrayIterator;
 PHPAPI zend_class_entry  *spl_ce_RecursiveArrayIterator;
-
-PHPAPI zend_class_entry  *spl_ce_Countable;
 
 #define SPL_ARRAY_STD_PROP_LIST      0x00000001
 #define SPL_ARRAY_ARRAY_AS_PROPS     0x00000002
@@ -458,7 +456,7 @@ static int spl_array_has_dimension_ex(int check_inherited, zval *object, zval *o
 {
 	spl_array_object *intern = (spl_array_object*)zend_object_store_get_object(object TSRMLS_CC);
 	long index;
-	zval *rv;
+	zval *rv, **tmp;
 
 	if (check_inherited && intern->fptr_offset_has) {
 		SEPARATE_ARG_IF_REF(offset);
@@ -477,9 +475,7 @@ static int spl_array_has_dimension_ex(int check_inherited, zval *object, zval *o
 	switch(Z_TYPE_P(offset)) {
 	case IS_STRING:
 		if (check_empty) {
-			zval **tmp;
-			HashTable *ht = spl_array_get_hash_table(intern, 0 TSRMLS_CC);
-			if (zend_hash_find(ht, Z_STRVAL_P(offset), Z_STRLEN_P(offset)+1, (void **) &tmp) != FAILURE && zend_is_true(*tmp)) {
+			if (zend_symtable_find(spl_array_get_hash_table(intern, 0 TSRMLS_CC), Z_STRVAL_P(offset), Z_STRLEN_P(offset)+1, (void **) &tmp) != FAILURE && zend_is_true(*tmp)) {
 				return 1;
 			}
 			return 0;
@@ -496,7 +492,6 @@ static int spl_array_has_dimension_ex(int check_inherited, zval *object, zval *o
 			index = Z_LVAL_P(offset);
 		}
 		if (check_empty) {
-			zval **tmp;
 			HashTable *ht = spl_array_get_hash_table(intern, 0 TSRMLS_CC);
 			if (zend_hash_index_find(ht, index, (void **)&tmp) != FAILURE && zend_is_true(*tmp)) {
 				return 1;
@@ -525,7 +520,7 @@ SPL_METHOD(Array, offsetExists)
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &index) == FAILURE) {
 		return;
 	}
-	RETURN_BOOL(spl_array_has_dimension_ex(0, getThis(), index, 1 TSRMLS_CC));
+	RETURN_BOOL(spl_array_has_dimension_ex(0, getThis(), index, 0 TSRMLS_CC));
 } /* }}} */
 
 /* {{{ proto mixed ArrayObject::offsetGet(mixed $index)
@@ -1495,11 +1490,6 @@ static zend_function_entry spl_funcs_RecursiveArrayIterator[] = {
 	{NULL, NULL, NULL}
 };
 
-static zend_function_entry spl_funcs_Countable[] = {
-	SPL_ABSTRACT_ME(Countable, count,   NULL)
-	{NULL, NULL, NULL}
-};
-
 /* {{{ PHP_MINIT_FUNCTION(spl_array) */
 PHP_MINIT_FUNCTION(spl_array)
 {
@@ -1533,8 +1523,6 @@ PHP_MINIT_FUNCTION(spl_array)
 	REGISTER_SPL_IMPLEMENTS(RecursiveArrayIterator, RecursiveIterator);
 	spl_ce_RecursiveArrayIterator->get_iterator = spl_array_get_iterator;
 
-	REGISTER_SPL_INTERFACE(Countable);
-	
 	REGISTER_SPL_IMPLEMENTS(ArrayObject, Countable);
 	REGISTER_SPL_IMPLEMENTS(ArrayIterator, Countable);
 

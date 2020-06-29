@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: interface.c,v 1.62.2.14.2.22 2007/01/19 18:03:33 tony2001 Exp $ */
+/* $Id: interface.c,v 1.62.2.14.2.25 2007/04/23 14:36:56 tony2001 Exp $ */
 
 #define ZEND_INCLUDE_FULL_WINDOWS_HEADERS
 
@@ -173,7 +173,7 @@ static void _php_curl_close(zend_rsrc_list_entry *rsrc TSRMLS_DC);
 			php_curl_ret(__ret);											\
 		} 													\
 															\
-		if (php_memnstr(str, tmp_url->path, strlen(tmp_url->path), str + len)) {				\
+		if (!php_memnstr(str, tmp_url->path, strlen(tmp_url->path), str + len)) {				\
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "URL '%s' contains unencoded control characters.", str);	\
 			php_url_free(tmp_url); 																\
 			php_curl_ret(__ret);											\
@@ -471,8 +471,9 @@ PHP_MINIT_FUNCTION(curl)
  	REGISTER_CURL_CONSTANT(CURLAUTH_ANYSAFE);
 #endif
 
-#if LIBCURL_VERSION_NUM > 0x070a06 /* CURLOPT_PROXYAUTH is available since curl 7.10.7 */
+#if LIBCURL_VERSION_NUM > 0x070a06 /* CURLOPT_PROXYAUTH & CURLOPT_FTP_CREATE_MISSING_DIRS are available since curl 7.10.7 */
 	REGISTER_CURL_CONSTANT(CURLOPT_PROXYAUTH);
+	REGISTER_CURL_CONSTANT(CURLOPT_FTP_CREATE_MISSING_DIRS);
 #endif
 
 	/* Constants effecting the way CURLOPT_CLOSEPOLICY works */
@@ -715,7 +716,9 @@ static size_t curl_write(char *data, size_t size, size_t nmemb, void *ctx)
 		case PHP_CURL_FILE:
 			return fwrite(data, size, nmemb, t->fp);
 		case PHP_CURL_RETURN:
-			smart_str_appendl(&t->buf, data, (int) length);
+			if (length > 0) {
+				smart_str_appendl(&t->buf, data, (int) length);
+			}
 			break;
 		case PHP_CURL_USER: {
 			zval **argv[2];
@@ -854,7 +857,7 @@ static size_t curl_write_header(char *data, size_t size, size_t nmemb, void *ctx
 		case PHP_CURL_STDOUT:
 			/* Handle special case write when we're returning the entire transfer
 			 */
-			if (ch->handlers->write->method == PHP_CURL_RETURN) {
+			if (ch->handlers->write->method == PHP_CURL_RETURN && length > 0) {
 				smart_str_appendl(&ch->handlers->write->buf, data, (int) length);
 			} else {
 				PHPWRITE(data, length);
@@ -1252,8 +1255,9 @@ static int _php_curl_setopt(php_curl *ch, long option, zval **zvalue, zval *retu
 #if LIBCURL_VERSION_NUM > 0x070a05 /* CURLOPT_HTTPAUTH is available since curl 7.10.6 */
 		case CURLOPT_HTTPAUTH:
 #endif
-#if LIBCURL_VERSION_NUM > 0x070a06 /* CURLOPT_PROXYAUTH is available since curl 7.10.7 */
+#if LIBCURL_VERSION_NUM > 0x070a06 /* CURLOPT_PROXYAUTH & CURLOPT_FTP_CREATE_MISSING_DIRS are available since curl 7.10.7 */
 		case CURLOPT_PROXYAUTH:
+		case CURLOPT_FTP_CREATE_MISSING_DIRS:
 #endif
 
 #if LIBCURL_VERSION_NUM >= 0x070c02

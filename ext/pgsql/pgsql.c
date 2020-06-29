@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: pgsql.c,v 1.331.2.13.2.18 2007/01/11 16:45:37 tony2001 Exp $ */
+/* $Id: pgsql.c,v 1.331.2.13.2.20 2007/02/24 02:17:25 helly Exp $ */
 
 #include <stdlib.h>
 
@@ -599,9 +599,9 @@ PHP_MINFO_FUNCTION(pgsql)
 	php_info_print_table_row(2, "SSL support", "disabled");
 #endif
 #endif /* HAVE_PG_CONFIG_H */	
-	sprintf(buf, "%ld", PGG(num_persistent));
+	snprintf(buf, sizeof(buf), "%ld", PGG(num_persistent));
 	php_info_print_table_row(2, "Active Persistent Links", buf);
-	sprintf(buf, "%ld", PGG(num_links));
+	snprintf(buf, sizeof(buf), "%ld", PGG(num_links));
 	php_info_print_table_row(2, "Active Links", buf);
 	php_info_print_table_end();
 
@@ -3303,7 +3303,6 @@ PHP_FUNCTION(pg_copy_to)
 	char *table_name, *pg_delim = NULL, *pg_null_as = NULL;
 	int table_name_len, pg_delim_len, pg_null_as_len;
 	char *query;
-	char *query_template = "COPY \"\" TO STDOUT DELIMITERS ':' WITH NULL AS ''";
 	int id = -1;
 	PGconn *pgsql;
 	PGresult *pgsql_result;
@@ -3331,9 +3330,7 @@ PHP_FUNCTION(pg_copy_to)
 		pg_null_as = safe_estrdup("\\\\N");
 	}
 
-	query = (char *)emalloc(strlen(query_template) + strlen(table_name) + strlen(pg_null_as) + 1);
-	sprintf(query, "COPY \"%s\" TO STDOUT DELIMITERS '%c' WITH NULL AS '%s'",
-			table_name, *pg_delim, pg_null_as);
+	spprintf(&query, 0, "COPY \"%s\" TO STDOUT DELIMITERS '%c' WITH NULL AS '%s'", table_name, *pg_delim, pg_null_as);
 
 	while ((pgsql_result = PQgetResult(pgsql))) {
 		PQclear(pgsql_result);
@@ -3441,7 +3438,6 @@ PHP_FUNCTION(pg_copy_from)
 	int  table_name_len, pg_delim_len, pg_null_as_len;
 	int  pg_null_as_free = 0;
 	char *query;
-	char *query_template = "COPY \"\" FROM STDIN DELIMITERS ':' WITH NULL AS ''";
 	HashPosition pos;
 	int id = -1;
 	PGconn *pgsql;
@@ -3464,9 +3460,7 @@ PHP_FUNCTION(pg_copy_from)
 
 	ZEND_FETCH_RESOURCE2(pgsql, PGconn *, &pgsql_link, id, "PostgreSQL link", le_link, le_plink);
 
-	query = (char *)emalloc(strlen(query_template) + strlen(table_name) + strlen(pg_null_as) + 1);
-	sprintf(query, "COPY \"%s\" FROM STDIN DELIMITERS '%c' WITH NULL AS '%s'",
-			table_name, *pg_delim, pg_null_as);
+	spprintf(&query, 0, "COPY \"%s\" FROM STDIN DELIMITERS '%c' WITH NULL AS '%s'", table_name, *pg_delim, pg_null_as);
 	while ((pgsql_result = PQgetResult(pgsql))) {
 		PQclear(pgsql_result);
 	}

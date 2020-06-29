@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: array.c,v 1.308.2.21.2.23 2007/01/22 08:17:26 tony2001 Exp $ */
+/* $Id: array.c,v 1.308.2.21.2.27 2007/04/19 23:21:21 iliaa Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -596,7 +596,7 @@ static int array_user_compare(const void *a, const void *b TSRMLS_DC)
 		convert_to_long_ex(&retval_ptr);
 		retval = Z_LVAL_P(retval_ptr);
 		zval_ptr_dtor(&retval_ptr);
-		return retval;
+		return retval < 0 ? -1 : retval > 0 ? 1 : 0;;
 	} else {
 		return 0;
 	}
@@ -703,40 +703,40 @@ static int array_user_key_compare(const void *a, const void *b TSRMLS_DC)
 {
 	Bucket *f;
 	Bucket *s;
-	zval key1, key2;
+	zval *key1, *key2;
 	zval *args[2];
 	zval retval;
 	int status;
 
-	args[0] = &key1;
-	args[1] = &key2;
-	INIT_PZVAL(&key1);
-	INIT_PZVAL(&key2);
+	ALLOC_INIT_ZVAL(key1);
+	ALLOC_INIT_ZVAL(key2);
+	args[0] = key1;
+	args[1] = key2;
 	
 	f = *((Bucket **) a);
 	s = *((Bucket **) b);
 
 	if (f->nKeyLength) {
-		Z_STRVAL(key1) = estrndup(f->arKey, f->nKeyLength-1);
-		Z_STRLEN(key1) = f->nKeyLength-1;
-		Z_TYPE(key1) = IS_STRING;
+		Z_STRVAL_P(key1) = estrndup(f->arKey, f->nKeyLength-1);
+		Z_STRLEN_P(key1) = f->nKeyLength-1;
+		Z_TYPE_P(key1) = IS_STRING;
 	} else {
-		Z_LVAL(key1) = f->h;
-		Z_TYPE(key1) = IS_LONG;
+		Z_LVAL_P(key1) = f->h;
+		Z_TYPE_P(key1) = IS_LONG;
 	}
 	if (s->nKeyLength) {
-		Z_STRVAL(key2) = estrndup(s->arKey, s->nKeyLength-1);
-		Z_STRLEN(key2) = s->nKeyLength-1;
-		Z_TYPE(key2) = IS_STRING;
+		Z_STRVAL_P(key2) = estrndup(s->arKey, s->nKeyLength-1);
+		Z_STRLEN_P(key2) = s->nKeyLength-1;
+		Z_TYPE_P(key2) = IS_STRING;
 	} else {
-		Z_LVAL(key2) = s->h;
-		Z_TYPE(key2) = IS_LONG;
+		Z_LVAL_P(key2) = s->h;
+		Z_TYPE_P(key2) = IS_LONG;
 	}
 
 	status = call_user_function(EG(function_table), NULL, *BG(user_compare_func_name), &retval, 2, args TSRMLS_CC);
 	
-	zval_dtor(&key1);
-	zval_dtor(&key2);
+	zval_ptr_dtor(&key1);
+	zval_ptr_dtor(&key2);
 	
 	if (status == SUCCESS) {
 		convert_to_long(&retval);
@@ -1718,13 +1718,13 @@ double_str:
 			add_next_index_double(return_value, low);
 		}
 	} else {
-		int low, high;
+		double low, high;
 		long lstep;
 long_str:
-		convert_to_long(zlow);
-		convert_to_long(zhigh);
-		low = Z_LVAL_P(zlow);
-		high = Z_LVAL_P(zhigh);
+		convert_to_double(zlow);
+		convert_to_double(zhigh);
+		low = Z_DVAL_P(zlow);
+		high = Z_DVAL_P(zhigh);
 		lstep = (long) step;
 				
 		if (low > high) { 		/* Negative steps */
@@ -1733,18 +1733,18 @@ long_str:
 				goto err;
 			}
 			for (; low >= high; low -= lstep) {
-				add_next_index_long(return_value, low);
+				add_next_index_long(return_value, (long)low);
 			}	
-		} else if (high > low) { 	/* Positive steps */
+ 		} else if (high > low) { 	/* Positive steps */
 			if (high - low < lstep || lstep <= 0) {
 				err = 1;
 				goto err;
 			}
 			for (; low <= high; low += lstep) {
-				add_next_index_long(return_value, low);
+				add_next_index_long(return_value, (long)low);
 			}	
 		} else {
-			add_next_index_long(return_value, low);
+			add_next_index_long(return_value, (long)low);
 		}
 	}
 err:
@@ -4077,10 +4077,8 @@ PHP_FUNCTION(array_reduce)
 	while (zend_hash_get_current_data_ex(htbl, (void **)&operand, &pos) == SUCCESS) {
 		if (result) {
 			zend_fcall_info fci;
-
 			args[0] = &result;
 			args[1] = operand;
-
 			fci.size = sizeof(fci);
 			fci.function_table = EG(function_table);
 			fci.function_name = *callback;
@@ -4106,7 +4104,7 @@ PHP_FUNCTION(array_reduce)
 		zend_hash_move_forward_ex(htbl, &pos);
 	}
 	
-	RETVAL_ZVAL(result, 0, 1);
+	RETVAL_ZVAL(result, 1, 1);
 }
 /* }}} */
 

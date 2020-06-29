@@ -17,7 +17,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: mysql_statement.c,v 1.48.2.14.2.3 2007/01/01 09:36:05 sebastian Exp $ */
+/* $Id: mysql_statement.c,v 1.48.2.14.2.5 2007/04/15 16:50:42 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -231,7 +231,7 @@ static int pdo_mysql_stmt_execute(pdo_stmt_t *stmt TSRMLS_DC)
 			return 0;
 		}
 
-		stmt->row_count = 0;
+		stmt->row_count = mysql_num_rows(S->result);
 
 		if (!stmt->executed) {
 			stmt->column_count = (int) mysql_num_fields(S->result);
@@ -413,6 +413,7 @@ static int pdo_mysql_stmt_fetch(pdo_stmt_t *stmt,
 #endif
 
 	if (!S->result) {
+		strcpy(stmt->error_code, "HY000");
 		return 0;	
 	}
 	if ((S->current_data = mysql_fetch_row(S->result)) == NULL) {

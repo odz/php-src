@@ -2707,7 +2707,7 @@ char *yytext;
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_language_scanner.l,v 1.131.2.11.2.7 2007/01/18 23:28:08 iliaa Exp $ */
+/* $Id: zend_language_scanner.l,v 1.131.2.11.2.10 2007/04/22 21:33:10 tony2001 Exp $ */
 
 #define yyleng SCNG(yy_leng)
 #define yytext SCNG(yy_text)
@@ -2753,6 +2753,7 @@ char *yytext;
 #include "zend_operators.h"
 #include "zend_API.h"
 #include "zend_strtod.h"
+#include "zend_exceptions.h"
 
 #ifdef HAVE_STDARG_H
 # include <stdarg.h>
@@ -3239,7 +3240,11 @@ zend_op_array *compile_string(zval *source_string, char *filename TSRMLS_DC)
 		efree(op_array);
 		retval = NULL;
 	} else {
+		zend_bool orig_interactive = CG(interactive);
+	
+		CG(interactive) = 0;
 		init_op_array(op_array, ZEND_EVAL_CODE, INITIAL_OP_ARRAY_SIZE TSRMLS_CC);
+		CG(interactive) = orig_interactive;
 		CG(active_op_array) = op_array;
 		BEGIN(ST_IN_SCRIPTING);
 		compiler_result = zendparse(TSRMLS_C);
@@ -4397,7 +4402,11 @@ YY_RULE_SETUP
 		errno = 0;
 		zendlval->value.lval = strtol(yytext, NULL, 0);
 		if (errno == ERANGE) { /* Overflow */
-			zendlval->value.dval = zend_strtod(yytext, NULL);
+			if (yytext[0] == '0') { /* octal overflow */
+				zendlval->value.dval = zend_oct_strtod(yytext, NULL);
+			} else {
+				zendlval->value.dval = zend_strtod(yytext, NULL);
+			}
 			zendlval->type = IS_DOUBLE;
 			return T_DNUMBER;
 		}
@@ -4497,13 +4506,11 @@ YY_RULE_SETUP
 		len += strlen(func_name);
 	}
 
-	zendlval->value.str.val = emalloc(len+1);
-	zendlval->value.str.len = sprintf(zendlval->value.str.val, "%s%s%s", 
+	zendlval->value.str.len = zend_spprintf(&zendlval->value.str.val, 0, "%s%s%s", 
 		class_name ? class_name : "",
 		class_name && func_name ? "::" : "",
 		func_name ? func_name : ""
 		);
-	zendlval->value.str.len = strlen(zendlval->value.str.val);
 	zendlval->type = IS_STRING;
 	return T_METHOD_C;
 }

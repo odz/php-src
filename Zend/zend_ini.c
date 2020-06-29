@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_ini.c,v 1.39.2.2.2.6 2007/01/01 09:35:46 sebastian Exp $ */
+/* $Id: zend_ini.c,v 1.39.2.2.2.8 2007/04/16 08:09:54 dmitry Exp $ */
 
 #include "zend.h"
 #include "zend_qsort.h"
@@ -225,7 +225,7 @@ static int zend_ini_refresh_cache(zend_ini_entry *p, int stage TSRMLS_DC)
 
 ZEND_API void zend_ini_refresh_caches(int stage TSRMLS_DC)
 {
-	zend_hash_apply_with_argument(EG(ini_directives), (apply_func_arg_t) zend_ini_refresh_cache, (void *)(long) stage TSRMLS_CC);
+	zend_hash_apply_with_argument(EG(ini_directives), (apply_func_arg_t) zend_ini_refresh_cache, (void *)(zend_intptr_t) stage TSRMLS_CC);
 }
 #endif
 
@@ -357,7 +357,7 @@ ZEND_API char *zend_ini_string(char *name, uint name_length, int orig)
 	return "";
 }
 
-
+#if TONY_20070307 
 static void zend_ini_displayer_cb(zend_ini_entry *ini_entry, int type)
 {
 	if (ini_entry->displayer) {
@@ -394,7 +394,7 @@ static void zend_ini_displayer_cb(zend_ini_entry *ini_entry, int type)
 		ZEND_WRITE(display_string, display_string_length);
 	}
 }
-
+#endif
 
 ZEND_INI_DISP(zend_ini_boolean_displayer_cb)
 {

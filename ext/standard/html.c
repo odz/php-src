@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: html.c,v 1.111.2.2.2.6 2007/01/18 16:21:32 tony2001 Exp $ */
+/* $Id: html.c,v 1.111.2.2.2.9 2007/02/27 03:28:16 iliaa Exp $ */
 
 /*
  * HTML entity resources:
@@ -912,12 +912,10 @@ PHPAPI char *php_unescape_html_entities(unsigned char *old, int oldlen, int *new
 				if (entity_map[j].table[k - entity_map[j].basechar] == NULL)
 					continue;
 
-				entity[0] = '&';
-				entity_length = strlen(entity_map[j].table[k - entity_map[j].basechar]);
-				strncpy(&entity[1], entity_map[j].table[k - entity_map[j].basechar], sizeof(entity) - 2);
-				entity[entity_length+1] = ';';
-				entity[entity_length+2] = '\0';
-				entity_length += 2;
+				entity_length = slprintf(entity, sizeof(entity), "&%s;", entity_map[j].table[k - entity_map[j].basechar]);
+				if (entity_length >= sizeof(entity)) {
+					continue;
+				}
 
 				/* When we have MBCS entities in the tables above, this will need to handle it */
 				replacement_len = 0;
@@ -1138,7 +1136,7 @@ PHPAPI char *php_escape_html_entities(unsigned char *old, int oldlen, int *newle
 				}
 
 				replaced[len++] = '&';
-				strcpy(replaced + len, rep);
+				strlcpy(replaced + len, rep, maxlen);
 				len += l;
 				replaced[len++] = ';';
 			}

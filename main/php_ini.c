@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_ini.c,v 1.136.2.4.2.6 2007/01/01 09:36:11 sebastian Exp $ */
+/* $Id: php_ini.c,v 1.136.2.4.2.8 2007/04/16 08:09:56 dmitry Exp $ */
 
 #include "php.h"
 #include "ext/standard/info.h"
@@ -142,7 +142,7 @@ PHPAPI void display_ini_entries(zend_module_entry *module)
 	}
 	php_info_print_table_start();
 	php_info_print_table_header(3, "Directive", "Local Value", "Master Value");
-	zend_hash_apply_with_argument(EG(ini_directives), (apply_func_arg_t) php_ini_displayer, (void *) (long) module_number TSRMLS_CC);
+	zend_hash_apply_with_argument(EG(ini_directives), (apply_func_arg_t) php_ini_displayer, (void *) (zend_intptr_t) module_number TSRMLS_CC);
 	php_info_print_table_end();
 }
 /* }}} */
@@ -441,8 +441,8 @@ int php_init_config(TSRMLS_D)
 		/* Search php-%sapi-module-name%.ini file in search path */
 		if (!fh.handle.fp) {
 			const char *fmt = "php-%s.ini";
-			char *ini_fname = emalloc(strlen(fmt) + strlen(sapi_module.name));
-			sprintf(ini_fname, fmt, sapi_module.name);
+			char *ini_fname;
+			spprintf(&ini_fname, 0, fmt, sapi_module.name);
 			fh.handle.fp = php_fopen_with_path(ini_fname, "r", php_ini_search_path, &php_ini_opened_path TSRMLS_CC);
 			efree(ini_fname);
 			if (fh.handle.fp) {
@@ -590,7 +590,7 @@ PHPAPI int cfg_get_long(char *varname, long *result)
 	zval *tmp, var;
 	
 	if (zend_hash_find(&configuration_hash, varname, strlen(varname) + 1, (void **) &tmp) == FAILURE) {
-		*result = (long) NULL;
+		*result = 0;
 		return FAILURE;
 	}
 	var = *tmp;

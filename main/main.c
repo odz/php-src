@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: main.c,v 1.640.2.23.2.29 2007/01/08 03:39:09 iliaa Exp $ */
+/* $Id: main.c,v 1.640.2.23.2.35 2007/04/18 09:38:56 rrichards Exp $ */
 
 /* {{{ includes
  */
@@ -27,6 +27,7 @@
 
 #include "php.h"
 #include <stdio.h>
+#include <fcntl.h>
 #ifdef PHP_WIN32
 #include "win32/time.h"
 #include "win32/signal.h"
@@ -61,8 +62,8 @@
 #include "ext/standard/credits.h"
 #ifdef PHP_WIN32
 #include <io.h>
-#include <fcntl.h>
 #include "win32/php_registry.h"
+#include "ext/standard/flock_compat.h"
 #endif
 #include "php_syslog.h"
 #include "Zend/zend_exceptions.h"
@@ -83,6 +84,7 @@
 #include "php_ticks.h"
 #include "php_logos.h"
 #include "php_streams.h"
+#include "php_open_temporary_file.h"
 
 #include "SAPI.h"
 #include "rfc1867.h"
@@ -304,6 +306,7 @@ PHP_INI_BEGIN()
 	STD_PHP_INI_ENTRY("upload_max_filesize",	"2M",		PHP_INI_SYSTEM|PHP_INI_PERDIR,		OnUpdateLong,			upload_max_filesize,	php_core_globals,	core_globals)
 	STD_PHP_INI_ENTRY("post_max_size",			"8M",		PHP_INI_SYSTEM|PHP_INI_PERDIR,		OnUpdateLong,			post_max_size,			sapi_globals_struct,sapi_globals)
 	STD_PHP_INI_ENTRY("upload_tmp_dir",			NULL,		PHP_INI_SYSTEM,		OnUpdateStringUnempty,	upload_tmp_dir,			php_core_globals,	core_globals)
+	STD_PHP_INI_ENTRY("max_input_nesting_level", "64",		PHP_INI_SYSTEM|PHP_INI_PERDIR,		OnUpdateLongGEZero,	max_input_nesting_level,			php_core_globals,	core_globals)
 
 	STD_PHP_INI_ENTRY("user_dir",				NULL,		PHP_INI_SYSTEM,		OnUpdateString,			user_dir,				php_core_globals,	core_globals)
 	STD_PHP_INI_ENTRY("variables_order",		"EGPCS",	PHP_INI_SYSTEM|PHP_INI_PERDIR,		OnUpdateStringUnempty,	variables_order,		php_core_globals,	core_globals)
@@ -340,7 +343,7 @@ static int module_shutdown = 0;
  */
 PHPAPI void php_log_err(char *log_message TSRMLS_DC)
 {
-	FILE *log_file;
+	int fd = -1;
 	char error_time_str[128];
 	struct tm tmbuf;
 	time_t error_time;
@@ -353,14 +356,19 @@ PHPAPI void php_log_err(char *log_message TSRMLS_DC)
 			return;
 		}
 #endif
-		log_file = VCWD_FOPEN(PG(error_log), "ab");
-		if (log_file != NULL) {
+		fd = VCWD_OPEN_MODE(PG(error_log), O_CREAT | O_APPEND | O_WRONLY, 0644);
+		if (fd != -1) {
+			char *tmp;
+			int len;
 			time(&error_time);
-			strftime(error_time_str, sizeof(error_time_str), "%d-%b-%Y %H:%M:%S", php_localtime_r(&error_time, &tmbuf)); 
-			fprintf(log_file, "[%s] ", error_time_str);
-			fprintf(log_file, "%s", log_message);
-			fprintf(log_file, "%s", PHP_EOL);
-			fclose(log_file);
+			strftime(error_time_str, sizeof(error_time_str), "%d-%b-%Y %H:%M:%S", php_localtime_r(&error_time, &tmbuf));
+			len = spprintf(&tmp, 0, "[%s] %s%s", error_time_str, log_message, PHP_EOL);
+#ifdef PHP_WIN32
+			php_flock(fd, 2);
+#endif
+			write(fd, tmp, len);
+			efree(tmp);
+			close(fd);
 			return;
 		}
 	}
@@ -970,7 +978,7 @@ static void php_message_handler_for_zend(long message, void *data)
 				if (message==ZMSG_MEMORY_LEAK_DETECTED) {
 					zend_leak_info *t = (zend_leak_info *) data;
 
-					snprintf(memory_leak_buf, 512, "%s(%d) :  Freeing 0x%.8lX (%zu bytes), script=%s\n", t->filename, t->lineno, (unsigned long)t->addr, t->size, SAFE_FILENAME(SG(request_info).path_translated));
+					snprintf(memory_leak_buf, 512, "%s(%d) :  Freeing 0x%.8lX (%zu bytes), script=%s\n", t->filename, t->lineno, (zend_uintptr_t)t->addr, t->size, SAFE_FILENAME(SG(request_info).path_translated));
 					if (t->orig_filename) {
 						char relay_buf[512];
 
@@ -978,7 +986,7 @@ static void php_message_handler_for_zend(long message, void *data)
 						strlcat(memory_leak_buf, relay_buf, sizeof(memory_leak_buf));
 					}
 				} else {
-					unsigned long leak_count = (unsigned long) data;
+					unsigned long leak_count = (zend_uintptr_t) data;
 
 					snprintf(memory_leak_buf, 512, "Last leak repeated %ld time%s\n", leak_count, (leak_count>1?"s":""));
 				}
@@ -1691,6 +1699,8 @@ void php_module_shutdown(TSRMLS_D)
 	zend_ini_global_shutdown(TSRMLS_C);
 	ts_free_id(core_globals_id);	
 #endif
+
+	php_shutdown_temporary_directory();
 
 	module_initialized = 0;
 }

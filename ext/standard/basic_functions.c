@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: basic_functions.c,v 1.725.2.31.2.39 2007/01/01 09:36:08 sebastian Exp $ */
+/* $Id: basic_functions.c,v 1.725.2.31.2.49 2007/04/17 20:34:14 tony2001 Exp $ */
 
 #include "php.h"
 #include "php_streams.h"
@@ -3851,6 +3851,10 @@ static void php_putenv_destructor(putenv_entry *pe)
 # if HAVE_UNSETENV
 		unsetenv(pe->key);
 # elif defined(PHP_WIN32)
+		char *del_string = emalloc(pe->key_len+2);
+		snprintf(del_string, pe->key_len+2, "%s=", pe->key);
+		putenv(del_string);
+		efree(del_string);
 		SetEnvironmentVariable(pe->key, NULL);
 # else
 		char **env;
@@ -4442,7 +4446,7 @@ PHP_FUNCTION(putenv)
 			if (!strncmp(*env, pe.key, pe.key_len) && (*env)[pe.key_len] == '=') {	/* found it */
 #if defined(PHP_WIN32)
 				/* must copy previous value because MSVCRT's putenv can free the string without notice */
-				pe.previous_value = estrndup(*env, 1024);
+				pe.previous_value = estrdup(*env);
 #else
 				pe.previous_value = *env;
 #endif
@@ -4457,8 +4461,15 @@ PHP_FUNCTION(putenv)
 		 * We try to avoid this by setting our own value first */
 		SetEnvironmentVariable(pe.key, "bugbug");
 #endif
-		
+
+#if HAVE_UNSETENV
+		if (!p) { /* no '=' means we want to unset it */
+			unsetenv(pe.putenv_string);
+		}
+		if (!p || putenv(pe.putenv_string) == 0) {	/* success */
+#else
 		if (putenv(pe.putenv_string) == 0) {	/* success */
+#endif
 			zend_hash_add(&BG(putenv_ht), pe.key, pe.key_len+1, (void **) &pe, sizeof(putenv_entry), NULL);
 #ifdef HAVE_TZSET
 			if (!strncmp(pe.key, "TZ", pe.key_len)) {
@@ -5313,17 +5324,24 @@ static int user_tick_function_compare(user_tick_function_entry * tick_fe1, user_
 {
 	zval *func1 = tick_fe1->arguments[0];
 	zval *func2 = tick_fe2->arguments[0];
+	int ret;
 	TSRMLS_FETCH();
 
 	if (Z_TYPE_P(func1) == IS_STRING && Z_TYPE_P(func2) == IS_STRING) {
-		return (zend_binary_zval_strcmp(func1, func2) == 0);
+		ret = (zend_binary_zval_strcmp(func1, func2) == 0);
 	} else if (Z_TYPE_P(func1) == IS_ARRAY && Z_TYPE_P(func2) == IS_ARRAY) {
 		zval result;
 		zend_compare_arrays(&result, func1, func2 TSRMLS_CC);
-		return (Z_LVAL(result) == 0);
+		ret = (Z_LVAL(result) == 0);
 	} else {
+		ret = 0;
+	}
+
+	if (ret && tick_fe1->calling) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to delete tick function executed at the moment");
 		return 0;
 	}
+	return ret;
 }
 
 void php_call_shutdown_functions(TSRMLS_D)
@@ -6126,6 +6144,12 @@ static void php_simple_ini_parser_cb(zval *arg1, zval *arg2, int callback_type, 
 				}
 			}
 
+			if (Z_TYPE_P(hash) != IS_ARRAY) {
+				zval_dtor(hash);
+				INIT_PZVAL(hash);
+				array_init(hash);
+			}
+
 			ALLOC_ZVAL(element);
 			*element = *arg2;
 			zval_copy_ctor(element);
@@ -6235,6 +6259,33 @@ static int copy_request_variable(void *pDest, int num_args, va_list args, zend_h
 		} else if (!strcmp(hash_key->arKey, "GLOBALS")) {
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Attempted GLOBALS variable overwrite.");
 			return 0; 
+		} else if (*hash_key->arKey == '_' && 
+				(
+					!strcmp(hash_key->arKey, "_GET") || 
+					!strcmp(hash_key->arKey, "_POST") || 
+					!strcmp(hash_key->arKey, "_COOKIE") || 
+					!strcmp(hash_key->arKey, "_ENV") || 
+					!strcmp(hash_key->arKey, "_SERVER") || 
+					!strcmp(hash_key->arKey, "_SESSION") || 
+					!strcmp(hash_key->arKey, "_FILES") || 
+					!strcmp(hash_key->arKey, "_REQUEST")
+				)
+			) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Attempted super-global (%s) variable overwrite.", hash_key->arKey);
+			return 0; 	
+		} else if (*hash_key->arKey == 'H' && 
+				(
+					!strcmp(hash_key->arKey, "HTTP_POST_VARS") || 
+					!strcmp(hash_key->arKey, "HTTP_GET_VARS") || 
+					!strcmp(hash_key->arKey, "HTTP_COOKIE_VARS") || 
+					!strcmp(hash_key->arKey, "HTTP_ENV_VARS") || 
+					!strcmp(hash_key->arKey, "HTTP_SERVER_VARS") || 
+					!strcmp(hash_key->arKey, "HTTP_RAW_POST_DATA") || 
+					!strcmp(hash_key->arKey, "HTTP_POST_FILES")
+				)
+			) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Attempted long input array (%s) overwrite.", hash_key->arKey);
+			return 0; 	
 		}
 	}
 

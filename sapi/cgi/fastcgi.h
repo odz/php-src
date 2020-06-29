@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: fastcgi.h,v 1.2.2.4.2.2 2007/01/01 09:36:12 sebastian Exp $ */
+/* $Id: fastcgi.h,v 1.2.2.4.2.4 2007/03/28 15:39:22 dmitry Exp $ */
 
 /* FastCGI protocol */
 
@@ -93,6 +93,9 @@ typedef struct _fcgi_end_request_rec {
 
 typedef struct _fcgi_request {
 	int            listen_socket;
+#ifdef _WIN32
+	int            tcp;
+#endif
 	int            fd;
 	int            id;
 	int            keep;
@@ -110,6 +113,7 @@ typedef struct _fcgi_request {
 
 int fcgi_init(void);
 int fcgi_is_fastcgi(void);
+int fcgi_in_shutdown(void);
 int fcgi_listen(const char *path, int backlog);
 void fcgi_init_request(fcgi_request *req, int listen_socket);
 int fcgi_accept_request(fcgi_request *req);

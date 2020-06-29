@@ -1,5 +1,5 @@
 dnl
-dnl $Id: acinclude.m4,v 1.332.2.14.2.10 2007/01/01 20:10:01 nlopess Exp $
+dnl $Id: acinclude.m4,v 1.332.2.14.2.12 2007/03/25 10:21:02 sniper Exp $
 dnl
 dnl This file contains local autoconf functions.
 dnl
@@ -177,7 +177,7 @@ AC_DEFUN([PHP_ADD_MAKEFILE_FRAGMENT],[
   ifelse($1,,src=$ext_srcdir/Makefile.frag,src=$1)
   ifelse($2,,ac_srcdir=$ext_srcdir,ac_srcdir=$2)
   ifelse($3,,ac_builddir=$ext_builddir,ac_builddir=$3)
-  $SED -e "s#\$(srcdir)#$ac_srcdir#g" -e "s#\$(builddir)#$ac_builddir#g" $src  >> Makefile.fragments
+  test -f "$src" && $SED -e "s#\$(srcdir)#$ac_srcdir#g" -e "s#\$(builddir)#$ac_builddir#g" $src  >> Makefile.fragments
 ])
 
 dnl
@@ -2645,6 +2645,36 @@ php_cv_crypt_r_style=struct_crypt_data_gnu_source)
     AC_MSG_ERROR([Unable to detect data struct used by crypt_r])
   fi
 ])
+
+AC_DEFUN([PHP_TEST_WRITE_STDOUT],[
+  AC_CACHE_CHECK(whether writing to stdout works,ac_cv_write_stdout,[
+    AC_TRY_RUN([
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+
+#define TEXT "This is the test message -- "
+
+main()
+{
+  int n;
+
+  n = write(1, TEXT, sizeof(TEXT)-1);
+  return (!(n == sizeof(TEXT)-1));
+}
+    ],[
+      ac_cv_write_stdout=yes
+    ],[
+      ac_cv_write_stdout=no
+    ],[
+      ac_cv_write_stdout=no
+    ])
+  ])
+  if test "$ac_cv_write_stdout" = "yes"; then
+    AC_DEFINE(PHP_WRITE_STDOUT, 1, [whether write(2) works])
+  fi
+])
+
 # libtool.m4 - Configure libtool for the host system. -*-Autoconf-*-
 ## Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005
 ## Free Software Foundation, Inc.

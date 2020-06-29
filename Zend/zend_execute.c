@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_execute.c,v 1.716.2.12.2.17 2007/01/10 15:58:07 dmitry Exp $ */
+/* $Id: zend_execute.c,v 1.716.2.12.2.19 2007/04/16 08:09:54 dmitry Exp $ */
 
 #define ZEND_INTENSIVE_DEBUGGING 0
 
@@ -104,15 +104,15 @@ static inline void zend_pzval_unlock_free_func(zval *z)
 
 #define FREE_OP(should_free) \
 	if (should_free.var) { \
-		if ((long)should_free.var & 1L) { \
-			zval_dtor((zval*)((long)should_free.var & ~1L)); \
+		if ((zend_uintptr_t)should_free.var & 1L) { \
+			zval_dtor((zval*)((zend_uintptr_t)should_free.var & ~1L)); \
 		} else { \
 			zval_ptr_dtor(&should_free.var); \
 		} \
 	}
 
 #define FREE_OP_IF_VAR(should_free) \
-	if (should_free.var != NULL && (((long)should_free.var & 1L) == 0)) { \
+	if (should_free.var != NULL && (((zend_uintptr_t)should_free.var & 1L) == 0)) { \
 		zval_ptr_dtor(&should_free.var); \
 	}
 
@@ -121,9 +121,9 @@ static inline void zend_pzval_unlock_free_func(zval *z)
 		zval_ptr_dtor(&should_free.var); \
 	}
 
-#define TMP_FREE(z) (zval*)(((long)(z)) | 1L)
+#define TMP_FREE(z) (zval*)(((zend_uintptr_t)(z)) | 1L)
 
-#define IS_TMP_FREE(should_free) ((long)should_free.var & 1L)
+#define IS_TMP_FREE(should_free) ((zend_uintptr_t)should_free.var & 1L)
 
 #define INIT_PZVAL_COPY(z,v) \
 	(z)->value = (v)->value; \
@@ -611,7 +611,7 @@ static inline void zend_assign_to_object(znode *result, zval **object_ptr, znode
 		Z_OBJ_HT_P(object)->write_dimension(object, property_name, value TSRMLS_CC);
 	}
 
-	if (result && !RETURN_VALUE_UNUSED(result)) {
+	if (result && !RETURN_VALUE_UNUSED(result) && !EG(exception)) {
 		T(result->u.var).var.ptr = value;
 		T(result->u.var).var.ptr_ptr = &T(result->u.var).var.ptr; /* this is so that we could use it in FETCH_DIM_R, etc. - see bug #27876 */
 		PZVAL_LOCK(value);

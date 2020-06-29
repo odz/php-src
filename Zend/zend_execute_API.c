@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_execute_API.c,v 1.331.2.20.2.14 2007/01/01 09:35:46 sebastian Exp $ */
+/* $Id: zend_execute_API.c,v 1.331.2.20.2.19 2007/04/27 08:12:24 tony2001 Exp $ */
 
 #include <stdio.h>
 #include <signal.h>
@@ -451,7 +451,7 @@ ZEND_API int zend_is_true(zval *op)
 ZEND_API int zval_update_constant_ex(zval **pp, void *arg, zend_class_entry *scope TSRMLS_DC)
 {
 	zval *p = *pp;
-	zend_bool inline_change = (zend_bool) (unsigned long) arg;
+	zend_bool inline_change = (zend_bool) (zend_uintptr_t) arg;
 	zval const_value;
 
 	if (Z_TYPE_P(p) == IS_CONSTANT) {
@@ -622,6 +622,8 @@ int zend_call_function(zend_fcall_info *fci, zend_fcall_info_cache *fci_cache TS
 	char *fname, *colon;
 	int fname_len;
 
+	*fci->retval_ptr_ptr = NULL;
+
 	if (!EG(active)) {
 		return FAILURE; /* executor is already inactive */
 	}
@@ -651,11 +653,6 @@ int zend_call_function(zend_fcall_info *fci, zend_fcall_info_cache *fci_cache TS
 		 */
 		memset(&execute_data, 0, sizeof(zend_execute_data));
 	}
-
-	/* we may return SUCCESS, and yet retval may be uninitialized,
-	 * if there was an exception...
-	 */
-	*fci->retval_ptr_ptr = NULL;
 
 	if (!fci_cache || !fci_cache->initialized) {
 		if (Z_TYPE_P(fci->function_name)==IS_ARRAY) { /* assume array($obj, $name) couple */
@@ -750,7 +747,7 @@ int zend_call_function(zend_fcall_info *fci, zend_fcall_info_cache *fci_cache TS
 
 		fname = Z_STRVAL_P(fci->function_name);
 		fname_len = Z_STRLEN_P(fci->function_name);
-		if (calling_scope && (colon = strstr(fname, "::")) != NULL) {
+		if ((colon = strstr(fname, "::")) != NULL) {
 			int clen = colon - fname;
 			int mlen = fname_len - clen - 2;
 			zend_class_entry **pce, *ce_child = NULL;
@@ -867,7 +864,7 @@ int zend_call_function(zend_fcall_info *fci, zend_fcall_info_cache *fci_cache TS
 				if (fci->no_separation) {
 					if(i) {
 						/* hack to clean up the stack */
-						zend_ptr_stack_n_push(&EG(argument_stack), 2, (void *) (long) i, NULL);
+						zend_ptr_stack_n_push(&EG(argument_stack), 2, (void *) (zend_uintptr_t) i, NULL);
 						zend_ptr_stack_clear_multiple(TSRMLS_C);
 					}
 
@@ -908,7 +905,7 @@ int zend_call_function(zend_fcall_info *fci, zend_fcall_info_cache *fci_cache TS
 		fci->param_count = 2;
 	}
 
-	zend_ptr_stack_2_push(&EG(argument_stack), (void *) (long) fci->param_count, NULL);
+	zend_ptr_stack_2_push(&EG(argument_stack), (void *) (zend_uintptr_t) fci->param_count, NULL);
 
 	original_function_state_ptr = EG(function_state_ptr);
 	EG(function_state_ptr) = &EX(function_state);
@@ -1018,7 +1015,7 @@ ZEND_API int zend_lookup_class_ex(char *name, int name_length, int use_autoload,
 	zend_fcall_info fcall_info;
 	zend_fcall_info_cache fcall_cache;
 
-	if (name == NULL) {
+	if (name == NULL || !name_length) {
 		return FAILURE;
 	}
 	
@@ -1197,7 +1194,7 @@ void execute_new_code(TSRMLS_D)
 	zend_op *ret_opline;
 	zval *local_retval=NULL;
 
-	if (!CG(interactive)
+	if (!(CG(active_op_array)->fn_flags & ZEND_ACC_INTERACTIVE)
 		|| CG(active_op_array)->backpatch_count>0
 		|| CG(active_op_array)->function_name
 		|| CG(active_op_array)->type!=ZEND_USER_FUNCTION) {

@@ -15,7 +15,7 @@
   | Author: Georg Richter <georg@php.net>                                |
   +----------------------------------------------------------------------+
 
-  $Id: mysqli_api.c,v 1.118.2.22.2.9 2007/01/01 09:36:03 sebastian Exp $ 
+  $Id: mysqli_api.c,v 1.118.2.22.2.11 2007/03/08 22:49:53 stas Exp $ 
 */
 
 #ifdef HAVE_CONFIG_H
@@ -710,7 +710,7 @@ PHP_FUNCTION(mysqli_stmt_fetch)
 								 * may be negative. Therefor we cannot use MYSQLI_LLU_SPEC and must
 								 * use MYSQLI_LL_SPEC.
 								 */
-								sprintf((char *)&tmp, (stmt->stmt->fields[i].flags & UNSIGNED_FLAG)? MYSQLI_LLU_SPEC : MYSQLI_LL_SPEC, llval);
+								snprintf(tmp, sizeof(tmp), (stmt->stmt->fields[i].flags & UNSIGNED_FLAG)? MYSQLI_LLU_SPEC : MYSQLI_LL_SPEC, llval);
 								ZVAL_STRING(stmt->result.vars[i], tmp, 1);
 							} else {
 								ZVAL_LONG(stmt->result.vars[i], llval);
@@ -723,7 +723,16 @@ PHP_FUNCTION(mysqli_stmt_fetch)
 						}
 #endif
 						else {
-							ZVAL_STRINGL(stmt->result.vars[i], stmt->result.buf[i].val, stmt->result.buf[i].buflen, 1);
+#if defined(MYSQL_DATA_TRUNCATED) && MYSQL_VERSION_ID > 50002
+							if(ret == MYSQL_DATA_TRUNCATED && *(stmt->stmt->bind[i].error) != 0) {
+								/* result was truncated */
+								ZVAL_STRINGL(stmt->result.vars[i], stmt->result.buf[i].val, stmt->stmt->bind[i].buffer_length, 1);
+							} else {
+#else
+							{
+#endif
+								ZVAL_STRINGL(stmt->result.vars[i], stmt->result.buf[i].val, stmt->result.buf[i].buflen, 1);
+							}
 						}
 						break;
 					default:
