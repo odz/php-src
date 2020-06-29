@@ -2173,7 +2173,7 @@ echo "$ac_t""$target" 1>&6
 
 PHP_MAJOR_VERSION=5
 PHP_MINOR_VERSION=3
-PHP_RELEASE_VERSION=17
+PHP_RELEASE_VERSION=18
 PHP_EXTRA_VERSION=""
 PHP_VERSION="$PHP_MAJOR_VERSION.$PHP_MINOR_VERSION.$PHP_RELEASE_VERSION$PHP_EXTRA_VERSION"
 PHP_VERSION_ID=`expr $PHP_MAJOR_VERSION \* 10000 + $PHP_MINOR_VERSION \* 100 + $PHP_RELEASE_VERSION`
@@ -10896,7 +10896,7 @@ EOF
 
 
   
-  PHP_OUTPUT_FILES="$PHP_OUTPUT_FILES sapi/fpm/php-fpm.conf sapi/fpm/init.d.php-fpm sapi/fpm/php-fpm.8 sapi/fpm/status.html"
+  PHP_OUTPUT_FILES="$PHP_OUTPUT_FILES sapi/fpm/php-fpm.conf sapi/fpm/init.d.php-fpm sapi/fpm/php-fpm.service sapi/fpm/php-fpm.8 sapi/fpm/status.html"
 
   
   src=$abs_srcdir/sapi/fpm/Makefile.frag
@@ -62980,7 +62980,7 @@ echo "configure:62641: checking ORACLE_HOME library validity" >&5
   echo $ac_n "checking Oracle library version compatibility""... $ac_c" 1>&6
 echo "configure:62982: checking Oracle library version compatibility" >&5
   OCI8_LCS_BASE=$OCI8_DIR/$OCI8_LIB_DIR/libclntsh.$SHLIB_SUFFIX_NAME
-  OCI8_LCS=`ls $OCI8_LCS_BASE.*.1 2> /dev/null | tail -1`  # Oracle 10g, 11g etc
+  OCI8_LCS=`ls $OCI8_LCS_BASE.*.1 2> /dev/null | tail -n1`  # Oracle 10g, 11g etc
   if test -s "$OCI8_DIR/orainst/unix.rgs"; then
     OCI8_ORACLE_VERSION=`grep '"ocommon"' $OCI8_DIR/orainst/unix.rgs | $PHP_OCI8_SED 's/  */:/g' | cut -d: -f 6 | cut -c 2-4`
     test -z "$OCI8_ORACLE_VERSION" && OCI8_ORACLE_VERSION=7.3
@@ -63563,7 +63563,7 @@ EOF
 echo "configure:63564: checking Oracle Instant Client directory" >&5
 
     if test "$PHP_OCI8_INSTANT_CLIENT" = "yes"; then
-                                    PHP_OCI8_INSTANT_CLIENT=`ls -d /usr/lib/oracle/*/client${PHP_OCI8_IC_LIBDIR_SUFFIX}/lib/libclntsh.* 2> /dev/null | tail -1 | $PHP_OCI8_SED -e 's#/libclntsh[^/]*##'`
+                                    PHP_OCI8_INSTANT_CLIENT=`ls -d /usr/lib/oracle/*/client${PHP_OCI8_IC_LIBDIR_SUFFIX}/lib/libclntsh.* 2> /dev/null | tail -n1 | $PHP_OCI8_SED -e 's#/libclntsh[^/]*##'`
       if test -z "$PHP_OCI8_INSTANT_CLIENT"; then
 	{ echo "configure: error: Oracle Instant Client directory /usr/lib/oracle/.../client${PHP_OCI8_IC_LIBDIR_SUFFIX}/lib libraries not found. Try --with-oci8=instantclient,DIR" 1>&2; exit 1; }
       fi
@@ -63784,8 +63784,8 @@ echo "configure:63577: checking Oracle Instant Client SDK header directory" >&5
   echo $ac_n "checking Oracle Instant Client library version compatibility""... $ac_c" 1>&6
 echo "configure:63786: checking Oracle Instant Client library version compatibility" >&5
   OCI8_LCS_BASE=$PHP_OCI8_INSTANT_CLIENT/libclntsh.$SHLIB_SUFFIX_NAME
-  OCI8_LCS=`ls $OCI8_LCS_BASE.*.1 2> /dev/null | tail -1`  # Oracle 10g, 11g etc
-  OCI8_NNZ=`ls $PHP_OCI8_INSTANT_CLIENT/libnnz*.$SHLIB_SUFFIX_NAME 2> /dev/null | tail -1`
+  OCI8_LCS=`ls $OCI8_LCS_BASE.*.1 2> /dev/null | tail -n1`  # Oracle 10g, 11g etc
+  OCI8_NNZ=`ls $PHP_OCI8_INSTANT_CLIENT/libnnz*.$SHLIB_SUFFIX_NAME 2> /dev/null | tail -n1`
   if test -f "$OCI8_NNZ" && test -f "$OCI8_LCS"; then
     if test ! -f "$OCI8_LCS_BASE"; then
       { echo "configure: error: Link from $OCI8_LCS_BASE to $OCI8_LCS_BASE.*.1 not found" 1>&2; exit 1; }
