@@ -771,6 +771,12 @@
 #undef HAVE_GD_IMAGESETTILE
 
 /* */
+#undef HAVE_GD_IMAGE_CONVOLUTION
+
+/* */
+#undef HAVE_GD_IMAGE_PIXELATE
+
+/* */
 #undef HAVE_GD_JPG
 
 /* */
