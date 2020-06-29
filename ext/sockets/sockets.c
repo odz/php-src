@@ -352,7 +352,7 @@ const zend_function_entry sockets_functions[] = {
 	PHP_FE(socket_clear_error,		arginfo_socket_clear_error)
 	PHP_FE(socket_import_stream,	arginfo_socket_import_stream)
 
-	/* for downwards compatability */
+	/* for downwards compatibility */
 	PHP_FALIAS(socket_getopt, socket_get_option, arginfo_socket_get_option)
 	PHP_FALIAS(socket_setopt, socket_set_option, arginfo_socket_set_option)
 
@@ -843,6 +843,9 @@ PHP_MINIT_FUNCTION(sockets)
 	REGISTER_LONG_CONSTANT("SO_RCVTIMEO",	SO_RCVTIMEO,	CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SO_TYPE",		SO_TYPE,		CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SO_ERROR",		SO_ERROR,		CONST_CS | CONST_PERSISTENT);
+#ifdef SO_BINDTODEVICE
+	REGISTER_LONG_CONSTANT("SO_BINDTODEVICE",       SO_BINDTODEVICE,        CONST_CS | CONST_PERSISTENT);
+#endif
 	REGISTER_LONG_CONSTANT("SOL_SOCKET",	SOL_SOCKET,		CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SOMAXCONN",		SOMAXCONN,		CONST_CS | CONST_PERSISTENT);
 #ifdef TCP_NODELAY
@@ -2355,7 +2358,19 @@ ipv6_loop_hops:
 #endif
 			break;
 		}
-		
+#ifdef SO_BINDTODEVICE
+		case SO_BINDTODEVICE: {
+			if (Z_TYPE_PP(arg4) == IS_STRING) {
+				opt_ptr = Z_STRVAL_PP(arg4);
+				optlen = Z_STRLEN_PP(arg4);
+			} else {
+				opt_ptr = "";
+				optlen = 0;
+			}
+			break;
+		}
+#endif
+
 		default:
 			convert_to_long_ex(arg4);
 			ov = Z_LVAL_PP(arg4);
