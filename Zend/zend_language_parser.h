@@ -39,6 +39,16 @@
 #if YYDEBUG
 extern int zenddebug;
 #endif
+/* "%code requires" blocks.  */
+
+
+#ifdef ZTS
+# define YYPARSE_PARAM tsrm_ls
+# define YYLEX_PARAM tsrm_ls
+#endif
+
+
+
 
 /* Tokens.  */
 #ifndef YYTOKENTYPE
