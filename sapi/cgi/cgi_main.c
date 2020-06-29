@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: cgi_main.c,v 1.190.2.68.2.1 2005/10/06 20:39:26 johannes Exp $ */
+/* $Id: cgi_main.c,v 1.190.2.68.2.3 2006/01/01 13:47:01 sniper Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -335,20 +335,12 @@ static int sapi_cgi_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 		PHPWRITE_H(buf, len);
 	}
 
-	if (SG(sapi_headers).send_default_content_type) {
-		char *hd;
-
-		hd = sapi_get_default_content_type(TSRMLS_C);
-		PHPWRITE_H("Content-type: ", sizeof("Content-type: ")-1);
-		PHPWRITE_H(hd, strlen(hd));
-		PHPWRITE_H("\r\n", 2);
-		efree(hd);
-	}
-	
 	h = zend_llist_get_first_ex(&sapi_headers->headers, &pos);
-    while (h) {
-		PHPWRITE_H(h->header, h->header_len);
-		PHPWRITE_H("\r\n", 2);
+	while (h) {
+		if (h->header_len) {
+			PHPWRITE_H(h->header, h->header_len);
+			PHPWRITE_H("\r\n", 2);
+		}
 		h = zend_llist_get_next_ex(&sapi_headers->headers, &pos);
 	}
 	PHPWRITE_H("\r\n", 2);
@@ -1441,9 +1433,9 @@ consult the installation file that came with this distribution, or visit \n\
 							SG(request_info).no_headers = 1;
 						}
 #if ZEND_DEBUG
-						php_printf("PHP %s (%s) (built: %s %s) (DEBUG)\nCopyright (c) 1997-2004 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__, __TIME__, get_zend_version());
+						php_printf("PHP %s (%s) (built: %s %s) (DEBUG)\nCopyright (c) 1997-2006 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__, __TIME__, get_zend_version());
 #else
-						php_printf("PHP %s (%s) (built: %s %s)\nCopyright (c) 1997-2004 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__, __TIME__, get_zend_version());
+						php_printf("PHP %s (%s) (built: %s %s)\nCopyright (c) 1997-2006 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__, __TIME__, get_zend_version());
 #endif
 						php_end_ob_buffers(1 TSRMLS_CC);
 						exit(0);

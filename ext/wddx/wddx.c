@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: wddx.c,v 1.96.2.6.2.1 2005/08/10 22:39:12 iliaa Exp $ */
+/* $Id: wddx.c,v 1.96.2.6.2.3 2006/01/01 13:46:59 sniper Exp $ */
 
 #include "php.h"
 #include "php_wddx.h"
@@ -985,11 +985,15 @@ static void php_wddx_pop_element(void *user_data, const XML_Char *name)
 				
 						switch (is_numeric_string(ent1->varname, strlen(ent1->varname), &l, &d, 0)) {
 							case IS_DOUBLE:
+								if (d > INT_MAX) {
+									goto bigint;
+								}
 								l = (long) d;
 							case IS_LONG:
 								zend_hash_index_update(target_hash, l, &ent1->data, sizeof(zval *), NULL);
 								break;
 							default:
+bigint:
 								zend_hash_update(target_hash,ent1->varname, strlen(ent1->varname)+1, &ent1->data, sizeof(zval *), NULL);
 						}
 					}

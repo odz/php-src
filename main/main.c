@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: main.c,v 1.512.2.63.2.4 2005/09/15 14:06:15 hyanantha Exp $ */
+/* $Id: main.c,v 1.512.2.63.2.8 2006/01/01 13:46:59 sniper Exp $ */
 
 /* {{{ includes
  */
@@ -500,7 +500,10 @@ PHPAPI void php_verror(const char *docref, const char *params, int type, const c
 				/* no docref and no html errors -> do not point to any documentation (e.g. production boxes) */
 				php_error(type, "%s(%s): %s", get_active_function_name(TSRMLS_C), params, buffer);
 			} else if (PG(html_errors)) {
-				php_error(type, "%s(%s) [<a href='%s%s%s'>%s</a>]: %s", get_active_function_name(TSRMLS_C), params, docref_root, docref, docref_target, docref, buffer);
+				int len;
+				char *replace = php_escape_html_entities(params, strlen(params), &len, 0, ENT_COMPAT, NULL TSRMLS_CC);
+				php_error(type, "%s(%s) [<a href='%s%s%s'>%s</a>]: %s", get_active_function_name(TSRMLS_C), replace, docref_root, docref, docref_target, docref, buffer);
+				efree(replace);
 			} else {
 				php_error(type, "%s(%s) [%s%s%s]: %s", get_active_function_name(TSRMLS_C), params, docref_root, docref, docref_target, buffer);
 			}
@@ -637,9 +640,8 @@ static void php_error_cb(int type, const char *error_filename, const uint error_
 
 		if (!module_initialized || PG(log_errors)) {
 			char *log_buffer;
-
 #ifdef PHP_WIN32
-			if (type==E_CORE_ERROR || type==E_CORE_WARNING) {
+			if ((type == E_CORE_ERROR || type == E_CORE_WARNING) && PG(display_startup_errors)) {
 				MessageBox(NULL, buffer, error_type_str, MB_OK|ZEND_SERVICE_MB_STYLE);
 			}
 #endif
@@ -651,10 +653,18 @@ static void php_error_cb(int type, const char *error_filename, const uint error_
 			&& (!PG(during_request_startup) || PG(display_startup_errors))) {
 			char *prepend_string = INI_STR("error_prepend_string");
 			char *append_string = INI_STR("error_append_string");
-			char *error_format = PG(html_errors) ?
-				"%s<br />\n<b>%s</b>:  %s in <b>%s</b> on line <b>%d</b><br />\n%s"
-				: "%s\n%s: %s in %s on line %d\n%s";    
-			php_printf(error_format, STR_PRINT(prepend_string), error_type_str, buffer, error_filename, error_lineno, STR_PRINT(append_string));
+			if (PG(html_errors)) {
+				if (type == E_ERROR) {
+					int len;
+					char *buf = php_escape_html_entities(buffer, buffer_len, &len, 0, ENT_COMPAT, NULL TSRMLS_CC);
+					php_printf("%s<br />\n<b>%s</b>:  %s in <b>%s</b> on line <b>%d</b><br />\n%s", STR_PRINT(prepend_string), error_type_str, buf, error_filename, error_lineno, STR_PRINT(append_string));
+					efree(buf);
+				} else {
+					php_printf("%s<br />\n<b>%s</b>:  %s in <b>%s</b> on line <b>%d</b><br />\n%s", STR_PRINT(prepend_string), error_type_str, buffer, error_filename, error_lineno, STR_PRINT(append_string));
+				}
+			} else {
+				php_printf("%s\n%s: %s in %s on line %d\n%s", STR_PRINT(prepend_string), error_type_str, buffer, error_filename, error_lineno, STR_PRINT(append_string));
+			}
 		}
 #if ZEND_DEBUG
 		{
