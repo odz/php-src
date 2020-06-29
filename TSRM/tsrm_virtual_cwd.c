@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_virtual_cwd.c,v 1.8 2000/10/03 16:36:32 andi Exp $ */
+/* $Id: tsrm_virtual_cwd.c,v 1.11 2000/11/22 04:59:32 andi Exp $ */
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -199,7 +199,7 @@ CWD_API void virtual_cwd_shutdown(void)
 	free(main_cwd_state.cwd); /* Don't use CWD_STATE_FREE because the non global states will probably use emalloc()/efree() */
 }
 
-CWD_API char *virtual_getcwd_ex(int *length)
+CWD_API char *virtual_getcwd_ex(size_t *length)
 {
 	cwd_state *state;
 	CWDLS_FETCH();
@@ -442,7 +442,7 @@ CWD_API char *virtual_realpath(const char *path, char *real_path)
 	CWD_STATE_COPY(&new_state, &CWDG(cwd));
 	retval = virtual_file_ex(&new_state, path, NULL);
 	
-	if(retval) {
+	if (!retval) {
 		int len = new_state.cwd_length>MAXPATHLEN-1?MAXPATHLEN-1:new_state.cwd_length;
 		memcpy(real_path, new_state.cwd, len);
 		real_path[len] = '\0';
@@ -452,18 +452,24 @@ CWD_API char *virtual_realpath(const char *path, char *real_path)
 	return NULL;
 }
 
-CWD_API int virtual_filepath(const char *path, char **filepath)
+CWD_API int virtual_filepath_ex(const char *path, char **filepath, verify_path_func verify_path)
 {
 	cwd_state new_state;
 	int retval;
 	CWDLS_FETCH();
 
 	CWD_STATE_COPY(&new_state, &CWDG(cwd));
-	retval = virtual_file_ex(&new_state, path, php_is_file_ok);
+	retval = virtual_file_ex(&new_state, path, verify_path);
 
 	*filepath = new_state.cwd;
 
 	return retval;
+
+}
+
+CWD_API int virtual_filepath(const char *path, char **filepath)
+{
+	return virtual_filepath_ex(path, filepath, php_is_file_ok);
 }
 
 CWD_API FILE *virtual_fopen(const char *path, const char *mode)
@@ -574,6 +580,28 @@ CWD_API int virtual_creat(const char *path, mode_t mode)
 	return f;
 }
 
+CWD_API int virtual_rename(char *oldname, char *newname)
+{
+	cwd_state old_state;
+	cwd_state new_state;
+	int retval;
+	CWDLS_FETCH();
+
+	CWD_STATE_COPY(&old_state, &CWDG(cwd));
+	virtual_file_ex(&old_state, oldname, NULL);
+	oldname = old_state.cwd;
+
+	CWD_STATE_COPY(&new_state, &CWDG(cwd));
+	virtual_file_ex(&new_state, newname, NULL);
+	newname = new_state.cwd;
+ 
+	retval = rename(oldname, newname);
+
+	CWD_STATE_FREE(&old_state);
+	CWD_STATE_FREE(&new_state);
+
+	return retval;
+}
 
 CWD_API int virtual_stat(const char *path, struct stat *buf)
 {

@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php.h,v 1.125 2000/09/07 15:20:29 andi Exp $ */
+/* $Id: php.h,v 1.127.2.2 2000/12/07 19:15:03 sas Exp $ */
 
 #ifndef PHP_H
 #define PHP_H
@@ -33,10 +33,6 @@
 #include "php_version.h"
 #include "zend.h"
 #include "php_compat.h"
-
-/* automake defines PACKAGE and VERSION for Zend too */
-#undef PACKAGE
-#undef VERSION
 
 #include "zend_API.h"
 
@@ -70,13 +66,6 @@ extern unsigned char second_arg_allow_ref[];
 #undef PHP_DEBUG
 #define PHP_DEBUG ZEND_DEBUG
 
-
-#if PHP_DEBUG || !(defined(__GNUC__)||defined(PHP_WIN32))
-#ifdef inline
-#undef inline
-#endif
-#define inline
-#endif
 
 #define APACHE 0
 #define CGI_BINARY 0
@@ -226,6 +215,7 @@ char *strerror(int);
 #define PHP_NAMED_FE(php_name, name, arg_types) { #php_name, name, arg_types },
 #define PHP_FE(name, arg_types) PHP_NAMED_FE(name, PHP_FN(name), arg_types)
 #define PHP_FALIAS(name, alias, arg_types) PHP_NAMED_FE(name, PHP_FN(alias), arg_types)
+#define PHP_STATIC_FE(php_name, func_name, arg_types) { php_name, func_name, arg_types },
 
 #define PHP_MINIT(module)	php_minit_##module
 #define PHP_MSHUTDOWN(module)	php_mshutdown_##module
@@ -272,7 +262,7 @@ int php_startup_internal_extensions(void);
 int php_global_startup_internal_extensions(void);
 int php_global_shutdown_internal_extensions(void);
 
-int mergesort(void *base, size_t nmemb, register size_t size, int (*cmp) (const void *, const void *));
+int php_mergesort(void *base, size_t nmemb, register size_t size, int (*cmp) (const void *, const void *));
 
 PHPAPI void php_register_pre_request_shutdown(void (*func)(void *), void *userdata);
 

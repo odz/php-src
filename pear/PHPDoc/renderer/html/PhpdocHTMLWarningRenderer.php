@@ -12,11 +12,12 @@ class PhpdocHTMLWarningRenderer extends PhpdocHTMLRenderer {
 	* @param	string	Name of the application
 	* @see	setPath(), setTemplateRoot()
 	*/
-	function PhpdocHTMLWarningRenderer($path, $templateRoot, $application) {
+	function PhpdocHTMLWarningRenderer($path, $templateRoot, $application, $extension = ".html") {
 		
 		$this->setPath($path);
 		$this->setTemplateRoot($templateRoot);
 		$this->application = $application;
+        $this->file_extension = $extension;
 		
 		$this->accessor = new PhpdocWarningAccessor;
 		$this->fileHandler = new PhpdocFileHandler;
@@ -35,7 +36,7 @@ class PhpdocHTMLWarningRenderer extends PhpdocHTMLRenderer {
 			return;
 
 		$this->tpl->setVariable("APPNAME", $this->application);
-		$this->fileHandler->createFile($this->path."phpdoc_warnings.html", $this->tpl->get() );
+		$this->fileHandler->createFile($this->path."phpdoc_warnings".$this->file_extension, $this->tpl->get() );
 		$this->tpl = "";
 		
 	}	// end func finishWarnings

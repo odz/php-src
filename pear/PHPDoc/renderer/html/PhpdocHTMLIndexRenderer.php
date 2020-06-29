@@ -47,11 +47,12 @@ class PhpdocHTMLIndexRenderer extends PhpdocHTMLRenderer {
 	* @param	string	Name of the application
 	* @see	setPath(), setTemplateRoot()
 	*/
-	function PhpdocHTMLIndexRenderer($path, $templateRoot, $application) {
+	function PhpdocHTMLIndexRenderer($path, $templateRoot, $application, $extension = ".html") {
 		
 		$this->setPath($path);
 		$this->setTemplateRoot($templateRoot);
 		$this->application = $application;
+        $this->file_extension = $extension;
 		
 		$this->accessor = new PhpdocIndexAccessor;
 		$this->tpl = new IntegratedTemplate($this->templateRoot);
@@ -88,7 +89,7 @@ class PhpdocHTMLIndexRenderer extends PhpdocHTMLRenderer {
 			return;
 
 		$this->treeTpl->setVariable("APPNAME", $this->application);
-		$this->fileHandler->createFile($this->path."phpdoc_classtree.html", $this->treeTpl->get() );
+		$this->fileHandler->createFile($this->path."phpdoc_classtree".$this->file_extension, $this->treeTpl->get() );
 		$this->treeTpl = "";
 		
 	}	// end func finishClasstree
@@ -127,7 +128,7 @@ class PhpdocHTMLIndexRenderer extends PhpdocHTMLRenderer {
 			return;
 			
 		$this->moduleTpl->setVariable("APPNAME", $this->application);
-		$this->fileHandler->createFile($this->path."phpdoc_modulegroup.html", $this->moduleTpl->get() );
+		$this->fileHandler->createFile($this->path."phpdoc_modulegroup".$this->file_extension, $this->moduleTpl->get() );
 		$this->moduleTpl = "";
 		
 	} // end func finishModulegroups
@@ -151,7 +152,7 @@ class PhpdocHTMLIndexRenderer extends PhpdocHTMLRenderer {
 		$modules = "<ul>";
 		reset($modulegroup["modules"]);
 		while (list($k, $module)=each($modulegroup["modules"])) 
-			$modules.= sprintf('<li><a href="%s.html">%s</a>', $this->nameToUrl($module), $module);
+			$modules.= sprintf('<li><a href="%s">%s</a>', $this->nameToUrl($module).$this->file_extension, $module);
 		$modules.= "</ul>";
 		
 		$this->moduleTpl->setCurrentBlock("modulegroup");
@@ -203,47 +204,47 @@ class PhpdocHTMLIndexRenderer extends PhpdocHTMLRenderer {
 							break;
 							
 						case "class":
-							$desc = sprintf('Class <a href="%s.html">%s</a>.', 
-																$this->nameToUrl($element["name"]),
+							$desc = sprintf('Class <a href="%s">%s</a>.', 
+																$this->nameToUrl($element["name"]).$this->file_extension,
 																$element["name"]
 															);
 							break;
 							
 						case "module":
-							$desc = sprintf('Module <a href="%s.html">%s</a>.',
-																$this->nameToUrl($element["name"]),
+							$desc = sprintf('Module <a href="%s">%s</a>.',
+																$this->nameToUrl($element["name"]).$this->file_extension,
 																$element["name"]
 															);
 							break;
 							
 						case "functions":
-							$desc = sprintf('Function in %s <a href="%s.html">%s</a>',
+							$desc = sprintf('Function in %s <a href="%s">%s</a>',
 																$element["sourcetype"],
-																$this->nameToUrl($element["source"]),
+																$this->nameToUrl($element["source"]).$this->file_extension,
 																$element["source"]
 															);
 							break;
 							
 						case "variables":
-							$desc = sprintf('Variable in Class <a href="%s.html">%s</a>',
-																$this->nameToUrl($element["source"]),
+							$desc = sprintf('Variable in Class <a href="%s">%s</a>',
+																$this->nameToUrl($element["source"]).$this->file_extension,
 																$element["source"]
 															);
 							break;
 							
 						case "uses":
-							$desc = sprintf('Included file in %s <a href="%s.html">%s</a>',
+							$desc = sprintf('Included file in %s <a href="%s">%s</a>',
 																$element["sourcetype"],
-																$this->nameToUrl($element["source"]),
+																$this->nameToUrl($element["source"]).$this->file_extension,
 																$element["source"]
 															);
 							break;
 							break;
 						
 						case "consts":
-							$desc = sprintf('Constant defined in %s <a href="%s.html">%s</a>',
+							$desc = sprintf('Constant defined in %s <a href="%s">%s</a>',
 																$element["sourcetype"],
-																$this->nameToUrl($element["source"]),
+																$this->nameToUrl($element["source"]).$this->file_extension,
 																$element["source"]
 															);
 							break;
@@ -265,7 +266,7 @@ class PhpdocHTMLIndexRenderer extends PhpdocHTMLRenderer {
 		}
 
 		$this->tpl->setVariable("APPNAME", $this->application);
-		$this->fileHandler->createFile($this->path."phpdoc_elementlist.html", $this->tpl->get() );
+		$this->fileHandler->createFile($this->path."phpdoc_elementlist".$this->file_extension, $this->tpl->get() );
 		$this->tpl->free();
 		
 	} // end func renderElementlist
@@ -293,8 +294,8 @@ class PhpdocHTMLIndexRenderer extends PhpdocHTMLRenderer {
 				$this->tpl->setCurrentBlock("package_".$field."_loop");	
 				reset($package[$field]);
 				while (list($k, $element)=each($package[$field])) {
-					$this->tpl->setVariable("ELEMENT", sprintf('<a href="%s.html">%s</a>', 
-																												$this->nameToUrl($element), 
+					$this->tpl->setVariable("ELEMENT", sprintf('<a href="%s">%s</a>', 
+																												$this->nameToUrl($element).$this->file_extension, 
 																												$element
 																											)
 																							);
@@ -314,7 +315,7 @@ class PhpdocHTMLIndexRenderer extends PhpdocHTMLRenderer {
 		}
 		
 		$this->tpl->setVariable("APPNAME", $this->application);
-		$this->fileHandler->createFile($this->path."phpdoc_packagelist.html", $this->tpl->get() );
+		$this->fileHandler->createFile($this->path."phpdoc_packagelist".$this->file_extension, $this->tpl->get() );
 		$this->tpl->free();
 		
 	} // end func renderPackagelist
@@ -344,8 +345,8 @@ class PhpdocHTMLIndexRenderer extends PhpdocHTMLRenderer {
 				reset($package[$field]);
 				while (list($k, $element)=each($package[$field])) {
 				
-					$this->tpl->setVariable("ELEMENT", sprintf('<a href="%s.html" target="main">%s</a>', 
-																												$this->nameToUrl($element), 
+					$this->tpl->setVariable("ELEMENT", sprintf('<a href="%s" target="main">%s</a>', 
+																												$this->nameToUrl($element).$this->file_extension, 
 																												$element
 																											) 
 																								);
@@ -364,7 +365,7 @@ class PhpdocHTMLIndexRenderer extends PhpdocHTMLRenderer {
 			
 			$this->tpl->setVariable("APPNAME", $this->application);
 			$packagename = $this->nameToUrl($packagename);
-			$this->fileHandler->createFile($this->path."packageelementlist_".$packagename.".html", $this->tpl->get() );					
+			$this->fileHandler->createFile($this->path."packageelementlist_".$packagename.$this->file_extension, $this->tpl->get() );					
 		}
 		
 		$this->tpl->free();
@@ -386,15 +387,15 @@ class PhpdocHTMLIndexRenderer extends PhpdocHTMLRenderer {
 		
 		reset($this->packages);
 		while (list($packagename, $v)=each($this->packages)) {
-			$this->tpl->setVariable("PACKAGE", sprintf('<a href="packageelementlist_%s.html" target="packageelements">%s</a>',
-																										$this->nameToUrl($packagename),
+			$this->tpl->setVariable("PACKAGE", sprintf('<a href="packageelementlist_%s" target="packageelements">%s</a>',
+																										$this->nameToUrl($packagename).$this->file_extension,
 																										$packagename )
 															);
 			$this->tpl->parseCurrentBlock();															
 		}
 		
 		$this->tpl->setVariable("APPNAME", $this->application);
-		$this->fileHandler->createFile($this->path."frame_packagelist.html", $this->tpl->get() );
+		$this->fileHandler->createFile($this->path."frame_packagelist".$this->file_extension, $this->tpl->get() );
 		$this->tpl->free();
 		
 	} // end func renderFramePackagesummary
@@ -426,11 +427,11 @@ class PhpdocHTMLIndexRenderer extends PhpdocHTMLRenderer {
 		
 		if (0==count($this->classtree["classes"][$class])) {
 		
-			$html.= sprintf('<li><a href="%s.html">%s</a>', $this->nameToUrl($class), $class);
+			$html.= sprintf('<li><a href="%s">%s</a>', $this->nameToUrl($class).$this->file_extension, $class);
 			
 		} else {
 		
-			$html.= sprintf('<li><a href="%s.html">%s</a>', $this->nameToUrl($class), $class);
+			$html.= sprintf('<li><a href="%s">%s</a>', $this->nameToUrl($class).$this->file_extension, $class);
 
 			$html.= "<ul>";
 			reset($this->classtree["classes"][$class]);

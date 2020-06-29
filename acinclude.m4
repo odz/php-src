@@ -1,4 +1,4 @@
-dnl $Id: acinclude.m4,v 1.107 2000/10/11 14:35:45 sas Exp $
+dnl $Id: acinclude.m4,v 1.114 2000/11/21 08:38:19 hholzgra Exp $
 dnl
 dnl This file contains local autoconf functions.
 
@@ -51,9 +51,13 @@ AC_DEFUN(PHP_READDIR_R_TYPE,[
 #include <sys/types.h>
 #include <dirent.h>
 
+#ifndef PATH_MAX
+#define PATH_MAX 1024
+#endif
+
 main() {
 	DIR *dir;
-	char entry[sizeof(struct dirent)+257];
+	char entry[sizeof(struct dirent)+PATH_MAX];
 	struct dirent *pentry = (struct dirent *) &entry;
 
 	dir = opendir("/");
@@ -204,7 +208,7 @@ dnl Sets PHP_ARG_NAME either to the user value or to the default value.
 dnl default-val defaults to no. 
 dnl
 AC_DEFUN(PHP_ARG_WITH,[
-PHP_REAL_ARG_WITH([$1],[$2],[$3],[$4],PHP_[]translit($1,a-z-,A-Z_))
+PHP_REAL_ARG_WITH([$1],[$2],[$3],[$4],PHP_[]translit($1,a-z0-9-,A-Z0-9_))
 ])
 
 AC_DEFUN(PHP_REAL_ARG_WITH,[
@@ -476,7 +480,7 @@ AC_DEFUN(AC_EXPAND_PATH,[
     $2="$1"
   else
     changequote({,})
-    ep_dir="`echo $1|sed 's%/*[^/][^/]*$%%'`"
+    ep_dir="`echo $1|sed 's%/*[^/][^/]*/*$%%'`"
     changequote([,])
     ep_realdir="`(cd \"$ep_dir\" && pwd)`"
     $2="$ep_realdir/`basename \"$1\"`"
@@ -879,3 +883,42 @@ int main(void) {
   fi
 ])
 
+AC_DEFUN(PHP_FOPENCOOKIE,[
+	AC_CHECK_FUNC(fopencookie, [ have_glibc_fopencookie=yes ])
+
+	if test "$have_glibc_fopencookie" = "yes" ; then
+	  	dnl this comes in two flavors:
+      dnl newer glibcs (since 2.1.2 ? )
+      dnl have a type called cookie_io_functions_t
+		  AC_TRY_COMPILE([ #define _GNU_SOURCE
+                       #include <stdio.h>
+									   ],
+	                   [ cookie_io_functions_t cookie; ],
+                     [ have_cookie_io_functions_t=yes ],
+										 [ ] )
+
+		  if test "$have_cookie_io_functions_t" = "yes" ; then
+        cookie_io_functions_t=cookie_io_functions_t
+	      have_fopen_cookie=yes
+      else
+  	    dnl older glibc versions (up to 2.1.2 ?)
+        dnl call it _IO_cookie_io_functions_t
+		    AC_TRY_COMPILE([ #define _GNU_SOURCE
+                       #include <stdio.h>
+									   ],
+	                   [ _IO_cookie_io_functions_t cookie; ],
+                     [ have_IO_cookie_io_functions_t=yes ],
+										 [] )
+		    if test "$have_cookie_io_functions_t" = "yes" ; then
+          cookie_io_functions_t=_IO_cookie_io_functions_t
+	        have_fopen_cookie=yes
+		    fi
+			fi
+
+		  if test "$have_fopen_cookie" = "yes" ; then
+		    AC_DEFINE(HAVE_FOPENCOOKIE, 1, [ ])
+			  AC_DEFINE_UNQUOTED(COOKIE_IO_FUNCTIONS_T, $cookie_io_functions_t, [ ])
+      fi      
+
+  	fi
+])

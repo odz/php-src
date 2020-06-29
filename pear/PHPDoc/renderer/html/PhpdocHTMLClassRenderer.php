@@ -24,11 +24,12 @@ class PhpdocHTMLClassRenderer extends PhpdocHTMLDocumentRenderer {
 	* @param	string	Name of the current application
 	* @see	setPath(), setTemplateRoot()
 	*/
-	function PhpdocHTMLClassRenderer($path, $templateRoot, $application) {
+	function PhpdocHTMLClassRenderer($path, $templateRoot, $application, $extension = ".html") {
 	
 		$this->setPath($path);
 		$this->setTemplateRoot($templateRoot);
 		$this->application = $application;
+        $this->file_extension = $extension;
 		
 		$this->accessor = new PhpdocClassAccessor;
 		$this->tpl = new IntegratedTemplate($this->templateRoot);
@@ -47,7 +48,7 @@ class PhpdocHTMLClassRenderer extends PhpdocHTMLDocumentRenderer {
 		$this->tpl->loadTemplatefile("class.html");	
 
 		if (""==$htmlfile)
-			$htmlfile = substr($xmlfile, 6, -4).".html";
+			$htmlfile = substr($xmlfile, 6, -4).$this->file_extension;
 
 		$this->accessor->loadXMLFile($this->path.$xmlfile);
 		
@@ -68,8 +69,8 @@ class PhpdocHTMLClassRenderer extends PhpdocHTMLDocumentRenderer {
 		$tplvars["CLASS_PACKAGE"]	= $class["package"];
 	
 		if (""!=$class["extends"])
-			$tplvars["CLASS_EXTENDS"] = sprintf('extends <a href="%s.html">%s</a>', 
-																						$class["extends"], 
+			$tplvars["CLASS_EXTENDS"] = sprintf('extends <a href="%s">%s</a>', 
+																						$class["extends"].$this->file_extension, 
 																						$class["extends"]
 																					);
 			
@@ -159,8 +160,8 @@ class PhpdocHTMLClassRenderer extends PhpdocHTMLDocumentRenderer {
 			$value = "";
 			reset($elements);
 			while (list($k, $element)=each($elements))
-				$value.= sprintf('<a href="%s.html#%s_%s">%s</a>, ', 
-															$source,
+				$value.= sprintf('<a href="%s#%s_%s">%s</a>, ', 
+															$source.$this->file_extension,
 															$type, 
 															$element, 
 															$element
@@ -186,7 +187,7 @@ class PhpdocHTMLClassRenderer extends PhpdocHTMLDocumentRenderer {
 		$elements = "";
 		reset($subclasses);
 		while (list($k, $subclass)=each($subclasses))
-			$elements.= sprintf('<a href="%s.html">%s</a>, ', $subclass, $subclass);
+			$elements.= sprintf('<a href="%s">%s</a>, ', $subclass.$this->file_extension, $subclass);
 		
 		$elements	= substr($elements, 0, -2);
 		
@@ -325,8 +326,8 @@ class PhpdocHTMLClassRenderer extends PhpdocHTMLDocumentRenderer {
 			$indent = $this->getIndent($level);
 			if ($level>0)
 				$value.= sprintf("%s |<br>%s+-- ", $indent, $indent);
-			$value.= sprintf('<a href="%s.html">%s</a><br>', 
-												$path[$i],
+			$value.= sprintf('<a href="%s">%s</a><br>', 
+												$path[$i].$this->file_extension,
 												$path[$i]
 											);
 			$level++;

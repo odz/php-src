@@ -32,9 +32,33 @@
 #include "zend_list.h"
 #include "zend_fast_cache.h"
 
-#if WITH_BCMATH
+#if 0&&WITH_BCMATH
 #include "ext/bcmath/number.h"
 #endif
+
+ZEND_API int zend_atoi(const char *str, int str_len)
+{
+	int retval;
+
+	if (!str_len) {
+		str_len = strlen(str);
+	}
+	retval = atoi(str);
+	if (str_len>0) {
+		switch (str[str_len-1]) {
+			case 'k':
+			case 'K':
+				retval *= 1024;
+				break;
+			case 'm':
+			case 'M':
+				retval *= 1048576;
+				break;
+		}
+	}
+	return retval;
+}
+
 
 ZEND_API double zend_string_to_double(const char *number, zend_uint length)
 {
@@ -92,7 +116,7 @@ ZEND_API void convert_scalar_to_number(zval *op)
 			case IS_DOUBLE:
 			case IS_LONG:
 				break;
-#if WITH_BCMATH
+#if 0&&WITH_BCMATH
 			case FLAG_IS_BC:
 				op->type = IS_DOUBLE; /* may have lost significant digits */
 				break;
@@ -1339,6 +1363,13 @@ static void increment_string(zval *str)
     int last=0; /* Shut up the compiler warning */
     int ch;
     
+	if (str->value.str.len == 0) {
+		STR_FREE(str->value.str.val);
+		str->value.str.val = estrndup("1", sizeof("1")-1);
+		str->value.str.len = 1;
+		return;
+	}
+
 	while(pos >= 0) {
         ch = s[pos];
         if (ch >= 'a' && ch <= 'z') {
@@ -1532,7 +1563,7 @@ ZEND_API int zend_binary_strncasecmp(char *s1, uint len1, char *s2, uint len2, u
 		}
 	}
 
-	return len1 - len2;
+	return MIN(length, len1) - MIN(length, len2);
 }
 
 
@@ -1567,7 +1598,7 @@ ZEND_API void zendi_smart_strcmp(zval *result, zval *s1, zval *s2)
 	
 	if ((ret1=is_numeric_string(s1->value.str.val, s1->value.str.len, &lval1, &dval1)) &&
 		(ret2=is_numeric_string(s2->value.str.val, s2->value.str.len, &lval2, &dval2))) {
-#if WITH_BCMATH
+#if 0&&WITH_BCMATH
 		if ((ret1==FLAG_IS_BC) || (ret2==FLAG_IS_BC)) {
 			bc_num first, second;
 			
@@ -1716,5 +1747,7 @@ static inline int is_numeric_string(char *str, int length, long *lval, double *d
 		}
 	}
 }
+
+
 
 #endif

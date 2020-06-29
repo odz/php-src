@@ -81,6 +81,7 @@ typedef struct {
 	long cookie_lifetime;
 	char *cookie_path;
 	char *cookie_domain;
+    zend_bool  cookie_secure;
 	ps_module *mod;
 	void *mod_data;
 	HashTable vars;
@@ -115,6 +116,7 @@ PHP_FUNCTION(session_set_save_handler);
 PHP_FUNCTION(session_cache_limiter);
 PHP_FUNCTION(session_set_cookie_params);
 PHP_FUNCTION(session_get_cookie_params);
+PHP_FUNCTION(session_write_close);
 
 #ifdef ZTS
 #define PSLS_D php_ps_globals *ps_globals
@@ -154,9 +156,11 @@ typedef struct ps_serializer_struct {
 	{ #x,ps_srlzr_encode_##x, ps_srlzr_decode_##x }
 
 #ifdef TRANS_SID
-void session_adapt_uris(const char *, uint, char **, uint *);
+void session_adapt_uris(const char *, size_t, char **, size_t *);
+void session_adapt_url(const char *, size_t, char **, size_t *);
 #else
 #define session_adapt_uris(a,b,c,d)
+#define session_adapt_url(a,b,c,d)
 #endif
 
 void php_session_auto_start(void *data);

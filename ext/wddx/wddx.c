@@ -27,7 +27,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: wddx.c,v 1.56 2000/09/19 17:37:34 zeev Exp $ */
+/* $Id: wddx.c,v 1.58.2.1 2000/12/13 23:02:10 zeev Exp $ */
 
 #include "php.h"
 #include "php_wddx.h"
@@ -223,6 +223,11 @@ static void _php_free_packet_chunk(void *data)
 }
 /* }}} */
 
+static void php_free_wddx_packet(zend_rsrc_list_entry *rsrc)
+{
+	wddx_packet *packet = (wddx_packet *)rsrc->ptr;
+	php_wddx_destructor(packet);
+}
 
 /* {{{ php_wddx_destructor */
 void php_wddx_destructor(wddx_packet *packet)
@@ -237,7 +242,7 @@ void php_wddx_destructor(wddx_packet *packet)
 /* {{{ php_minit_wddx */
 PHP_MINIT_FUNCTION(wddx)
 {
-	le_wddx = register_list_destructors(php_wddx_destructor, NULL);
+	le_wddx = zend_register_list_destructors_ex(php_free_wddx_packet, NULL, "wddx", module_number);
 	
 	return SUCCESS;
 }
@@ -419,7 +424,7 @@ static void php_wddx_serialize_object(wddx_packet *packet, zval *obj)
 	 * We try to call __sleep() method on object. It's supposed to return an
 	 * array of property names to be serialized.
 	 */
-	if (call_user_function_ex(CG(function_table), obj, fname, &retval, 0, 0, 1, NULL) == SUCCESS) {
+	if (call_user_function_ex(CG(function_table), &obj, fname, &retval, 0, 0, 1, NULL) == SUCCESS) {
 		if (retval && HASH_OF(retval)) {
 			PHP_CLASS_ATTRIBUTES;
 			
@@ -776,7 +781,7 @@ static void php_wddx_pop_element(void *user_data, const char *name)
 			MAKE_STD_ZVAL(fname);
 			ZVAL_STRING(fname, "__wakeup", 1);
 
-			call_user_function_ex(NULL, ent1->data, fname, &retval, 0, 0, 0, NULL);
+			call_user_function_ex(NULL, &ent1->data, fname, &retval, 0, 0, 0, NULL);
 
 			zval_dtor(fname);
 			FREE_ZVAL(fname);

@@ -114,7 +114,7 @@ class DB_common {
 		//php_error(E_WARNING, get_class($this)."::errorCode: no mapping for $nativecode");
 		// Fall back to DB_ERROR if there was no mapping.  Ideally,
 		// this should never happen.
-		return $this->raiseError();
+		return $this->raiseError(DB_ERROR, false, false, false, $nativecode);
 	}
 
 	// }}}
@@ -141,7 +141,7 @@ class DB_common {
 	 *
 	 */
 	function &raiseError($code = DB_ERROR, $mode = false, $level = false,
-						 $debuginfo = false) {
+						 $debuginfo = false, $nativecode = false) {
 		if (!$mode) {
 			$mode = $this->error_mode;
 		}
@@ -158,6 +158,9 @@ class DB_common {
 		}
 		if (!$debuginfo) {
 			$debuginfo = $this->last_query;
+		}
+		if ($nativecode) {
+			$debuginfo .= " [nativecode=$nativecode]";
 		}
 		return new DB_Error($code, $mode, $level, $debuginfo);
 	}
@@ -355,8 +358,9 @@ class DB_common {
 	 * when finished.
 	 *
 	 * @param $query the SQL query
-	 * @param $params is supplies, prepare/execute will be used
+	 * @param $params if supplied, prepare/execute will be used
 	 *        with this array as execute parameters
+	 * @access public
 	 */
 	function &getOne($query, $params = array()) {
 		if (sizeof($params) > 0) {
@@ -391,6 +395,7 @@ class DB_common {
 	 * of doing the query and freeing the results when finished.
 	 *
 	 * @param $query the SQL query
+	 * @access public
 	 * @return array the first row of results as an array indexed from
 	 * 0, or a DB error code.
 	 */
@@ -432,6 +437,8 @@ class DB_common {
 	 *
 	 * @param $col which column to return (integer [column number,
 	 * starting at 0] or string [column name])
+	 *
+	 * @access public
 	 *
 	 * @return array an indexed array with the data from the first
 	 * row at index 0, or a DB error code.
@@ -477,6 +484,8 @@ class DB_common {
 	 * @param $force_array (optional) used only when the query returns
 	 * exactly two columns.  If true, the values of the returned array
 	 * will be one-element arrays instead of scalars.
+	 *
+	 * @access public
 	 *
 	 * @return array associative array with results from the query.
 	 * If the result set contains more than two columns, the value
@@ -560,7 +569,7 @@ class DB_common {
 	 * Fetch all the rows returned from a query.
 	 *
 	 * @param $query the SQL query
-	 *
+	 * @access public
 	 * @return array an nested array, or a DB error
 	 */
 	function &getAll($query, $fetchmode = DB_FETCHMODE_DEFAULT, $params = array()) {

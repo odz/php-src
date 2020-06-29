@@ -13,11 +13,11 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Stig Sæther Bakken <ssb@fast.no>                            |
-   |          Thies C. Arntzen <thies@digicol.de>						  |
+   |          Thies C. Arntzen <thies@thieso.net>						  |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: oci8.c,v 1.97 2000/10/07 09:10:54 thies Exp $ */
+/* $Id: oci8.c,v 1.104 2000/11/16 10:16:22 thies Exp $ */
 
 /* TODO list:
  *
@@ -114,10 +114,11 @@ static int oci_ping(oci_server *server);
 static void oci_debug(const char *format, ...);
 
 static void _oci_conn_list_dtor(oci_connection *connection);
-static void _oci_stmt_list_dtor(oci_statement *statement);
-static void _oci_descriptor_list_dtor(oci_descriptor *descriptor);
-static void _oci_server_list_dtor(oci_server *server);
-static void _oci_session_list_dtor(oci_session *session);
+static void _oci_stmt_list_dtor(zend_rsrc_list_entry *rsrc);
+static void _oci_descriptor_list_dtor(zend_rsrc_list_entry *rsrc);
+static void _oci_server_list_dtor(zend_rsrc_list_entry *rsrc);
+static void _oci_session_list_dtor(zend_rsrc_list_entry *rsrc);
+static void php_oci_free_conn_list(zend_rsrc_list_entry *rsrc);
 
 static void _oci_column_hash_dtor(void *data);
 static void _oci_define_hash_dtor(void *data);
@@ -339,9 +340,6 @@ static void php_oci_init_globals(OCILS_D)
 PHP_MINIT_FUNCTION(oci)
 {
 	zend_class_entry oci_lob_class_entry;
-	OCILS_FETCH();
-
-	OCI(shutdown) = 0;
 
 #ifdef ZTS 
 #define PHP_OCI_INIT_MODE OCI_THREADED
@@ -361,17 +359,17 @@ PHP_MINIT_FUNCTION(oci)
 	php_oci_init_globals(OCILS_C);
 #endif
 
-	le_stmt = register_list_destructors(_oci_stmt_list_dtor, NULL);
-	le_conn = register_list_destructors(_oci_conn_list_dtor, NULL);
-	le_desc = register_list_destructors(_oci_descriptor_list_dtor, NULL);
-	le_server = register_list_destructors(_oci_server_list_dtor, NULL);
-	le_session = register_list_destructors(_oci_session_list_dtor, NULL);
+	le_stmt = zend_register_list_destructors_ex(_oci_stmt_list_dtor, NULL, "oci8 statement", module_number);
+	le_conn = zend_register_list_destructors_ex(php_oci_free_conn_list, NULL, "oci8 connection", module_number);
+	le_desc = zend_register_list_destructors_ex(_oci_descriptor_list_dtor, NULL, "oci8 descriptor", module_number);
+	le_server = zend_register_list_destructors_ex(_oci_server_list_dtor, NULL, "oci8 server", module_number);
+	le_session = zend_register_list_destructors_ex(_oci_session_list_dtor, NULL, "oci8 session", module_number);
 
 	INIT_CLASS_ENTRY(oci_lob_class_entry, "OCI-Lob", php_oci_lob_class_functions);
 
  	oci_lob_class_entry_ptr = zend_register_internal_class(&oci_lob_class_entry);
 
-/* thies@digicol.de 990203 i do not think that we will need all of them - just in here for completeness for now! */
+/* thies@thieso.net 990203 i do not think that we will need all of them - just in here for completeness for now! */
 	REGISTER_LONG_CONSTANT("OCI_DEFAULT",OCI_DEFAULT, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("OCI_DESCRIBE_ONLY",OCI_DESCRIBE_ONLY, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("OCI_COMMIT_ON_SUCCESS",OCI_COMMIT_ON_SUCCESS, CONST_CS | CONST_PERSISTENT);
@@ -490,7 +488,7 @@ PHP_MINFO_FUNCTION(oci)
 
 	php_info_print_table_start();
 	php_info_print_table_row(2, "OCI8 Support", "enabled");
-	php_info_print_table_row(2, "Revision", "$Revision: 1.97 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.104 $");
 #ifndef PHP_WIN32
 	php_info_print_table_row(2, "Oracle Version", PHP_OCI8_VERSION );
 	php_info_print_table_row(2, "Compile-time ORACLE_HOME", PHP_OCI8_DIR );
@@ -596,8 +594,9 @@ _oci_column_hash_dtor(void *data)
 /* {{{ _oci_stmt_list_dtor() */
  
 static void
-_oci_stmt_list_dtor(oci_statement *statement)
+_oci_stmt_list_dtor(zend_rsrc_list_entry *rsrc)
 {
+	oci_statement *statement = (oci_statement *)rsrc->ptr;
 	oci_debug("START _oci_stmt_list_dtor: id=%d last_query=\"%s\"",statement->id,SAFE_STRING(statement->last_query));
 
  	if (statement->pStmt) {
@@ -677,12 +676,20 @@ _oci_conn_list_dtor(oci_connection *connection)
 }
 
 /* }}} */
+
+static void php_oci_free_conn_list(zend_rsrc_list_entry *rsrc)
+{
+	oci_connection *conn = (oci_connection *)rsrc->ptr;
+	_oci_conn_list_dtor(conn);
+}
+
 /* {{{ _oci_descriptor_list_dtor()
  */
 
 static void 
-_oci_descriptor_list_dtor(oci_descriptor *descr)
+_oci_descriptor_list_dtor(zend_rsrc_list_entry *rsrc)
 {
+	oci_descriptor *descr = (oci_descriptor *)rsrc->ptr;
     oci_debug("START _oci_descriptor_list_dtor: %d",descr->id);
 
 	zend_list_delete(descr->conn->id);
@@ -699,8 +706,9 @@ _oci_descriptor_list_dtor(oci_descriptor *descr)
  */
 
 static void 
-_oci_server_list_dtor(oci_server *server)
+_oci_server_list_dtor(zend_rsrc_list_entry *rsrc)
 {
+	oci_server *server = (oci_server *)rsrc->ptr;
 	if (server->persistent)
 		return;
 
@@ -712,8 +720,9 @@ _oci_server_list_dtor(oci_server *server)
  */
 
 static void 
-_oci_session_list_dtor(oci_session *session)
+_oci_session_list_dtor(zend_rsrc_list_entry *rsrc)
 {
+	oci_session *session = (oci_session *)rsrc->ptr;
    	if (session->persistent)
 		return;
 
@@ -1649,7 +1658,7 @@ oci_failover_callback(dvoid *svchp,
 					   ub4 fo_event)
 {
 	/* 
-	   this stuff is from an oci sample - it will get cleaned up as soon as i understand it!!! (thies@digicol.de 990420) 
+	   this stuff is from an oci sample - it will get cleaned up as soon as i understand it!!! (thies@thieso.net 990420) 
 	   right now i cant get oracle to even call it;-(((((((((((
 	*/
 
@@ -2444,7 +2453,8 @@ PHP_FUNCTION(ocibindbyname)
 	sb4 value_sz = -1;
 	int ac = ZEND_NUM_ARGS(), inx;
 
-    if (ac < 3 || ac > 5 || zend_get_parameters_ex(ac, &stmt, &name, &var, &maxlen, &type) == FAILURE) {        WRONG_PARAM_COUNT;
+    if (ac < 3 || ac > 5 || zend_get_parameters_ex(ac, &stmt, &name, &var, &maxlen, &type) == FAILURE) {
+		WRONG_PARAM_COUNT;
     }
 
     switch (ac) {
@@ -2460,29 +2470,36 @@ PHP_FUNCTION(ocibindbyname)
 
 	OCI_GET_STMT(statement,stmt);
 
-	switch ((*var)->type) {
-	case IS_OBJECT :
-		if ((inx = _oci_get_ocidesc(*var,&descr)) == 0) {
-			RETURN_FALSE;
-		}
+	switch (ocitype) {
+		case SQLT_BFILEE:
+		case SQLT_CFILEE:
+		case SQLT_CLOB:
+		case SQLT_BLOB:
+			if ((*var)->type != IS_OBJECT) {
+				php_error(E_WARNING,"Variable must be allocated using OCINewDescriptor()");
+				RETURN_FALSE;
+			}
+
+			if ((inx = _oci_get_ocidesc(*var,&descr)) == 0) {
+				php_error(E_WARNING,"Variable must be allocated using OCINewDescriptor()");
+				RETURN_FALSE;
+			}
 		
-		mydescr = (dvoid *) descr->ocidescr;
-		
-		if (! mydescr) {
-			RETURN_FALSE;
-		}
-		value_sz = sizeof(void*);
-		break;
-		
-	default:
-		if (ocitype == SQLT_RSET) { 
-			/* XXX refcursor binding */
-			OCI_GET_STMT(bindstmt,var);
-			
-			mystmt = bindstmt->pStmt;
+			if (! (mydescr = (dvoid *) descr->ocidescr)) {
+				php_error(E_WARNING,"Descriptor empty");
+				RETURN_FALSE;
+			}
 			value_sz = sizeof(void*);
-		}
-		break;
+			break;
+
+		case SQLT_RSET:
+			OCI_GET_STMT(bindstmt,var);
+
+			if (! (mystmt = bindstmt->pStmt)) {
+				RETURN_FALSE;
+			}
+			value_sz = sizeof(void*);
+			break;
 	}
 	
 	if ((ocitype == SQLT_CHR) && (value_sz == -1)) {
@@ -3441,7 +3458,7 @@ PHP_FUNCTION(ocifetchstatement)
 	int i;
 	int mode = OCI_NUM;
 	int rows = 0;
-	char namebuf[ 128 ];
+	char *namebuf;
 	int ac = ZEND_NUM_ARGS();
 
 	if (ac < 2 || ac > 3 || zend_get_parameters_ex(ac, &stmt, &array, &fmode) == FAILURE) {
@@ -3469,10 +3486,10 @@ PHP_FUNCTION(ocifetchstatement)
 		MAKE_STD_ZVAL(tmp);
 		array_init(tmp);
 
-		memcpy(namebuf,columns[ i ]->name, columns[ i ]->name_len);
-		namebuf[ columns[ i ]->name_len ] = 0;
+		namebuf = estrndup(columns[ i ]->name,columns[ i ]->name_len);
 				
 		zend_hash_update((*array)->value.ht, namebuf, columns[ i ]->name_len+1, (void *) &tmp, sizeof(zval*), (void **) &(outarrs[ i ]));
+		efree(namebuf);
 	}
 
 	while (oci_fetch(statement, nrows, "OCIFetchStatement")) {
@@ -3526,7 +3543,7 @@ PHP_FUNCTION(ocilogoff)
 	referenced. as this module makes heavy use of zends reference-counting mechanism
 	this is the desired behavior. it has always been a bad idea to close a connection that
     has outstanding transactions. this way we have a nice-clean approach.
-    (thies@digicol.de 20000110)
+    (thies@thieso.net 20000110)
 
 	oci_connection *connection;
 	zval **conn;

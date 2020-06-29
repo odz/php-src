@@ -19,7 +19,7 @@
 */
 
 
-/* $Id: main.c,v 1.322 2000/10/03 14:43:04 andi Exp $ */
+/* $Id: main.c,v 1.343 2000/11/29 01:02:27 zeev Exp $ */
 
 
 #include <stdio.h>
@@ -51,6 +51,7 @@
 #include "fopen-wrappers.h"
 #include "ext/standard/php_standard.h"
 #include "php_variables.h"
+#include "ext/standard/credits.h"
 #ifdef PHP_WIN32
 #include <io.h>
 #include <fcntl.h>
@@ -67,9 +68,11 @@
 #include "zend_execute.h"
 #include "zend_highlight.h"
 #include "zend_indent.h"
+#include "zend_extensions.h"
 
 #include "php_content_types.h"
 #include "php_ticks.h"
+#include "php_logos.h"
 
 #include "SAPI.h"
 
@@ -123,7 +126,7 @@ static PHP_INI_MH(OnChangeMemoryLimit)
 	int new_limit;
 
 	if (new_value) {
-		new_limit = php_atoi(new_value, new_value_length);
+		new_limit = zend_atoi(new_value, new_value_length);
 	} else {
 		new_limit = 1<<30;		/* effectively, no limit */
 	}
@@ -221,6 +224,7 @@ PHP_INI_BEGIN()
 	STD_PHP_INI_BOOLEAN("magic_quotes_runtime",	"0",		PHP_INI_ALL,		OnUpdateBool,			magic_quotes_runtime,	php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("magic_quotes_sybase",	"0",		PHP_INI_ALL,		OnUpdateBool,			magic_quotes_sybase,	php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("output_buffering",		"0",		PHP_INI_PERDIR|PHP_INI_SYSTEM,OnUpdateBool,	output_buffering,		php_core_globals,	core_globals)
+	STD_PHP_INI_ENTRY("output_handler",			NULL,		PHP_INI_PERDIR|PHP_INI_SYSTEM,OnUpdateString,	output_handler,		php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("register_argc_argv",	"1",		PHP_INI_ALL,		OnUpdateBool,			register_argc_argv,		php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("register_globals",		"1",		PHP_INI_ALL,		OnUpdateBool,			register_globals,		php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("safe_mode",			"0",		PHP_INI_SYSTEM,		OnUpdateBool,			safe_mode,				php_core_globals,	core_globals)
@@ -258,8 +262,10 @@ PHP_INI_BEGIN()
 	PHP_INI_ENTRY("precision",					"14",		PHP_INI_ALL,		OnSetPrecision)
 	PHP_INI_ENTRY("sendmail_from",				NULL,		PHP_INI_ALL,		NULL)
 	PHP_INI_ENTRY("sendmail_path",	DEFAULT_SENDMAIL_PATH,	PHP_INI_SYSTEM,		NULL)
-
 	PHP_INI_ENTRY("disable_functions",			"",			PHP_INI_SYSTEM,		NULL)
+
+	STD_PHP_INI_ENTRY("allow_url_fopen",		"1",		PHP_INI_ALL,		OnUpdateBool,			allow_url_fopen,			php_core_globals,	core_globals)
+
 PHP_INI_END()
 
 
@@ -591,6 +597,7 @@ static void sigchld_handler(int apar)
 }
 #endif
 
+static int php_hash_environment(ELS_D SLS_DC PLS_DC);
 
 int php_request_startup(CLS_D ELS_DC PLS_DC SLS_DC)
 {
@@ -618,14 +625,26 @@ int php_request_startup(CLS_D ELS_DC PLS_DC SLS_DC)
 		sapi_add_header(SAPI_PHP_VERSION_HEADER, sizeof(SAPI_PHP_VERSION_HEADER)-1, 1);
 	}
 
-	if (PG(output_buffering)) {
-		php_start_ob_buffer(NULL);
+	if (PG(output_handler) && PG(output_handler)[0]) {
+		zval *output_handler;
+
+		ALLOC_INIT_ZVAL(output_handler);
+		Z_STRLEN_P(output_handler) = strlen(PG(output_handler));	/* this can be optimized */
+		Z_STRVAL_P(output_handler) = estrndup(PG(output_handler), Z_STRLEN_P(output_handler));
+		Z_TYPE_P(output_handler) = IS_STRING;
+		php_start_ob_buffer(output_handler, 0);
+	} else if (PG(output_buffering)) {
+		php_start_ob_buffer(NULL, 0);
 	} else if (PG(implicit_flush)) {
 		php_start_implicit_flush();
 	}
 
 	/* We turn this off in php_execute_script() */
 	/* PG(during_request_startup) = 0; */
+
+	php_hash_environment(ELS_C SLS_CC PLS_CC);
+	zend_activate_modules();
+	PG(modules_activated)=1;
 
 	return SUCCESS;
 }
@@ -647,14 +666,14 @@ void php_request_shutdown(void *dummy)
 	PLS_FETCH();
 
 	if (setjmp(EG(bailout))==0) {
-		sapi_send_headers();
-	}
-
-	if (setjmp(EG(bailout))==0) {
 		php_end_ob_buffers(SG(request_info).headers_only?0:1);
 	}
 
 	if (setjmp(EG(bailout))==0) {
+		sapi_send_headers();
+	}
+
+	if (PG(modules_activated) && setjmp(EG(bailout))==0) {
 		php_call_shutdown_functions();
 	}
 	
@@ -663,7 +682,7 @@ void php_request_shutdown(void *dummy)
 	}
 	
 	if (setjmp(EG(bailout))==0) {
-		php_ini_rshutdown();
+		zend_ini_rshutdown();
 	}
 	
 	zend_deactivate(CLS_C ELS_CC);
@@ -709,7 +728,7 @@ static int php_body_write_wrapper(const char *str, uint str_length)
 #ifdef ZTS
 static void php_new_thread_end_handler(THREAD_T thread_id)
 {
-	php_ini_refresh_caches(PHP_INI_STAGE_STARTUP);
+	zend_ini_refresh_caches(PHP_INI_STAGE_STARTUP);
 }
 #endif
 
@@ -850,15 +869,10 @@ int php_module_startup(sapi_module_struct *sf)
 #endif
 
 	SET_MUTEX(gLock);
-	le_index_ptr = zend_register_list_destructors(NULL, NULL, 0);
+	le_index_ptr = zend_register_list_destructors_ex(NULL, NULL, "index pointer", 0);
 	FREE_MUTEX(gLock);
 
-	php_ini_mstartup();
-
-	if (php_init_fopen_wrappers() == FAILURE) {
-		php_printf("PHP:  Unable to initialize fopen url wrappers.\n");
-		return FAILURE;
-	}
+	zend_ini_mstartup();
 
 	if (php_config_ini_startup() == FAILURE) {
 		return FAILURE;
@@ -866,12 +880,22 @@ int php_module_startup(sapi_module_struct *sf)
 
 	REGISTER_INI_ENTRIES();
 
+	if (php_init_fopen_wrappers() == FAILURE) {
+		php_printf("PHP:  Unable to initialize fopen url wrappers.\n");
+		return FAILURE;
+	}
+
+	if (php_init_info_logos() == FAILURE) {
+		php_printf("PHP:  Unable to initialize info phpinfo logos.\n");
+		return FAILURE;
+	}
+
 	zuv.import_use_extension = ".php";
 	zend_set_utility_values(&zuv);
 	php_startup_sapi_content_types();
 
-    REGISTER_MAIN_STRINGL_CONSTANT("PHP_VERSION", PHP_VERSION, sizeof(PHP_VERSION)-1, CONST_PERSISTENT | CONST_CS);
-    REGISTER_MAIN_STRINGL_CONSTANT("PHP_OS", php_os, strlen(php_os), CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_STRINGL_CONSTANT("PHP_VERSION", PHP_VERSION, sizeof(PHP_VERSION)-1, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_STRINGL_CONSTANT("PHP_OS", php_os, strlen(php_os), CONST_PERSISTENT | CONST_CS);
 
 	if (php_startup_ticks(PLS_C) == FAILURE) {
 		php_printf("Unable to start PHP ticks\n");
@@ -913,8 +937,6 @@ void php_module_shutdown()
 		return;
 	}
 
-	php_shutdown_fopen_wrappers();
-
 	/* close down the ini config */
 	php_config_ini_shutdown();
 
@@ -928,8 +950,10 @@ void php_module_shutdown()
 
 	global_lock_destroy();
 	zend_shutdown();
+	php_shutdown_fopen_wrappers();
+	php_shutdown_info_logos();
 	UNREGISTER_INI_ENTRIES();
-	php_ini_mshutdown();
+	zend_ini_mshutdown();
 	shutdown_memory_manager(0, 1);
 	module_initialized = 0;
 }
@@ -1001,7 +1025,10 @@ static int php_hash_environment(ELS_D SLS_DC PLS_DC)
 	} else {
 		p = PG(gpc_order);
 		have_variables_order=0;
-		php_import_environment_variables(ELS_C PLS_CC);
+		ALLOC_ZVAL(PG(http_globals)[TRACK_VARS_ENV]);
+		array_init(PG(http_globals)[TRACK_VARS_ENV]);
+		INIT_PZVAL(PG(http_globals)[TRACK_VARS_ENV]);
+		php_import_environment_variables(PG(http_globals)[TRACK_VARS_ENV] ELS_CC PLS_CC);
 	}
 
 	while(p && *p) {
@@ -1030,7 +1057,10 @@ static int php_hash_environment(ELS_D SLS_DC PLS_DC)
 			case 'e':
 			case 'E':
 				if (have_variables_order) {
-					php_import_environment_variables(ELS_C PLS_CC);
+					ALLOC_ZVAL(PG(http_globals)[TRACK_VARS_ENV]);
+					array_init(PG(http_globals)[TRACK_VARS_ENV]);
+					INIT_PZVAL(PG(http_globals)[TRACK_VARS_ENV]);
+					php_import_environment_variables(PG(http_globals)[TRACK_VARS_ENV] ELS_CC PLS_CC);
 				} else {
 					php_error(E_WARNING, "Unsupported 'e' element (environment) used in gpc_order - use variables_order instead");
 				}
@@ -1123,39 +1153,30 @@ static void php_build_argv(char *s, zval *track_vars_array ELS_DC PLS_DC)
 }
 
 
-#include "logos.h"
+PHPAPI int php_handle_special_queries(SLS_D PLS_DC)
+{
+	if (SG(request_info).query_string && SG(request_info).query_string[0]=='=' 
+			&& PG(expose_php)) {
+		if (php_info_logos(SG(request_info).query_string+1)) {	
+			return 1;
+		} else if (!strcmp(SG(request_info).query_string+1, PHP_CREDITS_GUID)) {
+			php_print_credits(PHP_CREDITS_ALL);
+			return 1;
+		}
+	}
+	return 0;
+}
 
-PHPAPI void php_execute_script(zend_file_handle *primary_file CLS_DC ELS_DC PLS_DC)
+PHPAPI int php_execute_script(zend_file_handle *primary_file CLS_DC ELS_DC PLS_DC)
 {
 	zend_file_handle *prepend_file_p, *append_file_p;
 	zend_file_handle prepend_file, append_file;
 	char *old_cwd;
 	SLS_FETCH();
 
-	php_hash_environment(ELS_C SLS_CC PLS_CC);
-
-	zend_activate_modules();
-	PG(modules_activated)=1;
-
-	if (SG(request_info).query_string && SG(request_info).query_string[0]=='=' 
-		&& PG(expose_php)) {
-		if (!strcmp(SG(request_info).query_string+1, PHP_LOGO_GUID)) {
-			sapi_add_header(CONTEXT_TYPE_IMAGE_GIF, sizeof(CONTEXT_TYPE_IMAGE_GIF)-1, 1);
-			PHPWRITE(php_logo, sizeof(php_logo));
-			return;
-		} else if (!strcmp(SG(request_info).query_string+1, PHP_EGG_LOGO_GUID)) {
-			sapi_add_header(CONTEXT_TYPE_IMAGE_GIF, sizeof(CONTEXT_TYPE_IMAGE_GIF)-1, 1);
-			PHPWRITE(php_egg_logo, sizeof(php_egg_logo));
-			return;
-		} else if (!strcmp(SG(request_info).query_string+1, ZEND_LOGO_GUID)) {
-			sapi_add_header(CONTEXT_TYPE_IMAGE_GIF, sizeof(CONTEXT_TYPE_IMAGE_GIF)-1, 1);
-			PHPWRITE(zend_logo, sizeof(zend_logo));
-			return;
-		} else if (!strcmp(SG(request_info).query_string+1, "PHPB8B5F2A0-3C92-11d3-A3A9-4C7B08C10000")) {
-			php_print_credits(PHP_CREDITS_ALL);
-			return;
-		}
-	}
+	EG(exit_status) = 0;
+	if (php_handle_special_queries(SLS_C PLS_CC))
+		return 0;
 #define OLD_CWD_SIZE 4096
 	old_cwd = do_alloca(OLD_CWD_SIZE);
 	old_cwd[0] = '\0';
@@ -1164,7 +1185,7 @@ PHPAPI void php_execute_script(zend_file_handle *primary_file CLS_DC ELS_DC PLS_
 		if (old_cwd[0] != '\0')
 			V_CHDIR(old_cwd);
 		free_alloca(old_cwd);
-		return;
+		return EG(exit_status);
 	}
 
 #ifdef PHP_WIN32
@@ -1202,6 +1223,48 @@ PHPAPI void php_execute_script(zend_file_handle *primary_file CLS_DC ELS_DC PLS_
 	if (old_cwd[0] != '\0')
 		V_CHDIR(old_cwd);
 	free_alloca(old_cwd);
+
+	return EG(exit_status);
+}
+
+PHPAPI void php_handle_aborted_connection(void)
+{
+	PLS_FETCH();
+
+	PG(connection_status) = PHP_CONNECTION_ABORTED;
+
+	if (!PG(ignore_user_abort)) {
+		zend_bailout();
+	}
+}
+
+PHPAPI int php_handle_auth_data(const char *auth SLS_DC)
+{
+	int ret = -1;
+
+	if (auth && auth[0] != '\0'
+			&& strncmp(auth, "Basic ", 6) == 0) {
+		char *pass;
+		char *user;
+
+		user = php_base64_decode(auth + 6, strlen(auth) - 6, NULL);
+		if (user) {
+			pass = strchr(user, ':');
+			if (pass) {
+				*pass++ = '\0';
+				SG(request_info).auth_user = user;
+				SG(request_info).auth_password = estrdup(pass);
+				ret = 0;
+			} else {
+				efree(user);
+			}
+		}
+	}
+
+	if (ret == -1)
+		SG(request_info).auth_user = SG(request_info).auth_password = NULL;
+
+	return ret;
 }
 
 PHPAPI int php_lint_script(zend_file_handle *file CLS_DC ELS_DC PLS_DC)
@@ -1237,6 +1300,7 @@ PHPAPI void dummy_indent()
 	zend_indent();
 }
 #endif
+
 
 /*
  * Local variables:

@@ -12,7 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Thies C. Arntzen <thies@digicol.de>						  |
+   | Author: Thies C. Arntzen <thies@thieso.net>						  |
    | Based on aolserver SAPI by Sascha Schumann <sascha@schumann.cx>      |
    +----------------------------------------------------------------------+
 */
@@ -69,7 +69,9 @@ php_phttpd_sapi_ub_write(const char *str, uint str_length)
 
 	sent_bytes = fd_write(PHG(cip)->fd,str,str_length);
 
-	if (sent_bytes == -1) perror("fd_write\n");
+	if (sent_bytes == -1) {
+		php_handle_aborted_connection();
+	}
 
     return sent_bytes;
 }
@@ -281,7 +283,7 @@ int php_doit(PHLS_D SLS_DC)
 
 int pm_init(const char **argv)
 {
-	tsrm_startup(1, 1, 0);
+	tsrm_startup(1, 1, 0, NULL);
 	sapi_startup(&sapi_module);
     sapi_module.startup(&sapi_module);
 

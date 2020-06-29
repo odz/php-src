@@ -189,7 +189,7 @@ void init_op(zend_op *op CLS_DC)
 {
 	memset(&op->result, 0, sizeof(znode));
 	op->lineno = CG(zend_lineno);
-	op->result.op_type = IS_UNUSED;
+	SET_UNUSED(op->result);
 	op->extended_value = 0;
 	memset(&op->op1, 0, sizeof(znode));
 	memset(&op->op2, 0, sizeof(znode));
@@ -211,7 +211,7 @@ zend_op *get_next_op(zend_op_array *op_array CLS_DC)
 			zend_bailout();
 		}
 #endif
-		op_array->size *= 2;
+		op_array->size *= 4;
 		op_array_alloc_ops(op_array);
 	}
 	
@@ -260,8 +260,8 @@ static void zend_update_extended_info(zend_op_array *op_array CLS_DC)
 	}
 	opline = get_next_op(op_array CLS_CC);
 	opline->opcode = ZEND_EXT_STMT;
-	opline->op1.op_type = IS_UNUSED;
-	opline->op2.op_type = IS_UNUSED;
+	SET_UNUSED(opline->op1);
+	SET_UNUSED(opline->op2);
 	if (op_array->last>0) {
 		opline->lineno= op_array->opcodes[op_array->last-2].lineno;
 	}
@@ -302,6 +302,8 @@ int pass_two(zend_op_array *op_array)
 		}
 		opline++;
 	}
+	op_array->opcodes = (zend_op *) erealloc(op_array->opcodes, sizeof(zend_op)*op_array->last);
+	op_array->size = op_array->last;
 	op_array->done_pass_two = 1;
 	return 0;
 }

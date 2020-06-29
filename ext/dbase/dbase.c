@@ -55,8 +55,9 @@ static int le_dbhead;
 #include <errno.h>
 
 
-static void _close_dbase(dbhead_t *dbhead)
+static void _close_dbase(zend_rsrc_list_entry *rsrc)
 {
+	dbhead_t *dbhead = (dbhead_t *)rsrc->ptr;
 	close(dbhead->db_fd);
 	free_dbf_head(dbhead);
 }
@@ -80,7 +81,8 @@ PHP_MINIT_FUNCTION(dbase)
 	dbase_globals = (dbase_global_struct *) LocalAlloc(LPTR, sizeof(dbase_global_struct)); 
 	TlsSetValue(DbaseTls, (void *) dbase_globals);
 #endif
-	DBase_GLOBAL(le_dbhead) = register_list_destructors(_close_dbase,NULL);
+	DBase_GLOBAL(le_dbhead) =
+		zend_register_list_destructors_ex(_close_dbase, NULL, "dbase", module_number);
 	return SUCCESS;
 }
 
@@ -120,7 +122,7 @@ PHP_FUNCTION(dbase_open) {
 	convert_to_string(dbf_name);
 	convert_to_long(options);
 
-	if (PG(safe_mode) && (!php_checkuid(dbf_name->value.str.val, NULL, 2))) {
+	if (PG(safe_mode) && (!php_checkuid(dbf_name->value.str.val, NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
 		RETURN_FALSE;
 	}
 	
@@ -588,7 +590,7 @@ PHP_FUNCTION(dbase_create) {
 		RETURN_FALSE;
 	}
 
-	if (PG(safe_mode) && (!php_checkuid(Z_STRVAL_P(filename), NULL, 2))) {
+	if (PG(safe_mode) && (!php_checkuid(Z_STRVAL_P(filename), NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
 		RETURN_FALSE;
 	}
 	

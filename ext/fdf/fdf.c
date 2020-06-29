@@ -13,10 +13,11 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Uwe Steinmann <Uwe.Steinmann@fernuni-hagen.de>              |
+   |          Hartmut Holzgraefe <hartmut@six.de>                         |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: fdf.c,v 1.31 2000/08/21 09:23:37 steinm Exp $ */
+/* $Id: fdf.c,v 1.38 2000/12/01 14:32:14 eschmid Exp $ */
 
 /* FdfTk lib 2.0 is a Complete C/C++ FDF Toolkit available from
    http://beta1.adobe.com/ada/acrosdk/forms.html. */
@@ -28,7 +29,11 @@
 #endif
 
 #include "php.h"
+#include "SAPI.h"
 #include "ext/standard/head.h"
+#include "php_open_temporary_file.h"
+#include "php_variables.h"
+
 #include <math.h>
 #include "php_fdf.h"
 
@@ -65,6 +70,8 @@ int le_fdf_info;
 int le_fdf;
 #endif
 
+SAPI_POST_HANDLER_FUNC(fdf_post_handler);
+
 function_entry fdf_functions[] = {
 	PHP_FE(fdf_open,								NULL)
 	PHP_FE(fdf_create,								NULL)
@@ -95,14 +102,28 @@ zend_module_entry fdf_module_entry = {
 ZEND_GET_MODULE(fdf)
 #endif
 
-static void phpi_FDFClose(FDFDoc fdf) {
+static void phpi_FDFClose(zend_rsrc_list_entry *rsrc)
+{
+	FDFDoc fdf = (FDFDoc)rsrc->ptr;
 	(void)FDFClose(fdf);
 }
+
+static sapi_post_entry supported_post_entries[] = {
+#if HAVE_FDFLIB
+	{ "application/vnd.fdf",	sizeof("application/vnd.fdf")-1,	php_default_post_reader, fdf_post_handler},
+#endif
+	{ NULL, 0, NULL }
+};
+
+
 
 PHP_MINIT_FUNCTION(fdf)
 {
 	FDFErc err;
-	FDF_GLOBAL(le_fdf) = register_list_destructors(phpi_FDFClose, NULL);
+	FDF_GLOBAL(le_fdf) = zend_register_list_destructors_ex(phpi_FDFClose, NULL, "fdf", module_number);
+
+	/* add handler for Acrobat FDF form post requests */
+	sapi_add_post_entry("application/vnd.fdf",	php_default_post_reader, fdf_post_handler);
 
   /* Constants used by fdf_set_opt() */
 	REGISTER_LONG_CONSTANT("FDFValue", FDFValue, CONST_CS | CONST_PERSISTENT);
@@ -153,6 +174,10 @@ PHP_MINFO_FUNCTION(fdf)
 PHP_MSHUTDOWN_FUNCTION(fdf)
 {
 	FDFErc err;
+
+	/* remove handler for Acrobat FDF form post requests */
+	sapi_remove_post_entry("application/vnd.fdf"); 
+
 #ifdef PHP_WIN32
 	return SUCCESS;
 #endif
@@ -163,7 +188,7 @@ PHP_MSHUTDOWN_FUNCTION(fdf)
 }
 
 /* {{{ proto int fdf_open(string filename)
-   Opens a new fdf document */
+   Opens a new FDF document */
 PHP_FUNCTION(fdf_open) {
 	pval **file;
 	int id;
@@ -188,8 +213,8 @@ PHP_FUNCTION(fdf_open) {
 	RETURN_LONG(id);
 } /* }}} */
 
-/* {{{ proto void fdf_close(int fdfdoc)
-   Closes the fdf document */
+/* {{{ proto boolean fdf_close(int fdfdoc)
+   Closes the FDF document */
 PHP_FUNCTION(fdf_close) {
 	pval **arg1;
 	int id, type;
@@ -214,8 +239,8 @@ PHP_FUNCTION(fdf_close) {
 	RETURN_TRUE;
 } /* }}} */
 
-/* {{{ proto void fdf_create(void)
-   Creates a new fdf document */
+/* {{{ proto int fdf_create(void)
+   Creates a new FDF document */
 PHP_FUNCTION(fdf_create) {
 	int id;
 	FDFDoc fdf;
@@ -233,7 +258,7 @@ PHP_FUNCTION(fdf_create) {
 }
 /* }}} */
 
-/* {{{ proto void fdf_get_value(int fdfdoc, string fieldname)
+/* {{{ proto string fdf_get_value(int fdfdoc, string fieldname)
    Gets the value of a field as string */
 PHP_FUNCTION(fdf_get_value) {
 	pval **arg1, **arg2;
@@ -276,7 +301,7 @@ PHP_FUNCTION(fdf_get_value) {
 }
 /* }}} */
 
-/* {{{ proto void fdf_set_value(int fdfdoc, string fieldname, string value, int isName)
+/* {{{ proto boolean fdf_set_value(int fdfdoc, string fieldname, string value, int isname)
    Sets the value of a field */
 PHP_FUNCTION(fdf_set_value) {
 	pval **arg1, **arg2, **arg3, **arg4;
@@ -308,7 +333,7 @@ PHP_FUNCTION(fdf_set_value) {
 }
 /* }}} */
 
-/* {{{ proto void fdf_next_field_name(int fdfdoc [, string fieldname])
+/* {{{ proto string fdf_next_field_name(int fdfdoc [, string fieldname])
    Gets the name of the next field name or the first field name */
 PHP_FUNCTION(fdf_next_field_name) {
 	pval **argv[2];
@@ -356,7 +381,7 @@ PHP_FUNCTION(fdf_next_field_name) {
 }
 /* }}} */
 
-/* {{{ proto void fdf_set_ap(int fdfdoc, string fieldname, int face, string filename, int pagenr)
+/* {{{ proto boolean fdf_set_ap(int fdfdoc, string fieldname, int face, string filename, int pagenr)
    Sets the value of a field */
 PHP_FUNCTION(fdf_set_ap) {
 	pval **arg1, **arg2, **arg3, **arg4, **arg5;
@@ -405,8 +430,8 @@ PHP_FUNCTION(fdf_set_ap) {
 }
 /* }}} */
 
-/* {{{ proto void fdf_set_status(int fdfdoc, string status)
-   Sets the value in the /Status key. */
+/* {{{ proto boolean fdf_set_status(int fdfdoc, string status)
+   Sets the value in the /Status key */
 PHP_FUNCTION(fdf_set_status) {
 	pval **arg1, **arg2;
 	int id, type;
@@ -435,8 +460,8 @@ PHP_FUNCTION(fdf_set_status) {
 }
 /* }}} */
 
-/* {{{ proto void fdf_get_status(int fdfdoc)
-   Gets the value in the /Status key. */
+/* {{{ proto string fdf_get_status(int fdfdoc)
+   Gets the value in the /Status key */
 PHP_FUNCTION(fdf_get_status) {
 	pval **arg1;
 	int id, type;
@@ -472,7 +497,7 @@ PHP_FUNCTION(fdf_get_status) {
 }
 /* }}} */
 
-/* {{{ proto void fdf_set_file(int fdfdoc, string filename)
+/* {{{ proto boolean fdf_set_file(int fdfdoc, string filename)
    Sets the value of the FDF's /F key */
 PHP_FUNCTION(fdf_set_file) {
 	pval **arg1, **arg2;
@@ -502,8 +527,8 @@ PHP_FUNCTION(fdf_set_file) {
 }
 /* }}} */
 
-/* {{{ proto void fdf_get_file(int fdfdoc)
-   Gets the value in the /F key. */
+/* {{{ proto string fdf_get_file(int fdfdoc)
+   Gets the value in the /F key */
 PHP_FUNCTION(fdf_get_file) {
 	pval **arg1;
 	int id, type;
@@ -539,8 +564,8 @@ PHP_FUNCTION(fdf_get_file) {
 }
 /* }}} */
 
-/* {{{ proto void fdf_save(int fdfdoc, string filename)
-   Writes out an FDF file. */
+/* {{{ proto boolean fdf_save(int fdfdoc, string filename)
+   Writes out an FDF file */
 PHP_FUNCTION(fdf_save) {
 	pval **arg1, **arg2;
 	int id, type;
@@ -568,8 +593,8 @@ PHP_FUNCTION(fdf_save) {
 	RETURN_TRUE;
 } /* }}} */
 
-/* {{{ proto void fdf_add_template(int fdfdoc, int newpage, string filename, string template, int rename)
-   Adds a template to the FDF*/
+/* {{{ proto boolean fdf_add_template(int fdfdoc, int newpage, string filename, string template, int rename)
+   Adds a template to the FDF */
 PHP_FUNCTION(fdf_add_template) {
 	pval **arg1, **arg2, **arg3, **arg4, **arg5;
 	int id, type;
@@ -610,8 +635,8 @@ PHP_FUNCTION(fdf_add_template) {
 }
 /* }}} */
 
-/* {{{ proto void fdf_set_flags(int fdfdoc, string fieldname, int whichFlags, int newFlags)
-   modifies a flag for a field in the fdf*/
+/* {{{ proto boolean fdf_set_flags(int fdfdoc, string fieldname, int whichflags, int newflags)
+   Modifies a flag for a field in the FDF */
 PHP_FUNCTION(fdf_set_flags) {
 	pval **arg1, **arg2, **arg3, **arg4;
 	int id, type;
@@ -642,8 +667,8 @@ PHP_FUNCTION(fdf_set_flags) {
 }
 /* }}} */
 
-/* {{{ proto void fdf_set_opt(int fdfdoc, string fieldname, int element, string value, string name)
-   Sets a value in the opt array for a field in the FDF*/
+/* {{{ proto boolean fdf_set_opt(int fdfdoc, string fieldname, int element, string value, string name)
+   Sets a value in the opt array for a field in the FDF */
 PHP_FUNCTION(fdf_set_opt) {
 	pval **arg1, **arg2, **arg3, **arg4, **arg5;
 	int id, type;
@@ -675,8 +700,8 @@ PHP_FUNCTION(fdf_set_opt) {
 }
 /* }}} */
 
-/* {{{ proto void fdf_set_submit_form_action(int fdfdoc, string fieldname, int whichTrigger, string url, int flags)
-   sets the submit form action for a field in the fdf*/
+/* {{{ proto booelan fdf_set_submit_form_action(int fdfdoc, string fieldname, int whichtrigger, string url, int flags)
+   Sets the submit form action for a field in the FDF */
 PHP_FUNCTION(fdf_set_submit_form_action) {
 	pval **arg1, **arg2, **arg3, **arg4, **arg5;
 	int id, type;
@@ -706,8 +731,8 @@ PHP_FUNCTION(fdf_set_submit_form_action) {
 	RETURN_TRUE;
 }
 
-/* {{{ proto void fdf_set_javascript_action(int fdfdoc, string fieldname, int whichTrigger, string script)
-   sets the javascript action for a field in the fdf*/
+/* {{{ proto boolean fdf_set_javascript_action(int fdfdoc, string fieldname, int whichtrigger, string script)
+   Sets the javascript action for a field in the FDF */
 PHP_FUNCTION(fdf_set_javascript_action) {
 	pval **arg1, **arg2, **arg3, **arg4;
 	int id, type;
@@ -715,7 +740,7 @@ PHP_FUNCTION(fdf_set_javascript_action) {
 	FDFErc err;	
 	FDF_TLS_VARS;
 
-	if (ZEND_NUM_ARGS() != 5 || zend_get_parameters_ex(4, &arg1, &arg2,&arg3, &arg4) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 4 || zend_get_parameters_ex(4, &arg1, &arg2,&arg3, &arg4) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long_ex(arg1);
@@ -734,6 +759,72 @@ PHP_FUNCTION(fdf_set_javascript_action) {
 		printf("Error setting FDF JavaScript action: %d",err);
 
 	RETURN_TRUE;
+}
+
+
+SAPI_POST_HANDLER_FUNC(fdf_post_handler)
+{
+	FILE *fp;
+	FDFDoc theFDF;
+	char *name=NULL,*value=NULL,*p;
+	int name_len=0,value_len=0;
+	char *lastfieldname =NULL;
+	char *strtok_buf = NULL;
+	char *filename = NULL;
+	FDFErc err;
+	ASInt32 nBytes, datalen;
+	zval *array_ptr = (zval *) arg;
+	ELS_FETCH();
+	PLS_FETCH();
+	
+	fp=php_open_temporary_file(NULL,"fdfdata.",&filename);
+	if(!fp) {
+		if(filename) efree(filename);
+		return;
+	}
+	fwrite(SG(request_info).post_data,SG(request_info).post_data_length,1,fp);
+	fclose(fp);
+
+ 	err = FDFOpen(filename,0,&theFDF);
+
+	if(err==FDFErcOK){	
+		name = emalloc(name_len=256);
+		value= emalloc(value_len=256);
+		while (1) {
+			err = FDFNextFieldName(theFDF,lastfieldname,name,name_len-1,&nBytes);
+			if(err == FDFErcBufTooShort && nBytes >0 ) {
+				name = erealloc(name,name_len=(nBytes+1)); 
+				err = FDFNextFieldName(theFDF,lastfieldname,name,name_len-1,&nBytes);
+			} 
+			
+			if(err != FDFErcOK || nBytes == 0) break; 
+			
+			if(lastfieldname) efree(lastfieldname);
+			lastfieldname = estrdup(name);		
+
+			err = FDFGetValue(theFDF,name,NULL,0,&nBytes);			
+			if(err != FDFErcOK && err != FDFErcNoValue ) break; 
+
+			if(value_len<nBytes+1) value = erealloc(value,value_len=(nBytes+1));
+			
+			if(nBytes>0) {
+				err = FDFGetValue(theFDF,name,value,value_len-1,&nBytes);
+				if(err == FDFErcOK && nBytes != 0) {
+					for(p=value;*p;p++) if(*p=='\r') *p='\n';
+					lastfieldname = estrdup(name);		
+					php_register_variable(name, value, array_ptr ELS_CC PLS_CC);
+				} 
+			}
+		}   
+		
+		FDFClose(theFDF);
+		V_UNLINK((const char *)filename);
+		efree(filename);
+
+		if(name)          efree(name);
+		if(value)         efree(value);
+		if(lastfieldname) efree(lastfieldname);
+	} 
 }
 
 #endif

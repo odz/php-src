@@ -18,7 +18,7 @@
  */
 
 
-/* $Id: php_main.h,v 1.3 2000/07/29 10:48:57 zeev Exp $ */
+/* $Id: php_main.h,v 1.8 2000/11/22 04:23:26 sas Exp $ */
 
 
 #ifndef PHP_MAIN_H
@@ -40,16 +40,14 @@ PHPAPI int php_startup_extensions(zend_module_entry **ptr, int count);
 PHPAPI int php_global_startup_extensions(zend_module_entry **ptr, int count);
 PHPAPI int php_global_shutdown_extensions(zend_module_entry **ptr, int count);
 
-PHPAPI void php_execute_script(zend_file_handle *primary_file CLS_DC ELS_DC PLS_DC);
+PHPAPI int php_execute_script(zend_file_handle *primary_file CLS_DC ELS_DC PLS_DC);
+PHPAPI int php_handle_special_queries(SLS_D PLS_DC);
 PHPAPI int php_lint_script(zend_file_handle *file CLS_DC ELS_DC PLS_DC);
 
+PHPAPI void php_handle_aborted_connection(void);
+PHPAPI int php_handle_auth_data(const char *auth SLS_DC);
 
 extern void php_call_shutdown_functions(void);
-
-
-/* configuration module */
-extern int php_init_config(void);
-extern int php_shutdown_config(void);
 
 /* environment module */
 extern int php_init_environ(void);

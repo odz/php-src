@@ -29,7 +29,7 @@ static ZEND_FUNCTION(zend_version);
 static ZEND_FUNCTION(func_num_args);
 static ZEND_FUNCTION(func_get_arg);
 static ZEND_FUNCTION(func_get_args);
-static ZEND_FUNCTION(strlen);
+static ZEND_NAMED_FUNCTION(zend_if_strlen);
 static ZEND_FUNCTION(strcmp);
 static ZEND_FUNCTION(strncmp);
 static ZEND_FUNCTION(strcasecmp);
@@ -56,6 +56,8 @@ static ZEND_FUNCTION(trigger_error);
 static ZEND_FUNCTION(set_error_handler);
 static ZEND_FUNCTION(restore_error_handler);
 static ZEND_FUNCTION(get_declared_classes);
+static ZEND_FUNCTION(get_defined_functions);
+static ZEND_FUNCTION(get_defined_vars);
 static ZEND_FUNCTION(create_function);
 static ZEND_FUNCTION(get_resource_type);
 #if ZEND_DEBUG
@@ -72,7 +74,7 @@ static zend_function_entry builtin_functions[] = {
 	ZEND_FE(func_num_args,		NULL)
 	ZEND_FE(func_get_arg,		NULL)
 	ZEND_FE(func_get_args,		NULL)
-	ZEND_FE(strlen,				NULL)
+	{ "strlen", zend_if_strlen, NULL },
 	ZEND_FE(strcmp,				NULL)
 	ZEND_FE(strncmp,			NULL)
 	ZEND_FE(strcasecmp,			NULL)
@@ -101,6 +103,8 @@ static zend_function_entry builtin_functions[] = {
 	ZEND_FE(set_error_handler,		NULL)
 	ZEND_FE(restore_error_handler,	NULL)
 	ZEND_FE(get_declared_classes, NULL)
+	ZEND_FE(get_defined_functions, NULL)
+	ZEND_FE(get_defined_vars,	NULL)
 	ZEND_FE(create_function,	NULL)
 	ZEND_FE(get_resource_type,	NULL)
 #if ZEND_DEBUG
@@ -217,7 +221,7 @@ ZEND_FUNCTION(func_get_args)
 
 /* {{{ proto int strlen(string str)
    Get string length */
-ZEND_FUNCTION(strlen)
+ZEND_NAMED_FUNCTION(zend_if_strlen)
 {
 	zval **str;
 	
@@ -527,6 +531,10 @@ ZEND_FUNCTION(get_class_vars)
 	} else {
 		efree(lcname);
 		array_init(return_value);
+		if (!ce->constants_updated) {
+			zend_hash_apply_with_argument(&ce->default_properties, (int (*)(void *,void *)) zval_update_constant, (void *) 1);
+			ce->constants_updated = 1;
+		}
 		zend_hash_copy(return_value->value.ht, &ce->default_properties, (copy_ctor_func_t) zval_add_ref, (void *) &tmp, sizeof(zval *));
 	}
 }
@@ -584,7 +592,7 @@ ZEND_FUNCTION(get_class_methods)
 		while ((key_type = zend_hash_get_current_key(&ce->function_table, &string_key, &num_key)) != HASH_KEY_NON_EXISTANT) {
 			if (key_type == HASH_KEY_IS_STRING) {
 				MAKE_STD_ZVAL(method_name);
-				ZVAL_STRING(method_name, string_key, 1);
+				ZVAL_STRING(method_name, string_key, 0);
 				zend_hash_next_index_insert(return_value->value.ht, &method_name, sizeof(zval *), NULL);
 			}
 			zend_hash_move_forward(&ce->function_table);
@@ -851,6 +859,68 @@ ZEND_FUNCTION(get_declared_classes)
 }
 /* }}} */
 
+static int copy_function_name(zend_function *func, int num_args, va_list args, zend_hash_key *hash_key)
+{
+	zval *internal_ar = va_arg(args, zval *),
+	     *user_ar     = va_arg(args, zval *);
+
+	if (hash_key->nKeyLength == 0 || hash_key->arKey[0] == 0) {
+		return 0;
+	}
+
+	if (func->type == ZEND_INTERNAL_FUNCTION) {
+		add_next_index_stringl(internal_ar, hash_key->arKey, hash_key->nKeyLength, 1);
+	} else if (func->type == ZEND_USER_FUNCTION) {
+		add_next_index_stringl(user_ar, hash_key->arKey, hash_key->nKeyLength, 1);
+	}
+	
+	return 0;
+}
+
+/* {{{ proto array get_defined_functions(void)
+   Returns an array of all defined functions */
+ZEND_FUNCTION(get_defined_functions)
+{
+	zval *internal;
+	zval *user;
+	
+	if (ZEND_NUM_ARGS() != 0) {
+		ZEND_WRONG_PARAM_COUNT();
+	}
+	
+	MAKE_STD_ZVAL(internal);
+	MAKE_STD_ZVAL(user);
+	
+	array_init(internal);
+	array_init(user);
+	array_init(return_value);
+	
+	zend_hash_apply_with_arguments(EG(function_table), (apply_func_args_t)copy_function_name, 2, internal, user);
+	
+	if (zend_hash_add(return_value->value.ht, "internal", sizeof("internal"), (void **)&internal, sizeof(zval *), NULL) == FAILURE) {
+		zend_error(E_WARNING, "Cannot add internal functions to return value from get_defined_functions()");
+		RETURN_FALSE;
+	}
+	
+	if (zend_hash_add(return_value->value.ht, "user", sizeof("user"), (void **)&user, sizeof(zval *), NULL) == FAILURE) {
+		zend_error(E_WARNING, "Cannot add user functions to return value from get_defined_functions()");
+		RETURN_FALSE;
+	}
+}
+/* }}} */
+
+/* {{{ proto array get_defined_vars(void)
+   Returns an associative array of names and values of all currently defined variable names (variables in the current scope) */
+ZEND_FUNCTION(get_defined_vars)
+{	
+	zval *tmp;
+	
+	array_init(return_value);
+	
+    zend_hash_copy(return_value->value.ht, EG(active_symbol_table),
+                   (copy_ctor_func_t)zval_add_ref, &tmp, sizeof(zval *));
+}
+/* }}} */
 
 #define LAMBDA_TEMP_FUNCNAME	"__lambda_func"
 

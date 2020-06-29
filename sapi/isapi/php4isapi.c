@@ -151,7 +151,7 @@ static int sapi_isapi_ub_write(const char *str, uint str_length)
 	
 	ecb = (LPEXTENSION_CONTROL_BLOCK) SG(server_context);
 	if (ecb->WriteClient(ecb->ConnID, (char *) str, &num_bytes, HSE_IO_SYNC ) == FALSE) {
-		zend_bailout();
+		php_handle_aborted_connection();
 	}
 	return num_bytes;
 }
@@ -630,7 +630,7 @@ __declspec(dllexport) BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, L
 {
 	switch (fdwReason) {
 		case DLL_PROCESS_ATTACH:
-			tsrm_startup(1, 1, 0);
+			tsrm_startup(1, 1, TSRM_ERROR_LEVEL_CORE, "C:\\TSRM.log");
 			sapi_startup(&sapi_module);
 			if (sapi_module.startup) {
 				sapi_module.startup(&sapi_module);

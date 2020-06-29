@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Sterling Hughes <sterling@php.net>                           |
+   | Author: Sterling Hughes <Sterling.Hughes@pentap.net>                 |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: swf.c,v 1.26 2000/10/09 19:10:39 andrei Exp $ */
+/* $Id: swf.c,v 1.28.2.1 2000/12/09 10:36:13 sas Exp $ */
 
 
 #include "php.h"
@@ -28,12 +28,7 @@
 #include "php_open_temporary_file.h"
 #include "php_swf.h"
 
-#ifdef ZTS
-int swf_globals_id;
-#else
-php_swf_globals swf_globals;
-#endif
-
+ZEND_DECLARE_MODULE_GLOBALS(swf)
 
 function_entry swf_functions[] = {
 	PHP_FE(swf_openfile,		NULL)
@@ -156,6 +151,7 @@ PHP_MINIT_FUNCTION(swf)
 
 PHP_RINIT_FUNCTION(swf)
 {
+	SWFLS_FETCH();
 	SWFG(use_file) = 0;
 
 	return SUCCESS;

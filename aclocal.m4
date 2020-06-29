@@ -10,7 +10,7 @@ dnl but WITHOUT ANY WARRANTY, to the extent permitted by law; without
 dnl even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 dnl PARTICULAR PURPOSE.
 
-dnl $Id: acinclude.m4,v 1.107 2000/10/11 14:35:45 sas Exp $
+dnl $Id: acinclude.m4,v 1.114 2000/11/21 08:38:19 hholzgra Exp $
 dnl
 dnl This file contains local autoconf functions.
 
@@ -63,9 +63,13 @@ AC_DEFUN(PHP_READDIR_R_TYPE,[
 #include <sys/types.h>
 #include <dirent.h>
 
+#ifndef PATH_MAX
+#define PATH_MAX 1024
+#endif
+
 main() {
 	DIR *dir;
-	char entry[sizeof(struct dirent)+257];
+	char entry[sizeof(struct dirent)+PATH_MAX];
 	struct dirent *pentry = (struct dirent *) &entry;
 
 	dir = opendir("/");
@@ -216,7 +220,7 @@ dnl Sets PHP_ARG_NAME either to the user value or to the default value.
 dnl default-val defaults to no. 
 dnl
 AC_DEFUN(PHP_ARG_WITH,[
-PHP_REAL_ARG_WITH([$1],[$2],[$3],[$4],PHP_[]translit($1,a-z-,A-Z_))
+PHP_REAL_ARG_WITH([$1],[$2],[$3],[$4],PHP_[]translit($1,a-z0-9-,A-Z0-9_))
 ])
 
 AC_DEFUN(PHP_REAL_ARG_WITH,[
@@ -488,7 +492,7 @@ AC_DEFUN(AC_EXPAND_PATH,[
     $2="$1"
   else
     changequote({,})
-    ep_dir="`echo $1|sed 's%/*[^/][^/]*$%%'`"
+    ep_dir="`echo $1|sed 's%/*[^/][^/]*/*$%%'`"
     changequote([,])
     ep_realdir="`(cd \"$ep_dir\" && pwd)`"
     $2="$ep_realdir/`basename \"$1\"`"
@@ -891,6 +895,45 @@ int main(void) {
   fi
 ])
 
+AC_DEFUN(PHP_FOPENCOOKIE,[
+	AC_CHECK_FUNC(fopencookie, [ have_glibc_fopencookie=yes ])
+
+	if test "$have_glibc_fopencookie" = "yes" ; then
+	  	dnl this comes in two flavors:
+      dnl newer glibcs (since 2.1.2 ? )
+      dnl have a type called cookie_io_functions_t
+		  AC_TRY_COMPILE([ #define _GNU_SOURCE
+                       #include <stdio.h>
+									   ],
+	                   [ cookie_io_functions_t cookie; ],
+                     [ have_cookie_io_functions_t=yes ],
+										 [ ] )
+
+		  if test "$have_cookie_io_functions_t" = "yes" ; then
+        cookie_io_functions_t=cookie_io_functions_t
+	      have_fopen_cookie=yes
+      else
+  	    dnl older glibc versions (up to 2.1.2 ?)
+        dnl call it _IO_cookie_io_functions_t
+		    AC_TRY_COMPILE([ #define _GNU_SOURCE
+                       #include <stdio.h>
+									   ],
+	                   [ _IO_cookie_io_functions_t cookie; ],
+                     [ have_IO_cookie_io_functions_t=yes ],
+										 [] )
+		    if test "$have_cookie_io_functions_t" = "yes" ; then
+          cookie_io_functions_t=_IO_cookie_io_functions_t
+	        have_fopen_cookie=yes
+		    fi
+			fi
+
+		  if test "$have_fopen_cookie" = "yes" ; then
+		    AC_DEFINE(HAVE_FOPENCOOKIE, 1, [ ])
+			  AC_DEFINE_UNQUOTED(COOKIE_IO_FUNCTIONS_T, $cookie_io_functions_t, [ ])
+      fi      
+
+  	fi
+])
 
 # Do all the work for Automake.  This macro actually does too much --
 # some checks are only needed if your package does certain things.
@@ -1189,7 +1232,12 @@ NONE) lt_target="$host" ;;
 esac
 
 # Check for any special flags to pass to ltconfig.
-libtool_flags="--cache-file=$cache_file"
+#
+# the following will cause an existing older ltconfig to fail, so
+# we ignore this at the expense of the cache file... Checking this 
+# will just take longer ... bummer!
+#libtool_flags="--cache-file=$cache_file"
+#
 test "$enable_shared" = no && libtool_flags="$libtool_flags --disable-shared"
 test "$enable_static" = no && libtool_flags="$libtool_flags --disable-static"
 test "$enable_fast_install" = no && libtool_flags="$libtool_flags --disable-fast-install"
@@ -1488,35 +1536,31 @@ esac
 ])
 
 # AC_LIBLTDL_CONVENIENCE[(dir)] - sets LIBLTDL to the link flags for
-# the libltdl convenience library and INCLTDL to the include flags for
-# the libltdl header and adds --enable-ltdl-convenience to the
-# configure arguments.  Note that LIBLTDL and INCLTDL are not
-# AC_SUBSTed, nor is AC_CONFIG_SUBDIRS called.  If DIR is not
-# provided, it is assumed to be `libltdl'.  LIBLTDL will be prefixed
-# with '${top_builddir}/' and INCLTDL will be prefixed with
-# '${top_srcdir}/' (note the single quotes!).  If your package is not
-# flat and you're not using automake, define top_builddir and
-# top_srcdir appropriately in the Makefiles.
+# the libltdl convenience library, adds --enable-ltdl-convenience to
+# the configure arguments.  Note that LIBLTDL is not AC_SUBSTed, nor
+# is AC_CONFIG_SUBDIRS called.  If DIR is not provided, it is assumed
+# to be `${top_builddir}/libltdl'.  Make sure you start DIR with
+# '${top_builddir}/' (note the single quotes!) if your package is not
+# flat, and, if you're not using automake, define top_builddir as
+# appropriate in the Makefiles.
 AC_DEFUN(AC_LIBLTDL_CONVENIENCE, [AC_BEFORE([$0],[AC_LIBTOOL_SETUP])dnl
   case "$enable_ltdl_convenience" in
   no) AC_MSG_ERROR([this package needs a convenience libltdl]) ;;
   "") enable_ltdl_convenience=yes
       ac_configure_args="$ac_configure_args --enable-ltdl-convenience" ;;
   esac
-  LIBLTDL='${top_builddir}/'ifelse($#,1,[$1],['libltdl'])/libltdlc.la
-  INCLTDL='-I${top_srcdir}/'ifelse($#,1,[$1],['libltdl'])
+  LIBLTDL=ifelse($#,1,$1,['${top_builddir}/libltdl'])/libltdlc.la
+  INCLTDL=ifelse($#,1,-I$1,['-I${top_builddir}/libltdl'])
 ])
 
 # AC_LIBLTDL_INSTALLABLE[(dir)] - sets LIBLTDL to the link flags for
-# the libltdl installable library and INCLTDL to the include flags for
-# the libltdl header and adds --enable-ltdl-install to the configure
-# arguments.  Note that LIBLTDL and INCLTDL are not AC_SUBSTed, nor is
-# AC_CONFIG_SUBDIRS called.  If DIR is not provided and an installed
-# libltdl is not found, it is assumed to be `libltdl'.  LIBLTDL will
-# be prefixed with '${top_builddir}/' and INCLTDL will be prefixed
-# with '${top_srcdir}/' (note the single quotes!).  If your package is
-# not flat and you're not using automake, define top_builddir and
-# top_srcdir appropriately in the Makefiles.
+# the libltdl installable library, and adds --enable-ltdl-install to
+# the configure arguments.  Note that LIBLTDL is not AC_SUBSTed, nor
+# is AC_CONFIG_SUBDIRS called.  If DIR is not provided, it is assumed
+# to be `${top_builddir}/libltdl'.  Make sure you start DIR with
+# '${top_builddir}/' (note the single quotes!) if your package is not
+# flat, and, if you're not using automake, define top_builddir as
+# appropriate in the Makefiles.
 # In the future, this macro may have to be called after AC_PROG_LIBTOOL.
 AC_DEFUN(AC_LIBLTDL_INSTALLABLE, [AC_BEFORE([$0],[AC_LIBTOOL_SETUP])dnl
   AC_CHECK_LIB(ltdl, main,
@@ -1529,8 +1573,8 @@ AC_DEFUN(AC_LIBLTDL_INSTALLABLE, [AC_BEFORE([$0],[AC_LIBTOOL_SETUP])dnl
   ])
   if test x"$enable_ltdl_install" = x"yes"; then
     ac_configure_args="$ac_configure_args --enable-ltdl-install"
-    LIBLTDL='${top_builddir}/'ifelse($#,1,[$1],['libltdl'])/libltdl.la
-    INCLTDL='-I${top_srcdir}/'ifelse($#,1,[$1],['libltdl'])
+    LIBLTDL=ifelse($#,1,$1,['${top_builddir}/libltdl'])/libltdl.la
+    INCLTDL=ifelse($#,1,-I$1,['-I${top_builddir}/libltdl'])
   else
     ac_configure_args="$ac_configure_args --enable-ltdl-install=no"
     LIBLTDL="-lltdl"

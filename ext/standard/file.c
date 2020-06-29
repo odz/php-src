@@ -16,11 +16,11 @@
    |          Stig Bakken <ssb@fast.no>                                   |
    |          Andi Gutmans <andi@zend.com>                                |
    |          Zeev Suraski <zeev@zend.com>                                |
-   | PHP 4.0 patches by Thies C. Arntzen (thies@digicol.de)               |
+   | PHP 4.0 patches by Thies C. Arntzen (thies@thieso.net)               |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: file.c,v 1.116 2000/09/27 16:08:26 sas Exp $ */
+/* $Id: file.c,v 1.125.2.2 2000/12/14 14:34:51 hholzgra Exp $ */
 
 /* Synced with php 3.0 revision 1.218 1999-06-16 [ssb] */
 
@@ -108,10 +108,6 @@ int file_globals_id;
 php_file_globals file_globals;
 #endif
 
-static void _file_fopen_dtor(FILE *pipe);
-static void _file_popen_dtor(FILE *pipe);
-static void _file_socket_dtor(int *sock);
-
 /* sharing globals is *evil* */
 static int le_fopen, le_popen, le_socket; 
 
@@ -119,15 +115,17 @@ static int le_fopen, le_popen, le_socket;
 /* }}} */
 /* {{{ Module-Stuff */
 
-static void _file_popen_dtor(FILE *pipe)
+static void _file_popen_dtor(zend_rsrc_list_entry *rsrc)
 {
+	FILE *pipe = (FILE *)rsrc->ptr;
 	FIL_FETCH();
 	FIL(pclose_ret) = pclose(pipe);
 }
 
 
-static void _file_socket_dtor(int *sock) 
+static void _file_socket_dtor(zend_rsrc_list_entry *rsrc) 
 {
+	int *sock = (int *)rsrc->ptr;
 	SOCK_FCLOSE(*sock);
 #if HAVE_SHUTDOWN
 	shutdown(*sock, 0);
@@ -136,8 +134,9 @@ static void _file_socket_dtor(int *sock)
 }
 
 
-static void _file_fopen_dtor(FILE *fp) 
+static void _file_fopen_dtor(zend_rsrc_list_entry *rsrc) 
 {
+	FILE *fp = (FILE *)rsrc->ptr;
 	fclose(fp);
 }
 
@@ -169,9 +168,9 @@ static void php_file_init_globals(php_file_globals *file_globals)
 
 PHP_MINIT_FUNCTION(file)
 {
-	le_fopen = register_list_destructors(_file_fopen_dtor, NULL);
-	le_popen = register_list_destructors(_file_popen_dtor, NULL);
-	le_socket = register_list_destructors(_file_socket_dtor, NULL);
+	le_fopen = zend_register_list_destructors_ex(_file_fopen_dtor, NULL, "file", module_number);
+	le_popen = zend_register_list_destructors_ex(_file_popen_dtor, NULL, "pipe", module_number);
+	le_socket = zend_register_list_destructors_ex(_file_socket_dtor, NULL, "socket", module_number);
 
 #ifdef ZTS
 	file_globals_id = ts_allocate_id(sizeof(php_file_globals), (ts_allocate_ctor) php_file_init_globals, NULL);
@@ -275,7 +274,7 @@ PHP_FUNCTION(get_meta_tags)
 	fp = php_fopen_wrapper((*filename)->value.str.val,"r", use_include_path|ENFORCE_SAFE_MODE, &issock, &socketd, NULL);
 	if (!fp && !socketd) {
 		if (issock != BAD_URL) {
-			char *tmp = estrdup((*filename)->value.str.val);
+			char *tmp = estrndup(Z_STRVAL_PP(filename), Z_STRLEN_PP(filename));
 			php_strip_url_passwd(tmp);
 			php_error(E_WARNING,"get_meta_tags(\"%s\") - %s", tmp, strerror(errno));
 			efree(tmp);
@@ -340,6 +339,7 @@ PHP_FUNCTION(get_meta_tags)
 
 				/* get the variable value from the content attribute of the meta tag */
 				tmp = php_memnstr(buf_lcase, "content=\"", sizeof("content=\"")-1, buf_lcase + 8191);
+				val = NULL;
 				if(tmp) {
 					tmp = &buf[tmp - buf_lcase];
 					tmp+=9;
@@ -409,7 +409,7 @@ PHP_FUNCTION(file)
 	fp = php_fopen_wrapper((*filename)->value.str.val,"r", use_include_path|ENFORCE_SAFE_MODE, &issock, &socketd, NULL);
 	if (!fp && !socketd) {
 		if (issock != BAD_URL) {
-			char *tmp = estrdup((*filename)->value.str.val);
+			char *tmp = estrndup(Z_STRVAL_PP(filename), Z_STRLEN_PP(filename));
 			php_strip_url_passwd(tmp);
 			php_error(E_WARNING,"file(\"%s\") - %s", tmp, strerror(errno));
 			efree(tmp);
@@ -485,9 +485,8 @@ PHP_FUNCTION(tempnam)
 	}
 	convert_to_string_ex(arg1);
 	convert_to_string_ex(arg2);
-	d = estrndup((*arg1)->value.str.val,(*arg1)->value.str.len);
-	strlcpy(p,(*arg2)->value.str.val,sizeof(p));
-
+	d = estrndup(Z_STRVAL_PP(arg1), Z_STRLEN_PP(arg1));
+	strlcpy(p, Z_STRVAL_PP(arg2), sizeof(p));
 
 	if ((fp = php_open_temporary_file(d, p, &opened_path))) {
 		fclose(fp);
@@ -501,7 +500,7 @@ PHP_FUNCTION(tempnam)
 /* }}} */
 /* {{{ proto int tmpfile(void)
    Create a temporary file that will be deleted automatically after use */
-PHP_FUNCTION(tmpfile)
+PHP_NAMED_FUNCTION(php_if_tmpfile)
 {
 	FILE *fp;
 	if (ARG_COUNT(ht) != 0) {
@@ -519,7 +518,7 @@ PHP_FUNCTION(tmpfile)
 /* {{{ proto int fopen(string filename, string mode [, int use_include_path])
    Open a file or a URL and return a file pointer */
 
-PHP_FUNCTION(fopen)
+PHP_NAMED_FUNCTION(php_if_fopen)
 {
 	pval **arg1, **arg2, **arg3;
 	FILE *fp;
@@ -556,7 +555,7 @@ PHP_FUNCTION(fopen)
 	fp = php_fopen_wrapper((*arg1)->value.str.val, p, use_include_path|ENFORCE_SAFE_MODE, &issock, &socketd, NULL);
 	if (!fp && !socketd) {
 		if (issock != BAD_URL) {
-			char *tmp = estrdup((*arg1)->value.str.val);
+			char *tmp = estrndup(Z_STRVAL_PP(arg1), Z_STRLEN_PP(arg1));
 			php_strip_url_passwd(tmp);
 			php_error(E_WARNING,"fopen(\"%s\",\"%s\") - %s", tmp, p, strerror(errno));
 			efree(tmp);
@@ -645,7 +644,7 @@ PHP_FUNCTION(popen)
 			RETURN_FALSE;
 		}
 	} else {
-		fp = V_POPEN((*arg1)->value.str.val,p);
+		fp = V_POPEN((*arg1)->value.str.val, p);
 		if (!fp) {
 			php_error(E_WARNING,"popen(\"%s\",\"%s\") - %s",(*arg1)->value.str.val,p,strerror(errno));
 			efree(p);
@@ -1279,7 +1278,8 @@ PHP_FUNCTION(fseek)
 PHP_FUNCTION(mkdir)
 {
 	pval **arg1, **arg2;
-	int ret,mode;
+	int ret;
+	mode_t mode;
 	PLS_FETCH();
 	
 	if (ARG_COUNT(ht) != 2 || zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE) {
@@ -1287,11 +1287,11 @@ PHP_FUNCTION(mkdir)
 	}
 	convert_to_string_ex(arg1);
 	convert_to_long_ex(arg2);
-	mode = (*arg2)->value.lval;
-	if (PG(safe_mode) &&(!php_checkuid((*arg1)->value.str.val, NULL, 3))) {
+	mode = (mode_t) (*arg2)->value.lval;
+	if (PG(safe_mode) &&(!php_checkuid((*arg1)->value.str.val, NULL, CHECKUID_ALLOW_ONLY_DIR))) {
 		RETURN_FALSE;
 	}
-	ret = V_MKDIR((*arg1)->value.str.val,mode);
+	ret = V_MKDIR((*arg1)->value.str.val, mode);
 	if (ret < 0) {
 		php_error(E_WARNING,"MkDir failed (%s)", strerror(errno));
 		RETURN_FALSE;
@@ -1313,7 +1313,7 @@ PHP_FUNCTION(rmdir)
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(arg1);
-	if (PG(safe_mode) &&(!php_checkuid((*arg1)->value.str.val, NULL, 1))) {
+	if (PG(safe_mode) &&(!php_checkuid((*arg1)->value.str.val, NULL, CHECKUID_ALLOW_FILE_NOT_EXISTS))) {
 		RETURN_FALSE;
 	}
 	ret = V_RMDIR((*arg1)->value.str.val);
@@ -1408,7 +1408,7 @@ PHP_FUNCTION(readfile)
 	fp = php_fopen_wrapper((*arg1)->value.str.val,"r", use_include_path|ENFORCE_SAFE_MODE, &issock, &socketd, NULL);
 	if (!fp && !socketd){
 		if (issock != BAD_URL) {
-			char *tmp = estrdup((*arg1)->value.str.val);
+			char *tmp = estrndup(Z_STRVAL_PP(arg1), Z_STRLEN_PP(arg1));
 			php_strip_url_passwd(tmp);
 			php_error(E_WARNING,"readfile(\"%s\") - %s", tmp, strerror(errno));
 			efree(tmp);
@@ -1506,10 +1506,10 @@ PHP_FUNCTION(rename)
 	old_name = (*old_arg)->value.str.val;
 	new_name = (*new_arg)->value.str.val;
 
-	if (PG(safe_mode) &&(!php_checkuid(old_name, NULL, 2))) {
+	if (PG(safe_mode) &&(!php_checkuid(old_name, NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
 		RETURN_FALSE;
 	}
-	ret = rename(old_name, new_name);
+	ret = V_RENAME(old_name, new_name);
 
 	if (ret == -1) {
 		php_error(E_WARNING,"Rename failed (%s)", strerror(errno));
@@ -1534,7 +1534,7 @@ PHP_FUNCTION(unlink)
 	}
 	convert_to_string_ex(filename);
 
-	if (PG(safe_mode) && !php_checkuid((*filename)->value.str.val, NULL, 2)) {
+	if (PG(safe_mode) && !php_checkuid((*filename)->value.str.val, NULL, CHECKUID_CHECK_FILE_AND_DIR)) {
 		RETURN_FALSE;
 	}
 
@@ -1552,7 +1552,7 @@ PHP_FUNCTION(unlink)
 
 /* {{{ proto int ftruncate (int fp, int size)
    Truncate file to 'size' length */
-PHP_FUNCTION(ftruncate)
+PHP_NAMED_FUNCTION(php_if_ftruncate)
 {
 	zval **fp , **size;
 	short int ret;
@@ -1581,7 +1581,7 @@ PHP_FUNCTION(ftruncate)
 
 /* {{{ proto int fstat(int fp)
    Stat() on a filehandle */
-PHP_FUNCTION(fstat)
+PHP_NAMED_FUNCTION(php_if_fstat)
 {
 	zval **fp;
 	int type;
@@ -1640,7 +1640,7 @@ PHP_FUNCTION(copy)
 	convert_to_string_ex(source);
 	convert_to_string_ex(target);
 
-	if (PG(safe_mode) &&(!php_checkuid((*source)->value.str.val, NULL, 2))) {
+	if (PG(safe_mode) &&(!php_checkuid((*source)->value.str.val, NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
 		RETURN_FALSE;
 	}
 	
@@ -1741,7 +1741,7 @@ PHP_FUNCTION(fread)
 }
 
 /* }}} */
-/* {{{ proto array fgetcsv(int fp, int length)
+/* {{{ proto array fgetcsv(int fp, int length [, string delimiter])
    Get line from file pointer and parse for CSV fields */
  
 PHP_FUNCTION(fgetcsv) {
@@ -1813,7 +1813,7 @@ PHP_FUNCTION(fgetcsv) {
 	lineEnd = emalloc(sizeof(char) * (len + 1));
         bptr = buf;
         tptr = buf + strlen(buf) -1;
-        while ( isspace((int)*tptr) && (tptr > bptr) ) tptr--;
+        while ( isspace((int)*tptr) && (*tptr!=delimiter) && (tptr > bptr) ) tptr--;
         tptr++;
         strcpy(lineEnd, tptr);
 
@@ -1839,7 +1839,7 @@ PHP_FUNCTION(fgetcsv) {
 
 	do	{
 		/* 1. Strip any leading space */		
-		while(isspace((int)*bptr)) bptr++;	
+		while(isspace((int)*bptr) && (*bptr!=delimiter)) bptr++;	
 		/* 2. Read field, leaving bptr pointing at start of next field */
 		if (*bptr == '"') {
 			/* 2A. handle quote delimited field */
@@ -1874,7 +1874,7 @@ PHP_FUNCTION(fgetcsv) {
                                                         }
                                                 bptr = buf;
                                                 tptr = buf + strlen(buf) -1;
-                                                while ( isspace((int)*tptr) && (tptr > bptr) ) tptr--;
+                                                while ( isspace((int)*tptr) && (*tptr!=delimiter) && (tptr > bptr) ) tptr--;
                                                 tptr++; strcpy(lineEnd, tptr);
                                                 *tptr++ = ' ';  *tptr = 0;
 
@@ -1889,7 +1889,7 @@ PHP_FUNCTION(fgetcsv) {
 			*tptr=0;	/* terminate temporary string */
 			if (strlen(temp)) {
 				tptr--;
-				while (isspace((int)*tptr)) *tptr-- = 0;	/* strip any trailing spaces */
+				while (isspace((int)*tptr) && (*tptr!=delimiter)) *tptr-- = 0;	/* strip any trailing spaces */
 			}
 			if (*bptr == delimiter) bptr++;
 		}
@@ -1905,7 +1905,6 @@ PHP_FUNCTION(fgetcsv) {
 
 /* }}} */
 
-#if !PHP_WIN32 || defined(ZTS)
 /* {{{ proto string realpath(string path)
    Return the resolved path */
 PHP_FUNCTION(realpath)
@@ -1926,8 +1925,6 @@ PHP_FUNCTION(realpath)
 	}
 }
 /* }}} */
-#endif
-
 
 #if 0
 

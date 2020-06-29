@@ -23,6 +23,10 @@
 
 #include <stdio.h>
 
+#ifdef ZTS
+#include "../TSRM/TSRM.h"
+#endif
+
 #include "zend_globals_macros.h"
 
 #define MEM_BLOCK_START_MAGIC	0x7312F8DCL
@@ -38,6 +42,9 @@ typedef struct _zend_mem_header {
 	int reported;
 	char *orig_filename;
 	uint orig_lineno;
+# ifdef ZTS
+	THREAD_T thread_id;
+# endif
 #endif
     struct _zend_mem_header *pNext;
     struct _zend_mem_header *pLast;
@@ -64,9 +71,10 @@ typedef union _align_test {
 
 #define PLATFORM_PADDING (((PLATFORM_ALIGNMENT-sizeof(zend_mem_header))%PLATFORM_ALIGNMENT+PLATFORM_ALIGNMENT)%PLATFORM_ALIGNMENT)
 
-ZEND_API char *zend_strndup(const char *s, unsigned int length);
 
 BEGIN_EXTERN_C()
+
+ZEND_API char *zend_strndup(const char *s, unsigned int length);
 
 ZEND_API void *_emalloc(size_t size ZEND_FILE_LINE_DC ZEND_FILE_LINE_ORIG_DC);
 ZEND_API void _efree(void *ptr ZEND_FILE_LINE_DC ZEND_FILE_LINE_ORIG_DC);

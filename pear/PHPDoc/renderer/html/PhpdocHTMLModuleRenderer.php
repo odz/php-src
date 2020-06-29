@@ -12,11 +12,12 @@ class PhpdocHTMLModuleRenderer extends PhpdocHTMLDocumentRenderer {
 	* @param	string	Name of the current application
 	* @see	setPath(), setTemplateRoot()
 	*/
-	function PhpdocHTMLModuleRenderer($path, $templateRoot, $application) {
+	function PhpdocHTMLModuleRenderer($path, $templateRoot, $application, $extension = ".html") {
 	
 		$this->setPath($path);
 		$this->setTemplateRoot($templateRoot);
 		$this->application = $application;
+        $this->file_extension = $extension;
 		
 		$this->accessor = new PhpdocModuleAccessor;
 		$this->tpl = new IntegratedTemplate($this->templateRoot);
@@ -35,7 +36,7 @@ class PhpdocHTMLModuleRenderer extends PhpdocHTMLDocumentRenderer {
 		$this->tpl->loadTemplatefile("module.html");	
 		
 		if (""==$htmlfile)
-			$htmlfile = substr($xmlfile, 7, -4).".html";
+			$htmlfile = substr($xmlfile, 7, -4).$this->file_extension;
 			
 		$this->accessor->loadXMLFile($this->path.$xmlfile);
 		$module = $this->accessor->getModuledata();		

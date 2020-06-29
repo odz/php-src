@@ -23,7 +23,7 @@
  */
  
 
-/* $Id: ldap.c,v 1.62 2000/08/31 16:14:35 venaas Exp $ */
+/* $Id: ldap.c,v 1.72.2.1 2000/12/04 17:26:11 sniper Exp $ */
 #define IS_EXT_MODULE
 
 #include "php.h"
@@ -72,8 +72,8 @@ function_entry ldap_functions[] = {
 	PHP_FE(ldap_first_entry,						NULL)
 	PHP_FE(ldap_next_entry,							NULL)
 	PHP_FE(ldap_get_entries,						NULL)
-	PHP_FE(ldap_first_attribute,					third_argument_force_ref)
-	PHP_FE(ldap_next_attribute,						third_argument_force_ref)
+	PHP_FE(ldap_first_attribute,third_argument_force_ref)
+	PHP_FE(ldap_next_attribute,	third_argument_force_ref)
 	PHP_FE(ldap_get_attributes,						NULL)
 	PHP_FE(ldap_get_values,							NULL)
 	PHP_FE(ldap_get_values_len,						NULL)
@@ -93,6 +93,11 @@ function_entry ldap_functions[] = {
 	PHP_FE(ldap_error,								NULL)
 	PHP_FE(ldap_compare,							NULL)
 
+#if ( LDAP_API_VERSION > 2000 ) || HAVE_NSLDAP
+	PHP_FE(ldap_get_option,		third_argument_force_ref)
+	PHP_FE(ldap_set_option,							NULL)
+#endif
+	
 #ifdef STR_TRANSLATION
 	PHP_FE(ldap_t61_to_8859,						NULL)
 	PHP_FE(ldap_8859_to_t61,						NULL)
@@ -113,8 +118,9 @@ ZEND_GET_MODULE(ldap)
 #endif
 
 
-static void _close_ldap_link(LDAP *ld)
+static void _close_ldap_link(zend_rsrc_list_entry *rsrc)
 {
+	LDAP *ld = (LDAP *)rsrc->ptr;
 	LDAPLS_FETCH();
 
 	ldap_unbind_s(ld);
@@ -123,8 +129,9 @@ static void _close_ldap_link(LDAP *ld)
 }
 
 
-static void _free_ldap_result(LDAPMessage *result)
+static void _free_ldap_result(zend_rsrc_list_entry *rsrc)
 {
+	LDAPMessage *result = (LDAPMessage *)rsrc->ptr;
 	ldap_msgfree(result);
 }
 
@@ -152,14 +159,32 @@ PHP_MINIT_FUNCTION(ldap)
 	REGISTER_MAIN_LONG_CONSTANT("LDAP_DEREF_SEARCHING", LDAP_DEREF_SEARCHING, CONST_PERSISTENT | CONST_CS);
 	REGISTER_MAIN_LONG_CONSTANT("LDAP_DEREF_FINDING", LDAP_DEREF_FINDING, CONST_PERSISTENT | CONST_CS);
 	REGISTER_MAIN_LONG_CONSTANT("LDAP_DEREF_ALWAYS", LDAP_DEREF_ALWAYS, CONST_PERSISTENT | CONST_CS);
+
+
+#if ( LDAP_API_VERSION > 2000 ) || HAVE_NSLDAP
+	/* LDAP options */
+	REGISTER_MAIN_LONG_CONSTANT("LDAP_OPT_DEREF", LDAP_OPT_DEREF, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_LONG_CONSTANT("LDAP_OPT_SIZELIMIT", LDAP_OPT_SIZELIMIT, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_LONG_CONSTANT("LDAP_OPT_TIMELIMIT", LDAP_OPT_TIMELIMIT, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_LONG_CONSTANT("LDAP_OPT_PROTOCOL_VERSION", LDAP_OPT_PROTOCOL_VERSION, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_LONG_CONSTANT("LDAP_OPT_ERROR_NUMBER", LDAP_OPT_ERROR_NUMBER, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_LONG_CONSTANT("LDAP_OPT_REFERRALS", LDAP_OPT_REFERRALS, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_LONG_CONSTANT("LDAP_OPT_RESTART", LDAP_OPT_RESTART, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_LONG_CONSTANT("LDAP_OPT_HOST_NAME", LDAP_OPT_HOST_NAME, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_LONG_CONSTANT("LDAP_OPT_ERROR_STRING", LDAP_OPT_ERROR_STRING, CONST_PERSISTENT | CONST_CS);
+#ifndef HAVE_NSLDAP
+	REGISTER_MAIN_LONG_CONSTANT("LDAP_OPT_MATCHED_DN", LDAP_OPT_MATCHED_DN, CONST_PERSISTENT | CONST_CS);
+#endif
+#endif
+
 #ifdef ORALDAP
 	REGISTER_MAIN_LONG_CONSTANT("GSLC_SSL_NO_AUTH", GSLC_SSL_NO_AUTH, CONST_PERSISTENT | CONST_CS);
 	REGISTER_MAIN_LONG_CONSTANT("GSLC_SSL_ONEWAY_AUTH", GSLC_SSL_ONEWAY_AUTH, CONST_PERSISTENT | CONST_CS);
 	REGISTER_MAIN_LONG_CONSTANT("GSLC_SSL_TWOWAY_AUTH", GSLC_SSL_TWOWAY_AUTH, CONST_PERSISTENT | CONST_CS);
 #endif
 
-	le_result = register_list_destructors(_free_ldap_result, NULL);
-	le_link = register_list_destructors(_close_ldap_link, NULL);
+	le_result = zend_register_list_destructors_ex(_free_ldap_result, NULL, "ldap result", module_number);
+	le_link = zend_register_list_destructors_ex(_close_ldap_link, NULL, "ldap link", module_number);
 
 	ldap_module_entry.type = type;
 
@@ -201,10 +226,10 @@ PHP_MINFO_FUNCTION(ldap)
 
 	php_info_print_table_start();
 	php_info_print_table_row(2, "LDAP Support", "enabled" );
-	php_info_print_table_row(2, "RCS Version", "$Id: ldap.c,v 1.62 2000/08/31 16:14:35 venaas Exp $" );
+	php_info_print_table_row(2, "RCS Version", "$Id: ldap.c,v 1.72.2.1 2000/12/04 17:26:11 sniper Exp $" );
 	php_info_print_table_row(2, "Total Links", maxl );
 #ifdef LDAP_API_VERSION
-	snprintf(ldapapiversion, 31, "%ld", LDAP_API_VERSION);
+	snprintf(ldapapiversion, 31, "%d", LDAP_API_VERSION);
 	php_info_print_table_row(2, "API Version", ldapapiversion);
 #endif
 #if HAVE_NSLDAP
@@ -334,7 +359,21 @@ PHP_FUNCTION(ldap_connect)
 		RETURN_FALSE;
 	}
 
-	ldap = ldap_open(host,port);
+#ifdef LDAP_API_FEATURE_X_OPENLDAP
+	if (strchr(host, '/')) {
+		int rc;
+		
+		rc = ldap_initialize(&ldap, host);
+		if (rc != LDAP_SUCCESS) {
+			php_error(E_WARNING, "Could not create LDAP session handle (%d): %s\n", rc, ldap_err2string(rc));
+			RETURN_FALSE;
+		}
+	} else
+#endif
+	{
+		ldap = ldap_open(host,port);
+	}
+	
 	if ( ldap == NULL ) {
 		RETURN_FALSE;
 	} else {
@@ -519,8 +558,6 @@ PHP_FUNCTION(ldap_unbind)
 		WRONG_PARAM_COUNT;
 	}
 
-	convert_to_long_ex(link);
-
 	ldap = _get_ldap_link(link);
 	if (ldap == NULL) RETURN_FALSE;
 
@@ -614,28 +651,28 @@ static void php_ldap_do_search(INTERNAL_FUNCTION_PARAMETERS, int scope)
 
 	/* sizelimit */
 	if(ldap_sizelimit > -1) {
-#if LDAP_API_VERSION < 2004
-		ldap->ld_sizelimit = ldap_sizelimit; 
-#else
+#if ( LDAP_API_VERSION >= 2004 ) || HAVE_NSLDAP
 		ldap_set_option(ldap, LDAP_OPT_SIZELIMIT, &ldap_sizelimit);
+#else
+		ldap->ld_sizelimit = ldap_sizelimit; 
 #endif
 	}
 
 	/* timelimit */
 	if(ldap_timelimit > -1) {
-#if LDAP_API_VERSION < 2004
-		ldap->ld_timelimit = ldap_timelimit; 
-#else
+#if ( LDAP_API_VERSION >= 2004 ) || HAVE_NSLDAP
 		ldap_set_option(ldap, LDAP_OPT_TIMELIMIT, &ldap_timelimit);
+#else
+		ldap->ld_timelimit = ldap_timelimit; 
 #endif
 	}
 
 	/* deref */
 	if(ldap_deref > -1) {
-#if LDAP_API_VERSION < 2004
-		ldap->ld_deref = ldap_deref; 
-#else
+#if ( LDAP_API_VERSION >= 2004 ) || HAVE_NSLDAP
 		ldap_set_option(ldap, LDAP_OPT_DEREF, &ldap_deref);
+#else
+		ldap->ld_deref = ldap_deref; 
 #endif
 	}
 
@@ -814,11 +851,13 @@ PHP_FUNCTION(ldap_get_entries)
 	if (ldap_result == NULL) RETURN_FALSE;
 
 	num_entries = ldap_count_entries(ldap, ldap_result);
-	if (num_entries == 0) RETURN_FALSE;
 
 	array_init(return_value);
-	
+	add_assoc_long(return_value, "count", num_entries);
+
+	if (num_entries == 0) return;
 	num_entries = 0;
+	
 	ldap_result_entry = ldap_first_entry(ldap, ldap_result);
 	if (ldap_result_entry == NULL) RETURN_FALSE;
 
@@ -1229,7 +1268,8 @@ static void php_ldap_do_modify(INTERNAL_FUNCTION_PARAMETERS, int oper)
 			ldap_mods[i]->mod_type = estrdup(attribute);
 			efree(attribute);
 		} else {
-			php_error(E_WARNING, "LDAP: Unknown Attribute in the data");
+			php_error(E_ERROR, "LDAP: Unknown Attribute in the data");
+			RETURN_FALSE;
 		}
 
 		zend_hash_get_current_data((*entry)->value.ht, (void **)&value);
@@ -1381,7 +1421,6 @@ PHP_FUNCTION(ldap_errno) {
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(ht, &ldap_link) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
-	convert_to_string_ex(ldap_link);
 
 	ldap = _get_ldap_link(ldap_link);
 	if (ldap == NULL) {
@@ -1442,7 +1481,6 @@ PHP_FUNCTION(ldap_compare) {
 		WRONG_PARAM_COUNT;
 	}
 
-	convert_to_string_ex(link);
 	ldap = _get_ldap_link(link);
 	if (ldap == NULL) RETURN_LONG(-1);
 
@@ -1471,8 +1509,148 @@ PHP_FUNCTION(ldap_compare) {
 
 }
 /* }}} */
-  
 
+
+#if ( LDAP_API_VERSION > 2000 ) || HAVE_NSLDAP
+/* {{{ proto boolean ldap_get_option(int link, int option, mixed retval)
+   Get the current value of various session-wide parameters */
+PHP_FUNCTION(ldap_get_option) {
+	LDAP *ldap;
+	pval **link, **option, **retval;
+	int opt;
+	
+	if (ZEND_NUM_ARGS() != 3 ||
+	    zend_get_parameters_ex(3, &link, &option, &retval) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	ldap = _get_ldap_link(link);
+	if (ldap == NULL) {
+		RETURN_FALSE;
+	}
+
+	convert_to_long_ex(option);
+	opt = (*option)->value.lval;
+
+	switch(opt) {
+		/* options with int value */
+	case LDAP_OPT_DEREF:
+	case LDAP_OPT_SIZELIMIT:
+	case LDAP_OPT_TIMELIMIT:
+	case LDAP_OPT_PROTOCOL_VERSION:
+	case LDAP_OPT_ERROR_NUMBER:
+	case LDAP_OPT_REFERRALS:
+	case LDAP_OPT_RESTART:
+		{
+			int val;
+			if (ldap_get_option(ldap, opt, &val)) {
+				RETURN_FALSE;
+			}
+			zval_dtor(*retval);
+                        ZVAL_LONG(*retval, val);
+		} break;
+		/* options with string value */
+	case LDAP_OPT_HOST_NAME:
+	case LDAP_OPT_ERROR_STRING:
+#ifndef HAVE_NSLDAP
+	case LDAP_OPT_MATCHED_DN:
+#endif
+	        {
+			char *val;
+			if (ldap_get_option(ldap, opt, &val)) {
+				RETURN_FALSE;
+			}
+			zval_dtor(*retval);
+			ZVAL_STRING(*retval, val, 1);
+			ldap_memfree(val);
+		} break;
+/* options not implemented
+	case LDAP_OPT_SERVER_CONTROLS:
+	case LDAP_OPT_CLIENT_CONTROLS:
+	case LDAP_OPT_API_INFO:
+	case LDAP_OPT_API_FEATURE_INFO:
+*/
+	default:
+		RETURN_FALSE;
+	}
+	RETURN_TRUE;
+}
+/* }}} */
+
+
+/* {{{ proto boolean ldap_set_option(int link, int option, mixed newval)
+   Set the value of various session-wide parameters */
+PHP_FUNCTION(ldap_set_option) {
+	LDAP *ldap;
+	pval **link, **option, **newval;
+	int opt;
+	
+	if (ZEND_NUM_ARGS() != 3 ||
+	    zend_get_parameters_ex(3, &link, &option, &newval) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	ldap = _get_ldap_link(link);
+	if (ldap == NULL) {
+		RETURN_FALSE;
+	}
+	convert_to_long_ex(option);
+	opt = (*option)->value.lval;
+
+	switch(opt) {
+		/* options with int value */
+	case LDAP_OPT_DEREF:
+	case LDAP_OPT_SIZELIMIT:
+	case LDAP_OPT_TIMELIMIT:
+	case LDAP_OPT_PROTOCOL_VERSION:
+	case LDAP_OPT_ERROR_NUMBER:
+		{
+			int val;
+			convert_to_long_ex(newval);
+			val = (*newval)->value.lval;
+			if (ldap_set_option(ldap, opt, &val)) {
+				RETURN_FALSE;
+			}
+		} break;
+		/* options with string value */
+	case LDAP_OPT_HOST_NAME:
+	case LDAP_OPT_ERROR_STRING:
+#ifndef HAVE_NSLDAP
+	case LDAP_OPT_MATCHED_DN:
+#endif
+		{
+			char *val;
+			convert_to_string_ex(newval);
+			val = (*newval)->value.str.val;
+			if (ldap_set_option(ldap, opt, val)) {
+				RETURN_FALSE;
+			}
+		} break;
+		/* options with boolean value */
+	case LDAP_OPT_REFERRALS:
+	case LDAP_OPT_RESTART:
+		{
+			void *val;
+			convert_to_boolean_ex(newval);
+			val = (*newval)->value.lval
+				? LDAP_OPT_ON : LDAP_OPT_OFF;
+			if (ldap_set_option(ldap, opt, val)) {
+				RETURN_FALSE;
+			}
+		} break;
+		/* options not implemented
+	case LDAP_OPT_SERVER_CONTROLS:
+	case LDAP_OPT_CLIENT_CONTROLS:
+		*/
+	default:
+		RETURN_FALSE;
+	}
+	RETURN_TRUE;
+}
+/* }}} */
+#endif
+
+	  
 #ifdef STR_TRANSLATION
 static void php_ldap_do_translate(INTERNAL_FUNCTION_PARAMETERS, int way) {
 	zval **value;

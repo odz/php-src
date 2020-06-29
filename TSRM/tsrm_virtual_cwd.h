@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_virtual_cwd.h,v 1.6 2000/10/03 16:36:32 andi Exp $ */
+/* $Id: tsrm_virtual_cwd.h,v 1.10 2000/11/22 04:59:32 andi Exp $ */
 
 #ifndef VIRTUAL_CWD_H
 #define VIRTUAL_CWD_H
@@ -44,7 +44,7 @@
 #include "readdir.h"
 #include <sys/utime.h>
 /* mode_t isn't defined on Windows */
-typedef int mode_t;
+typedef unsigned short mode_t;
 
 #define DEFAULT_SLASH '\\'
 #define IS_SLASH(c)	((c) == '/' || (c) == '\\')
@@ -95,15 +95,17 @@ typedef int (*verify_path_func)(const cwd_state *);
 
 CWD_API void virtual_cwd_startup(void);
 CWD_API void virtual_cwd_shutdown(void);
-CWD_API char *virtual_getcwd_ex(int *length);
+CWD_API char *virtual_getcwd_ex(size_t *length);
 CWD_API char *virtual_getcwd(char *buf, size_t size);
 CWD_API int virtual_chdir(const char *path);
 CWD_API int virtual_chdir_file(const char *path, int (*p_chdir)(const char *path));
 CWD_API int virtual_filepath(const char *path, char **filepath);
+CWD_API int virtual_filepath_ex(const char *path, char **filepath, verify_path_func verify_path);
 CWD_API char *virtual_realpath(const char *path, char *real_path);
 CWD_API FILE *virtual_fopen(const char *path, const char *mode);
 CWD_API int virtual_open(const char *path, int flags, ...);
 CWD_API int virtual_creat(const char *path, mode_t mode);
+CWD_API int virtual_rename(char *oldname, char *newname);
 CWD_API int virtual_stat(const char *path, struct stat *buf);
 #ifndef TSRM_WIN32
 CWD_API int virtual_lstat(const char *path, struct stat *buf);
@@ -159,6 +161,7 @@ typedef struct _virtual_cwd_globals {
 #define V_CHDIR_FILE(path) virtual_chdir_file(path, virtual_chdir)
 #define V_GETWD(buf)
 #define V_REALPATH(path,real_path) virtual_realpath(path,real_path)
+#define V_RENAME(oldname,newname) virtual_rename(oldname,newname)
 #define V_STAT(path, buff) virtual_stat(path, buff)
 #ifdef TSRM_WIN32
 #define V_LSTAT(path, buff) virtual_stat(path, buff)
@@ -184,6 +187,7 @@ typedef struct _virtual_cwd_globals {
 #define V_FOPEN(path, mode)  fopen(path, mode)
 #define V_OPEN(open_args) open open_args
 #define V_CREAT(path, mode) creat(path, mode)
+#define V_RENAME(oldname,newname) rename(oldname,newname)
 #define V_CHDIR(path) chdir(path)
 #define V_CHDIR_FILE(path) virtual_chdir_file(path, chdir)
 #define V_GETWD(buf) getwd(buf)

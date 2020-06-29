@@ -17,7 +17,7 @@
    | PHP 4.0 patches by Zeev Suraski <zeev@zend.com>                      |
    +----------------------------------------------------------------------+
  */
-/* $Id: mod_php4.c,v 1.71 2000/10/11 16:24:35 zeev Exp $ */
+/* $Id: mod_php4.c,v 1.77 2000/11/18 02:44:02 zeev Exp $ */
 
 #define NO_REGEX_EXTRA_H
 #ifdef WIN32
@@ -126,7 +126,6 @@ static int sapi_apache_ub_write(const char *str, uint str_length)
 {
 	int ret;
 	SLS_FETCH();
-	PLS_FETCH();
 		
 	if (SG(server_context)) {
 		ret = rwrite(str, str_length, (request_rec *) SG(server_context));
@@ -134,10 +133,7 @@ static int sapi_apache_ub_write(const char *str, uint str_length)
 		ret = fwrite(str, 1, str_length, stderr);
 	}
 	if(ret != str_length) {
-		PG(connection_status) = PHP_CONNECTION_ABORTED;
-		if (!PG(ignore_user_abort)) {
-			zend_bailout();
-		}
+		php_handle_aborted_connection();
 	}
 	return ret;
 }
@@ -415,7 +411,7 @@ static void init_request_info(SLS_D)
 
 static int php_apache_alter_ini_entries(php_per_dir_entry *per_dir_entry)
 {
-	php_alter_ini_entry(per_dir_entry->key, per_dir_entry->key_length+1, per_dir_entry->value, per_dir_entry->value_length+1, per_dir_entry->type, PHP_INI_STAGE_ACTIVATE);
+	zend_alter_ini_entry(per_dir_entry->key, per_dir_entry->key_length+1, per_dir_entry->value, per_dir_entry->value_length+1, per_dir_entry->type, PHP_INI_STAGE_ACTIVATE);
 	return 0;
 }
 
@@ -550,11 +546,11 @@ static void copy_per_dir_entry(php_per_dir_entry *per_dir_entry)
 
 static zend_bool should_overwrite_per_dir_entry(php_per_dir_entry *orig_per_dir_entry, php_per_dir_entry *new_per_dir_entry)
 {
-	if (orig_per_dir_entry->type==PHP_INI_SYSTEM
-		&& new_per_dir_entry->type!=PHP_INI_SYSTEM) {
-		return 0;
-	} else {
+	if (new_per_dir_entry->type==PHP_INI_SYSTEM
+		&& orig_per_dir_entry->type!=PHP_INI_SYSTEM) {
 		return 1;
+	} else {
+		return 0;
 	}
 }
 
@@ -580,11 +576,9 @@ static void *php_create_dir(pool *p, char *dummy)
 
 static void *php_merge_dir(pool *p, void *basev, void *addv)
 {
-	php_per_dir_entry tmp;
-
-	zend_hash_merge_ex((HashTable *) basev, (HashTable *) addv, (copy_ctor_func_t) copy_per_dir_entry, sizeof(php_per_dir_entry), (zend_bool (*)(void *, void *)) should_overwrite_per_dir_entry);
-	/*zend_hash_merge((HashTable *) addv, (HashTable *) basev, (void (*)(void *)) copy_per_dir_entry, &tmp, sizeof(php_per_dir_entry), 0);*/
-	return basev;
+	/* This function *must* return addv, and not modify basev */
+	zend_hash_merge_ex((HashTable *) addv, (HashTable *) basev, (copy_ctor_func_t) copy_per_dir_entry, sizeof(php_per_dir_entry), (zend_bool (*)(void *, void *)) should_overwrite_per_dir_entry);
+	return addv;
 }
 
 
@@ -595,7 +589,7 @@ CONST_PREFIX char *php_apache_value_handler_ex(cmd_parms *cmd, HashTable *conf, 
 	if (!apache_php_initialized) {
 		apache_php_initialized = 1;
 #ifdef ZTS
-		tsrm_startup(1, 1, 0);
+		tsrm_startup(1, 1, 0, NULL);
 #endif
 		sapi_startup(&sapi_module_conf);
 		php_apache_startup(&sapi_module_conf);
@@ -714,7 +708,7 @@ void php_init_handler(server_rec *s, pool *p)
 	if (!apache_php_initialized) {
 		apache_php_initialized = 1;
 #ifdef ZTS
-		tsrm_startup(1, 1, 0);
+		tsrm_startup(1, 1, 0, NULL);
 #endif
 		sapi_startup(&sapi_module_conf);
 		php_apache_startup(&sapi_module_conf);

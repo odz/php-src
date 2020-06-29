@@ -15,7 +15,7 @@
    | Authors: Rasmus Lerdorf <rasmus@php.net>                             |
    +----------------------------------------------------------------------+
  */
-/* $Id: rfc1867.c,v 1.51 2000/09/11 18:56:47 andi Exp $ */
+/* $Id: rfc1867.c,v 1.54.2.1 2000/12/08 16:21:47 sas Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -24,6 +24,7 @@
 #include "php_globals.h"
 #include "php_variables.h"
 #include "rfc1867.h"
+#include "ext/standard/type.h"
 
 
 #define NEW_BOUNDARY_CHECK 1
@@ -181,7 +182,7 @@ static void php_mime_split(char *buf, int cnt, char *boundary, zval *array_ptr S
 					if (lbuf) {
 						efree(lbuf);
 					}
-					lbuf = emalloc(s-name + MAX_SIZE_OF_INDEX);
+					lbuf = emalloc(s-name + MAX_SIZE_OF_INDEX + 1);
 					state = 2;
 					loc2 = memchr(loc + 1, '\n', rem);
 					rem -= (loc2 - ptr) + 1;
@@ -371,7 +372,10 @@ static void php_mime_split(char *buf, int cnt, char *boundary, zval *array_ptr S
 				fclose(fp);
 				add_protected_variable(namebuf PLS_CC);
 				if (!upload_successful) {
-					efree(temp_filename);
+					if(temp_filename) {
+						unlink(temp_filename);
+						efree(temp_filename);
+					}
 					temp_filename = "none";
 				} else {
 					zend_hash_add(SG(rfc1867_uploaded_files), temp_filename, strlen(temp_filename)+1, &temp_filename, sizeof(char *), NULL);
@@ -441,6 +445,12 @@ SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 	}
 	boundary++;
 	boundary_len = strlen(boundary);
+
+	if (boundary[0] == '"' && boundary[boundary_len-1] == '"') {
+		boundary++;
+		boundary_len -= 2;
+		boundary[boundary_len] = '\0';
+	}
 
 	if (SG(request_info).post_data) {
 		php_mime_split(SG(request_info).post_data, SG(request_info).post_data_length, boundary, array_ptr SLS_CC PLS_CC);

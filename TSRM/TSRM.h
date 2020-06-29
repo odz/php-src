@@ -14,11 +14,7 @@
 #define TSRM_H
 
 #ifdef HAVE_CONFIG_H
-# undef PACKAGE
-# undef VERSION
 # include "tsrm_config.h"
-# undef PACKAGE
-# undef VERSION
 #endif
 
 /* Only compile multi-threading functions if we're in ZTS mode */
@@ -77,7 +73,7 @@ extern "C" {
 #endif
 
 /* startup/shutdown */
-TSRM_API int tsrm_startup(int expected_threads, int expected_resources, int debug_status);
+TSRM_API int tsrm_startup(int expected_threads, int expected_resources, int debug_level, char *debug_filename);
 TSRM_API void tsrm_shutdown(void);
 
 /* allocates a new thread-safe-resource id */
@@ -95,7 +91,11 @@ TSRM_API void ts_free_id(ts_rsrc_id id);
 
 
 /* Debug support */
-TSRM_API void tsrm_debug_set(int status);
+#define TSRM_ERROR_LEVEL_ERROR	1
+#define TSRM_ERROR_LEVEL_CORE	2
+#define TSRM_ERROR_LEVEL_INFO	3
+TSRM_API int tsrm_error(int level, const char *format, ...);
+TSRM_API void tsrm_error_set(int level, char *debug_filename);
 
 /* utility functions */
 TSRM_API THREAD_T tsrm_thread_id(void);

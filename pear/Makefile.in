@@ -11,9 +11,12 @@ peardir=$(PEAR_INSTALLDIR)
 
 PEAR_SUBDIRS = \
 	Benchmark \
+	Crypt \
+	Date \
 	DB \
 	File \
 	HTML \
+	Mail \
 	Net \
 	Payment \
 	PEAR \
@@ -22,6 +25,8 @@ PEAR_SUBDIRS = \
 PEAR_FILES = \
 	Benchmark/Iterate.php \
 	Benchmark/Timer.php \
+	Crypt/HCEMD5.php \
+	Date/Calc.php \
 	DB.php \
 	DB/common.php \
 	DB/ibase.php \
@@ -37,6 +42,10 @@ PEAR_FILES = \
 	File/SearchReplace.php \
 	HTML/Form.php \
 	HTTP.php \
+	Mail.php \
+	Mail/sendmail.php \
+	Mail/smtp.php \
+	Net/SMTP.php \
 	Net/Socket.php \
 	PEAR/Installer.php \
 	Payment/Verisign.php \
@@ -52,8 +61,7 @@ install-data-local: PEAR.php
 			(set -x;$(INSTALL_DATA) $(srcdir)/$$i $(peardir)/$$dir); \
 		done; \
 		for i in PEAR.php; do \
-			dir=`echo $$i|sed 's%[^/][^/]*$$%%'`; \
-			(set -x;$(INSTALL_DATA) $(builddir)/$$i $(peardir)/$$dir); \
+			(set -x;$(INSTALL_DATA) $$i $(peardir)); \
 		done; \
 	else \
 		cat $(srcdir)/install-pear.txt; \

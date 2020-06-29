@@ -16,12 +16,12 @@
    |          Stefan Röhrich <sr@linux.de>                                |
    +----------------------------------------------------------------------+
  */
-/* $Id: zlib.c,v 1.53 2000/07/13 18:27:10 eschmid Exp $ */
+/* $Id: zlib.c,v 1.68 2000/11/21 00:40:12 hholzgra Exp $ */
 #define IS_EXT_MODULE
 
 #include "php.h"
+#include "SAPI.h"
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -49,12 +49,10 @@
 #include <pwd.h>
 #endif
 #endif
-#if HAVE_ZLIB
 #if defined(HAVE_UNISTD_H) && defined(PHP_WIN32)
 #undef HAVE_UNISTD_H
 #endif
 
-#include <zlib.h>
 
 #ifdef COMPILE_DL_ZLIB
 #ifndef PUTS
@@ -74,9 +72,14 @@ int zlib_globals_id;
 static php_zlib_globals zlib_globals;
 #endif
 
+#define OS_CODE			0x03 /* FIXME */
+#define CODING_GZIP		1
+#define CODING_DEFLATE	2
 
 /* True globals, no need for thread safety */
 static int le_zp;
+static int gz_magic[2] = {0x1f, 0x8b};	/* gzip magic header */
+
 
 function_entry php_zlib_functions[] = {
 	PHP_FE(readgzfile,					NULL)
@@ -96,6 +99,10 @@ function_entry php_zlib_functions[] = {
 	PHP_FE(gzfile,						NULL)
 	PHP_FE(gzcompress,                  NULL)
 	PHP_FE(gzuncompress,                NULL)
+	PHP_FE(gzdeflate,                   NULL)
+	PHP_FE(gzinflate,                   NULL)
+	PHP_FE(gzencode,					NULL)
+	PHP_FE(ob_gzhandler,				NULL)
 	{NULL, NULL, NULL}
 };
 
@@ -114,7 +121,9 @@ zend_module_entry php_zlib_module_entry = {
 ZEND_GET_MODULE(php_zlib)
 #endif
 
-static void phpi_destructor_gzclose(gzFile *zp) {
+static void phpi_destructor_gzclose(zend_rsrc_list_entry *rsrc)
+{
+	gzFile *zp = (gzFile *)rsrc->ptr;
 	(void)gzclose(zp);
 }
 
@@ -127,17 +136,38 @@ static void php_zlib_init_globals(ZLIBLS_D)
 
 PHP_MINIT_FUNCTION(zlib)
 {
+	PLS_FETCH();
+
 #ifdef ZTS
         zlib_globals_id = ts_allocate_id(sizeof(php_zlib_globals), (ts_allocate_ctor) php_zlib_init_globals, NULL);
 #else
         ZLIBG(gzgetss_state)=0;
 #endif
-	le_zp = register_list_destructors(phpi_destructor_gzclose,NULL);
+	le_zp = zend_register_list_destructors_ex(phpi_destructor_gzclose, NULL, "zlib", module_number);
+
+#if HAVE_FOPENCOOKIE
+
+	if(PG(allow_url_fopen)) {
+		php_register_url_wrapper("zlib",zlib_fopen_wrapper);
+	}
+#endif
+
+	REGISTER_LONG_CONSTANT("FORCE_GZIP", CODING_GZIP, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("FORCE_DEFLATE", CODING_DEFLATE, CONST_CS | CONST_PERSISTENT);
+
 	return SUCCESS;
 }
 
 PHP_MSHUTDOWN_FUNCTION(zlib)
 {
+#if HAVE_FOPENCOOKIE
+	PLS_FETCH();
+
+	if(PG(allow_url_fopen)) {
+	    php_unregister_url_wrapper("zlib"); 
+    }
+#endif
+	
 	return SUCCESS;
 }
 
@@ -145,6 +175,9 @@ PHP_MINFO_FUNCTION(zlib)
 {
 	php_info_print_table_start();
 	php_info_print_table_row(2, "ZLib Support", "enabled");
+#if HAVE_FOPENCOOKIE
+	php_info_print_table_row(2, "'zlib:' fopen wrapper", "enabled");
+#endif
 	php_info_print_table_row(2, "Compiled Version", ZLIB_VERSION );
 	php_info_print_table_row(2, "Linked Version", (char *)zlibVersion() );
 	php_info_print_table_end();
@@ -165,7 +198,8 @@ static gzFile php_gzopen_wrapper(char *path, char *mode, int options)
 
 /* {{{ proto array gzfile(string filename [, int use_include_path])
    Read und uncompress entire .gz-file into an array */
-PHP_FUNCTION(gzfile) {
+PHP_FUNCTION(gzfile)
+{
 	pval **filename, **arg2;
 	gzFile zp;
 	char *slashed, buf[8192];
@@ -221,7 +255,8 @@ PHP_FUNCTION(gzfile) {
 
 /* {{{ proto int gzopen(string filename, string mode [, int use_include_path])
    Open a .gz-file and return a .gz-file pointer */
-PHP_FUNCTION(gzopen) {
+PHP_FUNCTION(gzopen)
+{
 	pval **arg1, **arg2, **arg3;
 	gzFile *zp;
 	char *p;
@@ -267,7 +302,8 @@ PHP_FUNCTION(gzopen) {
 
 /* {{{ proto int gzclose(int zp)
    Close an open .gz-file pointer */
-PHP_FUNCTION(gzclose) {
+PHP_FUNCTION(gzclose)
+{
 	pval **arg1;
 	gzFile *zp;
 
@@ -282,7 +318,8 @@ PHP_FUNCTION(gzclose) {
 
 /* {{{ proto int gzeof(int zp)
    Test for end-of-file on a .gz-file pointer */
-PHP_FUNCTION(gzeof) {
+PHP_FUNCTION(gzeof)
+{
 	pval **arg1;
 	gzFile *zp;
 	
@@ -301,7 +338,8 @@ PHP_FUNCTION(gzeof) {
 
 /* {{{ proto string gzgets(int zp, int length)
    Get a line from .gz-file pointer */
-PHP_FUNCTION(gzgets) {
+PHP_FUNCTION(gzgets)
+{
 	pval **arg1, **arg2;
 	gzFile *zp;
 	int len;
@@ -337,7 +375,8 @@ PHP_FUNCTION(gzgets) {
 
 /* {{{ proto string gzgetc(int zp)
    Get a character from .gz-file pointer */
-PHP_FUNCTION(gzgetc) {
+PHP_FUNCTION(gzgetc)
+{
 	pval **arg1;
 	gzFile *zp;
 	int c;
@@ -420,7 +459,8 @@ PHP_FUNCTION(gzgetss)
 
 /* {{{ proto int gzwrite(int zp, string str [, int length])
    Binary-safe .gz-file write */
-PHP_FUNCTION(gzwrite) {
+PHP_FUNCTION(gzwrite)
+{
 	pval **arg1, **arg2, **arg3=NULL;
 	gzFile *zp;
 	int ret;
@@ -466,7 +506,8 @@ PHP_FUNCTION(gzwrite) {
 
 /* {{{ proto int gzrewind(int zp)
    Rewind the position of a .gz-file pointer */
-PHP_FUNCTION(gzrewind) {
+PHP_FUNCTION(gzrewind)
+{
 	pval **arg1;
 	gzFile *zp;
 	
@@ -483,7 +524,8 @@ PHP_FUNCTION(gzrewind) {
 
 /* {{{ proto int gztell(int zp)
    Get .gz-file pointer's read/write position */
-PHP_FUNCTION(gztell) {
+PHP_FUNCTION(gztell)
+{
 	pval **arg1;
 	long pos;
 	gzFile *zp;
@@ -501,7 +543,8 @@ PHP_FUNCTION(gztell) {
 
 /* {{{ proto int gzseek(int zp, int offset)
    Seek on a file pointer */
-PHP_FUNCTION(gzseek) {
+PHP_FUNCTION(gzseek)
+{
 	pval **arg1, **arg2;
 	int ret;
 	gzFile *zp;
@@ -523,7 +566,8 @@ PHP_FUNCTION(gzseek) {
  */
 /* {{{ proto int readgzfile(string filename [, int use_include_path])
    Output a .gz-file */
-PHP_FUNCTION(readgzfile) {
+PHP_FUNCTION(readgzfile)
+{
 	pval **arg1, **arg2;
 	char buf[8192];
 	gzFile *zp;
@@ -574,7 +618,8 @@ PHP_FUNCTION(readgzfile) {
  */
 /* {{{ proto int gzpassthru(int zp)
    Output all remaining data from a .gz-file pointer */
-PHP_FUNCTION(gzpassthru) {
+PHP_FUNCTION(gzpassthru)
+{
 	pval **arg1;
 	gzFile *zp;
 	char buf[8192];
@@ -735,9 +780,355 @@ PHP_FUNCTION(gzuncompress)
 }
 /* }}} */
 
+/* {{{ proto string gzdeflate(string data [, int level]) 
+   Gzip-compress a string */
+PHP_FUNCTION(gzdeflate)
+{
+	zval **data, **zlimit = NULL;
+	int level,status;
+	z_stream stream;
+	char *s2;
+
+	switch (ZEND_NUM_ARGS()) {
+	case 1:
+		if (zend_get_parameters_ex(1, &data) == FAILURE)
+			WRONG_PARAM_COUNT;
+		level=Z_DEFAULT_COMPRESSION;
+		break;
+	case 2:
+		if (zend_get_parameters_ex(2, &data, &zlimit) == FAILURE)
+			WRONG_PARAM_COUNT;
+		convert_to_long_ex(zlimit);
+		level = (*zlimit)->value.lval;
+		if((level<0)||(level>9)) {
+			php_error(E_WARNING,"gzdeflate: compression level must be whithin 0..9");
+			RETURN_FALSE;
+		}
+		break;
+	default:
+		WRONG_PARAM_COUNT;                                         
+	}
+	convert_to_string_ex(data);
+
+	stream.data_type = Z_ASCII;
+	stream.zalloc = (alloc_func) Z_NULL;
+	stream.zfree  = (free_func) Z_NULL;
+	stream.opaque = (voidpf) Z_NULL;
+
+	stream.next_in = (Bytef*) (*data)->value.str.val;
+	stream.avail_in = (*data)->value.str.len;
+
+	stream.avail_out = stream.avail_in + (stream.avail_in/1000) + 15;
+	s2 = (char *) emalloc(stream.avail_out);
+	if(!s2) RETURN_FALSE;
+	stream.next_out = s2;
+
+    /* init with -MAX_WBITS disables the zlib internal headers */
+	status = deflateInit2(&stream, level, Z_DEFLATED, -MAX_WBITS, MAX_MEM_LEVEL, 0);
+	if (status == Z_OK) {
+
+		status = deflate(&stream, Z_FINISH);
+		if (status != Z_STREAM_END) {
+			deflateEnd(&stream);
+			if (status == Z_OK) {
+				status = Z_BUF_ERROR;
+			}
+		} else {
+			status = deflateEnd(&stream);
+		}
+	}
+
+	if(status==Z_OK) {
+		RETURN_STRINGL(s2, stream.total_out, 0);
+	} else {
+		efree(s2);
+		php_error(E_WARNING,"gzdeflate: %s",zError(status));
+		RETURN_FALSE;
+	}
+}
+/* }}} */
+
+/* {{{ proto string gzinflate(string data, int length) 
+   Unzip a gzip-compressed string */
+PHP_FUNCTION(gzinflate)
+{
+	zval **data, **zlimit = NULL;
+	int status,factor=1,maxfactor=8;
+	unsigned long plength=0,length;
+	char *s1=NULL,*s2=NULL;
+	z_stream stream;
+
+	switch (ZEND_NUM_ARGS()) {
+	case 1:
+		if (zend_get_parameters_ex(1, &data) == FAILURE)
+			WRONG_PARAM_COUNT;
+		length=0;
+		break;
+	case 2:
+		if (zend_get_parameters_ex(2, &data, &zlimit) == FAILURE)
+			WRONG_PARAM_COUNT;
+		convert_to_long_ex(zlimit);
+		if((*zlimit)->value.lval<=0) {
+			php_error(E_WARNING,"gzinflate: length must be greater zero");
+			RETURN_FALSE;
+		}
+		plength = (*zlimit)->value.lval;
+		break;
+	default:
+		WRONG_PARAM_COUNT;                                         
+	}
+	convert_to_string_ex(data);
+
+	/*
+	  stream.avail_out wants to know the output data length
+	  if none was given as a parameter
+	  we try from input length * 2 up to input length * 2^8
+	  doubling it whenever it wasn't big enough
+	  that should be enaugh for all real life cases	
+	*/
+	stream.zalloc = (alloc_func) Z_NULL;
+	stream.zfree = (free_func) Z_NULL;
+
+	do {
+		length=plength?plength:(*data)->value.str.len*(1<<factor++);
+		s2 = (char *) erealloc(s1,length);
+		if(! s2) { if(s1) efree(s1); RETURN_FALSE; }
+
+		stream.next_in = (Bytef*) (*data)->value.str.val;
+		stream.avail_in = (uInt) (*data)->value.str.len;
+
+		stream.next_out = s2;
+		stream.avail_out = (uInt) length;
+
+		/* init with -MAX_WBITS disables the zlib internal headers */
+		status = inflateInit2(&stream, -MAX_WBITS);
+		if (status == Z_OK) {
+			status = inflate(&stream, Z_FINISH);
+			if (status != Z_STREAM_END) {
+				inflateEnd(&stream);
+				if (status == Z_OK) {
+					status = Z_BUF_ERROR;
+				}
+			} else {
+				status = inflateEnd(&stream);
+			}
+		}
+		s1=s2;
+		
+	} while((status==Z_BUF_ERROR)&&(!plength)&&(factor<maxfactor));
+
+	if(status==Z_OK) {
+		s2 = erealloc(s2, stream.total_out);
+		RETURN_STRINGL(s2, stream.total_out, 0);
+	} else {
+		efree(s2);
+		php_error(E_WARNING,"gzinflate: %s",zError(status));
+		RETURN_FALSE;
+	}
+}
+/* }}} */
 
 
-#endif /* HAVE_ZLIB */
+
+static int php_do_deflate(uint str_length, Bytef **p_buffer, uint *p_buf_used ZLIBLS_DC)
+{
+	Bytef *buffer;
+	uInt prev_outlen, outlen;
+	int err;
+
+	outlen = sizeof(char) * (str_length * 1.001 + 12);
+	buffer = (Bytef *) emalloc(outlen+10+8); /* 10+8 for the header and trailer */
+	
+	ZLIBG(stream).next_out = buffer+10;
+	ZLIBG(stream).avail_out = outlen;
+
+	err = deflate(&ZLIBG(stream), Z_NO_FLUSH);
+	while (err == Z_OK && !ZLIBG(stream).avail_out) {
+		prev_outlen = outlen;
+		outlen *= 3;
+		buffer = realloc(buffer, outlen+10+8);
+		
+		ZLIBG(stream).next_out = buffer+10 + prev_outlen;
+		ZLIBG(stream).avail_out = prev_outlen * 2;
+
+		err = deflate(&ZLIBG(stream), Z_NO_FLUSH);
+	}
+
+	err = deflate(&ZLIBG(stream), Z_FINISH);
+
+	*p_buffer = buffer;
+	*p_buf_used = outlen - ZLIBG(stream).avail_out;
+	return err;
+}
+
+
+int php_deflate_string(const char *str, uint str_length, char **newstr, uint *new_length, int coding)
+{
+	Bytef *buffer;
+	uInt buf_used;
+	int err;
+	Bytef header_buffer[11];
+	Bytef trailer_buffer[9];
+	ZLIBLS_FETCH();
+
+	ZLIBG(compression_coding) = coding;
+
+	ZLIBG(stream).zalloc = Z_NULL;
+	ZLIBG(stream).zfree = Z_NULL;
+	ZLIBG(stream).opaque = Z_NULL;
+
+	switch (coding) {
+		case CODING_GZIP:
+			/* windowBits is passed < 0 to suppress zlib header & trailer */
+			if (deflateInit2(&ZLIBG(stream), Z_DEFAULT_COMPRESSION, Z_DEFLATED,
+					-MAX_WBITS, MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY)
+						!= Z_OK) {
+				/* TODO: print out error */
+				return FAILURE;
+			}
+		
+			/* Write a very simple .gz header: */
+			sprintf(header_buffer, "%c%c%c%c%c%c%c%c%c%c", gz_magic[0],
+						gz_magic[1], Z_DEFLATED, 0 /*flags*/,
+						0,0,0,0 /*time*/, 0 /*xflags*/, OS_CODE);
+			ZLIBG(crc) = crc32(0L, Z_NULL, 0);
+			break;
+		case CODING_DEFLATE:
+			if (deflateInit(&ZLIBG(stream), Z_DEFAULT_COMPRESSION) != Z_OK) {
+				/* TODO: print out error */
+				return FAILURE;
+			}
+			break;		
+	}
+
+
+	ZLIBG(stream).next_in = (Bytef*) str;
+	ZLIBG(stream).avail_in = (uInt) str_length;
+	
+	if (ZLIBG(compression_coding) == 1) {
+		ZLIBG(crc) = crc32(ZLIBG(crc), (const Bytef *)str, str_length);
+	}
+
+	err = php_do_deflate(str_length, &buffer, &buf_used ZLIBLS_CC);
+	/* TODO: error handling (err may be Z_STREAM_ERROR, Z_BUF_ERROR, ?) */
+
+
+	if (ZLIBG(compression_coding) == 1) {
+		/* write crc & stream.total_in in LSB order */
+		sprintf(trailer_buffer, "%c%c%c%c%c%c%c%c",
+					(char) ZLIBG(crc) & 0xFF,
+					(char) (ZLIBG(crc) >> 8) & 0xFF,
+					(char) (ZLIBG(crc) >> 16) & 0xFF,
+					(char) (ZLIBG(crc) >> 24) & 0xFF,
+					(char) ZLIBG(stream).total_in & 0xFF,
+					(char) (ZLIBG(stream).total_in >> 8) & 0xFF,
+					(char) (ZLIBG(stream).total_in >> 16) & 0xFF,
+					(char) (ZLIBG(stream).total_in >> 24) & 0xFF);
+	}
+	
+
+	memcpy(buffer, header_buffer, 10);
+	memcpy(buffer+10+buf_used, trailer_buffer, 8);
+
+	*new_length = buf_used + 10 + 8;
+	*newstr = buffer;
+
+	return SUCCESS;
+}
+
+
+PHP_FUNCTION(gzencode)
+{
+	zval **zv_coding, **zv_string;
+	int coding;
+
+	switch(ZEND_NUM_ARGS()) {
+		case CODING_GZIP:
+			if (zend_get_parameters_ex(1, &zv_string)==FAILURE) {
+				RETURN_FALSE;
+			}
+			convert_to_string_ex(zv_string);
+			coding = 1;
+			break;
+		case CODING_DEFLATE:
+			if (zend_get_parameters_ex(2, &zv_string, &zv_coding)==FAILURE) {
+				RETURN_FALSE;
+			}
+			convert_to_string_ex(zv_string);
+			convert_to_long_ex(zv_coding);
+			coding = Z_LVAL_PP(zv_coding);
+			break;
+		default:
+			ZEND_WRONG_PARAM_COUNT();
+			break;
+	}
+	if (php_deflate_string(Z_STRVAL_PP(zv_string), Z_STRLEN_PP(zv_string), &Z_STRVAL_P(return_value), &Z_STRLEN_P(return_value), coding)==SUCCESS) {
+		Z_TYPE_P(return_value) = IS_STRING;
+	} else {
+		RETURN_FALSE;
+	}
+}
+
+
+PHP_FUNCTION(ob_gzhandler)
+{
+	int coding;
+	zval **zv_string;
+	zval **data, **a_encoding;
+	zend_bool return_original=0;
+
+	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &zv_string)==FAILURE) {
+		ZEND_WRONG_PARAM_COUNT();
+	}
+
+	if (zend_hash_find(&EG(symbol_table), "HTTP_SERVER_VARS", sizeof("HTTP_SERVER_VARS"), (void **) &data)==FAILURE
+		|| Z_TYPE_PP(data)!=IS_ARRAY
+		|| zend_hash_find(Z_ARRVAL_PP(data), "HTTP_ACCEPT_ENCODING", sizeof("HTTP_ACCEPT_ENCODING"), (void **) &a_encoding)==FAILURE) {
+		/* return the original string */
+		*return_value = **zv_string;
+		zval_copy_ctor(return_value);
+		return;
+	}
+	convert_to_string_ex(a_encoding);
+	if (php_memnstr(Z_STRVAL_PP(a_encoding), "gzip", 4, Z_STRVAL_PP(a_encoding) + Z_STRLEN_PP(a_encoding))) {
+		coding = CODING_GZIP;
+	} else if(php_memnstr(Z_STRVAL_PP(a_encoding), "deflate", 7, Z_STRVAL_PP(a_encoding) + Z_STRLEN_PP(a_encoding))) {
+		coding = CODING_DEFLATE;
+	} else {
+		RETURN_FALSE;
+	}
+	if (php_deflate_string(Z_STRVAL_PP(zv_string), Z_STRLEN_PP(zv_string), &Z_STRVAL_P(return_value), &Z_STRLEN_P(return_value), coding)==SUCCESS) {
+		Z_TYPE_P(return_value) = IS_STRING;
+		switch (coding) {
+			case CODING_GZIP:
+				if (sapi_add_header("Content-Encoding: gzip", sizeof("Content-Encoding: gzip") - 1, 1)==FAILURE) {
+					return_original = 1;
+				}
+				break;
+			case CODING_DEFLATE:
+				if (sapi_add_header("Content-Encoding: deflate", sizeof("Content-Encoding: deflate") - 1, 1)==FAILURE) {
+					return_original = 1;
+				}
+				break;
+			default:
+				return_original = 1;
+				break;
+		}
+		if (return_original) {
+			zval_dtor(return_value);
+		}
+	} else {
+		return_original = 1;
+	}
+
+	if (return_original) {
+		/* return the original string */
+		*return_value = **zv_string;
+		zval_copy_ctor(return_value);
+	}
+}
+
+
 /*
  * Local variables:
  * tab-width: 4

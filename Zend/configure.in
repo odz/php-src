@@ -1,8 +1,8 @@
-dnl $Id: configure.in,v 1.30 1999/12/19 21:01:44 zeev Exp $
+dnl $Id: configure.in,v 1.31 2000/12/02 13:26:41 sascha Exp $
 dnl Process this file with autoconf to produce a configure script.
 
 AC_INIT(zend.c)
-AM_INIT_AUTOMAKE(zend, 0.80A)
+AM_INIT_AUTOMAKE(zend, 0.80A, nodefine)
 AM_CONFIG_HEADER(zend_config.h)
 AM_SANITY_CHECK
 AM_MAINTAINER_MODE

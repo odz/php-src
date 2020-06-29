@@ -25,7 +25,7 @@
    | PHP 4.0 updates:  Zeev Suraski <zeev@zend.com>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_imap.c,v 1.45 2000/09/09 20:26:15 chagenbu Exp $ */
+/* $Id: php_imap.c,v 1.50 2000/10/25 17:43:52 andrei Exp $ */
 
 #define IMAP41
 
@@ -71,11 +71,11 @@ void *fs_get(size_t size);
 int imap_mail(char *to, char *subject, char *message, char *headers, char *cc, char *bcc, char *rpath);
 
 
-void mail_close_it(pils *imap_le_struct);
+void mail_close_it(zend_rsrc_list_entry *rsrc);
 #ifdef OP_RELOGIN
 /* AJS: close persistent connection */
-void mail_userlogout_it(pils *imap_le_struct);
-void mail_nuke_chain(pils **headp);
+void mail_userlogout_it(zend_rsrc_list_entry *rsrc);
+void mail_nuke_chain(zend_rsrc_list_entry *rsrc);
 #endif
  
 function_entry imap_functions[] = {
@@ -180,16 +180,18 @@ extern char imsp_password[80];
 #endif
 
 
-void mail_close_it(pils *imap_le_struct)
+void mail_close_it(zend_rsrc_list_entry *rsrc)
 {
+	pils *imap_le_struct = (pils *)rsrc->ptr;
 	mail_close_full(imap_le_struct->imap_stream, imap_le_struct->flags);
 	efree(imap_le_struct);
 }
 
 #ifdef OP_RELOGIN
 /* AJS: stream close functions for persistent connections */
-void mail_userlogout_it(pils *imap_le_struct)
+void mail_userlogout_it(zend_rsrc_list_entry *rsrc)
 {
+	pils *imap_le_struct = (pils *)rsrc->ptr;
 	/* Close this user's session, putting the stream back
 	 * into AUTHENTICATE state.  (Note that IMAP does not
 	 * support this behavior... yet)
@@ -198,8 +200,9 @@ void mail_userlogout_it(pils *imap_le_struct)
 	mail_close_full(imap_le_struct->imap_stream, imap_le_struct->flags | CL_HALF);
 }
 
-void mail_nuke_chain(pils **headp)
+void mail_nuke_chain(zend_rsrc_list_entry *rsrc)
 {
+	pils **headp = (pils **)rsrc->ptr;
 	pils		*node, *next;
 
 	for (node = *headp; node; node = next) {
@@ -368,8 +371,8 @@ PHP_MINFO_FUNCTION(imap)
 
 static void php_imap_init_globals(zend_imap_globals *imap_globals)
 {
-	imap_globals->imap_user[0] = 0;
-	imap_globals->imap_password[0] = 0;
+	imap_globals->imap_user=NIL;
+	imap_globals->imap_password=NIL;
 	imap_globals->imap_folders=NIL;
 	imap_globals->imap_sfolders=NIL;
 	imap_globals->imap_alertstack=NIL;
@@ -589,21 +592,18 @@ PHP_MINIT_FUNCTION(imap)
 	ENCOTHER                unknown
 	*/
 
-    le_imap = register_list_destructors(mail_close_it,NULL);
+    le_imap = zend_register_list_destructors_ex(mail_close_it, NULL, "imap", module_number);
 #ifdef OP_RELOGIN
     /* AJS: destructors for persistent connections */
-    le_pimap = register_list_destructors(mail_userlogout_it, NULL);
-    le_pimapchain = register_list_destructors(NULL, mail_nuke_chain);
+    le_pimap = zend_register_list_destructors_ex(mail_userlogout_it, NULL, "imap persistent", module_number);
+    le_pimapchain = zend_register_list_destructors_ex(NULL, mail_nuke_chain, "imap chain persistent", module_number);
 #endif
 	return SUCCESS;
 }
 
 void imap_do_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 {
-	zval **mailbox;
-	zval **user;
-	zval **passwd;
-	zval **options;
+	zval **mailbox, **user, **passwd, **options;
 	MAILSTREAM *imap_stream;
 	pils *imap_le_struct;
 	long flags=NIL;
@@ -632,9 +632,10 @@ void imap_do_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			flags ^= PHP_EXPUNGE;
 		}
 	}
-	strcpy(IMAPG(imap_user), Z_STRVAL_PP(user));
-	strcpy(IMAPG(imap_password), Z_STRVAL_PP(passwd));
 
+	IMAPG(imap_user)     = estrndup(Z_STRVAL_PP(user), Z_STRLEN_PP(user));
+	IMAPG(imap_password) = estrndup(Z_STRVAL_PP(passwd), Z_STRLEN_PP(passwd));
+	
 #ifdef OP_RELOGIN
 	/* AJS: persistent connection handling */
 	/* Cannot use a persistent connection if we cannot parse
@@ -765,6 +766,9 @@ void imap_do_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 	} else {
 #endif
 		imap_stream = mail_open(NIL, Z_STRVAL_PP(mailbox), flags);
+		efree(IMAPG(imap_user));
+		efree(IMAPG(imap_password));
+
 		if (imap_stream == NIL) {
 			php_error(E_WARNING, "Couldn't open stream %s\n", (*mailbox)->value.str.val);
 			RETURN_FALSE;
@@ -1885,7 +1889,7 @@ PHP_FUNCTION(imap_unsubscribe)
 PHP_FUNCTION(imap_fetchstructure)
 {
 	zval **streamind, **msgno, **flags;
-	int ind, ind_type;
+	int ind, ind_type, msgindex;
 	pils *imap_le_struct;
 	BODY *body;
 	int myargc=ZEND_NUM_ARGS();
@@ -1903,16 +1907,29 @@ PHP_FUNCTION(imap_fetchstructure)
 		convert_to_long_ex(flags);
 	}
 	object_init(return_value);
-
+    
 	ind = Z_LVAL_PP(streamind);
-
+    
 	imap_le_struct = (pils *) zend_list_find(ind, &ind_type);
-
+    
 	if (!imap_le_struct || !IS_STREAM(ind_type)) {
 		php_error(E_WARNING, "Unable to find stream pointer");
 		RETURN_FALSE;
 	}
-	
+    
+	if ((myargc == 3) && (Z_LVAL_PP(flags) & FT_UID)) {
+		/*  This should be cached; if it causes an extra RTT to the
+			IMAP server, then that's the price we pay for making sure
+			we don't crash. */
+		msgindex = mail_msgno(imap_le_struct->imap_stream, Z_LVAL_PP(msgno));
+	} else {
+		msgindex = Z_LVAL_PP(msgno);
+	}
+	if ((msgindex < 1) || ((unsigned) msgindex > imap_le_struct->imap_stream->nmsgs)) {
+		php_error(E_WARNING, "Bad message number");
+		RETURN_FALSE;
+	}
+    
 	mail_fetchstructure_full(imap_le_struct->imap_stream, Z_LVAL_PP(msgno), &body ,myargc == 3 ? Z_LVAL_PP(flags) : NIL);
 	
 	if (!body) {
@@ -2565,30 +2582,38 @@ PHP_FUNCTION(imap_clearflag_full)
 /* }}} */
 
 
-/* {{{ proto array imap_sort(int stream_id, int criteria, int reverse [, int options])
-   Sort an array of message headers */
+/* {{{ proto array imap_sort(int stream_id, int criteria, int reverse [, int options [, string search_criteria]])
+   Sort an array of message headers, optionally including only messages that meet specified criteria. */
 PHP_FUNCTION(imap_sort)
 {
-	zval **streamind, **pgm, **rev, **flags;
+	zval **streamind, **pgm, **rev, **flags, **criteria;
 	int ind, ind_type;
 	unsigned long *slst, *sl;
+	char *search_criteria;
 	SORTPGM *mypgm=NIL;
 	SEARCHPGM *spg=NIL;
 	pils *imap_le_struct;
-	int myargc=ZEND_NUM_ARGS();
-
-	if (myargc < 3 || myargc > 4 || zend_get_parameters_ex(myargc, &streamind, &pgm, &rev, &flags) ==FAILURE) {
+	int myargc = ZEND_NUM_ARGS();
+	
+	if (myargc < 3 || myargc > 5 || zend_get_parameters_ex(myargc, &streamind, &pgm, &rev, &flags, &criteria) ==FAILURE) {
 		ZEND_WRONG_PARAM_COUNT();
 	}
 	convert_to_long_ex(streamind);
 	convert_to_long_ex(rev);
 	convert_to_long_ex(pgm);
-	if (Z_LVAL_PP(pgm)>SORTSIZE) {
+	if (Z_LVAL_PP(pgm) > SORTSIZE) {
 		php_error(E_WARNING, "Unrecognized sort criteria");
 		RETURN_FALSE;
 	}
-	if (myargc==4) {
+	if (myargc >= 4) {
 		convert_to_long_ex(flags);
+	}
+	if (myargc == 5) {
+		search_criteria = estrndup(Z_STRVAL_PP(criteria), Z_STRLEN_PP(criteria));
+		spg = mail_criteria(search_criteria);
+		efree(search_criteria);
+	} else {
+		spg = mail_newsearchpgm();
 	}
 	
 	ind = Z_LVAL_PP(streamind);
@@ -2597,15 +2622,14 @@ PHP_FUNCTION(imap_sort)
 		php_error(E_WARNING, "Unable to find stream pointer");
 		RETURN_FALSE;
 	}
-	spg = mail_newsearchpgm();
 	mypgm = mail_newsortpgm();
 	mypgm->reverse = Z_LVAL_PP(rev);
 	mypgm->function = (short) Z_LVAL_PP(pgm);
 	mypgm->next = NIL;
 	
-	array_init(return_value);
-	slst = mail_sort(imap_le_struct->imap_stream, NIL, spg, mypgm, myargc==4 ? Z_LVAL_PP(flags) : NIL);
+	slst = mail_sort(imap_le_struct->imap_stream, NIL, spg, mypgm, myargc >= 4 ? Z_LVAL_PP(flags) : NIL);
 	
+	array_init(return_value);
 	for (sl = slst; *sl; sl++) { 
 		add_next_index_long(return_value, *sl);
 	}
@@ -4074,19 +4098,19 @@ void mm_login(NETMBX *mb, char *user, char *pwd, long trial)
 #if HAVE_IMSP
 	if (*mb->service && strcmp(mb->service, "imsp") == 0) {
 		if (*mb->user) {
-			strcpy(user, mb->user);
+			strncpy(user, mb->user, MAILTMPLEN);
 		} else {
-			strcpy(user, imsp_user);
+			strncpy(user, imsp_user, MAILTMPLEN);
 		}
-		strcpy (pwd, imsp_password);
+		strncpy (pwd, imsp_password, MAILTMPLEN);
 	} else {
 #endif
 		if (*mb->user) {
-			strcpy (user,mb->user);
+			strncpy (user,mb->user, MAILTMPLEN);
 		} else {
-			strcpy (user, IMAPG(imap_user));
+			strncpy (user, IMAPG(imap_user), MAILTMPLEN);
 		}
-		strcpy (pwd, IMAPG(imap_password));
+		strncpy (pwd, IMAPG(imap_password), MAILTMPLEN);
 #if HAVE_IMSP
 	}
 #endif

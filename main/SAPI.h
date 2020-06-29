@@ -41,6 +41,7 @@
 typedef struct {
 	char *header;
 	uint header_len;
+	zend_bool replace;
 } sapi_header_struct;
 
 
@@ -58,9 +59,14 @@ typedef struct _sapi_module_struct sapi_module_struct;
 
 extern sapi_module_struct sapi_module;  /* true global */
 
+/* Some values in this structure needs to be filled in before
+ * calling sapi_activate(). We WILL change the `char *' entries,
+ * so make sure that you allocate a separate buffer for them
+ * and that you free them after sapi_deactivate().
+ */
 
 typedef struct {
-	char *request_method;
+	const char *request_method;
 	char *query_string;
 	char *post_data;
 	char *cookie_data;
@@ -70,9 +76,10 @@ typedef struct {
 	char *path_translated;
 	char *request_uri;
 
-	char *content_type;
+	const char *content_type;
 
-	unsigned char headers_only;
+	zend_bool headers_only;
+	zend_bool no_headers;
 
 	sapi_post_entry *post_entry;
 
@@ -130,13 +137,19 @@ SAPI_API void sapi_activate(SLS_D);
 SAPI_API void sapi_deactivate(SLS_D);
 SAPI_API void sapi_initialize_empty_request(SLS_D);
 
-SAPI_API int sapi_add_header(char *header_line, uint header_line_len, zend_bool duplicate);
+SAPI_API int sapi_add_header_ex(char *header_line, uint header_line_len, zend_bool duplicate, zend_bool replace);
+#define sapi_add_header(header_line, header_line_len, duplicate) \
+	sapi_add_header_ex((header_line), (header_line_len), (duplicate), 1)
 SAPI_API int sapi_send_headers(void);
 SAPI_API void sapi_free_header(sapi_header_struct *sapi_header);
 SAPI_API void sapi_handle_post(void *arg SLS_DC);
 
 SAPI_API int sapi_register_post_entries(sapi_post_entry *post_entry);
 SAPI_API int sapi_register_post_entry(sapi_post_entry *post_entry);
+SAPI_API int sapi_add_post_entry(char *content_type
+								 , void (*post_reader)(SLS_D)
+								 , void (*post_handler)(char *content_type_dup, void *arg SLS_DC));
+SAPI_API void sapi_remove_post_entry(char *content_type);
 SAPI_API void sapi_unregister_post_entry(sapi_post_entry *post_entry);
 SAPI_API int sapi_register_default_post_reader(void (*default_post_reader)(SLS_D));
 
@@ -203,10 +216,11 @@ struct _sapi_post_entry {
 #define SAPI_DEFAULT_CHARSET		""
 #define SAPI_PHP_VERSION_HEADER		"X-Powered-By: PHP/" PHP_VERSION
 
-#define SAPI_POST_READER_FUNC(post_reader) void post_reader(SLS_D)
-#define SAPI_POST_HANDLER_FUNC(post_handler) void post_handler(char *content_type_dup, void *arg SLS_DC)
+#define SAPI_POST_READER_FUNC(post_reader) SAPI_API void post_reader(SLS_D)
+#define SAPI_POST_HANDLER_FUNC(post_handler) SAPI_API void post_handler(char *content_type_dup, void *arg SLS_DC)
 
 SAPI_POST_READER_FUNC(sapi_read_standard_form_data);
+SAPI_POST_READER_FUNC(php_default_post_reader);
 
 #define STANDARD_SAPI_MODULE_PROPERTIES NULL
 

@@ -28,9 +28,6 @@
 #endif
 
 #include "rfc1867.h"
-#if HAVE_FDFLIB
-#include "fdfdata.h"
-#endif
 
 #ifdef PHP_WIN32
 #define STRCASECMP stricmp
@@ -39,17 +36,6 @@
 #endif
 
 #include "php_content_types.h"
-
-SAPI_POST_READER_FUNC(sapi_read_standard_form_data);
-SAPI_POST_READER_FUNC(php_default_post_reader);
-
-static sapi_post_entry supported_post_entries[] = {
-#if HAVE_FDFLIB
-	{ "application/vnd.fdf",	sizeof("application/vnd.fdf")-1,	php_default_post_reader, fdf_post_handler},
-#endif
-	{ NULL, 0, NULL }
-};
-
 
 static HashTable known_post_content_types;
 
@@ -76,8 +62,6 @@ SAPI_API void sapi_startup(sapi_module_struct *sf)
 {
 	sapi_module = *sf;
 	zend_hash_init_ex(&known_post_content_types, 5, NULL, NULL, 1, 0);
-
-	sapi_register_post_entries(supported_post_entries);
 
 #ifdef ZTS
 	sapi_globals_id = ts_allocate_id(sizeof(sapi_globals_struct), (ts_allocate_ctor) sapi_globals_ctor, NULL);
@@ -252,7 +236,7 @@ SAPI_API void sapi_get_default_content_type_header(sapi_header_struct *default_h
 SAPI_API size_t sapi_apply_default_charset(char **mimetype, size_t len SLS_DC)
 {
 	char *charset, *newtype;
-	int newlen;
+	size_t newlen;
 	charset = SG(default_charset) ? SG(default_charset) : SAPI_DEFAULT_CHARSET;
 
 	if (*charset && strncmp(*mimetype, "text/", 5) == 0 && strstr(*mimetype, "charset=") == NULL) {
@@ -287,6 +271,7 @@ SAPI_API void sapi_activate(SLS_D)
 	SG(request_info).post_data = NULL;
 	SG(request_info).current_user = NULL;
 	SG(request_info).current_user_length = 0;
+	SG(request_info).no_headers = 0;
 
 	/* It's possible to override this general case in the activate() callback, if
 	 * necessary.
@@ -372,14 +357,14 @@ static int sapi_extract_response_code(const char *header_line)
 /* This function expects a *duplicated* string, that was previously emalloc()'d.
  * Pointers sent to this functions will be automatically freed by the framework.
  */
-SAPI_API int sapi_add_header(char *header_line, uint header_line_len, zend_bool duplicate)
+SAPI_API int sapi_add_header_ex(char *header_line, uint header_line_len, zend_bool duplicate, zend_bool replace)
 {
 	int retval, free_header = 0;
 	sapi_header_struct sapi_header;
 	char *colon_offset;
 	SLS_FETCH();
 
-	if (SG(headers_sent)) {
+	if (SG(headers_sent) && !SG(request_info).no_headers) {
 		char *output_start_filename = php_get_output_start_filename();
 		int output_start_lineno = php_get_output_start_lineno();
 
@@ -406,6 +391,7 @@ SAPI_API int sapi_add_header(char *header_line, uint header_line_len, zend_bool 
 
 	sapi_header.header = header_line;
 	sapi_header.header_len = header_line_len;
+	sapi_header.replace = replace;
 
 	/* Check the header for a few cases that we have special support for in SAPI */
 	if (header_line_len>=5 
@@ -440,7 +426,11 @@ SAPI_API int sapi_add_header(char *header_line, uint header_line_len, zend_bool 
 				efree(mimetype);
 				SG(sapi_headers).send_default_content_type = 0;
 			} else if (!STRCASECMP(header_line, "Location")) {
-				SG(sapi_headers).http_response_code = 302; /* redirect */
+			        if (SG(sapi_headers).http_response_code < 300 ||
+				    SG(sapi_headers).http_response_code > 307) {
+				   	/* Return a Found Redirect if one is not already specified */
+					SG(sapi_headers).http_response_code = 302;
+				   }
 			} else if (!STRCASECMP(header_line, "WWW-Authenticate")) { /* HTTP Authentication */
 				SG(sapi_headers).http_response_code = 401; /* authentication-required */
 			}
@@ -472,7 +462,7 @@ SAPI_API int sapi_send_headers()
 	int ret = FAILURE;
 	SLS_FETCH();
 
-	if (SG(headers_sent)) {
+	if (SG(headers_sent) || SG(request_info).no_headers) {
 		return SUCCESS;
 	}
 
@@ -543,12 +533,54 @@ SAPI_API int sapi_register_post_entry(sapi_post_entry *post_entry)
 	return zend_hash_add(&known_post_content_types, post_entry->content_type, post_entry->content_type_len+1, (void *) post_entry, sizeof(sapi_post_entry), NULL);
 }
 
-
 SAPI_API void sapi_unregister_post_entry(sapi_post_entry *post_entry)
 {
 	zend_hash_del(&known_post_content_types, post_entry->content_type, post_entry->content_type_len+1);
 }
 
+SAPI_API int sapi_add_post_entry(char *content_type
+								 , void (*post_reader)(SLS_D)
+								 , void (*post_handler)(char *content_type_dup
+								 , void *arg SLS_DC)) {
+
+	sapi_post_entry *post_entry = (sapi_post_entry *)malloc(sizeof(sapi_post_entry));
+	if(!post_entry) return 0;
+
+	post_entry->content_type     = strdup(content_type);
+	if(post_entry->content_type == NULL) return 0;
+	post_entry->content_type_len = strlen(content_type);
+	post_entry->post_reader      = post_reader;
+	post_entry->post_handler     = post_handler;
+
+	return zend_hash_add(&known_post_content_types
+						 , post_entry->content_type
+						 , post_entry->content_type_len+1
+						 , (void *) post_entry
+						 , sizeof(sapi_post_entry)
+						 , NULL
+						 );
+}
+
+SAPI_API void sapi_remove_post_entry(char *content_type) {
+	sapi_post_entry *post_entry;
+
+	zend_hash_find(&known_post_content_types
+				   ,content_type
+				   ,strlen(content_type)+1
+				   ,(void **)&post_entry
+				   );
+	
+	if(post_entry != NULL) {
+		zend_hash_del(&known_post_content_types
+					  ,content_type
+					  ,strlen(content_type)+1
+					  );
+		free(post_entry->content_type);
+		free(post_entry);
+	} else {
+		php_error(E_WARNING,"unregister post handler failed in fdf");
+	}
+}
 
 SAPI_API int sapi_register_default_post_reader(void (*default_post_reader)(SLS_D))
 {

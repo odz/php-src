@@ -4,7 +4,6 @@
 * 
 */ 
 class PhpdocHTMLRendererManager extends PhpdocObject {
-
 	/**
 	* @var	object PhpdocHTMLIndexRenderer
 	*/
@@ -24,22 +23,23 @@ class PhpdocHTMLRendererManager extends PhpdocObject {
 	* @var	object PhpdocHTMLWarningRenderer
 	*/
 	var $warningrenderer;
-
+    
 	/**
 	* Creates all necessary renderer objects
 	* 
 	* @param	string	Name of the target directory
 	* @param 	string	Name of the directory with the templates.
 	* @param	string	Name of the current application
+	* @param	string	Extension of generated files
 	*/	
-	function PhpdocHTMLRendererManager($target, $template, $application) {
+	function PhpdocHTMLRendererManager($target, $template, $application, $extension = ".html") {
 	
-		$this->indexrenderer = new PhpdocHTMLIndexRenderer($target, $template, $application);
+		$this->indexrenderer = new PhpdocHTMLIndexRenderer($target, $template, $application, $extension);
 		$this->indexrenderer->generate();
 
-		$this->classrenderer 	= new PhpdocHTMLClassRenderer($target, $template, $application);
-		$this->modulerenderer = new PhpdocHTMLModuleRenderer($target, $template, $application);
-		$this->warningrenderer = new PhpdocHTMLWarningRenderer($target, $template, $application);
+		$this->classrenderer 	= new PhpdocHTMLClassRenderer($target, $template, $application, $extension);
+		$this->modulerenderer = new PhpdocHTMLModuleRenderer($target, $template, $application, $extension);
+		$this->warningrenderer = new PhpdocHTMLWarningRenderer($target, $template, $application, $extension);
 		
 	} // end constructor
 	

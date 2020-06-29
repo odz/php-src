@@ -16,7 +16,7 @@
    |          Mitch Golden <mgolden@interport.net>                        |
    |          Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
    |          Andreas Karajannis <Andreas.Karajannis@gmd.de>              |
-   |          Thies C. Arntzen <thies@digicol.de>                         |
+   |          Thies C. Arntzen <thies@thieso.net>                         |
    +----------------------------------------------------------------------+
  */
 
@@ -65,7 +65,7 @@ PHP_ORA_API php_ora_globals ora_globals;
 static oraCursor *ora_get_cursor(HashTable *, pval **);
 static char *ora_error(Cda_Def *);
 static int ora_describe_define(oraCursor *);
-static int _close_oraconn(oraConnection *conn);
+static int _close_oraconn(zend_rsrc_list_entry *rsrc);
 static int _close_oracur(oraCursor *cur);
 static int _ora_ping(oraConnection *conn);
 int ora_set_param_values(oraCursor *cursor, int isout);
@@ -115,7 +115,7 @@ function_entry oracle_functions[] = {
 	PHP_FE(ora_errorcode,							NULL)
 	PHP_FE(ora_exec,								NULL)
 	PHP_FE(ora_fetch,								NULL)
-   	PHP_FE(ora_fetch_into,							NULL)
+   	PHP_FE(ora_fetch_into,							second_arg_force_ref)
 	PHP_FE(ora_columntype,							NULL)
 	PHP_FE(ora_columnname,							NULL)
 	PHP_FE(ora_columnsize,							NULL)
@@ -181,8 +181,9 @@ static const text *ora_func_tab[] =
 ZEND_GET_MODULE(oracle)
 #endif
 
-static int _close_oraconn(oraConnection *conn)
+static int _close_oraconn(zend_rsrc_list_entry *rsrc)
 {
+	oraConnection *conn = (oraConnection *)rsrc->ptr;
 	ORALS_FETCH();
 	
 	conn->open = 0;
@@ -248,6 +249,12 @@ static int _close_oracur(oraCursor *cur)
 	return 1;
 }
 
+static void php_close_ora_cursor(zend_rsrc_list_entry *rsrc)
+{
+	oraCursor *cur = (oraCursor *)rsrc->ptr;
+	_close_oracur(cur);
+}
+
 static void php_ora_init_globals(ORALS_D)
 {
 	if (cfg_get_long("oracle.allow_persistent",
@@ -283,9 +290,9 @@ PHP_MINIT_FUNCTION(oracle)
 	php_ora_init_globals(ORALS_C);
 #endif
 
-	le_cursor = register_list_destructors(_close_oracur, NULL);
-	le_conn = register_list_destructors(_close_oraconn, NULL);
-	le_pconn = register_list_destructors(NULL, _close_oraconn);
+	le_cursor = zend_register_list_destructors_ex(php_close_ora_cursor, NULL, "oracle cursor", module_number);
+	le_conn = zend_register_list_destructors_ex(_close_oraconn, NULL, "oracle link", module_number);
+	le_pconn = zend_register_list_destructors_ex(NULL, _close_oraconn, "oracle link persistent", module_number);
 
 	REGISTER_LONG_CONSTANT("ORA_BIND_INOUT", 0, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("ORA_BIND_IN",    1, CONST_CS | CONST_PERSISTENT);
@@ -1068,11 +1075,6 @@ PHP_FUNCTION(ora_fetch_into)
 	default:
 		WRONG_PARAM_COUNT;
 		break;
-	}
-	
-	if (! ParameterPassedByReference(ht, 2)){
-		php_error(E_WARNING, "Array not passed by reference in call to ora_fetch_into()");
-		RETURN_FALSE;
 	}
 	
 	/* Find the cursor */

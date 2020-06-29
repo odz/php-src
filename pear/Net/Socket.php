@@ -17,7 +17,7 @@
 // |          Chuck Hagenbuch <chuck@horde.org>                           |
 // +----------------------------------------------------------------------+
 //
-// $Id: Socket.php,v 1.3 2000/08/20 16:23:44 chagenbu Exp $
+// $Id: Socket.php,v 1.4 2000/10/11 22:22:19 chagenbu Exp $
 //
 
 require_once 'PEAR.php';
@@ -289,7 +289,7 @@ class Net_Socket extends PEAR {
         if (is_resource($this->fp)) {
             $line = '';
             $timeout = time() + $this->timeout;
-            while (!feof($this->fp) && time() < $timeout) {
+            while (!feof($this->fp) && (!$this->timeout || time() < $timeout)) {
                 $line .= fgets($this->fp, $this->lineLength);
                 $len = strlen($line);
                 if ($len >=2 && substr($line, $len-2, 2) == "\r\n")

@@ -30,6 +30,15 @@ class PhpdocSetupHandler extends PhpdocArgvHandler {
 	* @see	setApplication(), setBasedir()
 	*/
 	var $basedir = "";
+    
+	/**
+	* Suffix for all rendered files in the application (not for the xml files)
+	* If you used an other file suffix than ".html" in you have to override this
+	* variable using setTargetFileSuffix()
+	* @var	string	targetFileSuffix
+	* @see	setTargetFileSuffix()
+	*/
+	var	$targetFileSuffix = ".html";	
 	
 	/**
 	* Suffix of all source code files in the application
@@ -92,6 +101,26 @@ class PhpdocSetupHandler extends PhpdocArgvHandler {
 	} // end func setApplication
 	
 	/**
+	* Suffix for all rendered files in the application (not for the xml files)
+	* By default the the suffix is set to ".html".
+	*
+	* @param	string	$suffix		string with the suffix
+	* @return	bool	$ok
+	* @access	private
+	* @see		targetFileSuffix
+    * @author   Thomas Weinert <subjective@subjective.de>
+	*/
+    
+    function setTargetFileSuffix($suffix) {
+      if (!( ereg("^\.",$suffix) || ($suffix == "") )) {
+        $this->err[] = new PhpdocError("The file extension contains no point at begin.", __FILE__, __LINE__);	
+        return false; 
+      }
+      $this->targetFileSuffix = $suffix;       
+      return true;    
+    }
+    
+    /**
 	* Suffix of all source code files in the application
 	* By default only files with the suffix ".php" are recognized as
 	* php source code files and parsed. If you used other

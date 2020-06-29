@@ -27,7 +27,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: pdf.c,v 1.55 2000/10/10 07:42:53 steinm Exp $ */
+/* $Id: pdf.c,v 1.61 2000/11/21 07:07:53 dbeu Exp $ */
 
 /* pdflib 2.02 is subject to the ALADDIN FREE PUBLIC LICENSE.
    Copyright (C) 1997 Thomas Merz. */
@@ -42,6 +42,8 @@
 #include "php_globals.h"
 #include "ext/standard/head.h"
 #include "ext/standard/info.h"
+#include "ext/standard/file.h"
+#include "ext/gd/php_gd.h"
 
 #include <math.h>
 
@@ -178,22 +180,25 @@ zend_module_entry pdf_module_entry = {
 ZEND_GET_MODULE(pdf)
 #endif
 
-static void _free_pdf_image(int image)
+static void _free_pdf_image(zend_rsrc_list_entry *rsrc)
 {
 }
 
-static void _free_pdf_doc(PDF *pdf)
+static void _free_pdf_doc(zend_rsrc_list_entry *rsrc)
 {
+	PDF *pdf = (PDF *)rsrc->ptr;
 	PDF_close(pdf);
 	PDF_delete(pdf);
 }
 
-static void _free_outline(int *outline)
+static void _free_outline(zend_rsrc_list_entry *rsrc)
 {
+	int *outline = (int *)rsrc->ptr;
 	if(outline) efree(outline);
 }
 
-static void custom_errorhandler(PDF *p, int type, const char*shortmsg) {
+static void custom_errorhandler(PDF *p, int type, const char*shortmsg)
+{
 	switch (type){
 		case PDF_NonfatalError:
 			return;
@@ -215,19 +220,23 @@ static void custom_errorhandler(PDF *p, int type, const char*shortmsg) {
 		}
 }
 
-static void *pdf_emalloc(PDF *p, size_t size, const char *caller) {
+static void *pdf_emalloc(PDF *p, size_t size, const char *caller)
+{
 	return(emalloc(size));
 }
 
-static void *pdf_realloc(PDF *p, void *mem, size_t size, const char *caller) {
+static void *pdf_realloc(PDF *p, void *mem, size_t size, const char *caller)
+{
 	return(erealloc(mem, size));
 }
 
-static void pdf_efree(PDF *p, void *mem) {
+static void pdf_efree(PDF *p, void *mem)
+{
 	efree(mem);
 }
 
-static size_t pdf_flushwrite(PDF *p, void *data, size_t size){
+static size_t pdf_flushwrite(PDF *p, void *data, size_t size)
+{
 	if(php_header())
 		return(php_write(data, size));
 	return 0;
@@ -235,9 +244,9 @@ static size_t pdf_flushwrite(PDF *p, void *data, size_t size){
 
 PHP_MINIT_FUNCTION(pdf)
 {
-	PDF_GLOBAL(le_pdf_image) = register_list_destructors(_free_pdf_image, NULL);
-	PDF_GLOBAL(le_outline) = register_list_destructors(_free_outline, NULL);
-	PDF_GLOBAL(le_pdf) = register_list_destructors(_free_pdf_doc, NULL);
+	PDF_GLOBAL(le_pdf_image) = zend_register_list_destructors_ex(_free_pdf_image, NULL, "pdf image", module_number);
+	PDF_GLOBAL(le_outline) = zend_register_list_destructors_ex(_free_outline, NULL, "pdf outline", module_number);
+	PDF_GLOBAL(le_pdf) = zend_register_list_destructors_ex(_free_pdf_doc, NULL, "pdf document", module_number);
 	return SUCCESS;
 }
 
@@ -2314,6 +2323,7 @@ PHP_FUNCTION(pdf_open_gif) {
 	int id, type;
 	int pdf_image;
 	PDF *pdf;
+	char *image;
 	PDF_TLS_VARS;
 
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE) {
@@ -2329,7 +2339,9 @@ PHP_FUNCTION(pdf_open_gif) {
 		RETURN_FALSE;
 	}
 
-	pdf_image = PDF_open_image_file(pdf, "gif", (*arg2)->value.str.val, "", 0);
+	virtual_filepath((*arg2)->value.str.val, &image);
+
+	pdf_image = PDF_open_image_file(pdf, "gif", image, "", 0);
 
 	if(pdf_image < 0) {
 		php_error(E_WARNING, "Could not open image");
@@ -2348,6 +2360,7 @@ PHP_FUNCTION(pdf_open_jpeg) {
 	int id, type;
 	int pdf_image;
 	PDF *pdf;
+	char *image;
 	PDF_TLS_VARS;
 
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE) {
@@ -2363,7 +2376,9 @@ PHP_FUNCTION(pdf_open_jpeg) {
 		RETURN_FALSE;
 	}
 
-	pdf_image = PDF_open_image_file(pdf, "jpeg", (*arg2)->value.str.val, "", 0);
+	virtual_filepath((*arg2)->value.str.val, &image);
+
+	pdf_image = PDF_open_image_file(pdf, "jpeg", image, "", 0);
 
 	if(pdf_image < 0) {
 		php_error(E_WARNING, "Could not open image");
@@ -2382,6 +2397,7 @@ PHP_FUNCTION(pdf_open_png) {
 	int id, type;
 	int pdf_image;
 	PDF *pdf;
+	char *image;
 	PDF_TLS_VARS;
 
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE) {
@@ -2397,7 +2413,9 @@ PHP_FUNCTION(pdf_open_png) {
 		RETURN_FALSE;
 	}
 
-	pdf_image = PDF_open_image_file(pdf, "png", (*arg2)->value.str.val, "", 0);
+	virtual_filepath((*arg2)->value.str.val, &image);
+
+	pdf_image = PDF_open_image_file(pdf, "png", image, "", 0);
 
 	if(pdf_image < 0) {
 		php_error(E_WARNING, "Could not open image");
@@ -2416,6 +2434,7 @@ PHP_FUNCTION(pdf_open_tiff) {
 	int id, type;
 	int pdf_image;
 	PDF *pdf;
+	char *image;
 	PDF_TLS_VARS;
 
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE) {
@@ -2431,7 +2450,9 @@ PHP_FUNCTION(pdf_open_tiff) {
 		RETURN_FALSE;
 	}
 
-	pdf_image = PDF_open_image_file(pdf, "tiff", (*arg2)->value.str.val, "", 0);
+	virtual_filepath((*arg2)->value.str.val, &image);
+
+	pdf_image = PDF_open_image_file(pdf, "tiff", image, "", 0);
 
 	if(pdf_image < 0) {
 		php_error(E_WARNING, "Could not open image");
@@ -2450,6 +2471,7 @@ PHP_FUNCTION(pdf_open_image_file) {
 	int id, type;
 	int pdf_image;
 	PDF *pdf;
+	char *image;
 	PDF_TLS_VARS;
 
 	if (ZEND_NUM_ARGS() != 3 || zend_get_parameters_ex(3, &arg1, &arg2, &arg3) == FAILURE) {
@@ -2466,7 +2488,9 @@ PHP_FUNCTION(pdf_open_image_file) {
 		RETURN_FALSE;
 	}
 
-	pdf_image = PDF_open_image_file(pdf, (*arg2)->value.str.val, (*arg3)->value.str.val, "", 0);
+	virtual_filepath((*arg3)->value.str.val, &image);
+
+	pdf_image = PDF_open_image_file(pdf, (*arg2)->value.str.val, image, "", 0);
 
 	if(pdf_image < 0) {
 		php_error(E_WARNING, "Could not open image");

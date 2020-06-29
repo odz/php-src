@@ -27,6 +27,7 @@
 typedef struct {
 	httpd_conn *hc;
 	int post_off;
+	void (*on_close)(int);
 } php_thttpd_globals;
 
 static php_thttpd_globals thttpd_globals;
@@ -40,9 +41,16 @@ static php_thttpd_globals thttpd_globals;
 
 static int sapi_thttpd_ub_write(const char *str, uint str_length)
 {
+	int n;
 	TLS_FETCH();
 	
-	return send(TG(hc)->conn_fd, str, str_length, 0);
+	n = send(TG(hc)->conn_fd, str, str_length, 0);
+
+	if (n == -1 && errno == EPIPE) {
+		php_handle_aborted_connection();
+	}
+
+	return n;
 }
 
 static int sapi_thttpd_send_headers(sapi_headers_struct *sapi_headers SLS_DC)
@@ -217,7 +225,8 @@ static void thttpd_request_ctor(TLS_D SLS_DC)
 	size_t filename_len;
 	size_t cwd_len;
 
-	SG(request_info).query_string = TG(hc)->query;
+
+	SG(request_info).query_string = TG(hc)->query?strdup(TG(hc)->query):NULL;
 
 	filename_len = strlen(TG(hc)->expnfilename);
 	cwd_len = strlen(TG(hc)->hs->cwd);
@@ -238,8 +247,7 @@ static void thttpd_request_ctor(TLS_D SLS_DC)
 	SG(request_info).content_type = TG(hc)->contenttype;
 	SG(request_info).content_length = TG(hc)->contentlength;
 	
-	SG(request_info).auth_user = NULL;
-	SG(request_info).auth_password = NULL;
+	php_handle_auth_data(TG(hc)->authorization SLS_CC);
 
 	TG(post_off) = TG(hc)->read_idx - TG(hc)->checked_idx;
 
@@ -254,6 +262,8 @@ static void thttpd_request_ctor(TLS_D SLS_DC)
 
 static void thttpd_request_dtor(TLS_D SLS_DC)
 {
+	if (SG(request_info).query_string)
+		free(SG(request_info).query_string);
 	free(SG(request_info).request_uri);
 	free(SG(request_info).path_translated);
 }
@@ -274,6 +284,26 @@ off_t thttpd_php_request(httpd_conn *hc)
 	return 0;
 }
 
+void thttpd_register_on_close(void (*arg)(int)) 
+{
+	TG(on_close) = arg;
+}
+
+void thttpd_closed_conn(int fd)
+{
+	if (TG(on_close)) TG(on_close)(fd);
+}
+
+int thttpd_get_fd(void)
+{
+	return TG(hc)->conn_fd;
+}
+
+void thttpd_set_dont_close(void)
+{
+	TG(hc)->file_address = (char *) 1;
+}
+
 void thttpd_php_init(void)
 {
 	sapi_startup(&sapi_module);
@@ -283,6 +313,8 @@ void thttpd_php_init(void)
 
 void thttpd_php_shutdown(void)
 {
-	sapi_module.shutdown(&sapi_module);
-	sapi_shutdown();
+	if (SG(server_context) != NULL) {
+		sapi_module.shutdown(&sapi_module);
+		sapi_shutdown();
+	}
 }

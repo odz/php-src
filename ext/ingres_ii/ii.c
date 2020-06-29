@@ -19,11 +19,12 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ii.c,v 1.10 2000/09/29 09:29:02 henot Exp $ */
+/* $Id: ii.c,v 1.13 2000/11/13 22:23:15 dbeu Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
 #include "php_ini.h"
+#include "ext/standard/info.h"
 #include "php_ii.h"
 #include "ii.h"
 #include "ext/standard/php_string.h"
@@ -43,7 +44,7 @@ function_entry ii_functions[] = {
   PHP_FE(ingres_connect,	      NULL)
   PHP_FE(ingres_pconnect,	      NULL)
   PHP_FE(ingres_close,            NULL)
-  PHP_FE(ingres_query,	      NULL)
+  PHP_FE(ingres_query,			  NULL)
   PHP_FE(ingres_num_rows,         NULL)
   PHP_FE(ingres_num_fields,       NULL)
   PHP_FE(ingres_field_name,       NULL)
@@ -138,11 +139,7 @@ static int _rollback_transaction(II_LINK *link)
   return 0;
 }
 
-/* closes the given link, actually disconnecting from server
-   and releasing associated resources after rolling back the
-   active transaction (if any)
-*/
-static void _close_ii_link(II_LINK *link)
+static void close_ii_link(II_LINK *link)
 {
   IIAPI_DISCONNPARM disconnParm;
   IILS_FETCH();
@@ -162,22 +159,35 @@ static void _close_ii_link(II_LINK *link)
   IIG(num_links)--;
 }
 
+/* closes the given link, actually disconnecting from server
+   and releasing associated resources after rolling back the
+   active transaction (if any)
+*/
+static void php_close_ii_link(zend_rsrc_list_entry *rsrc)
+{
+	II_LINK *link = (II_LINK *)rsrc->ptr;
+	close_ii_link(link);
+}
+
+
 /* closes the given persistent link, see _close_ii_link
 */
-static void _close_ii_plink(II_LINK *link)
+static void _close_ii_plink(zend_rsrc_list_entry *rsrc)
 {
-  IILS_FETCH();
-
-  _close_ii_link(link);
-  IIG(num_persistent)--;
+	II_LINK *link = (II_LINK *)rsrc->ptr;
+	IILS_FETCH();
+	
+	close_ii_link(link);
+	IIG(num_persistent)--;
 }
 
 /* cleans up the given persistent link.
    used when the request ends to 'refresh' the link for use
    by the next request
 */
-static void _clean_ii_plink(II_LINK *link)
+static void _clean_ii_plink(zend_rsrc_list_entry *rsrc)
 {
+	II_LINK *link = (II_LINK *)rsrc->ptr;
   IIAPI_AUTOPARM autoParm;
   IILS_FETCH();
 
@@ -247,8 +257,8 @@ PHP_MINIT_FUNCTION(ii)
   
   REGISTER_INI_ENTRIES();
   
-  le_ii_link = register_list_destructors(_close_ii_link,NULL);
-  le_ii_plink = register_list_destructors(_clean_ii_plink,_close_ii_plink);
+  le_ii_link = zend_register_list_destructors_ex(php_close_ii_link, NULL, "ingres", module_number);
+  le_ii_plink = zend_register_list_destructors_ex(_clean_ii_plink, _close_ii_plink, "ingres persistent", module_number);
 
   IIG(num_persistent) = 0;
 

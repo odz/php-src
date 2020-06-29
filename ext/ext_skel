@@ -131,7 +131,6 @@ if test "\$PHP_$EXTNAME" != "no"; then
   dnl If you will not be testing anything external, like existence of
   dnl headers, libraries or functions in them, just uncomment the 
   dnl following line and you are ready to go.
-  dnl AC_DEFINE(HAVE_$EXTNAME, 1, [ ])
   dnl Write more examples of tests here...
   PHP_EXTENSION($extname, \$ext_shared)
 fi
@@ -154,7 +153,6 @@ $ECHO_N " .cvsignore$ECHO_C"
 cat >.cvsignore <<eof
 .deps
 Makefile
-*.o
 *.lo
 *.la
 .libs
@@ -172,7 +170,7 @@ echo '/__function_entries_here__/D'  >> sedscript
 echo '/__function_stubs_here__/D'  >> sedscript
 echo '/__header_here__/D'  >> sedscript
 echo '/__footer_here__/D'  >> sedscript
-if [ ! -z $no_help ]; then
+if [ ! -z "$no_help" ]; then
     echo "/confirm_$extname_compiled/D" >> sedscript
     echo '/Remove the following/,/^\*\//D' >> sedscript
     echo 's/[[:space:]]\/\*.\+\*\///' >> sedscript
@@ -192,7 +190,7 @@ echo '/__footer_here__/r ../../footer'  >> sedscript
 echo '/__function_declarations_here__/D' >> sedscript
 echo '/__header_here__/D'  >> sedscript
 echo '/__footer_here__/D'  >> sedscript
-if [ ! -z $no_help ]; then
+if [ ! -z "$no_help" ]; then
     echo "/confirm_$extname_compiled/D" >> sedscript
     echo 's/[[:space:]]\/\*.\+\*\///' >> sedscript
     echo 's/^\/\*.*\*\/$//' >> sedscript
@@ -200,7 +198,10 @@ if [ ! -z $no_help ]; then
 fi
 sed -f sedscript <../skeleton/php_skeleton.h > php_$extname.h
 
-rm sedscript
+$ECHO_N " tests/001.phpt$ECHO_C"
+mkdir tests || givup "Cannot create tests directory"
+chmod 755 tests
+sed -f sedscript <../skeleton/tests/001.phpt > tests/001.phpt
 
 if test -z "$stubs" && test -z "$no_help"; then
   $ECHO_N " $extname.php$ECHO_C"
@@ -209,6 +210,8 @@ if test -z "$stubs" && test -z "$no_help"; then
     <../skeleton/skeleton.php \
     > $extname.php
 fi
+
+rm sedscript
 
 if test -n "$proto"; then
   if test -z "$stubs"; then
@@ -226,7 +229,8 @@ in the instructions above.
   fi
 fi
 
-chmod 644 *
+find . -type f | xargs chmod 644 
+find . -type d | xargs chmod 755
 fi
 
 echo " [done]."

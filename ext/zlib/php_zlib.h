@@ -17,15 +17,21 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_zlib.h,v 1.9 2000/07/24 01:39:51 david Exp $ */
+/* $Id: php_zlib.h,v 1.12 2000/11/21 00:40:12 hholzgra Exp $ */
 
 #ifndef PHP_ZLIB_H
 #define PHP_ZLIB_H
 
-#if HAVE_ZLIB
+#include <zlib.h>
+
 
 typedef struct {
 	int gzgetss_state;
+
+	/* variables for transparent gzip encoding */
+    int compression_coding;
+    z_stream stream;
+    uLong crc;
 } php_zlib_globals;
 
 extern zend_module_entry php_zlib_module_entry;
@@ -50,20 +56,29 @@ PHP_FUNCTION(readgzfile);
 PHP_FUNCTION(gzfile);
 PHP_FUNCTION(gzcompress);
 PHP_FUNCTION(gzuncompress);
+PHP_FUNCTION(gzdeflate);
+PHP_FUNCTION(gzinflate);
+PHP_FUNCTION(gzencode);
+PHP_FUNCTION(ob_gzhandler);
+
+FILE *zlib_fopen_wrapper(char *path, char *mode, int options, int *issock, int *socketd, char **opened_path);
+
 
 #ifdef ZTS
 #define ZLIBLS_D php_zlib_globals *zlib_globals
+#define ZLIBLS_DC , ZLIBLS_D
+#define ZLIBLS_C zlib_globals
+#define ZLIBLS_CC , ZLIBLS_C
 #define ZLIBG(v) (zlib_globals->v)
 #define ZLIBLS_FETCH() php_zlib_globals *zlib_globals = ts_resource(zlib_globals_id)
 #else
 #define ZLIBLS_D
+#define ZLIBLS_DC
+#define ZLIBLS_C
+#define ZLIBLS_CC
 #define ZLIBG(v) (zlib_globals.v)
 #define ZLIBLS_FETCH()
 #endif
-
-#else
-#define zlib_module_ptr NULL
-#endif /* HAVE_ZLIB */
 
 #define phpext_zlib_ptr zlib_module_ptr
 

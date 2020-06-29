@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: info.h,v 1.17 2000/08/27 19:42:45 ssb Exp $ */
+/* $Id: info.h,v 1.19 2000/11/20 10:05:57 hholzgra Exp $ */
 
 #ifndef INFO_H
 #define INFO_H
@@ -44,9 +44,10 @@
 #define PHP_CREDITS_FULLPAGE		(1<<5)
 #define PHP_CREDITS_ALL				0xFFFFFFFF
 
-#define PHP_LOGO_GUID		"PHPE9568F34-D428-11d2-A769-00AA001ACF42"
+#define PHP_LOGO_GUID		  "PHPE9568F34-D428-11d2-A769-00AA001ACF42"
 #define PHP_EGG_LOGO_GUID	"PHPE9568F36-D428-11d2-A769-00AA001ACF42"
 #define ZEND_LOGO_GUID		"PHPE9568F35-D428-11d2-A769-00AA001ACF42"
+#define PHP_CREDITS_GUID  "PHPB8B5F2A0-3C92-11d3-A3A9-4C7B08C10000"
 
 PHP_FUNCTION(phpversion);
 PHP_FUNCTION(phpinfo);
@@ -57,7 +58,6 @@ PHP_FUNCTION(php_egg_logo_guid);
 PHP_FUNCTION(php_sapi_name);
 PHP_FUNCTION(php_uname);
 PHPAPI void php_print_info(int flag);
-PHPAPI void php_print_credits(int flag);
 PHPAPI void php_print_style(void);
 PHPAPI void php_info_print_style(void);
 PHPAPI void php_info_print_table_colspan_header(int num_cols, char *header);

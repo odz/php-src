@@ -17,7 +17,7 @@
  */
 
 
-/* $Id: php_mssql.h,v 1.7 2000/07/02 23:46:42 sas Exp $ */
+/* $Id: php_mssql.h,v 1.9 2000/11/29 22:06:47 fmk Exp $ */
 
 #ifndef PHP_MSSQL_H
 #define PHP_MSSQL_H
@@ -31,17 +31,9 @@
 #endif
 
 
-#if MSSQL65
-#define MSSQL_VERSION "6.5"
-#include "../../../php_build/mssql-65/include/sqlfront.h"
-#include "../../../php_build/mssql-65/include/sqldb.h"
-#elif MSSQL70
 #define MSSQL_VERSION "7.0"
-#include "../../../php_build/mssql-70/include/sqlfront.h"
-#include "../../../php_build/mssql-70/include/sqldb.h"
-#else
-#define MSSQL_VERSION "Unknown"
-#endif
+#include "sqlfront.h"
+#include "sqldb.h"
 
 #define coltype(j) dbcoltype(mssql_ptr->link,j)
 #define intcol(i) ((int) *(DBINT *) dbdata(mssql_ptr->link,i))
@@ -51,11 +43,7 @@
 #define charcol(i) ((DBCHAR *) dbdata(mssql_ptr->link,i))
 #define floatcol(i) ((float) *(DBFLT8 *) dbdata(mssql_ptr->link,i))
 
-#ifndef DLEXPORT
-#define DLEXPORT
-#endif
-
-#ifdef __ZTS
+#ifdef ZTS
 #include "TSRM.h"
 #endif
 
@@ -73,6 +61,8 @@ PHP_FUNCTION(mssql_pconnect);
 PHP_FUNCTION(mssql_close);
 PHP_FUNCTION(mssql_select_db);
 PHP_FUNCTION(mssql_query);
+PHP_FUNCTION(mssql_fetch_batch);
+PHP_FUNCTION(mssql_rows_affected);
 PHP_FUNCTION(mssql_free_result);
 PHP_FUNCTION(mssql_get_last_message);
 PHP_FUNCTION(mssql_num_rows);
@@ -96,7 +86,7 @@ typedef struct mssql_link {
 	int valid;
 } mssql_link;
 
-typedef struct {
+ZEND_BEGIN_MODULE_GLOBALS(mssql)
 	long default_link;
 	long num_links,num_persistent;
 	long max_links,max_persistent;
@@ -107,9 +97,9 @@ typedef struct {
 	long cfg_min_error_severity, cfg_min_message_severity;
 	long compatability_mode, connect_timeout;
 	void (*get_column_content)(mssql_link *mssql_ptr,int offset,pval *result,int column_type);
-	long textsize, textlimit; 
+	long textsize, textlimit, batchsize;
 	HashTable *resource_list, *resource_plist;
-} php_mssql_globals;
+ZEND_END_MODULE_GLOBALS(mssql)
 
 #define MSSQL_ROWS_BLOCK 128
 
@@ -124,18 +114,20 @@ typedef struct mssql_result {
 	pval **data;
 	mssql_field *fields;
 	mssql_link *mssql_ptr;
+	int batchsize;
+	int lastresult;
 	int cur_row,cur_field;
 	int num_rows,num_fields;
 } mssql_result;
 
 
 #ifdef ZTS
-# define MSSQLLS_D		php_mssql_globals *mssql_globals
+# define MSSQLLS_D		zend_mssql_globals *mssql_globals
 # define MSSQLLS_DC		, MSSQLLS_D
 # define MSSQLLS_C		mssql_globals
 # define MSSQLLS_CC		, MSSQLLS_C
 # define MS_SQL_G(v)	(mssql_globals->v)
-# define MSSQLLS_FETCH()	php_mssql_globals *mssql_globals = ts_resource(mssql_globals_id)
+# define MSSQLLS_FETCH()	zend_mssql_globals *mssql_globals = ts_resource(mssql_globals_id)
 #else
 # define MSSQLLS_D
 # define MSSQLLS_DC
@@ -143,7 +135,6 @@ typedef struct mssql_result {
 # define MSSQLLS_CC
 # define MS_SQL_G(v)	(mssql_globals.v)
 # define MSSQLLS_FETCH()
-extern PHP_MSSQL_API php_mssql_globals mssql_globals;
 #endif
 
 #else

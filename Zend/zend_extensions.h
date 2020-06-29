@@ -23,7 +23,7 @@
 
 #include "zend_compile.h"
 
-#define ZEND_EXTENSION_API_NO		20001002
+#define ZEND_EXTENSION_API_NO	20001120	
 
 typedef struct _zend_extension_version_info {
 	int zend_extension_api_no;
@@ -35,6 +35,23 @@ typedef struct _zend_extension_version_info {
 
 typedef struct _zend_extension zend_extension;
 
+/* Typedef's for zend_extension function pointers */
+typedef int (*startup_func_t)(zend_extension *extension);
+typedef void (*shutdown_func_t)(zend_extension *extension);
+typedef void (*activate_func_t)();
+typedef void (*deactivate_func_t)();
+
+typedef void (*message_handler_func_t)(int message, void *arg);
+
+typedef void (*op_array_handler_func_t)(zend_op_array *op_array);
+
+typedef void (*statement_handler_func_t)(zend_op_array *op_array);
+typedef void (*fcall_begin_handler_func_t)(zend_op_array *op_array);
+typedef void (*fcall_end_handler_func_t)(zend_op_array *op_array);
+
+typedef void (*op_array_ctor_func_t)(zend_op_array *op_array);
+typedef void (*op_array_dtor_func_t)(zend_op_array *op_array);
+
 struct _zend_extension {
 	char *name;
 	char *version;
@@ -42,23 +59,23 @@ struct _zend_extension {
 	char *URL;
 	char *copyright;
 
-	int (*startup)(zend_extension *extension);
-	void (*shutdown)(zend_extension *extension);
-	void (*activate)();
-	void (*deactivate)();
+	startup_func_t startup;
+	shutdown_func_t shutdown;
+	activate_func_t activate;
+	deactivate_func_t deactivate;
 
-	void (*message_handler)(int message, void *arg);
+	message_handler_func_t message_handler;
 
-	void (*op_array_handler)(zend_op_array *op_array);
-	
-	void (*statement_handler)(zend_op_array *op_array);
-	void (*fcall_begin_handler)(zend_op_array *op_array);
-	void (*fcall_end_handler)(zend_op_array *op_array);
+	op_array_handler_func_t op_array_handler;
 
-	void (*op_array_ctor)(zend_op_array *op_array);
-	void (*op_array_dtor)(zend_op_array *op_array);
+	statement_handler_func_t statement_handler;	
+	fcall_begin_handler_func_t fcall_begin_handler;
+	fcall_end_handler_func_t fcall_end_handler;
 
-	void *reserved1;
+	op_array_ctor_func_t op_array_ctor;
+	op_array_dtor_func_t op_array_dtor;
+
+	int (*api_no_check)(int api_no);
 	void *reserved2;
 	void *reserved3;
 	void *reserved4;
@@ -82,17 +99,18 @@ ZEND_API void zend_extension_dispatch_message(int message, void *arg);
 	ZEND_EXT_API zend_extension_version_info extension_version_info = { ZEND_EXTENSION_API_NO, ZEND_VERSION, ZTS_V, ZEND_DEBUG }
 
 #define STANDARD_ZEND_EXTENSION_PROPERTIES NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, -1
+#define COMPAT_ZEND_EXTENSION_PROPERTIES   NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, -1
 
 
 ZEND_API extern zend_llist zend_extensions;
 
 void zend_extension_dtor(zend_extension *extension);
 ZEND_API int zend_load_extension(char *path);
-ZEND_API int zend_load_extensions(char **extension_paths);
 ZEND_API int zend_register_extension(zend_extension *new_extension, DL_HANDLE handle);
 void zend_append_version_info(zend_extension *extension);
 int zend_startup_extensions_mechanism(void);
 int zend_startup_extensions(void);
 void zend_shutdown_extensions(void);
+ZEND_API zend_extension *zend_get_extension(char *extension_name);
 
 #endif /* ZEND_EXTENSIONS_H */

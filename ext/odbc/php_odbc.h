@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_odbc.h,v 1.27 2000/09/29 19:03:23 kalowsky Exp $ */
+/* $Id: php_odbc.h,v 1.30 2000/11/17 15:09:46 kalowsky Exp $ */
 
 #ifndef PHP_ODBC_H
 #define PHP_ODBC_H
@@ -40,17 +40,20 @@
 #if defined(HAVE_SOLID)
  #include <cli0core.h>
  #include <cli0ext1.h>
- /*the following help for SOLID 3.0 */
+ #include <cli0env.h>
+#elif defined(HAVE_SOLID_30)
+ #include <cli0cli.h>
+ #include <cli0defs.h>
  #include <cli0env.h>
 #elif defined(HAVE_SOLID_35)
  #if !defined(PHP_WIN32)
   #include <sqlunix.h>
- #endif
+ #endif		/* end: #if !defined(PHP_WIN32) */
  #include <sqltypes.h>
  #include <sqlucode.h>
  #include <sqlext.h>
  #include <sql.h>
-#endif
+#endif	/* end: #if defined(HAVE_SOLID) */
 #undef HAVE_SQL_EXTENDED_FETCH
 PHP_FUNCTION(solid_fetch_prev);
 #define SQLSMALLINT SWORD
@@ -69,6 +72,17 @@ PHP_FUNCTION(solid_fetch_prev);
 #elif defined(HAVE_ADABAS) /* Adabas D */
 
 #define ODBC_TYPE "Adabas D"
+#include <WINDOWS.H>
+#include <sql.h>
+#include <sqlext.h>
+#define HAVE_SQL_EXTENDED_FETCH 1
+#define SQL_SUCCEEDED(rc) (((rc)&(~1))==0)
+#define SQLINTEGER ULONG
+#define SQLUMSALLINT USHORT
+
+#elif defined(HAVE_SAPDB) /* SAP DB */
+
+#define ODBC_TYPE "SAP DB"
 #include <WINDOWS.H>
 #include <sql.h>
 #include <sqlext.h>
@@ -219,7 +233,7 @@ typedef struct odbc_connection {
 #if defined( HAVE_IBMDB2 ) || defined( HAVE_UNIXODBC )
 	SQLHANDLE henv;
 	SQLHANDLE hdbc;
-#elif defined( HAVE_SOLID_35 )
+#elif defined( HAVE_SOLID_35 ) || defined( HAVE_SAPDB )
 	SQLHENV	henv;
 	SQLHDBC hdbc;
 #else
@@ -240,7 +254,7 @@ typedef struct odbc_result_value {
 typedef struct odbc_result {
 #if defined( HAVE_IBMDB2 ) || defined( HAVE_UNIXODBC )
 	SQLHANDLE stmt;
-#elif defined( HAVE_SOLID_35 )
+#elif defined( HAVE_SOLID_35 ) || defined( HAVE_SAPDB )
 	SQLHSTMT stmt;
 #else
 	HSTMT stmt;
@@ -285,7 +299,7 @@ int odbc_bindcols(odbc_result *result);
 
 #if defined( HAVE_IBMDB2 ) || defined( HAVE_UNIXODBC )
 #define ODBC_SQL_ERROR_PARAMS SQLHANDLE henv, SQLHANDLE conn, SQLHANDLE stmt, char *func
-#elif defined( HAVE_SOLID_35 )
+#elif defined( HAVE_SOLID_35 ) || defined( HAVE_SAPDB )
 #define ODBC_SQL_ERROR_PARAMS SQLHENV henv, SQLHDBC conn, SQLHSTMT stmt, char *func
 #else
 #define ODBC_SQL_ERROR_PARAMS HENV henv, HDBC conn, HSTMT stmt, char *func

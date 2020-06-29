@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: hw.c,v 1.63 2000/08/28 13:04:35 steinm Exp $ */
+/* $Id: hw.c,v 1.69 2000/12/01 15:03:15 eschmid Exp $ */
 
 #include <stdlib.h>
 #include <errno.h>
@@ -82,6 +82,10 @@ function_entry hw_functions[] = {
 	PHP_FE(hw_getobjectbyqueryobj,					NULL)
 	PHP_FE(hw_getobjectbyquerycoll,					NULL)
 	PHP_FE(hw_getobjectbyquerycollobj,				NULL)
+	PHP_FE(hw_getobjectbyftquery,						NULL)
+	PHP_FE(hw_getobjectbyftqueryobj,					NULL)
+	PHP_FE(hw_getobjectbyftquerycoll,					NULL)
+	PHP_FE(hw_getobjectbyftquerycollobj,				NULL)
 	PHP_FE(hw_getchilddoccoll,						NULL)
 	PHP_FE(hw_getchilddoccollobj,					NULL)
 	PHP_FE(hw_getanchors,							NULL)
@@ -104,6 +108,7 @@ function_entry hw_functions[] = {
 	PHP_FE(hw_insertobject,							NULL)
 	PHP_FE(hw_insdoc,								NULL)
 	PHP_FE(hw_getsrcbydestobj,						NULL)
+	PHP_FE(hw_insertanchors,							NULL)
 	PHP_FE(hw_getrellink,							NULL)
 	PHP_FE(hw_who,									NULL)
 	PHP_FE(hw_stat,									NULL)
@@ -132,8 +137,9 @@ ZEND_GET_MODULE(hw)
 
 void print_msg(hg_msg *msg, char *str, int txt);
 
-void _close_hw_link(hw_connection *conn)
+void _close_hw_link(zend_rsrc_list_entry *rsrc)
 {
+	hw_connection *conn = (hw_connection *)rsrc->ptr;
 	if(conn->hostname)
 		free(conn->hostname);
 	if(conn->username)
@@ -143,8 +149,9 @@ void _close_hw_link(hw_connection *conn)
 	HwSG(num_links)--;
 }
 
-void _close_hw_plink(hw_connection *conn)
+void _close_hw_plink(zend_rsrc_list_entry *rsrc)
 {
+	hw_connection *conn = (hw_connection *)rsrc->ptr;
 	if(conn->hostname)
 		free(conn->hostname);
 	if(conn->username)
@@ -155,8 +162,9 @@ void _close_hw_plink(hw_connection *conn)
 	HwSG(num_persistent)--;
 }
 
-void _free_hw_document(hw_document *doc)
+void _free_hw_document(zend_rsrc_list_entry *rsrc)
 {
+	hw_document *doc = (hw_document *)rsrc->ptr;
 	if(doc->data)
 		free(doc->data);
 	if(doc->attributes)
@@ -191,9 +199,9 @@ PHP_MINIT_FUNCTION(hw) {
 	ZEND_INIT_MODULE_GLOBALS(hw, php_hw_init_globals, NULL);
 
 	REGISTER_INI_ENTRIES();
-	HwSG(le_socketp) = register_list_destructors(_close_hw_link,NULL);
-	HwSG(le_psocketp) = register_list_destructors(NULL,_close_hw_plink);
-	HwSG(le_document) = register_list_destructors(_free_hw_document,NULL);
+	HwSG(le_socketp) = zend_register_list_destructors_ex(_close_hw_link, NULL, "hyperwave link", module_number);
+	HwSG(le_psocketp) = zend_register_list_destructors_ex(NULL, _close_hw_plink, "hyperwave link persistent", module_number);
+	HwSG(le_document) = zend_register_list_destructors_ex(_free_hw_document, NULL, "hyperwave document", module_number);
 	hw_module_entry.type = type;
 
 	REGISTER_LONG_CONSTANT("HW_ATTR_LANG", HW_ATTR_LANG, CONST_CS | CONST_PERSISTENT);
@@ -624,6 +632,28 @@ static int * make_ints_from_array(HashTable *lht) {
 		zend_hash_move_forward(lht);
 	}
 	return objids;
+}
+
+static char **make_strs_from_array(HashTable *arrht) {
+	char **carr = NULL;
+	zval *data, **dataptr;
+
+	zend_hash_internal_pointer_reset(arrht);
+	if(NULL == (carr = emalloc(zend_hash_num_elements(arrht) * sizeof(char *))))
+		return(NULL);
+
+	/* Iterate through hash */
+	while(zend_hash_get_current_data(arrht, (void **) &dataptr) == SUCCESS) {
+		data = *dataptr;
+		switch(data->type) {
+			case IS_STRING:
+				*carr++ = estrdup(data->value.str.val);
+				break;
+		}
+
+		zend_hash_move_forward(arrht);
+	}
+	return(carr);
 }
 
 #define BUFFERLEN 30
@@ -1283,7 +1313,7 @@ php_printf("%s", object);
 /* }}} */
 
 /* {{{ proto string hw_getobject(int link, int objid [, string linkroot])
-   Returns object record  */
+   Returns object record */
 PHP_FUNCTION(hw_getobject) {
 	pval **argv[3];
 	int argc, link, id, type, multi;
@@ -2248,9 +2278,133 @@ PHP_FUNCTION(hw_setlinkroot) {
 }
 /* }}} */
 
+/* {{{ proto hwdoc hw_pipedocument(int link, int objid [, array urlprefixes])
+   Returns document with links inserted */
+
+/* Optionally a array with five urlprefixes may be passed, which will be 
+   inserted for the different types of anchors. This should be a named 
+   array with the following keys: HW_DEFAULT_LINK, HW_IMAGE_LINK, 
+   HW_BACKGROUND_LINK, HW_INTAG_LINK, and HW_APPLET_LINK. */
+
+PHP_FUNCTION(hw_pipedocument) {
+	pval *arg1, *arg2, *arg3;
+	int i, link, id, type, argc, mode;
+	int rootid = 0;
+	HashTable *prefixarray;
+	char **urlprefix;
+	hw_connection *ptr;
+	hw_document *doc;
+#if APACHE
+	server_rec *serv = ((request_rec *) SG(server_context))->server;
+#endif
+
+	argc = ZEND_NUM_ARGS();
+	switch(argc)
+	{
+	case 2:
+		if (getParameters(ht, 2, &arg1, &arg2) == FAILURE)
+			RETURN_FALSE;
+		break;
+	case 3:
+		if (getParameters(ht, 3, &arg1, &arg2, &arg3) == FAILURE)
+			RETURN_FALSE;
+		break;
+	default:
+		WRONG_PARAM_COUNT;
+	}
+
+	convert_to_long(arg1);
+	convert_to_long(arg2);
+	
+	link=arg1->value.lval;
+	id=arg2->value.lval;
+	ptr = zend_list_find(link,&type);
+	if(!ptr || (type!=HwSG(le_socketp) && type!=HwSG(le_psocketp))) {
+		php_error(E_WARNING,"Unable to find file identifier %d", link);
+		RETURN_FALSE;
+	}
+
+	/* check for the array with urlprefixes */
+	if(argc == 3) {
+		convert_to_array(arg3);
+		prefixarray =arg3->value.ht;
+		if((prefixarray == NULL) || (zend_hash_num_elements(prefixarray) != 5)) {
+			php_error(E_WARNING,"You must provide 5 urlprefixes (you have provided %d)", zend_hash_num_elements(prefixarray));
+			RETURN_FALSE;
+		}
+
+		urlprefix = emalloc(5*sizeof(char *));
+		zend_hash_internal_pointer_reset(prefixarray);
+		for(i=0; i<5; i++) {
+			char *key;
+			zval *data, **dataptr;
+			ulong ind;
+			
+			zend_hash_get_current_key(prefixarray, &key, &ind);
+			zend_hash_get_current_data(prefixarray, (void *) &dataptr);
+			data = *dataptr;
+			if (data->type != IS_STRING) {
+				php_error(E_WARNING,"%s must be a String", key);
+				RETURN_FALSE;
+			} else if ( strcmp(key, "HW_DEFAULT_LINK") == 0 ) {
+				urlprefix[HW_DEFAULT_LINK] = data->value.str.val;
+			} else if ( strcmp(key, "HW_IMAGE_LINK") == 0 ) {
+				urlprefix[HW_IMAGE_LINK] = data->value.str.val;
+			} else if ( strcmp(key, "HW_BACKGROUND_LINK") == 0 ) {
+				urlprefix[HW_BACKGROUND_LINK] = data->value.str.val;
+			} else if ( strcmp(key, "HW_INTAG_LINK") == 0 ) {
+				urlprefix[HW_INTAG_LINK] = data->value.str.val;
+			} else if ( strcmp(key, "HW_APPLET_LINK") == 0 ) {
+				urlprefix[HW_APPLET_LINK] = data->value.str.val;
+			} else {
+				php_error(E_WARNING,"%s is not a valid urlprefix", key);
+				RETURN_FALSE;
+			}
+			efree(key);
+			zend_hash_move_forward(prefixarray);
+		}
+	} else {
+		urlprefix = NULL;
+	}
+
+	mode = 0;
+	if(ptr->linkroot > 0)
+		mode = 1;
+	rootid = ptr->linkroot;
+
+	set_swap(ptr->swap_on);
+	{
+	char *object = NULL;
+	char *attributes = NULL;
+	char *bodytag = NULL;
+	int count;
+	/* !!!! memory for object, bodytag and attributes is allocated with malloc !!!! */
+	if (0 != (ptr->lasterror =  send_pipedocument(ptr->socket,
+#if APACHE
+  serv->server_hostname,
+#else
+  getenv("HOSTNAME"),
+#endif
+   id, mode, rootid, &attributes, &bodytag, &object, &count, urlprefix)))
+		RETURN_FALSE;
+		
+	if(urlprefix) efree(urlprefix);
+
+	doc = malloc(sizeof(hw_document));
+	doc->data = object;
+	doc->attributes = attributes;
+	doc->bodytag = bodytag;
+	doc->size = count;
+/* fprintf(stderr, "size = %d\n", count); */
+	return_value->value.lval = zend_list_insert(doc,HwSG(le_document));
+	return_value->type = IS_LONG;
+	}
+}
+/* }}} */
+
 /* {{{ proto hwdoc hw_pipedocument(int link, int objid)
    Returns document */
-PHP_FUNCTION(hw_pipedocument) {
+PHP_FUNCTION(hw_oldpipedocument) {
 	pval *argv[3];
 	int link, id, type, argc, mode;
 	int rootid = 0;
@@ -2432,7 +2586,7 @@ PHP_FUNCTION(hw_insertdocument) {
 /* }}} */
 
 /* {{{ proto hwdoc hw_new_document(string objrec, string data, int size)
-   Create a new document */
+   Creates a new document */
 PHP_FUNCTION(hw_new_document) {
 	pval *arg1, *arg2, *arg3;
 	char *ptr;
@@ -2454,7 +2608,7 @@ PHP_FUNCTION(hw_new_document) {
 		free(doc);
 		RETURN_FALSE;
 	}
-        memcpy(doc->data, arg2->value.str.val, arg3->value.lval);
+	memcpy(doc->data, arg2->value.str.val, arg3->value.lval);
 	ptr = doc->data;
 	ptr[arg3->value.lval] = '\0';
 	doc->attributes = strdup(arg1->value.str.val);
@@ -2521,7 +2675,7 @@ PHP_FUNCTION(hw_output_document) {
 /* }}} */
 
 /* {{{ proto string hw_document_bodytag(hwdoc doc [, string prefix])
-   Return bodytag prefixed by prefix */
+   Returns bodytag prefixed by prefix */
 PHP_FUNCTION(hw_document_bodytag) {
 	pval *argv[2];
 	int id, type, argc;
@@ -3025,7 +3179,7 @@ PHP_FUNCTION(hw_getobjectbyquery) {
 /* }}} */
 
 /* {{{ proto array hw_getobjectbyqueryobj(int link, string query, int maxhits)
-   Search for query and return maxhits object records */
+   Searches for query and returns maxhits object records */
 PHP_FUNCTION(hw_getobjectbyqueryobj) {
 	pval **arg1, **arg2, **arg3;
 	int link, type, maxhits;
@@ -3063,7 +3217,7 @@ PHP_FUNCTION(hw_getobjectbyqueryobj) {
 /* }}} */
 
 /* {{{ proto array hw_getobjectbyquerycoll(int link, int collid, string query, int maxhits)
-   Search for query in collection and return maxhits objids */
+   Searches for query in collection and returns maxhits objids */
 PHP_FUNCTION(hw_getobjectbyquerycoll) {
 	pval **arg1, **arg2, **arg3, **arg4;
 	int link, id, type, maxhits;
@@ -3108,7 +3262,7 @@ PHP_FUNCTION(hw_getobjectbyquerycoll) {
 /* }}} */
 
 /* {{{ proto array hw_getobjectbyquerycollobj(int link, int collid, string query, int maxhits)
-   Search for query in collection and return maxhits object records */
+   Searches for query in collection and returns maxhits object records */
 PHP_FUNCTION(hw_getobjectbyquerycollobj) {
 	pval **arg1, **arg2, **arg3, **arg4;
 	int link, id, type, maxhits;
@@ -3137,6 +3291,176 @@ PHP_FUNCTION(hw_getobjectbyquerycollobj) {
 
 	set_swap(ptr->swap_on);
 	if (0 != (ptr->lasterror = send_getobjbyquerycollobj(ptr->socket, id, query, maxhits, &childObjRecs, &count))) {
+		php_error(E_WARNING, "send_command (getobjectbyquerycollobj) returned %d\n", ptr->lasterror);
+		RETURN_FALSE;
+	}
+
+	/* create return value and free all memory */
+	if( 0 > make_return_objrec(&return_value, childObjRecs, count))
+		RETURN_FALSE;
+}
+/* }}} */
+
+/* {{{ proto array hw_getobjectbyftquery(int link, string query, int maxhits)
+   Searches for query as fulltext and returns maxhits objids */
+PHP_FUNCTION(hw_getobjectbyftquery) {
+	pval **arg1, **arg2, **arg3;
+	int link, type, maxhits;
+	char *query;
+	int count, i;
+	int  *childIDs = NULL;
+	float *weights;
+	hw_connection *ptr;
+
+	if (ZEND_NUM_ARGS() != 3 || zend_get_parameters_ex(3, &arg1, &arg2, &arg3) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+	convert_to_long_ex(arg1);
+	convert_to_string_ex(arg2);
+	convert_to_long_ex(arg3);
+	link=(*arg1)->value.lval;
+	query=(*arg2)->value.str.val;
+	maxhits=(*arg3)->value.lval;
+	if (maxhits < 0) maxhits=0x7FFFFFFF;
+	ptr = zend_list_find(link,&type);
+	if(!ptr || (type!=HwSG(le_socketp) && type!=HwSG(le_psocketp))) {
+		php_error(E_WARNING,"Unable to find file identifier %d",link);
+		RETURN_FALSE;
+	}
+
+	set_swap(ptr->swap_on);
+	if (0 != (ptr->lasterror = send_getobjbyftquery(ptr->socket, query, maxhits, &childIDs, &weights, &count))) {
+		php_error(E_WARNING, "send_command (getobjectbyftquery) returned %d\n", ptr->lasterror);
+		RETURN_FALSE;
+	}
+
+	if (array_init(return_value) == FAILURE) {
+		efree(childIDs);
+		RETURN_FALSE;
+	}
+
+	for(i=0; i<count; i++)
+		add_index_long(return_value, i, childIDs[i]);
+	efree(childIDs);
+}
+/* }}} */
+
+/* {{{ proto array hw_getobjectbyftqueryobj(int link, string query, int maxhits)
+   Searches for query as fulltext and returns maxhits object records */
+PHP_FUNCTION(hw_getobjectbyftqueryobj) {
+	pval **arg1, **arg2, **arg3;
+	int link, type, maxhits;
+	char *query;
+	int count;
+	char  **childObjRecs = NULL;
+	float *weights;
+	hw_connection *ptr;
+
+	if (ZEND_NUM_ARGS() != 3 || zend_get_parameters_ex(3, &arg1, &arg2, &arg3) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+	convert_to_long_ex(arg1);
+	convert_to_string_ex(arg2);
+	convert_to_long_ex(arg3);
+	link=(*arg1)->value.lval;
+	query=(*arg2)->value.str.val;
+	maxhits=(*arg3)->value.lval;
+	if (maxhits < 0) maxhits=0x7FFFFFFF;
+	ptr = zend_list_find(link,&type);
+	if(!ptr || (type!=HwSG(le_socketp) && type!=HwSG(le_psocketp))) {
+		php_error(E_WARNING,"Unable to find file identifier %d",link);
+		RETURN_FALSE;
+	}
+
+	set_swap(ptr->swap_on);
+	if (0 != (ptr->lasterror = send_getobjbyftqueryobj(ptr->socket, query, maxhits, &childObjRecs, &weights, &count))) {
+		php_error(E_WARNING, "send_command (getobjectbyftqueryobj) returned %d\n", ptr->lasterror);
+		RETURN_FALSE;
+	}
+
+	/* create return value and free all memory */
+	if( 0 > make_return_objrec(&return_value, childObjRecs, count))
+		RETURN_FALSE;
+}
+/* }}} */
+
+/* {{{ proto array hw_getobjectbyftquerycoll(int link, int collid, string query, int maxhits)
+   Searches for fulltext query in collection and returns maxhits objids */
+PHP_FUNCTION(hw_getobjectbyftquerycoll) {
+	pval **arg1, **arg2, **arg3, **arg4;
+	int link, id, type, maxhits;
+	char *query;
+	int count, i;
+	hw_connection *ptr;
+	int  *childIDs = NULL;
+	float *weights;
+
+	if (ZEND_NUM_ARGS() != 4 || zend_get_parameters_ex(4, &arg1, &arg2, &arg3, &arg4) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+	convert_to_long_ex(arg1);
+	convert_to_long_ex(arg2);
+	convert_to_string_ex(arg3);
+	convert_to_long_ex(arg4);
+	link=(*arg1)->value.lval;
+	id=(*arg2)->value.lval;
+	query=(*arg3)->value.str.val;
+	maxhits=(*arg4)->value.lval;
+	if (maxhits < 0) maxhits=0x7FFFFFFF;
+	ptr = zend_list_find(link,&type);
+	if(!ptr || (type!=HwSG(le_socketp) && type!=HwSG(le_psocketp))) {
+		php_error(E_WARNING,"Unable to find file identifier %d",id);
+		RETURN_FALSE;
+	}
+
+	set_swap(ptr->swap_on);
+	if (0 != (ptr->lasterror = send_getobjbyftquerycoll(ptr->socket, id, query, maxhits, &childIDs, &weights, &count))) {
+		php_error(E_WARNING, "send_command (getobjectbyquerycoll) returned %d\n", ptr->lasterror);
+		RETURN_FALSE;
+	}
+
+	if (array_init(return_value) == FAILURE) {
+		efree(childIDs);
+		RETURN_FALSE;
+	}
+
+	for(i=0; i<count; i++)
+		add_index_long(return_value, i, childIDs[i]);
+	efree(childIDs);
+}
+/* }}} */
+
+/* {{{ proto array hw_getobjectbyftquerycollobj(int link, int collid, string query, int maxhits)
+   Searches for fulltext query in collection and returns maxhits object records */
+PHP_FUNCTION(hw_getobjectbyftquerycollobj) {
+	pval **arg1, **arg2, **arg3, **arg4;
+	int link, id, type, maxhits;
+	char *query;
+	int count;
+	hw_connection *ptr;
+	char  **childObjRecs = NULL;
+	float *weights;
+
+	if (ZEND_NUM_ARGS() != 4 || zend_get_parameters_ex(4, &arg1, &arg2, &arg3, &arg4) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+	convert_to_long_ex(arg1);
+	convert_to_long_ex(arg2);
+	convert_to_string_ex(arg3);
+	convert_to_long_ex(arg4);
+	link=(*arg1)->value.lval;
+	id=(*arg2)->value.lval;
+	query=(*arg3)->value.str.val;
+	maxhits=(*arg4)->value.lval;
+	if (maxhits < 0) maxhits=0x7FFFFFFF;
+	ptr = zend_list_find(link,&type);
+	if(!ptr || (type!=HwSG(le_socketp) && type!=HwSG(le_psocketp))) {
+		php_error(E_WARNING,"Unable to find file identifier %d",id);
+		RETURN_FALSE;
+	}
+
+	set_swap(ptr->swap_on);
+	if (0 != (ptr->lasterror = send_getobjbyftquerycollobj(ptr->socket, id, query, maxhits, &childObjRecs, &weights, &count))) {
 		php_error(E_WARNING, "send_command (getobjectbyquerycollobj) returned %d\n", ptr->lasterror);
 		RETURN_FALSE;
 	}
@@ -3222,7 +3546,7 @@ PHP_FUNCTION(hw_getchilddoccollobj) {
 /* }}} */
 
 /* {{{ proto array hw_getanchors(int link, int objid)
-   Return all anchors of object */
+   Returns all anchors of object */
 PHP_FUNCTION(hw_getanchors) {
 	pval **arg1, **arg2;
 	int link, id, type;
@@ -3261,7 +3585,7 @@ PHP_FUNCTION(hw_getanchors) {
 /* }}} */
 
 /* {{{ proto array hw_getanchorsobj(int link, int objid)
-   Return all object records of anchors of object */
+   Returns all object records of anchors of object */
 PHP_FUNCTION(hw_getanchorsobj) {
 	pval **arg1, **arg2;
 	int link, id, type;
@@ -3367,7 +3691,7 @@ PHP_FUNCTION(hw_identify) {
 }
 /* }}} */
 
-/* {{{ proto array hw_objrec2array(string objrec, [array format])
+/* {{{ proto array hw_objrec2array(string objrec [, array format])
    Returns object array of object record */
 PHP_FUNCTION(hw_objrec2array) {
 	zval **arg1, **arg2;
@@ -3619,7 +3943,7 @@ PHP_FUNCTION(hw_mapid) {
 /* }}} */
 
 /* {{{ proto string hw_getrellink(int link, int rootid, int sourceid, int destid)
-   Get link from source to dest relative to rootid */
+   Gets link from source to dest relative to rootid */
 PHP_FUNCTION(hw_getrellink) {
 	pval **arg1, **arg2, **arg3, **arg4;
 	int link, type;
@@ -3650,6 +3974,50 @@ PHP_FUNCTION(hw_getrellink) {
 		RETURN_FALSE;
 	}
 
+	RETURN_STRING(anchorstr, 0);
+}
+/* }}} */
+	
+/* {{{ proto string hw_insertanchors(int hwdoc, array anchorecs, array dest)
+   Inserts only anchors into text */
+PHP_FUNCTION(hw_insertanchors) {
+	pval **arg1, **arg2, **arg3, **arg4;
+	hw_document *hwdoc;
+	int type, docid, error;
+	char *anchorstr;
+	char **anchorrecs;
+	char **dest;
+	HashTable *arrht;
+
+	if (ZEND_NUM_ARGS() != 3 || zend_get_parameters_ex(3, &arg1, &arg2, &arg3) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+	convert_to_long_ex(arg1);
+	convert_to_array_ex(arg2);
+	convert_to_array_ex(arg3);
+	docid=(*arg1)->value.lval;
+	hwdoc = zend_list_find(docid, &type);
+	if(!hwdoc || (type!=HwSG(le_document))) {
+		php_error(E_WARNING,"Unable to find file identifier %d",link);
+		RETURN_FALSE;
+	}
+
+	if(zend_hash_num_elements((*arg2)->value.ht) != zend_hash_num_elements((*arg3)->value.ht)) {
+		php_error(E_WARNING,"Unequal number of elments in arrays");
+		RETURN_FALSE;
+	}
+
+	/* Turn PHP-Array of strings into C-Array of strings */
+	arrht = (*arg2)->value.ht;
+	anchorrecs = make_strs_from_array(arrht);
+	arrht = (*arg3)->value.ht;
+	dest = make_strs_from_array(arrht);
+/*
+	if (0 != (error = insertanchors(hwdoc->data, anchorrecs, dest, zend_hash_num_elements(arrht)))) {
+		php_error(E_WARNING, "command (insertanchors) returned %d\n", error);
+		RETURN_FALSE;
+	}
+*/
 	RETURN_STRING(anchorstr, 0);
 }
 /* }}} */

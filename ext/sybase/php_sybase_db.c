@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: php_sybase_db.c,v 1.4 2000/09/03 17:43:09 derick Exp $ */
+/* $Id: php_sybase_db.c,v 1.11 2000/11/28 09:38:51 sniper Exp $ */
 
 
 #include "php.h"
@@ -69,7 +69,7 @@ function_entry sybase_functions[] = {
 	PHP_FALIAS(mssql_num_fields,	sybase_num_fields,		NULL)
 	PHP_FALIAS(mssql_fetch_row,		sybase_fetch_row,		NULL)
 	PHP_FALIAS(mssql_fetch_array,	sybase_fetch_array,		NULL)
-	PHP_FALIAS(mssql_Fetch_object,	sybase_fetch_object,	NULL)
+	PHP_FALIAS(mssql_fetch_object,	sybase_fetch_object,	NULL)
 	PHP_FALIAS(mssql_data_seek,		sybase_data_seek,		NULL)
 	PHP_FALIAS(mssql_fetch_field,	sybase_fetch_field,		NULL)
 	PHP_FALIAS(mssql_field_seek,	sybase_field_seek,		NULL)
@@ -132,8 +132,9 @@ static int _clean_invalid_results(list_entry *le)
 }
 
 
-static void _free_sybase_result(sybase_result *result)
+static void _free_sybase_result(zend_rsrc_list_entry *rsrc)
 {
+	sybase_result *result = (sybase_result *)rsrc->ptr;
 	int i,j;
 	
 	if (result->data) {
@@ -157,8 +158,9 @@ static void _free_sybase_result(sybase_result *result)
 }
 
 
-static void _close_sybase_link(sybase_link *sybase_ptr)
+static void _close_sybase_link(zend_rsrc_list_entry *rsrc)
 {
+	sybase_link *sybase_ptr = (sybase_link *)rsrc->ptr;
 	ELS_FETCH();
 
 	sybase_ptr->valid = 0;
@@ -166,7 +168,7 @@ static void _close_sybase_link(sybase_link *sybase_ptr)
     /* 
 	  this can cause crashes in the current model.
       if the resource gets destroyed via destroy_resource_list() resource_list
-      will *not* be in a consistent state. thies@digicol.de
+      will *not* be in a consistent state. thies@thieso.net
     */
 
 	zend_hash_apply(&EG(regular_list),(int (*)(void *))_clean_invalid_results);
@@ -177,8 +179,9 @@ static void _close_sybase_link(sybase_link *sybase_ptr)
 }
 
 
-static void _close_sybase_plink(sybase_link *sybase_ptr)
+static void _close_sybase_plink(zend_rsrc_list_entry *rsrc)
 {
+	sybase_link *sybase_ptr = (sybase_link *)rsrc->ptr;
 	dbclose(sybase_ptr->link);
 	dbloginfree(sybase_ptr->login);
 	free(sybase_ptr);
@@ -220,9 +223,9 @@ PHP_MINIT_FUNCTION(sybase)
 	}
 	
 	php_sybase_module.num_persistent=0;
-	php_sybase_module.le_link = register_list_destructors(_close_sybase_link,NULL);
-	php_sybase_module.le_plink = register_list_destructors(NULL,_close_sybase_plink);
-	php_sybase_module.le_result = register_list_destructors(_free_sybase_result,NULL);
+	php_sybase_module.le_link = zend_register_list_destructors_ex(_close_sybase_link, NULL, "sybase-db link", module_number);
+	php_sybase_module.le_plink = zend_register_list_destructors_ex(NULL, _close_sybase_plink, "sybase-db link persistent", module_number);
+	php_sybase_module.le_result = zend_register_list_destructors_ex(_free_sybase_result, NULL, "sybase-db result", module_number);
 	
 	return SUCCESS;
 }
@@ -254,14 +257,13 @@ PHP_RSHUTDOWN_FUNCTION(sybase)
 
 static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 {
-	char *user,*passwd,*host,*charset;
+	char *user=NULL,*passwd=NULL,*host=NULL,*charset=NULL;
 	char *hashed_details;
 	int hashed_details_length;
 	sybase_link sybase,*sybase_ptr;
 
 	switch(ZEND_NUM_ARGS()) {
 		case 0: /* defaults */
-			host=user=passwd=NULL;
 			hashed_details_length=6+3;
 			hashed_details = (char *) emalloc(hashed_details_length+1);
 			strcpy(hashed_details,"sybase___");
@@ -274,7 +276,6 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 				}
 				convert_to_string(yyhost);
 				host = yyhost->value.str.val;
-				user=passwd=NULL;
 				hashed_details_length = yyhost->value.str.len+6+3;
 				hashed_details = (char *) emalloc(hashed_details_length+1);
 				sprintf(hashed_details,"sybase_%s__",yyhost->value.str.val);
@@ -290,7 +291,6 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 				convert_to_string(yyuser);
 				host = yyhost->value.str.val;
 				user = yyuser->value.str.val;
-				passwd=NULL;
 				hashed_details_length = yyhost->value.str.len+yyuser->value.str.len+6+3;
 				hashed_details = (char *) emalloc(hashed_details_length+1);
 				sprintf(hashed_details,"sybase_%s_%s_",yyhost->value.str.val,yyuser->value.str.val);
@@ -666,7 +666,7 @@ static void php_sybase_get_column_content(sybase_link *sybase_ptr,int offset,pva
 				res_buf = (char *) emalloc(res_length+1);
 				memset(res_buf,' ',res_length+1);  /* XXX i'm sure there's a better way
 													  but i don't have sybase here to test
-													  991105 thies@digicol.de  */
+													  991105 thies@thieso.net  */
 				dbconvert(NULL,coltype(offset),dbdata(sybase_ptr->link,offset), res_length,SYBCHAR,res_buf,-1);
 		
 				/* get rid of trailing spaces */
@@ -1253,16 +1253,16 @@ PHP_MINFO_FUNCTION(sybase)
 	char maxp[32],maxl[32];
 	
 	if (php_sybase_module.max_persistent==-1) {
-		snprintf(maxp, 31, "%d/unlimited", php_sybase_module.num_persistent );
+		snprintf(maxp, 31, "%ld/unlimited", php_sybase_module.num_persistent );
 	} else {
-		snprintf(maxp, 31, "%d/%ld", php_sybase_module.num_persistent, php_sybase_module.max_persistent);
+		snprintf(maxp, 31, "%ld/%ld", php_sybase_module.num_persistent, php_sybase_module.max_persistent);
 	}
 	maxp[31]=0;
 
 	if (php_sybase_module.max_links==-1) {
-		snprintf(maxl, 31, "%d/unlimited", php_sybase_module.num_links );
+		snprintf(maxl, 31, "%ld/unlimited", php_sybase_module.num_links );
 	} else {
-		snprintf(maxl, 31, "%d/%ld", php_sybase_module.num_links, php_sybase_module.max_links);
+		snprintf(maxl, 31, "%ld/%ld", php_sybase_module.num_links, php_sybase_module.max_links);
 	}
 	maxl[31]=0;
 

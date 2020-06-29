@@ -63,26 +63,30 @@ ZEND_API void zend_llist_prepend_element(zend_llist *l, void *element)
 }
 
 
+#define DEL_LLIST_ELEMENT(current,l) \
+			if (current->prev) {\
+				current->prev->next = current->next;\
+			} else {\
+				l->head = current->next;\
+			}\
+			if (current->next) {\
+				current->next->prev = current->prev;\
+			} else {\
+				l->tail = current->prev;\
+			}\
+			if (l->dtor) {\
+				l->dtor(current->data);\
+				pefree(current, l->persistent);\
+			}
+
+
 ZEND_API void zend_llist_del_element(zend_llist *l, void *element, int (*compare)(void *element1, void *element2))
 {
 	zend_llist_element *current=l->head;
 
 	while (current) {
 		if (compare(current->data, element)) {
-			if (current->prev) {
-				current->prev->next = current->next;
-			} else {
-				l->head = current->next;
-			}
-			if (current->next) {
-				current->next->prev = current->prev;
-			} else {
-				l->tail = current->prev;
-			}
-			if (l->dtor) {
-				l->dtor(current->data);
-				pefree(current, l->persistent);
-			}
+			DEL_LLIST_ELEMENT(current,l);
 			break;
 		}
 		current = current->next;
@@ -135,6 +139,21 @@ ZEND_API void zend_llist_copy(zend_llist *dst, zend_llist *src)
 	while (ptr) {
 		zend_llist_add_element(dst, ptr->data);
 		ptr = ptr->next;
+	}
+}
+
+
+ZEND_API void zend_llist_apply_with_del(zend_llist *l, int (*func)(void *data))
+{
+	zend_llist_element *element, *next;
+
+	element=l->head;
+	while (element) {
+		next = element->next;
+		if (func(element->data)) {
+			DEL_LLIST_ELEMENT(element,l);
+		}
+		element = next;
 	}
 }
 

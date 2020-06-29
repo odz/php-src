@@ -28,8 +28,9 @@
 #include <ieeefp.h>
 #endif
 
-#if WITH_BCMATH
-#include "ext/bcmath/number.h"
+
+#if 0&&WITH_BCMATH
+#include "ext/bcmath/libbcmath/src/bcmath.h"
 #endif
 
 #define MAX_LENGTH_OF_LONG 18
@@ -88,7 +89,7 @@ static inline int is_numeric_string(char *str, int length, long *lval, double *d
 		if (dval) {
 			*dval = local_dval;
 		}
-#if WITH_BCMATH
+#if 0&&WITH_BCMATH
 		if (length>16) {
 			register char *ptr=str, *end=str+length;
 			
@@ -158,6 +159,7 @@ ZEND_API void zend_compare_symbol_tables(zval *result, HashTable *ht1, HashTable
 ZEND_API void zend_compare_arrays(zval *result, zval *a1, zval *a2);
 ZEND_API void zend_compare_objects(zval *result, zval *o1, zval *o2);
 
+ZEND_API int zend_atoi(const char *str, int str_len);
 
 #define convert_to_ex_master(ppzv, lower_type, upper_type)	\
 	if ((*ppzv)->type!=IS_##upper_type) {					\
@@ -207,6 +209,9 @@ ZEND_API void zend_compare_objects(zval *result, zval *o1, zval *o2);
 #define Z_STRVAL(zval)		(zval).value.str.val
 #define Z_STRLEN(zval)		(zval).value.str.len
 #define Z_ARRVAL(zval)		(zval).value.ht
+#define Z_OBJPROP(zval)		(zval).value.obj.properties
+#define Z_OBJCE(zval)		(zval).value.obj.ce
+#define Z_RESVAL(zval)		(zval).value.lval
 
 #define Z_LVAL_P(zval_p)		Z_LVAL(*zval_p)
 #define Z_BVAL_P(zval_p)		Z_BVAL(*zval_p)
@@ -214,6 +219,9 @@ ZEND_API void zend_compare_objects(zval *result, zval *o1, zval *o2);
 #define Z_STRVAL_P(zval_p)		Z_STRVAL(*zval_p)
 #define Z_STRLEN_P(zval_p)		Z_STRLEN(*zval_p)
 #define Z_ARRVAL_P(zval_p)		Z_ARRVAL(*zval_p)
+#define Z_OBJPROP_P(zval_p)		Z_OBJPROP(*zval_p)
+#define Z_OBJCE_P(zval_p)		Z_OBJCE(*zval_p)
+#define Z_RESVAL_P(zval_p)		Z_RESVAL(*zval_p)
 
 #define Z_LVAL_PP(zval_pp)		Z_LVAL(**zval_pp)
 #define Z_BVAL_PP(zval_pp)		Z_BVAL(**zval_pp)
@@ -221,6 +229,9 @@ ZEND_API void zend_compare_objects(zval *result, zval *o1, zval *o2);
 #define Z_STRVAL_PP(zval_pp)	Z_STRVAL(**zval_pp)
 #define Z_STRLEN_PP(zval_pp)	Z_STRLEN(**zval_pp)
 #define Z_ARRVAL_PP(zval_pp)	Z_ARRVAL(**zval_pp)
+#define Z_OBJPROP_PP(zval_pp)	Z_OBJPROP(**zval_pp)
+#define Z_OBJCE_PP(zval_pp)		Z_OBJCE(**zval_pp)
+#define Z_RESVAL_PP(zval_pp)	Z_RESVAL(**zval_pp)
 
 #define Z_TYPE(zval)		(zval).type
 #define Z_TYPE_P(zval_p)	Z_TYPE(*zval_p)

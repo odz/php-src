@@ -17,13 +17,17 @@
 // |          Urs Gehrig <urs@circle.ch>                                  |
 // +----------------------------------------------------------------------+
 //
-// $Id: Form.php,v 1.3 2000/09/18 23:27:07 ssb Exp $
+// $Id: Form.php,v 1.6 2000/11/29 13:30:55 ssb Exp $
 //
 // HTML form utility functions.
 //
 
 if (!defined('HTML_FORM_TEXT_SIZE')) {
     define('HTML_FORM_TEXT_SIZE', 20);
+}
+
+if (!defined('HTML_FORM_MAX_FILE_SIZE')) {
+    define('HTML_FORM_MAX_FILE_SIZE', 1048576); // 1 MB
 }
 
 class HTML_Form {
@@ -44,15 +48,23 @@ class HTML_Form {
     /** DB_storage object, if tied to one */
     var $storageObject;
 
+    /** <FORM ENCODING=""> attribute value */
+    var $encoding;
+
+    /** TARGET attribute of <FORM> tag */
+    var $target;
+
     // }}}
 
     // {{{ constructor
 
-    function HTML_Form($action, $method = 'GET', $name = '') {
-        $this->action = $action;
-        $this->method = $method;
-        $this->name = $name;
-        $this->fields = array();
+    function HTML_Form($action, $method = 'GET', $name = '', $target = '') {
+		$this->action = $action;
+		$this->method = $method;
+		$this->name = $name;
+		$this->fields = array();
+		$this->encoding = '';
+		$this->target = $target;
     }
 
     // }}}
@@ -104,9 +116,9 @@ class HTML_Form {
     // {{{ addSelect()
 
     function addSelect($name, $title, $entries, $default = '', $size = 1,
-                       $blank = '', $multiple = false) {
-        $this->fields[] = array("select", $name, $title, &$entries, $default, $size,
-                                $blank, $multiple);
+                       $blank = '', $multiple = false, $attribs = '') {
+        $this->fields[] = array("select", $name, $title, &$entries, $default,
+				$size, $blank, $multiple, $attribs);
     }
 
     // }}}
@@ -135,10 +147,13 @@ class HTML_Form {
     // {{{ start()
 
     function start() {
-        print "<FORM ACTION=\"" . basename ($this->action) . "\" METHOD=\"$this->method\"";
+        print "<FORM ACTION=\"" . basename($this->action) . "\" METHOD=\"$this->method\"";
         if ($this->name) {
             print " NAME=\"$this->name\"";
         }
+	if ($this->target) {
+	    print " TARGET=\"$this->target\"";
+	}
         print ">";
     }
 
@@ -247,14 +262,14 @@ class HTML_Form {
     // {{{ displaySubmit()
 
     function displaySubmit($title = 'Submit Changes', $name = "submit") {
-	print $this->displaySubmit($title, $name);
+	print $this->returnSubmit($title, $name);
     }
 
     // }}}
     // {{{ displaySubmitRow()
 
     function displaySubmitRow($name = "submit", $title = 'Submit Changes') {
-	print $this->returnSubmitRow($name, $title);
+    print $this->returnSubmitRow($name, $title);
     }
 
     // }}}
@@ -275,26 +290,26 @@ class HTML_Form {
     // {{{ displaySelect()
 
     function displaySelect($name, $entries, $default = '', $size = 1,
-                           $blank = '', $multiple = false) {
-	print $this->returnSelect($name, $entries, $default, $size, $blank,
-				  $multiple);
+                           $blank = '', $multiple = false, $attribs = '') {
+		print $this->returnSelect($name, $entries, $default, $size, $blank,
+								  $multiple, $attribs);
     }
 
     // }}}
     // {{{ displaySelectRow()
 
     function displaySelectRow($name, $title, &$entries, $default = '',
-			      $size = 1, $blank = '', $multiple = false)
+                  $size = 1, $blank = '', $multiple = false)
     {
-	print $this->returnSelectRow($name, $title, $entries, $default, $size,
-				     $blank, $multiple);
+    print $this->returnSelectRow($name, $title, $entries, $default, $size,
+                     $blank, $multiple);
     }
 
     // }}}
     // {{{ displayHidden()
 
     function displayHidden($name, $value) {
-	print $this->returnHidden($name, $value);
+    print $this->returnHidden($name, $value);
     }
 
     // }}}
@@ -442,7 +457,10 @@ class HTML_Form {
     // {{{ returnSelect()
 
     function returnSelect($name, $entries, $default = '', $size = 1,
-                           $blank = '', $multiple = false) {
+                           $blank = '', $multiple = false, $attrib = '') {
+		if ($multiple && substr($name, -2) != "[]") {
+			$name .= "[]";
+		}
         $str .= "   <SELECT NAME=\"$name\"";
         if ($size) {
             $str .= " SIZE=\"$size\"";
@@ -450,15 +468,25 @@ class HTML_Form {
         if ($multiple) {
             $str .= " MULTIPLE";
         }
+		if ($attrib) {
+			$str .= " $attrib";
+		}
         $str .= ">\n";
         if ($blank) {
             $str .= "    <OPTION VALUE=\"\">$blank\n";
         }
         while (list($val, $text) = each($entries)) {
             $str .= '    <OPTION ';
-            if ($default && $default == $val) {
-                 $str .= 'SELECTED ';
-            }
+			if ($default) {
+				if ($multiple && is_array($default)) {
+					if ((is_string(key($default)) && $default[$val]) ||
+						(is_int(key($default)) && in_array($val, $default))) {
+						$str .= 'SELECTED ';
+					}
+				} elseif ($default == $val) {
+					$str .= 'SELECTED ';
+				}
+			}
             $str .= "VALUE=\"$val\">$text\n";
         }
         $str .= "   </SELECT>\n";
@@ -490,16 +518,39 @@ class HTML_Form {
     }
 
     // }}}
+    // {{{ returnFile()
 
+    function returnFile($name = 'userfile', $maxsize = HTML_FORM_MAX_FILE_SIZE, $size = HTML_FORM_TEXT_SIZE) {
+        $str .= " <INPUT TYPE=\"hidden\" NAME=\"MAX_FILE_SIZE\" VALUE=\"$maxsize\">";
+        $str .= " <INPUT TYPE=\"file\" NAME=\"$name\" SIZE=\"$size\">";
+        return $str;
+    }
+
+    // }}}
+    // {{{ returnMultipleFiles()
+
+    function returnMultipleFiles($name = 'userfile[]', $maxsize = HTML_FORM_MAX_FILE_SIZE, $files = 3, $size = HTML_FORM_TEXT_SIZE) {
+        $str .= " <INPUT TYPE=\"hidden\" NAME=\"MAX_FILE_SIZE\" VALUE=\"$maxsize\">";
+        for($i=0; $i<$files; $i++) {
+           $str .= " <INPUT TYPE=\"file\" NAME=\"$name\" SIZE=\"$size\"><br>";
+        }
+        return $str;
+    }
+
+    // }}}
     // {{{ returnStart()
 
-    function returnStart() {
-        $ret = "<FORM ACTION=\"" . basename ($this->action) . "\" METHOD=\"$this->method\"";
+    function returnStart($multipartformdata = false) {
+        $str .= "<FORM ACTION=\"" . basename ($this->action) . "\" METHOD=\"$this->method\"";
         if ($this->name) {
-            $ret .= " NAME=\"$this->name\"";
+            $str .= " NAME=\"$this->name\"";
         }
-        $ret .= ">";
-	return $ret;
+        if ($multipartformdata) {
+            $str .= " ENCTYPE=\"multipart/form-data\"";
+        }
+        $str .= ">";
+
+        return $str;
     }
 
     // }}}
@@ -514,9 +565,9 @@ class HTML_Form {
             }
             $fields[$data[1]] = true;
         }
-	$ret = $this->returnHidden("_fields", implode(":", array_keys($fields)));
-	$ret .= "</FORM>";
-	return $ret;
+    $ret = $this->returnHidden("_fields", implode(":", array_keys($fields)));
+    $ret .= "</FORM>";
+    return $ret;
     }
 
     // }}}
@@ -553,21 +604,21 @@ class HTML_Form {
                     $params = 5;
                     break;
                 case "select":
-                    $params = 7;
+                    $params = 8;
                     break;
                 default:
                     // unknown field type
                     continue 2;
             }
-            $str = $call_cache[$params];
-            if (!$str) {
+            $str = $call_cache[$data[0]];
+            if (empty($str)) {
                 $str = '$this->display'.ucfirst($data[0])."Row(";
                 for ($i = 1; $i <= $params; $i++) {
                     $str .= '$data['.$i.']';
                     if ($i < $params) $str .= ', ';
                 }
                 $str .= ');';
-                $call_cache[$params] = $str;
+                $call_cache[$data[0]] = $str;
             }
             eval($str);
         }
@@ -582,4 +633,10 @@ class HTML_Form {
     // }}}
 }
 
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ */
 ?>

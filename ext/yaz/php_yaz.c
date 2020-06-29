@@ -16,11 +16,12 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_yaz.c,v 1.5 2000/08/11 12:11:45 dickmeiss Exp $ */
+/* $Id: php_yaz.c,v 1.7 2000/11/01 22:10:54 dickmeiss Exp $ */
 
 #include "php.h"
 
 #if HAVE_YAZ
+#include "ext/standard/info.h"
 #include "php_yaz.h"
 
 #include <yaz/proto.h>
@@ -30,6 +31,7 @@
 #include <yaz/otherinfo.h>
 #include <yaz/marcdisp.h>
 #include <yaz/yaz-util.h>
+#include <yaz/yaz-version.h>
 
 #define MAX_ASSOC 100
 
@@ -72,7 +74,6 @@ struct Yaz_AssociationInfo {
 	char **databaseNames;
 	COMSTACK cs;
 	char *cookie;
-	char *proxy;
 	char *auth_open;
 	char *user;
 	char *group;
@@ -105,7 +106,6 @@ static Yaz_Association yaz_association_mk ()
 	p->databaseNames = 0;
 	p->cs = 0;
 	p->cookie = 0;
-	p->proxy = 0;
 	p->auth_open = 0;
 	p->user = 0;
 	p->group = 0;
@@ -143,7 +143,6 @@ static void yaz_association_destroy (Yaz_Association p)
 	if (p->cs)
 		cs_close (p->cs);
 	xfree (p->cookie);
-	xfree (p->proxy);
 	xfree (p->auth_open);
 	xfree (p->user);
 	xfree (p->group);
@@ -179,6 +178,10 @@ static void yaz_resultset_destroy (Yaz_ResultSet p)
 	if (p->odr)
 		odr_destroy (p->odr);
 }
+
+#ifdef ZTS
+static MUTEX_T yaz_mutex;
+#endif
 
 static Yaz_Association *shared_associations;
 static int order_associations;
@@ -222,16 +225,32 @@ function_entry yaz_functions [] = {
 
 static Yaz_Association get_assoc (pval **id)
 {
+	Yaz_Association assoc;
 	int i;
 	convert_to_long_ex(id);
 	i = (*id)->value.lval;
 	
-	if (i < 1 || i > MAX_ASSOC)
+#ifdef ZTS
+	tsrm_mutex_lock (yaz_mutex);
+#endif
+	if (i < 1 || i > MAX_ASSOC || !shared_associations ||
+		!(assoc = shared_associations[i-1]))
+	{
+#ifdef ZTS
+		tsrm_mutex_unlock (yaz_mutex);
+#endif
 		return 0;
-	return shared_associations[i-1];
+	}
+	return assoc;
 }
 
-
+static void release_assoc (Yaz_Association assoc)
+{
+#ifdef ZTS
+	if (assoc)
+		tsrm_mutex_unlock(yaz_mutex);
+#endif
+}
 static void do_close (Yaz_Association p)
 {
 	p->mask_select = 0;
@@ -246,10 +265,18 @@ static void do_close (Yaz_Association p)
 static void do_connect (Yaz_Association p)
 {
 	void *addr;
+	char *cp;
 	
 	p->reconnect_flag = 0;
 	p->cs = cs_create (tcpip_type, 0, PROTO_Z3950);
+
+	/* see if the host_port is prefixed by proxy. */
+	cp = strchr (p->host_port, ',');
+	if (cp)
+		*cp = '\0';	
 	addr = tcpip_strtoaddr (p->host_port);
+	if (cp)
+		*cp = ',';
 	if (!addr)
 	{
 		do_close(p);
@@ -294,7 +321,7 @@ static void response_diag (Yaz_Association t, Z_DiagRec *p)
 
 static int send_present (Yaz_Association t);
 
-void handle_records (Yaz_Association t, Z_Records *sr)
+static void handle_records (Yaz_Association t, Z_Records *sr)
 {
 	if (sr && sr->which == Z_Records_NSD)
 	{
@@ -626,9 +653,6 @@ static int send_present (Yaz_Association t)
 	
 	if (!t->resultSets->recordList)	  /* no records to retrieve at all .. */
 	{
-#if PHP_YAZ_DEBUG
-		php_log_err("No records to retrieve...");
-#endif
 		return 0;
 	}
 	
@@ -679,6 +703,7 @@ static int send_present (Yaz_Association t)
 
 static void send_init(Yaz_Association t)
 {
+	char *cp;
 	int i = 0;
 	Z_APDU *apdu = zget_APDU(t->odr_out, Z_APDU_initRequest);
 	Z_InitRequest *ireq = apdu->u.initRequest;
@@ -737,9 +762,12 @@ static void send_init(Yaz_Association t)
 		auth->u.idPass = pass;
 		ireq->idAuthentication = auth;
 	}
-	if (t->proxy)
+
+	/* see if proxy has been specified ... */
+	cp = strchr (t->host_port, ',');
+	if (cp && cp[1])
 		yaz_oi_set_string_oidval(&ireq->otherInfo, t->odr_out,
-								 VAL_PROXY, 1, t->host_port);
+					 VAL_PROXY, 1, cp+1);
 	send_APDU (t, apdu);
 }
 
@@ -754,6 +782,9 @@ static int do_event (int *id)
 	tv.tv_sec = 15;
 	tv.tv_usec = 0;
 	
+#ifdef ZTS
+	tsrm_mutex_lock (yaz_mutex);
+#endif
 	FD_ZERO (&input);
 	FD_ZERO (&output);
 	for (i = 0; i < MAX_ASSOC; i++)
@@ -776,9 +807,15 @@ static int do_event (int *id)
 			no++;
 		}
 	}
+#ifdef ZTS
+	tsrm_mutex_unlock (yaz_mutex);
+#endif
 	if (!no)
 		return 0;
 	no = select (max_fd+1, &input, &output, 0, &tv);
+#ifdef ZTS
+	tsrm_mutex_lock (yaz_mutex);
+#endif
 	for (i = 0; i<MAX_ASSOC; i++)
 	{
 		int fd;
@@ -804,7 +841,6 @@ static int do_event (int *id)
 			{
 				do_close(p);
 				p->error = PHP_YAZ_ERROR_CONNECT;
-				return 2;
 			}
 			else if (FD_ISSET (fd, &output))
 			{
@@ -824,6 +860,9 @@ static int do_event (int *id)
 			p->error = PHP_YAZ_ERROR_CONNECTION_LOST;
 		}
 	}
+#ifdef ZTS
+	tsrm_mutex_unlock (yaz_mutex);
+#endif
 	return no;
 }
 
@@ -870,6 +909,9 @@ PHP_FUNCTION(yaz_connect)
 		RETURN_LONG(0);
 		
 	/* see if we have it already ... */
+#ifdef ZTS
+	tsrm_mutex_lock (yaz_mutex);
+#endif
 	for (i = 0; i<MAX_ASSOC; i++)
 		if (shared_associations[i] && shared_associations[i]->host_port &&
 			shared_associations[i]->order != order_associations &&
@@ -893,6 +935,9 @@ PHP_FUNCTION(yaz_connect)
 			i = i0;
 			if (i == -1)
 			{
+#ifdef ZTS
+				tsrm_mutex_unlock (yaz_mutex);
+#endif
 				RETURN_LONG(0);          /* no free slot */
 			}
 			else                         /* "best" free slot */
@@ -913,6 +958,9 @@ PHP_FUNCTION(yaz_connect)
 		shared_associations[i]->group = xstrdup (group_str);
 		shared_associations[i]->pass = xstrdup (pass_str);
 	}
+#ifdef ZTS
+	tsrm_mutex_unlock (yaz_mutex);
+#endif
 	RETURN_LONG(i+1);
 }
 /* }}} */
@@ -921,18 +969,21 @@ PHP_FUNCTION(yaz_connect)
    Destory and close target */
 PHP_FUNCTION(yaz_close)
 {
+	Yaz_Association p;
 	pval **id;
 	int i;
 	if (ZEND_NUM_ARGS() != 1)
 		WRONG_PARAM_COUNT;
 	if (zend_get_parameters_ex (1, &id) == FAILURE)
 		RETURN_FALSE;
-	convert_to_long_ex (id);
-	i = (*id)->value.lval -1;
-	if (i < 0 || i >= MAX_ASSOC || !shared_associations[i])
+	p = get_assoc (id);
+	if (!p)
 		RETURN_FALSE;
+	convert_to_long_ex (id);
+	i = (*id)->value.lval - 1;
 	yaz_association_destroy (shared_associations[i]);
 	shared_associations[i] = 0;
+	release_assoc (p);
 	RETURN_TRUE;
 }
 /* }}} */
@@ -954,9 +1005,6 @@ PHP_FUNCTION(yaz_search)
 	p = get_assoc (id);
 	if (!p)
 	{
-#if PHP_YAZ_DEBUG
-		php_log_err ("get_assoc failed");
-#endif
 		RETURN_FALSE;
 	}
 	convert_to_string_ex (type);
@@ -974,22 +1022,20 @@ PHP_FUNCTION(yaz_search)
 		{
 			yaz_resultset_destroy(r);
 			p->resultSets = 0;
-#if PHP_YAZ_DEBUG
-			php_log_err ("bad rpn");
-#endif
-			RETURN_FALSE;
+			RETVAL_FALSE;
+		}
+		else
+		{
+			RETVAL_TRUE;
 		}
 	}
 	else
 	{
 		yaz_resultset_destroy(r);
 		p->resultSets = 0;
-#if PHP_YAZ_DEBUG
-		php_log_err ("bad query type");
-#endif
-		RETURN_FALSE;
+		RETVAL_FALSE;
 	}
-	RETURN_TRUE;
+	release_assoc (p);
 }
 /* }}} */
 
@@ -999,6 +1045,9 @@ PHP_FUNCTION(yaz_wait)
 {
 	int i;
 	int id;
+#ifdef ZTS
+	tsrm_mutex_lock (yaz_mutex);
+#endif
 	for (i = 0; i<MAX_ASSOC; i++)
 	{
 		Yaz_Association p = shared_associations[i];
@@ -1015,6 +1064,9 @@ PHP_FUNCTION(yaz_wait)
 			send_search (p);
 		}
 	}
+#ifdef ZTS
+	tsrm_mutex_unlock (yaz_mutex);
+#endif
 	while (do_event(&id))
 		;
 	RETURN_TRUE;
@@ -1036,7 +1088,8 @@ PHP_FUNCTION(yaz_errno)
 	{
 		RETURN_LONG(0);
 	}
-	RETURN_LONG(p->error);
+	RETVAL_LONG(p->error);
+	release_assoc (p);
 }
 /* }}} */
 
@@ -1093,6 +1146,7 @@ PHP_FUNCTION(yaz_error)
 			estrndup(msg, return_value->value.str.len);
 		return_value->type = IS_STRING;
 	}
+	release_assoc (p);
 }
 /* }}} */
 
@@ -1109,8 +1163,9 @@ PHP_FUNCTION(yaz_addinfo)
 	p = get_assoc (id);
 	if (p && p->error > 0 && p->addinfo && *p->addinfo)
 	{
-		RETURN_STRING(p->addinfo, 1);
+		RETVAL_STRING(p->addinfo, 1);
 	}
+	release_assoc (p);
 }
 /* }}} */
 
@@ -1127,13 +1182,17 @@ PHP_FUNCTION(yaz_hits)
 	p = get_assoc (id);
 	if (!p || !p->resultSets)
 	{
-		RETURN_LONG(0);
+		RETVAL_LONG(0);
 	}
-	RETURN_LONG(p->resultSets->resultCount);
+	else
+	{
+		RETVAL_LONG(p->resultSets->resultCount);
+	}
+	release_assoc (p);
 }
 /* }}} */
 
-Z_GenericRecord *marc_to_grs1(const char *buf, ODR o, Odr_oid *oid)
+static Z_GenericRecord *marc_to_grs1(const char *buf, ODR o, Odr_oid *oid)
 {
     int entry_p;
     int record_length;
@@ -1376,7 +1435,6 @@ static void retval_grs1 (zval *return_value, Z_GenericRecord *p)
 			level++;
 			grs[level] = e->content->u.subtree;
 			eno[level] = -1;
-		default:
 		}
 		zend_hash_next_index_insert (return_value->value.ht,
 									 (void *) &my_zval, sizeof(zval *), NULL);
@@ -1444,6 +1502,7 @@ PHP_FUNCTION(yaz_record)
 					case VAL_APPLICATION_XML:
 						break;
 					default:
+						break;
 					}
 					RETVAL_STRINGL(buf, len, 1);
 				}
@@ -1479,6 +1538,7 @@ PHP_FUNCTION(yaz_record)
 			}
 		}
 	}
+	release_assoc (p);
 }
 /* }}} */
 
@@ -1501,6 +1561,7 @@ PHP_FUNCTION(yaz_syntax)
 		xfree (p->preferredRecordSyntax);
 		p->preferredRecordSyntax = xstrdup ((*pval_syntax)->value.str.val);
 	}
+	release_assoc (p);
 }
 /* }}} */
 
@@ -1522,6 +1583,7 @@ PHP_FUNCTION(yaz_element)
 		xfree (p->elementSetNames);
 		p->elementSetNames = xstrdup ((*pval_element)->value.str.val);
 	}
+	release_assoc (p);
 }
 /* }}} */
 
@@ -1546,16 +1608,17 @@ PHP_FUNCTION(yaz_range)
 		convert_to_long_ex (pval_number);
 		p->numberOfRecordsRequested = (*pval_number)->value.lval;
 	}
+	release_assoc (p);
 }
 /* }}} */
 
 PHP_MINIT_FUNCTION(yaz)
 {
 	int i;
-#if PHP_YAZ_DEBUG
-	php_log_err ("PHP_MINIT_FUNCTION yaz");
-#endif
 	nmem_init();
+#ifdef ZTS
+	yaz_mutex = tsrm_mutex_alloc();
+#endif
 	order_associations = 1;
 	shared_associations = xmalloc (sizeof(*shared_associations) * MAX_ASSOC);
 	for (i = 0; i<MAX_ASSOC; i++)
@@ -1567,9 +1630,6 @@ PHP_MSHUTDOWN_FUNCTION(yaz)
 {
 	int i;
 
-#if PHP_YAZ_DEBUG
-	php_log_err ("PHP_MSHUTDOWN_FUNCTION yaz");
-#endif
 	if (shared_associations)
 	{
 		for (i = 0; i<MAX_ASSOC; i++)
@@ -1578,25 +1638,31 @@ PHP_MSHUTDOWN_FUNCTION(yaz)
 		shared_associations = 0;
 		nmem_exit();
 	}
+#ifdef ZTS
+	tsrm_mutex_free (yaz_mutex);
+#endif
 	return SUCCESS;
 }
 
 PHP_MINFO_FUNCTION(yaz)
 {
-#if PHP_YAZ_DEBUG
-	php_log_err ("PHP_MINFO_FUNCTION yaz");
-#endif
+	php_info_print_table_start();
+	php_info_print_table_row(2, "YAZ Support", "enabled");
+	php_info_print_table_row(2, "YAZ Version", YAZ_VERSION);
+	php_info_print_table_end();
 }
 
 PHP_RSHUTDOWN_FUNCTION(yaz)
 {
 	int i;
-#if PHP_YAZ_DEBUG
-	php_log_err ("PHP_RSHUTDOWN yaz");
+
+#ifdef ZTS
+	tsrm_mutex_lock (yaz_mutex);
 #endif
 	if (shared_associations)
 	{
 		for (i = 0; i<MAX_ASSOC; i++)
+			/* destroy those where password has been used */
 			if (shared_associations[i] &&
 				(shared_associations[i]->user ||
 				 shared_associations[i]->auth_open))
@@ -1605,14 +1671,20 @@ PHP_RSHUTDOWN_FUNCTION(yaz)
 				shared_associations[i] = 0;
 			}
 	}
+#ifdef ZTS
+	tsrm_mutex_unlock (yaz_mutex);
+#endif
 	return SUCCESS;
 }
 
 PHP_RINIT_FUNCTION(yaz)
 {
+#ifdef ZTS
+	tsrm_mutex_lock (yaz_mutex);
+#endif
 	order_associations++;
-#if PHP_YAZ_DEBUG
-	php_log_err ("PHP_RINIT yaz");
+#ifdef ZTS
+	tsrm_mutex_unlock (yaz_mutex);
 #endif
 	return SUCCESS;
 }

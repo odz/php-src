@@ -7,6 +7,10 @@ Zend
       traverse an array without copying each element.
     * look at replacing c-lib call tolower().
     * make hash API functions work with HASH_OF() to save time.
+    * native large number support (probably with GNU GMP)
+    * Const'ify APIs. Right now, many functions leave parameters untouched,
+      but don't declare those as const. This makes interaction with other
+      interfaces difficult which pass const parameters to us. 
 
 global
 ------
@@ -16,7 +20,6 @@ global
     * make sure all source files have the "right" copyright.
     * the following modules still use PHP3_TLS_*() macros (and thereby don't 
       work in ZTS mode): ext/dav/dav.c, ext/db/db.c, ext/gd/gd.c, ext/ldap/ldap.c
-    * INI system causes segfaults in ZTS mode (operates on static HashTable)
     * make sure that all ZTS globals get destructed. Most ts_allocate_id()
       calls should have a dtor entry.
     * activate all extensions by default that don't rely on external
@@ -24,7 +27,7 @@ global
     * --enable-all in configure. (--enable-shared=max ...)
     * make configure print out a summary when it's done (like XEmacs)
     * replace standard functions which work on static data with 
-      reentrancy-safe functions.
+      reentrancy-safe functions (DONE?).
     * on some platforms unimplemented function will just do nothing (e.g. symlink)
       they should print a warning or not even be defined!
     * implement javadoc based function docs template system.
@@ -50,10 +53,6 @@ ext/dav
 --------
     * rewrite.
 
-ext/mcrypt
-----------
-    * port to mcrypt-2.6 or later
-
 ext/oci8
 --------
     * all OCIFetch*() functions should return 0 for no more data and false on error.
@@ -62,7 +61,6 @@ ext/oci8
 
 ext/pcre
 --------
-    * have an option for preg_grep() to return keys as well.
     * update the online docs from version 3.1 man page
 
 ext/session
@@ -76,6 +74,7 @@ ext/session
 
 ext/standard
 ------------
+    * array_mean()
     * add a version number to data serialized via serialize().
     * array_add(). (Andrei)
     * possibly modify parsing of GPC data to automatically create arrays if
@@ -91,6 +90,8 @@ ext/standard
         strrpos()
         strrchr()
         strip_tags()
+    * rewrite win32 SMTP code to be useable for *ix to, maybe as a (default)
+      module of its own (Hartmut)
 
 ext/wddx
 --------

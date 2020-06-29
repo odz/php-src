@@ -518,8 +518,8 @@ class PhpdocHTMLDocumentRenderer extends PhpdocHTMLRenderer {
 		if (!isset($references[0])) {
 			
 			if (isset($references["group"]))
-				$value.= sprintf('<a href="%s.html#%s_%s">%s::%s</a>',
-														$this->nameToUrl($references["group"]),
+				$value.= sprintf('<a href="%s#%s_%s">%s::%s</a>',
+														$this->nameToUrl($references["group"]).$this->file_extension,
 														$references["type"],
 														$references["value"],
 														$references["group"],
@@ -538,8 +538,8 @@ class PhpdocHTMLDocumentRenderer extends PhpdocHTMLRenderer {
 			while (list($k, $reference)=each($references)) {
 			
 				if (isset($reference["group"]))
-					$value.= sprintf('<a href="%s.html#%s_%s">%s::%s</a>, ',
-															$this->nameToUrl($reference["group"]),
+					$value.= sprintf('<a href="%s#%s_%s">%s::%s</a>, ',
+															$this->nameToUrl($reference["group"]).$this->file_extension,
 															$reference["type"],
 															$reference["value"],
 															$reference["group"],

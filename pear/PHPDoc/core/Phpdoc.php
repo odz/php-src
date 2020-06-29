@@ -17,7 +17,7 @@ class Phpdoc extends PhpdocSetupHandler {
 	* Print status messages
 	*/
 	var $flag_output = true;
-
+    
 	/**
 	* Calls the command line handler if necessary.
 	*
@@ -174,7 +174,7 @@ class Phpdoc extends PhpdocSetupHandler {
 		
 			case "html":
 			default:
-				$renderer = new PhpdocHTMLRendererManager($target, $template, $this->application);
+				$renderer = new PhpdocHTMLRendererManager($target, $template, $this->application, $this->targetFileSuffix);
 				break;
 		}
 		
@@ -218,7 +218,7 @@ class Phpdoc extends PhpdocSetupHandler {
 		}
 	
 		$renderer->finish();	
-		$fileHandler->createFile($target."phpdoc_xmlfiles.html", $tpl->get());
+		$fileHandler->createFile($target."phpdoc_xmlfiles".$this->targetFileSuffix, $tpl->get());
 		
 		$this->outl($this->finishInstructions);
 		return true;

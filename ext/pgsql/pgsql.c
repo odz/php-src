@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: pgsql.c,v 1.75 2000/10/11 18:00:18 zeev Exp $ */
+/* $Id: pgsql.c,v 1.80.2.1 2000/12/14 00:03:21 sas Exp $ */
 
 #include <stdlib.h>
 
@@ -117,13 +117,16 @@ static void php_pgsql_set_default_link(int id)
     if (PGG(default_link)!=-1) {
         zend_list_delete(PGG(default_link));
     }
-    PGG(default_link) = id;
-    zend_list_addref(id);
+    if (PGG(default_link) != id) {
+        PGG(default_link) = id;
+        zend_list_addref(id);
+    }
 }
 
 
-static void _close_pgsql_link(PGconn *link)
+static void _close_pgsql_link(zend_rsrc_list_entry *rsrc)
 {
+	PGconn *link = (PGconn *)rsrc->ptr;
 	PGLS_FETCH();
 
 	PQfinish(link);
@@ -131,8 +134,9 @@ static void _close_pgsql_link(PGconn *link)
 }
 
 
-static void _close_pgsql_plink(PGconn *link)
+static void _close_pgsql_plink(zend_rsrc_list_entry *rsrc)
 {
+	PGconn *link = (PGconn *)rsrc->ptr;
 	PGLS_FETCH();
 
 	PQfinish(link);
@@ -141,14 +145,16 @@ static void _close_pgsql_plink(PGconn *link)
 }
 
 
-static void _free_ptr(pgLofp *lofp)
+static void _free_ptr(zend_rsrc_list_entry *rsrc)
 {
+	pgLofp *lofp = (pgLofp *)rsrc->ptr;
 	efree(lofp);
 }
 
 
-static void _free_result(pgsql_result_handle *pg_result)
+static void _free_result(zend_rsrc_list_entry *rsrc)
 {
+	pgsql_result_handle *pg_result = (pgsql_result_handle *)rsrc->ptr;
 	PQclear(pg_result->result);
 	efree(pg_result);
 }
@@ -175,12 +181,12 @@ PHP_MINIT_FUNCTION(pgsql)
 
 	REGISTER_INI_ENTRIES();
 	
-	le_link = register_list_destructors(_close_pgsql_link,NULL);
-	le_plink = register_list_destructors(NULL,_close_pgsql_plink);
+	le_link = zend_register_list_destructors_ex(_close_pgsql_link, NULL, "pgsql link", module_number);
+	le_plink = zend_register_list_destructors_ex(NULL, _close_pgsql_plink, "pgsql link persistent", module_number);
 	/*	PGG(le_result = register_list_destructors(PQclear,NULL); */
-	le_result = register_list_destructors(_free_result,NULL);
-	le_lofp = register_list_destructors(_free_ptr,NULL);
-	le_string = register_list_destructors(_free_ptr,NULL);
+	le_result = zend_register_list_destructors_ex(_free_result, NULL, "pgsql result", module_number);
+	le_lofp = zend_register_list_destructors_ex(_free_ptr, NULL, "pgsql large object", module_number);
+	le_string = zend_register_list_destructors_ex(_free_ptr, NULL, "pgsql string", module_number);
 
 	REGISTER_LONG_CONSTANT("PGSQL_ASSOC", PGSQL_ASSOC, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("PGSQL_NUM", PGSQL_NUM, CONST_CS | CONST_PERSISTENT);
@@ -462,7 +468,7 @@ PHP_FUNCTION(pg_pconnect)
 PHP_FUNCTION(pg_close)
 {
 	zval **pgsql_link = NULL;
-	int id = -1;
+	int id;
 	PGconn *pgsql;
 	PGLS_FETCH();
 	
@@ -475,6 +481,7 @@ PHP_FUNCTION(pg_close)
 			if (zend_get_parameters_ex(1, &pgsql_link)==FAILURE) {
 				RETURN_FALSE;
 			}
+			id = -1;
 			break;
 		default:
 			WRONG_PARAM_COUNT;
@@ -482,7 +489,17 @@ PHP_FUNCTION(pg_close)
 	}
 	
 	ZEND_FETCH_RESOURCE2(pgsql, PGconn *, pgsql_link, id, "PostgreSQL link", le_link, le_plink);
-	zend_list_delete(id);
+
+	if (id==-1) { /* explicit resource number */
+		zend_list_delete(Z_RESVAL_PP(pgsql_link));
+	}
+
+	if (id!=-1 
+		|| (pgsql_link && Z_RESVAL_PP(pgsql_link)==PGG(default_link))) {
+		zend_list_delete(PGG(default_link));
+		PGG(default_link) = -1;
+	}
+
 	RETURN_TRUE;
 }
 /* }}} */
@@ -1659,7 +1676,7 @@ PHP_FUNCTION(pg_loimport)
 			break;
 	}
 	
-	if (PG(safe_mode) &&(!php_checkuid(Z_STRVAL_PP(file_in), NULL, 2))) {
+	if (PG(safe_mode) &&(!php_checkuid(Z_STRVAL_PP(file_in), NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
 		RETURN_FALSE;
 	}
 

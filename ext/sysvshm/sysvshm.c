@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: sysvshm.c,v 1.30 2000/08/12 20:45:48 eschmid Exp $ */
+/* $Id: sysvshm.c,v 1.34 2000/10/30 17:18:39 stas Exp $ */
 
 /* This has been built and tested on Solaris 2.6.
  * It may not compile or execute correctly on other systems.
@@ -58,15 +58,16 @@ ZEND_GET_MODULE(sysvshm)
 
 THREAD_LS sysvshm_module php_sysvshm;
 
-static void php_release_sysvshm(sysvshm_shm *shm_ptr) 
+static void php_release_sysvshm(zend_rsrc_list_entry *rsrc) 
 {
+	sysvshm_shm *shm_ptr = (sysvshm_shm *)rsrc->ptr;
 	shmdt((void*)shm_ptr->ptr);
 	efree(shm_ptr);
 }
 
 PHP_MINIT_FUNCTION(sysvshm)
 {    
-	php_sysvshm.le_shm = register_list_destructors(php_release_sysvshm, NULL);
+	php_sysvshm.le_shm = zend_register_list_destructors_ex(php_release_sysvshm, NULL, "sysvshm", module_number);
 	if (cfg_get_long("sysvshm.init_mem",
                       &php_sysvshm.init_mem)==FAILURE) {
 		php_sysvshm.init_mem=10000;
@@ -211,6 +212,7 @@ PHP_FUNCTION(shm_put_var)
 	int type;
 	pval shm_var;
 	int ret;	
+	php_serialize_data_t var_hash;
 
 	if(ZEND_NUM_ARGS() != 3 || zend_get_parameters_ex(3, &arg_id, &arg_key,&arg_var) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -232,7 +234,9 @@ PHP_FUNCTION(shm_put_var)
 	shm_var.type=IS_STRING;
 	shm_var.value.str.len=0;
 	shm_var.value.str.val=0;
-	php_var_serialize(&shm_var,arg_var);
+	PHP_VAR_SERIALIZE_INIT(var_hash);
+	php_var_serialize(&shm_var,arg_var,&var_hash);
+	PHP_VAR_SERIALIZE_DESTROY(var_hash);
 	/* insert serialized variable into shared memory */
 	ret=php_put_shm_data(shm_list_ptr->ptr,key,shm_var.value.str.val,shm_var.value.str.len);
 
@@ -259,6 +263,7 @@ PHP_FUNCTION(shm_get_var)
 	char *shm_data;	
 	long shm_varpos;
 	sysvshm_chunk *shm_var;
+	php_serialize_data_t var_hash;
 	
 	if(ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &arg_id, &arg_key) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -286,10 +291,13 @@ PHP_FUNCTION(shm_get_var)
 	shm_var=(sysvshm_chunk*)((char*)shm_list_ptr->ptr+shm_varpos);
 	shm_data=&shm_var->mem;
 	
-	if(php_var_unserialize(&return_value, (const char **) &shm_data, shm_data+shm_var->length)!=1) {
+	PHP_VAR_UNSERIALIZE_INIT(var_hash);
+	if(php_var_unserialize(&return_value, (const char **) &shm_data, shm_data+shm_var->length,&var_hash)!=1) {
+		PHP_VAR_UNSERIALIZE_DESTROY(var_hash);
 		php_error(E_WARNING, "variable data in shared memory is corruped");
 		RETURN_FALSE;
 	}
+	PHP_VAR_UNSERIALIZE_DESTROY(var_hash);
 }
 /* }}} */
 

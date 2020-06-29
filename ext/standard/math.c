@@ -15,11 +15,11 @@
    | Authors: Jim Winstead (jimw@php.net)                                 |
    |          Stig Sæther Bakken <ssb@guardian.no>                        |
    |          Zeev Suraski <zeev@zend.com>                                |
-   | PHP 4.0 patches by Thies C. Arntzen (thies@digicol.de)               |
+   | PHP 4.0 patches by Thies C. Arntzen (thies@thieso.net)               |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: math.c,v 1.36 2000/09/17 21:11:55 stas Exp $ */
+/* $Id: math.c,v 1.38 2000/10/29 09:14:53 thies Exp $ */
 
 #include "php.h"
 #include "php_math.h"
@@ -390,7 +390,7 @@ PHP_FUNCTION(rad2deg)
 /*
  * Convert a string representation of a base(2-36) number to a long.
  */
-static long
+PHPAPI long
 _php_math_basetolong(zval *arg, int base) {
 	long mult = 1, num = 0, digit;
 	int i;
@@ -427,7 +427,7 @@ _php_math_basetolong(zval *arg, int base) {
  * Convert a long to a string containing a base(2-36) representation of
  * the number.
  */
-static char *
+PHPAPI char *
 _php_math_longtobase(zval *arg, int base)
 {
 	static char digits[] = "0123456789abcdefghijklmnopqrstuvwxyz";

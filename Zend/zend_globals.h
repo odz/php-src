@@ -40,6 +40,7 @@
 
 #ifdef __cplusplus
 class ZendFlexLexer;
+class ZendIniFlexLexer;
 #endif
 
 BEGIN_EXTERN_C()
@@ -106,13 +107,15 @@ struct _zend_compiler_globals {
 
 	zend_bool unclean_shutdown;
 
+	zend_bool ini_parser_unbuffered_errors;
+
 	zend_llist open_files;
-#ifdef ZTS
-#ifdef __cplusplus
+#if defined(ZTS) && defined(__cplusplus)
 	ZendFlexLexer *ZFL;
+	ZendIniFlexLexer *ini_scanner;
 #else
 	void *ZFL;
-#endif
+	void *ini_parser;
 #endif
 };
 
@@ -148,6 +151,7 @@ struct _zend_executor_globals {
 
 	int error_reporting;
 	int orig_error_reporting;
+	int exit_status;
 
 	zend_op_array *active_op_array;
 

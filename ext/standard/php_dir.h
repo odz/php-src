@@ -13,11 +13,11 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors:                                                             |
-   | PHP 4.0 patches by Thies C. Arntzen (thies@digicol.de)               |
+   | PHP 4.0 patches by Thies C. Arntzen (thies@thieso.net)               |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_dir.h,v 1.9 2000/07/02 23:46:47 sas Exp $ */
+/* $Id: php_dir.h,v 1.10.2.1 2000/12/07 19:15:02 sas Exp $ */
 
 #ifndef PHP_DIR_H
 #define PHP_DIR_H
@@ -30,7 +30,7 @@ PHP_FUNCTION(closedir);
 PHP_FUNCTION(chdir);
 PHP_FUNCTION(getcwd);
 PHP_FUNCTION(rewinddir);
-PHP_FUNCTION(readdir);
+PHP_NAMED_FUNCTION(php_if_readdir);
 PHP_FUNCTION(getdir);
 
 #endif /* PHP_DIR_H */

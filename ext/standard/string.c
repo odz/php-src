@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: string.c,v 1.161 2000/10/03 16:47:25 andi Exp $ */
+/* $Id: string.c,v 1.168.2.1 2000/12/14 16:00:31 sas Exp $ */
 
 /* Synced with php 3.0 revision 1.193 1999-06-16 [ssb] */
 
@@ -35,6 +35,7 @@
 #include "zend_execute.h"
 #include "php_globals.h"
 #include "basic_functions.h"
+#include "php_smart_str.h"
 
 #define STR_PAD_LEFT			0
 #define STR_PAD_RIGHT			1
@@ -286,7 +287,7 @@ PHP_FUNCTION(wordwrap)
 				}
 				l++;
 			}
-			if (l > linelength) {
+			if (l >= linelength) {
 				pgr = l;
 				l = linelength;
 				/* needs breaking; work backwards to find previous word */
@@ -330,7 +331,7 @@ PHP_FUNCTION(wordwrap)
 				}
 				l ++;
 			}
-			if (l > linelength) {
+			if (l >= linelength) {
 				pgr = l;
 				l = linelength;
 
@@ -787,7 +788,7 @@ PHP_FUNCTION(pathinfo)
 	MAKE_STD_ZVAL(tmp);
 	array_init(tmp);
 	
-	if (opt == PHP_PATHINFO_DIRNAME || argc < 2) {
+	if (argc < 2 || opt == PHP_PATHINFO_DIRNAME) {
 		ret = estrndup(Z_STRVAL_PP(path), len);
 		php_dirname(ret, len);
 		if (*ret)
@@ -795,12 +796,12 @@ PHP_FUNCTION(pathinfo)
 		efree(ret);
 	}
 	
-	if (opt == PHP_PATHINFO_BASENAME || argc < 2) {
+	if (argc < 2 || opt == PHP_PATHINFO_BASENAME) {
 		ret = php_basename(Z_STRVAL_PP(path), len);
 		add_assoc_string(tmp, "basename", ret, 0);
 	}			
 	
-	if (opt == PHP_PATHINFO_EXTENSION || argc < 2) {
+	if (argc < 2 || opt == PHP_PATHINFO_EXTENSION) {
 		char *p;
 		int idx;
 
@@ -1269,7 +1270,9 @@ PHP_FUNCTION(substr_replace)
 		if (f < 0) {
 			f = 0;
 		}
-	}
+	} else if (f > (int)(*str)->value.str.len)
+		f = (int)(*str)->value.str.len;
+
 
 	/* if "length" position is negative, set it to the length
 	 * needed to stop that many chars from the end of the string
@@ -1279,10 +1282,6 @@ PHP_FUNCTION(substr_replace)
 		if (l < 0) {
 			l = 0;
 		}
-	}
-
-	if (f >= (int)(*str)->value.str.len) {
-		RETURN_STRINGL((*str)->value.str.val, (*str)->value.str.len, 1);
 	}
 
 	if((f+l) > (int)(*str)->value.str.len) {
@@ -1462,9 +1461,10 @@ static void php_strtr_array(zval *return_value,char *str,int slen,HashTable *has
 	zval ctmp;
 	ulong num_key;
 	int minlen = 128*1024;
-	int maxlen = 0, pos, len, newpos, newlen, found;
-	char *newstr, *key;
+	int maxlen = 0, pos, len, found;
+	char *key;
 	HashPosition hpos;
+	smart_str result = {0};
 	
 	zend_hash_internal_pointer_reset_ex(hash, &hpos);
 	while (zend_hash_get_current_data_ex(hash, (void **)&entry, &hpos) == SUCCESS) {
@@ -1490,11 +1490,9 @@ static void php_strtr_array(zval *return_value,char *str,int slen,HashTable *has
 		}
 		zend_hash_move_forward_ex(hash, &hpos);
 	}
-	
+
 	key = emalloc(maxlen+1);
-	newstr = emalloc(8192);
-	newlen = 8192;
-	newpos = pos = 0;
+	pos = 0;
 
 	while (pos < slen) {
 		if ((pos + maxlen) > slen) {
@@ -1523,13 +1521,7 @@ static void php_strtr_array(zval *return_value,char *str,int slen,HashTable *has
 					tlen = (*trans)->value.str.len;
 				}
 
-				if ((newpos + tlen + 1) > newlen) {
-					newlen = newpos + tlen + 1 + 8192;
-					newstr = erealloc(newstr,newlen);
-				}
-				
-				memcpy(newstr+newpos,tval,tlen);
-				newpos += tlen;
+				smart_str_appendl(&result, tval, tlen);
 				pos += len;
 				found = 1;
 
@@ -1541,18 +1533,13 @@ static void php_strtr_array(zval *return_value,char *str,int slen,HashTable *has
 		}
 
 		if (! found) {
-			if ((newpos + 1) > newlen) {
-				newlen = newpos + 1 + 8192;
-				newstr = erealloc(newstr,newlen);
-			}
-			
-			newstr[ newpos++ ] = str[ pos++ ];
+			smart_str_appendc(&result, str[pos++]);
 		}
 	}
 
 	efree(key);
-	newstr[ newpos ] = 0;
-	RETURN_STRINGL(newstr,newpos,0);
+	smart_str_0(&result);
+	RETVAL_STRINGL(result.c,result.len,0);
 }
 
 /* {{{ proto string strtr(string str, string from, string to)
@@ -1572,6 +1559,11 @@ PHP_FUNCTION(strtr)
 	}
 
 	convert_to_string_ex(str);
+
+	/* shortcut for empty string */
+	if(Z_STRLEN_PP(str) == 0) {
+		RETURN_EMPTY_STRING();
+	}
 
 	if (ac == 2) {
 		php_strtr_array(return_value,(*str)->value.str.val,(*str)->value.str.len,HASH_OF(*from));
@@ -2048,55 +2040,29 @@ PHPAPI void php_char_to_str(char *str,uint len,char from,char *to,int to_len,zva
 	*target = 0;
 }
 
-
 PHPAPI char *php_str_to_str(char *haystack, int length, 
 	char *needle, int needle_len, char *str, int str_len, int *_new_length)
 {
-	char *p, *q;
-	char *r, *s;
+	char *p;
+	char *r;
 	char *end = haystack + length;
-	char *result;
-	char *off;
-	
-	result = emalloc(length);
-	/* we jump through haystack searching for the needle. hurray! */
-	for(p = haystack, q = result;
-			(r = php_memnstr(p, needle, needle_len, end));) {
-	/* this ain't optimal. you could call it `efficient memory usage' */
-		off = erealloc(result, (q - result) + (r - p) + (str_len) + 1);
-		if(off != result) {
-			if(!off) {
-				goto finish;
-			}
-			q += off - result;
-			result = off;
-		}
-		memcpy(q, p, r - p);
-		q += r - p;
-		memcpy(q, str, str_len);
-		q += str_len;
-		p = r + needle_len;
+	smart_str result = {0};
+
+	for (p = haystack;
+			(r = php_memnstr(p, needle, needle_len, end));
+			p = r + needle_len) {
+		smart_str_appendl(&result, p, r - p);
+		smart_str_appendl(&result, str, str_len);
 	}
-	
-	/* if there is a rest, copy it */
-	if((end - p) > 0) {
-		s = (q) + (end - p);
-		off = erealloc(result, s - result + 1);
-		if(off != result) {
-			if(!off) {
-				goto finish;
-			}
-			q += off - result;
-			result = off;
-			s = q + (end - p);
-		}
-		memcpy(q, p, end - p);
-		q = s;
-	}
-finish:
-	*q = '\0';
-	if(_new_length) *_new_length = q - result;
-	return result;
+
+	if (p < end) 
+		smart_str_appendl(&result, p, end - p);
+
+	smart_str_0(&result);
+
+	if (_new_length) *_new_length = result.len;
+
+	return result.c;
 }
 
 

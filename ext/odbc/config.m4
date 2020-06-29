@@ -6,9 +6,9 @@ AC_DEFUN(AC_FIND_SOLID_LIBS,[
   ac_solid_uname_r=`uname -r 2>/dev/null`
   ac_solid_uname_s=`uname -s 2>/dev/null`
   case $ac_solid_uname_s in
-    AIX) ac_solid_os=a3x;;   # a4x for AIX4
+    AIX) ac_solid_os=a3x;;   # a4x for AIX4/ Solid 2.3/3.0 only
     HP-UX) ac_solid_os=h9x;; # h1x for hpux11, h0x for hpux10
-    IRIX) ac_solid_os=irx;;
+    IRIX) ac_solid_os=irx;;	 # Solid 2.3(?)/ 3.0 only
     Linux) if ldd -v /bin/sh | grep GLIBC > /dev/null; then
 		AC_DEFINE(SS_LINUX,1,[Needed in sqlunix.h ])
 		ac_solid_os=l2x
@@ -18,45 +18,45 @@ AC_DEFUN(AC_FIND_SOLID_LIBS,[
 	fi;; 
     SunOS) ac_solid_os=ssx;; # should we deal with SunOS 4?
     FreeBSD) if test `expr $ac_solid_uname_r : '\(.\)'` -gt "2"; then
-        AC_DEFINE(SS_FBX,1,[Needed in sqlunix.h for wchar defs ])
-	ac_solid_os=fex
-       else 
-        AC_DEFINE(SS_FBX,1,[Needed in sqlunix.h for wchar defs ])
-	ac_solid_os=fbx
-       fi	
-    # "uname -s" on SCO makes no sense.
+		AC_DEFINE(SS_FBX,1,[Needed in sqlunix.h for wchar defs ])
+		ac_solid_os=fex
+   else 
+		AC_DEFINE(SS_FBX,1,[Needed in sqlunix.h for wchar defs ])
+		ac_solid_os=fbx
+   fi	
   esac
 
-  if test -f $1/scl${ac_solid_os}30.a; then
-    ac_solid_verion=30
+  if test -f $1/soc${ac_solid_os}35.a; then
+    ac_solid_version=35
+    ac_solid_prefix=soc
+  elif test -f $1/scl${ac_solid_os}30.a; then
+    ac_solid_version=30
     ac_solid_prefix=scl
   elif test -f $1/scl${ac_solid_os}23.a; then
     ac_solid_version=23
     ac_solid_prefix=scl
-  elif test -f $1/soc${ac_solid_os}35.a; then
-    ac_solid_version=35
-    ac_solid_prefix=soc
   fi
 
-  ODBC_LIBS=`echo $1/${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.so | cut -d' ' -f1`
- if test ! -f $ODBC_LIBS; then
-   echo $ODBC_LIBS
-   ODBC_LIBS=`echo $1/${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.a | cut -d' ' -f1`
- fi
- if test ! -f $ODBC_LIBS; then
-     echo $ODBC_LIBS
-     ODBC_LIBS=`echo $1/${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.so| cut -d' ' -f1`
- fi
- if test ! -f $ODBC_LIBS; then
-    $ODBC_LIBS
-     ODBC_LIBS=`echo $1/${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.a | cut -d' ' -f1`
- fi
-if test ! -f $ODBC_LIBS; then
-     ODBC_LIBS=`echo $1/bcl${ac_solid_os}*.so | cut -d' ' -f1`
- fi
- if test ! -f $ODBC_LIBS; then
-     ODBC_LIBS=`echo $1/bcl${ac_solid_os}*.a | cut -d' ' -f1`
- fi
+#
+# Check for the library files, and setup the ODBC_LIBS path...
+#
+if test ! -f $1/lib${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.so -a \
+	! -f $1/lib${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.a; then
+	#
+	# we have an error and should bail out, as we can't find the libs!
+	#
+	echo ""
+	echo "*********************************************************************"
+	echo "* Unable to locate $1/lib${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.so or $1/lib${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.a"
+	echo "* Please correct this by creating the following links and reconfiguring:"
+	echo "* $1/lib${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.a -> $1/lib${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.a"
+	echo "* $1/${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.so -> $1/lib${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.so"
+	echo "*********************************************************************"else
+	ODBC_LFLAGS=-L$1
+	ODBC_LIBS=-l${ac_solid_prefix}${ac_solid_os}${ac_solid_version}
+fi
+
+
   AC_MSG_RESULT(`echo $ODBC_LIBS | sed -e 's!.*/!!'`)
 ])
 
@@ -107,6 +107,32 @@ AC_ARG_WITH(adabas,
 fi
 
 if test -z "$ODBC_TYPE"; then
+AC_MSG_CHECKING(for SAP DB support)
+AC_ARG_WITH(sapdb,
+[  --with-sapdb[=DIR]      Include SAP DB support.  DIR is SAP DB base
+                          install directory, defaults to /usr/local.],
+[
+  if test "$withval" = "yes"; then
+    withval=/usr/local
+  fi
+  if test "$withval" != "no"; then
+    AC_ADD_INCLUDE($withval/incl)
+	AC_ADD_LIBPATH($withval/lib)
+	AC_ADD_LIBRARY(sqlod)
+	AC_ADD_LIBRARY(sqlrte)
+    ODBC_TYPE=sapdb
+    AC_DEFINE(HAVE_SAPDB,1,[ ])
+    AC_MSG_RESULT(yes)
+  else
+    AC_MSG_RESULT(no)
+  fi
+],[
+  AC_MSG_RESULT(no)
+])
+fi
+
+
+if test -z "$ODBC_TYPE"; then
 AC_MSG_CHECKING(for Solid support)
 AC_ARG_WITH(solid,
 [  --with-solid[=DIR]      Include Solid support.  DIR is the Solid base
@@ -120,9 +146,11 @@ AC_ARG_WITH(solid,
     ODBC_LIBDIR=$withval/lib
     ODBC_INCLUDE=-I$ODBC_INCDIR
     ODBC_TYPE=solid
-    if test -f $ODBC_LIBDIR/libsolodbc.a; then
+    if test -f $ODBC_LIBDIR/soc*35.a; then
       AC_DEFINE(HAVE_SOLID_35,1,[ ])
-    else
+	elif test -f $ODBC_LIBDIR/scl*30.a; then
+	  AC_DEFINE(HAVE_SOLID_30,1,[ ])
+	elif test -f $ODBC_LIBDIR/scl*23.a; then
       AC_DEFINE(HAVE_SOLID,1,[ ])
     fi
     AC_MSG_RESULT(yes)
@@ -379,8 +407,8 @@ AC_ARG_WITH(dbmaker,
     # check DBMaker version (from 5.0 to 2.0)
     DBMAKER_VERSION=5.0
 
-    while [ test ! -d $DBMAKER_HOME/$DBMAKER_VERSION -a \
-                 "$DBMAKER_VERSION" != "2.9" ]; do
+    while [[ test ! -d $DBMAKER_HOME/$DBMAKER_VERSION -a \
+                 "$DBMAKER_VERSION" != "2.9" ]]; do
         DM_VER=`echo $DBMAKER_VERSION | sed -e 's/\.//' | awk '{ print $1-1;}'`
         MAJOR_V=`echo $DM_VER | awk '{ print $1/10; }' \
                  | awk  -F. '{ print $1; }'`
@@ -388,7 +416,7 @@ AC_ARG_WITH(dbmaker,
         DBMAKER_VERSION=$MAJOR_V.$MINOR_V
     done
 
-    if [ "$DBMAKER_VERSION" = "2.9" ]; then
+    if [[ "$DBMAKER_VERSION" = "2.9" ]]; then
         withval=$DBMAKER_HOME
     else
         DBMAKER_PATH=$DBMAKER_HOME/$DBMAKER_VERSION
@@ -410,8 +438,7 @@ AC_ARG_WITH(dbmaker,
 
     if test "$shared" = "yes"; then
         AC_MSG_RESULT(yes (shared))
-        ODBC_LFLAGS="-L$withval/driver/JDBC"
-        ODBC_LIBS="-ldmjdbc -lc -lm"
+        ODBC_LIBS="-ldmapic -lc -lm"
         ODBC_SHARED="odbc.la"
     else
         AC_MSG_RESULT(yes (static))

@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Sterling Hughes <sterling@php.net>                           |
+   | Author: Sterling Hughes <Sterling.Hughes@pentap.net>                 |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_curl.h,v 1.11 2000/09/30 03:09:54 sterling Exp $ */
+/* $Id: php_curl.h,v 1.14 2000/11/22 15:46:13 stas Exp $ */
 
 #ifndef _PHP_CURL_H
 #define _PHP_CURL_H
@@ -42,6 +42,9 @@ PHP_FUNCTION(curl_version);
 PHP_FUNCTION(curl_init);
 PHP_FUNCTION(curl_setopt);
 PHP_FUNCTION(curl_exec);
+#if LIBCURL_VERSION_NUM >= 0x070401
+PHP_FUNCTION(curl_getinfo);
+#endif
 PHP_FUNCTION(curl_error);
 PHP_FUNCTION(curl_errno);
 PHP_FUNCTION(curl_close);
@@ -53,10 +56,11 @@ typedef struct {
 	int cerrno;
 	char error[CURL_ERROR_SIZE+1];
 	CURL *cp;
+	zend_llist to_free;
 } php_curl;
 
 typedef struct {
-	int le_curl;
+
 } php_curl_globals;
 
 #ifdef ZTS

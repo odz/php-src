@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: db.c,v 1.43 2000/06/25 17:02:44 zeev Exp $ */
+/* $Id: db.c,v 1.47 2000/11/22 22:00:39 sas Exp $ */
 #define IS_EXT_MODULE
 
 #if 1
@@ -167,15 +167,15 @@ dbm_info *php_find_dbm(pval *id)
 	int info_type;
 	ELS_FETCH();
 
-	if (id->type == IS_STRING) {
+	if (Z_TYPE_P(id) == IS_STRING) {
 		numitems = zend_hash_num_elements(&EG(regular_list));
 		for (i=1; i<=numitems; i++) {
 			if (zend_hash_index_find(&EG(regular_list), i, (void **) &le)==FAILURE) {
 				continue;
 			}
-			if (le->type == le_db) {
+			if (Z_TYPE_P(le) == le_db) {
 				info = (dbm_info *)(le->ptr);
-				if (!strcmp(info->filename, id->value.str.val)) {
+				if (!strcmp(info->filename, Z_STRVAL_P(id))) {
 					return (dbm_info *)(le->ptr);
 				}
 			}
@@ -184,7 +184,7 @@ dbm_info *php_find_dbm(pval *id)
 
 	/* didn't find it as a database filename, try as a number */
 	convert_to_long(id);
-	info = zend_list_find(id->value.lval, &info_type);
+	info = zend_list_find(Z_LVAL_P(id), &info_type);
 	if (info_type != le_db)
 		return NULL;
 	return info;
@@ -257,7 +257,7 @@ PHP_FUNCTION(dbmopen) {
 	convert_to_string(filename);
 	convert_to_string(mode);
 	
-	info = php_dbm_open(filename->value.str.val, mode->value.str.val);
+	info = php_dbm_open(Z_STRVAL_P(filename), Z_STRVAL_P(mode));
 	if (info) {
 		ret = zend_list_insert(info, le_db);
 		RETURN_LONG(ret);
@@ -289,7 +289,7 @@ dbm_info *php_dbm_open(char *filename, char *mode) {
 		return NULL;
 	}
 
-	if (PG(safe_mode) && (!php_checkuid(filename, NULL, 2))) {
+	if (PG(safe_mode) && (!php_checkuid(filename, NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
 		return NULL;
 	}
 
@@ -415,7 +415,7 @@ PHP_FUNCTION(dbmclose) {
 	}
 	convert_to_long(id);
 
-	if (zend_list_delete(id->value.lval) == SUCCESS) {
+	if (zend_list_delete(Z_LVAL_P(id)) == SUCCESS) {
 		RETURN_TRUE;
 	} else {
 		RETURN_FALSE;
@@ -423,8 +423,9 @@ PHP_FUNCTION(dbmclose) {
 }
 /* }}} */
 
-int php_dbm_close(dbm_info *info) {
+int php_dbm_close(zend_rsrc_list_entry *rsrc) {
 	int ret = 0;
+	dbm_info *info = (dbm_info *)rsrc->ptr;
 	DBM_TYPE dbf;
 	int lockfd;
 
@@ -472,11 +473,11 @@ PHP_FUNCTION(dbminsert)
 
 	info = php_find_dbm(id);
 	if (!info) {
-		php_error(E_WARNING, "not a valid database identifier %d", id->value.lval);
+		php_error(E_WARNING, "not a valid database identifier %d", Z_LVAL_P(id));
 		RETURN_FALSE;
 	}
 	
-	ret = php_dbm_insert(info, key->value.str.val, value->value.str.val);
+	ret = php_dbm_insert(info, Z_STRVAL_P(key), Z_STRVAL_P(value));
 	RETURN_LONG(ret);
 }
 /* }}} */
@@ -530,11 +531,11 @@ PHP_FUNCTION(dbmreplace)
 
 	info = php_find_dbm(id);
 	if (!info) {
-		php_error(E_WARNING, "not a valid database identifier %d", id->value.lval);
+		php_error(E_WARNING, "not a valid database identifier %d", Z_LVAL_P(id));
 		RETURN_FALSE;
 	}
 	
-	ret = php_dbm_replace(info, key->value.str.val, value->value.str.val);
+	ret = php_dbm_replace(info, Z_STRVAL_P(key), Z_STRVAL_P(value));
 	RETURN_LONG(ret);
 }
 /* }}} */
@@ -579,6 +580,7 @@ PHP_FUNCTION(dbmfetch)
 {
 	pval *id, *key;
 	dbm_info *info;
+	char *ret;
 
 	if (ZEND_NUM_ARGS()!=2||zend_get_parameters(ht,2,&id,&key)==FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -587,14 +589,13 @@ PHP_FUNCTION(dbmfetch)
 
 	info = php_find_dbm(id);
 	if (!info) {
-		php_error(E_WARNING, "not a valid database identifier %d", id->value.lval);
+		php_error(E_WARNING, "not a valid database identifier %d", Z_LVAL_P(id));
 		RETURN_FALSE;
 	}
 
-	return_value->value.str.val = php_dbm_fetch(info, key->value.str.val);
-	if (return_value->value.str.val) {
-		return_value->value.str.len = strlen(return_value->value.str.val);
-		return_value->type = IS_STRING;
+	ret = php_dbm_fetch(info, Z_STRVAL_P(key));
+	if (ret) {
+		RETVAL_STRING(ret, 0);
 	} else {
 		RETURN_FALSE;
 	}
@@ -661,11 +662,11 @@ PHP_FUNCTION(dbmexists)
 
 	info = php_find_dbm(id);
 	if (!info) {
-		php_error(E_WARNING, "not a valid database identifier %d", id->value.lval);
+		php_error(E_WARNING, "not a valid database identifier %d", Z_LVAL_P(id));
 		RETURN_FALSE;
 	}
 
-	ret = php_dbm_exists(info, key->value.str.val);
+	ret = php_dbm_exists(info, Z_STRVAL_P(key));
 	RETURN_LONG(ret);
 }
 /* }}} */
@@ -707,11 +708,11 @@ PHP_FUNCTION(dbmdelete)
 
 	info = php_find_dbm(id);
 	if (!info) {
-		php_error(E_WARNING, "not a valid database identifier %d", id->value.lval);
+		php_error(E_WARNING, "not a valid database identifier %d", Z_LVAL_P(id));
 		RETURN_FALSE;
 	}
 
-	ret = php_dbm_delete(info, key->value.str.val);
+	ret = php_dbm_delete(info, Z_STRVAL_P(key));
 	RETURN_LONG(ret);
 }
 /* }}} */
@@ -751,7 +752,7 @@ PHP_FUNCTION(dbmfirstkey)
 
 	info = php_find_dbm(id);
 	if (!info) {
-		php_error(E_WARNING, "not a valid database identifier %d", id->value.lval);
+		php_error(E_WARNING, "not a valid database identifier %d", Z_LVAL_P(id));
 		RETURN_FALSE;
 	}
 
@@ -759,9 +760,7 @@ PHP_FUNCTION(dbmfirstkey)
 	if (!ret) {
 		RETURN_FALSE;
 	} else {
-		return_value->value.str.val = ret;
-		return_value->value.str.len = strlen(ret);
-		return_value->type = IS_STRING;
+		RETVAL_STRING(ret, 0);
 	}
 }
 /* }}} */
@@ -812,17 +811,15 @@ PHP_FUNCTION(dbmnextkey)
 
 	info = php_find_dbm(id);
 	if (!info) {
-		php_error(E_WARNING, "not a valid database identifier %d", id->value.lval);
+		php_error(E_WARNING, "not a valid database identifier %d", Z_LVAL_P(id));
 		RETURN_FALSE;
 	}
 
-	ret = php_dbm_nextkey(info, key->value.str.val);
+	ret = php_dbm_nextkey(info, Z_STRVAL_P(key));
 	if (!ret) {
 		RETURN_FALSE;
 	} else {
-		return_value->value.str.val = ret;
-		return_value->value.str.len = strlen(ret);
-		return_value->type = IS_STRING;
+		RETVAL_STRING(ret, 0);
 	}
 }
 /* }}} */
@@ -1121,7 +1118,7 @@ PHP_MINIT_FUNCTION(db)
 	}
 #endif
 
-	le_db = register_list_destructors(php_dbm_close,NULL);
+	le_db = zend_register_list_destructors_ex(php_dbm_close, NULL, "dbm", module_number);
 	return SUCCESS;
 }
 

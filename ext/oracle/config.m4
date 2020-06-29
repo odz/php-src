@@ -1,8 +1,8 @@
-dnl $Id: config.m4,v 1.15 2000/06/23 00:46:04 rasmus Exp $
+dnl $Id: config.m4,v 1.17 2000/10/29 04:36:32 sniper Exp $
 
 AC_DEFUN(AC_ORACLE_VERSION,[
   AC_MSG_CHECKING([Oracle version])
-  if test -f "$ORACLE_DIR/orainst/unix.rgs"; then
+  if test -s "$ORACLE_DIR/orainst/unix.rgs"; then
   	ORACLE_VERSION=`grep '"ocommon"' $ORACLE_DIR/orainst/unix.rgs | sed 's/[ ][ ]*/:/g' | cut -d: -f 6 | cut -c 2-4`
 	test -z "$ORACLE_VERSION" && ORACLE_VERSION=7.3
   elif test -f $ORACLE_DIR/lib/libclntsh.s?.8.0; then
@@ -143,7 +143,8 @@ if test "$PHP_ORACLE" != "no"; then
 	  ;;
 
 	8.1)
-  	  AC_ADD_LIBRARY_WITH_PATH(clntsh, $ORACLE_DIR/lib, ORACLE_SHARED_LIBADD)
+  	  AC_ADD_LIBRARY(clntsh, 1, ORACLE_SHARED_LIBADD)
+  	  AC_ADD_LIBPATH($ORACLE_DIR/lib, ORACLE_SHARED_LIBADD)
 	  ;;
 	*)
       AC_MSG_ERROR(Unsupported Oracle version!)

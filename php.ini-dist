@@ -64,6 +64,12 @@ output_buffering	= Off	; Output buffering allows you to send header lines (inclu
 							; You can enable output buffering by in runtime by calling the output
 							; buffering functions, or enable output buffering for all files
 							; by setting this directive to On.
+output_handler		=		; You can redirect all of the output of your scripts to a function,
+							; that can be responsible to process or log it.  For example,
+							; if you set the output_handler to "ob_gzhandler", than output
+							; will be transparently compressed for browsers that support gzip or
+							; deflate encoding.  Setting an output handler automatically turns on
+							; output buffering.
 implicit_flush		= Off	; Implicit flush tells PHP to tell the output layer to flush itself
 							; automatically after every output block.  This is equivalent to
 							; calling the PHP function flush() after each and every call to print()
@@ -245,6 +251,12 @@ file_uploads	= On				; Whether to allow HTTP file uploads
 upload_max_filesize = 2M		    ; Maximum allowed size for uploaded files
 
 
+;;;;;;;;;;;;;;;;;;
+; Fopen wrappers ;
+;;;;;;;;;;;;;;;;;;
+allow_url_fopen = On                ; Wheter to allow trating URLs like http:... or ftp:... like files
+
+
 ;;;;;;;;;;;;;;;;;;;;;;
 ; Dynamic Extensions ;
 ;;;;;;;;;;;;;;;;;;;;;;
@@ -261,17 +273,23 @@ upload_max_filesize = 2M		    ; Maximum allowed size for uploaded files
 ;Windows Extensions
 ;Note that MySQL and ODBC support is now built in, so no dll is needed for it.
 ;
+;extension=php_bz2.dll
+;extension=php_ctype.dll
 ;extension=php_cpdf.dll
+;extension=php_curl.dll
 ;extension=php_cybercash.dll
 ;extension=php_db.dll
+;extension=php_dba.dll
 ;extension=php_dbase.dll
 ;extension=php_domxml.dll
 ;extension=php_dotnet.dll
 ;extension=php_exif.dll
 ;extension=php_fdf.dll
+;extension=php_filepro.dll
 ;extension=php_gd.dll
 ;extension=php_gettext.dll
 ;extension=php_ifx.dll
+;extension=php_iisfunc.dll
 ;extension=php_imap.dll
 ;extension=php_interbase.dll
 ;extension=php_java.dll
@@ -280,12 +298,15 @@ upload_max_filesize = 2M		    ; Maximum allowed size for uploaded files
 ;extension=php_mssql65.dll
 ;extension=php_mssql70.dll
 ;extension=php_oci8.dll
+;extension=php_openssl.dll
 ;extension=php_oracle.dll
 ;extension=php_pdf.dll
 ;extension=php_pgsql.dll
+;extension=php_printer.dll
 ;extension=php_sablot.dll
-;extension=php_swf.dll
+;extension=php_snmp.dll
 ;extension=php_sybase_ct.dll
+;extension=php_yaz.dll
 ;extension=php_zlib.dll
 
 
@@ -327,15 +348,15 @@ debugger.enabled	=	False
 sql.safe_mode	=	Off
 
 [ODBC]
-;uodbc.default_db		=	Not yet implemented
-;uodbc.default_user		=	Not yet implemented
-;uodbc.default_pw		=	Not yet implemented
-uodbc.allow_persistent	=	On	; allow or prevent persistent links
-uodbc.check_persistent  = 	On	; check that a connection is still validbefore reuse
-uodbc.max_persistent	=	-1	; maximum number of persistent links. -1 means no limit
-uodbc.max_links			=	-1	; maximum number of links (persistent+non persistent). -1 means no limit
-uodbc.defaultlrl	=	4096	; Handling of LONG fields. Returns number of bytes to variables, 0 means passthru
-uodbc.defaultbinmode	= 	1	; Handling of binary data. 0 means passthru, 1 return as is, 2 convert to char
+;odbc.default_db		=	Not yet implemented
+;odbc.default_user		=	Not yet implemented
+;odbc.default_pw		=	Not yet implemented
+odbc.allow_persistent	=	On	; allow or prevent persistent links
+odbc.check_persistent  = 	On	; check that a connection is still validbefore reuse
+odbc.max_persistent	=	-1	; maximum number of persistent links. -1 means no limit
+odbc.max_links			=	-1	; maximum number of links (persistent+non persistent). -1 means no limit
+odbc.defaultlrl	=	4096	; Handling of LONG fields. Returns number of bytes to variables, 0 means passthru
+odbc.defaultbinmode	= 	1	; Handling of binary data. 0 means passthru, 1 return as is, 2 convert to char
 ; See the documentation on odbc_binmode and odbc_longreadlen for an explanation of uodbc.defaultlrl
 ; and uodbc.defaultbinmode
 
@@ -444,15 +465,18 @@ session.cache_limiter     = nocache ; set to {nocache,private,public} to
 session.cache_expire      = 180     ; document expires after n minutes
 session.use_trans_sid     = 1       ; use transient sid support if enabled
                                     ; by compiling with --enable-trans-sid
+url_rewriter.tags         = "a=href,area=href,frame=src,input=src,form=fakeentry"
 
 [MSSQL]
-;extension=php_mssql.dll
 mssql.allow_persistent		=	On	; allow or prevent persistent link
 mssql.max_persistent		=	-1	; maximum number of persistent links. -1 means no limit
 mssql.max_links				=	-1	; maximum number of links (persistent+non persistent).  -1 means no limit
 mssql.min_error_severity	=	10	; minimum error severity to display
 mssql.min_message_severity	=	10	; minimum message severity to display
-mssql.compatability_mode	= Off	; compatability mode with old versions of PHP 3.0.
+mssql.compatability_mode	=  Off	; compatability mode with old versions of PHP 3.0.
+;mssql.textlimit			= 4096	; valid range 0 - 2147483647 default = 4096
+;mssql.textsize				= 4096	; valid range 0 - 2147483647 default = 4096
+;mssql.batchsize			=	 0  ; limits the number of records in each bach. 0 = all records in one batch.
 
 [Assertion]
 ;assert.active				=	On	; assert(expr); active by default
@@ -478,6 +502,9 @@ pfpro.defaulttimeout		=	30	; default timeout in seconds
 ; pfpro.proxyport			=		; default proxy port
 ; pfpro.proxylogon			=		; default proxy logon
 ; pfpro.proxypassword		=		; default proxy password
+[Sockets]
+sockets.use_system_read		=	On	; Use the system read() function instead of
+						; the php_read() wrapper.
 
 ; Local Variables:
 ; tab-width: 4

@@ -1643,40 +1643,68 @@ do_fcall_common:
 				}
 				{
 					zval *valptr;
+					zval *value;
+
+					value = get_zval_ptr(&opline->op1, Ts, &EG(free_op1), BP_VAR_R);
 
 					ALLOC_ZVAL(valptr);
-					*valptr = Ts[opline->op1.u.var].tmp_var;
+					*valptr = *value;
+					if (!EG(free_op1)) {
+						zval_copy_ctor(valptr);
+					}
 					INIT_PZVAL(valptr);
 					zend_ptr_stack_push(&EG(argument_stack), valptr);
 				}
 				NEXT_OPCODE();
-			case ZEND_SEND_VAR:
-				if (opline->extended_value==ZEND_DO_FCALL_BY_NAME
-					&& ARG_SHOULD_BE_SENT_BY_REF(opline->op2.u.opline_num, fbc, fbc->common.arg_types)) {
-						goto send_by_ref;
+			case ZEND_SEND_VAR_NO_REF:
+				if (opline->extended_value & ZEND_ARG_COMPILE_TIME_BOUND) { /* Had function_ptr at compile_time */
+					if (!(opline->extended_value & ZEND_ARG_SEND_BY_REF)) {
+						goto send_by_var;
+					}
+				} else if (!ARG_SHOULD_BE_SENT_BY_REF(opline->op2.u.opline_num, fbc, fbc->common.arg_types)) {
+					goto send_by_var;
 				}
 				{
 					zval *varptr;
 					varptr = get_zval_ptr(&opline->op1, Ts, &EG(free_op1), BP_VAR_R);
 
-					if (varptr == &EG(uninitialized_zval)) {
-						ALLOC_ZVAL(varptr);
-						INIT_ZVAL(*varptr);
-						varptr->refcount = 0;
-					} else if (PZVAL_IS_REF(varptr)) {
-						zval *original_var = varptr;
-
-						ALLOC_ZVAL(varptr);
-						*varptr = *original_var;
-						varptr->is_ref = 0;
-						varptr->refcount = 0;
-						zval_copy_ctor(varptr);
+					if (varptr != &EG(uninitialized_zval) && (PZVAL_IS_REF(varptr) || varptr->refcount == 1)) {
+						varptr->is_ref = 1;
+						varptr->refcount++;
+						zend_ptr_stack_push(&EG(argument_stack), varptr);
+						NEXT_OPCODE();
 					}
-					varptr->refcount++;
-					zend_ptr_stack_push(&EG(argument_stack), varptr);
-					FREE_OP(&opline->op1, EG(free_op1));  /* for string offsets */
+					zend_error(E_ERROR, "Only variables can be passed by reference");
 				}
 				NEXT_OPCODE();
+			case ZEND_SEND_VAR:
+					if ((opline->extended_value == ZEND_DO_FCALL_BY_NAME)
+						&& ARG_SHOULD_BE_SENT_BY_REF(opline->op2.u.opline_num, fbc, fbc->common.arg_types)) {
+						goto send_by_ref;
+					}
+send_by_var:
+					{
+						zval *varptr;
+						varptr = get_zval_ptr(&opline->op1, Ts, &EG(free_op1), BP_VAR_R);
+
+						if (varptr == &EG(uninitialized_zval)) {
+							ALLOC_ZVAL(varptr);
+							INIT_ZVAL(*varptr);
+							varptr->refcount = 0;
+						} else if (PZVAL_IS_REF(varptr)) {
+							zval *original_var = varptr;
+
+							ALLOC_ZVAL(varptr);
+							*varptr = *original_var;
+							varptr->is_ref = 0;
+							varptr->refcount = 0;
+							zval_copy_ctor(varptr);
+						}
+						varptr->refcount++;
+						zend_ptr_stack_push(&EG(argument_stack), varptr);
+						FREE_OP(&opline->op1, EG(free_op1));  /* for string offsets */
+					}
+					NEXT_OPCODE();
 send_by_ref:
 			case ZEND_SEND_REF: {
 					zval **varptr_ptr;
@@ -2270,7 +2298,13 @@ send_by_ref:
 				NEXT_OPCODE();
 			case ZEND_EXIT:
 				if (opline->op1.op_type != IS_UNUSED) {
-					zend_print_variable(get_zval_ptr(&opline->op1, Ts, &EG(free_op1), BP_VAR_R));
+					zval *ptr;
+
+					ptr = get_zval_ptr(&opline->op1, Ts, &EG(free_op1), BP_VAR_R);
+					if (Z_TYPE_P(ptr) == IS_LONG) {
+						EG(exit_status) = Z_LVAL_P(ptr);
+					}
+					zend_print_variable(ptr);
 					FREE_OP(&opline->op1, EG(free_op1));
 				}
 				zend_bailout();

@@ -13,11 +13,11 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Stig Sæther Bakken <ssb@fast.no>                            |
-   |		  Thies C. Arntzen <thies@digicol.de>						  | 
+   |		  Thies C. Arntzen <thies@thieso.net>						  | 
    +----------------------------------------------------------------------+
  */
 
-/* $Id: xml.c,v 1.61 2000/08/31 14:09:59 andrei Exp $ */
+/* $Id: xml.c,v 1.65.2.1 2000/12/13 23:02:10 zeev Exp $ */
 #define IS_EXT_MODULE
 
 #include "php.h"
@@ -69,7 +69,7 @@ PHP_MSHUTDOWN_FUNCTION(xml);
 PHP_RSHUTDOWN_FUNCTION(xml);
 PHP_MINFO_FUNCTION(xml);
 
-static void xml_parser_dtor(xml_parser *);
+static void xml_parser_dtor(zend_rsrc_list_entry *rsrc);
 static void xml_set_handler(zval **, zval **);
 inline static unsigned short xml_encode_iso_8859_1(unsigned char);
 inline static char xml_decode_iso_8859_1(unsigned short);
@@ -94,7 +94,6 @@ int  _xml_externalEntityRefHandler(XML_Parser, const XML_Char *, const XML_Char 
 /* }}} */
 /* {{{ extension definition structures */
 
-static unsigned char second_arg_force_ref[] = { 2, BYREF_NONE, BYREF_FORCE };
 static unsigned char third_and_fourth_args_force_ref[] = { 4, BYREF_NONE, BYREF_NONE, BYREF_FORCE, BYREF_FORCE };
 
 function_entry xml_functions[] = {
@@ -159,7 +158,7 @@ static void php_xml_init_globals(php_xml_globals *xml_globals)
 
 PHP_MINIT_FUNCTION(xml)
 {
-	le_xml_parser =	register_list_destructors(xml_parser_dtor, NULL);
+	le_xml_parser =	zend_register_list_destructors_ex(xml_parser_dtor, NULL, "xml", module_number);
 
 #ifdef ZTS
 	xml_globals_id = ts_allocate_id(sizeof(php_xml_globals), (ts_allocate_ctor) php_xml_init_globals, NULL);
@@ -276,8 +275,9 @@ static zval *_xml_xmlchar_zval(const XML_Char *s, int len, const XML_Char *encod
 /* {{{ xml_parser_dtor() */
 
 static void
-xml_parser_dtor(xml_parser *parser)
+xml_parser_dtor(zend_rsrc_list_entry *rsrc)
 {
+	xml_parser *parser = (xml_parser *)rsrc->ptr;
 
 	if (parser->object) {
 		zval_del_ref(&parser->object);
@@ -358,7 +358,7 @@ xml_call_handler(xml_parser *parser, zval *handler, int argc, zval **argv)
 		retval->type = IS_BOOL;
 		retval->value.lval = 0;
 
-		result = call_user_function(EG(function_table), parser->object, handler, retval, argc, argv);
+		result = call_user_function(EG(function_table), &parser->object, handler, retval, argc, argv);
 
 		if (result == FAILURE) {
 			zval **method;

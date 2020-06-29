@@ -201,11 +201,11 @@ SOURCE=.\bmove_upp.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\ct_init.c
+SOURCE=.\charset.c
 # End Source File
 # Begin Source File
 
-SOURCE=".\ctype-latin1.c"
+SOURCE=.\ctype.c
 # End Source File
 # Begin Source File
 
@@ -326,6 +326,10 @@ SOURCE=.\my_getwd.c
 # Begin Source File
 
 SOURCE=.\my_init.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\my_lib.c
 # End Source File
 # Begin Source File
 
@@ -465,7 +469,7 @@ SOURCE=.\acconfig.h
 # End Source File
 # Begin Source File
 
-SOURCE=".\config-win32.h"
+SOURCE=".\config-win.h"
 # End Source File
 # Begin Source File
 

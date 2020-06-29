@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: php_msql.c,v 1.22 2000/08/09 17:56:36 thies Exp $ */
+/* $Id: php_msql.c,v 1.28 2000/11/04 10:45:30 zeev Exp $ */
 
 #include "php.h"
 #include "php_msql.h"
@@ -116,12 +116,12 @@ typedef struct {
 	ZEND_FETCH_RESOURCE(msql_query, m_query *, &res, -1, "mSQL result", msql_globals.le_query);	\
 	msql_result = msql_query->result
 
-static void _delete_query(void *arg)
+static void _delete_query(zend_rsrc_list_entry *rsrc)
 {
-	m_query *query = (m_query *) arg;
+	m_query *query = (m_query *)rsrc->ptr;
 
 	if(query->result) msqlFreeResult(query->result);
-	efree(arg);
+	efree(query);
 }
 
 static m_query *php_msql_query_wrapper(m_result *res, int af_rows)
@@ -134,15 +134,17 @@ static m_query *php_msql_query_wrapper(m_result *res, int af_rows)
 	return query;
 }
 
-static void _close_msql_link(int link)
+static void _close_msql_link(zend_rsrc_list_entry *rsrc)
 {
+	int link = (int)rsrc->ptr;
 	msqlClose(link);
 	msql_globals.num_links--;
 }
 
 
-static void _close_msql_plink(int link)
+static void _close_msql_plink(zend_rsrc_list_entry *rsrc)
 {
+	int link = (int)rsrc->ptr;
 	msqlClose(link);
 	msql_globals.num_persistent--;
 	msql_globals.num_links--;
@@ -160,9 +162,9 @@ DLEXPORT PHP_MINIT_FUNCTION(msql)
 		msql_globals.max_links=-1;
 	}
 	msql_globals.num_persistent=0;
-	msql_globals.le_query = register_list_destructors(_delete_query,NULL);
-	msql_globals.le_link = register_list_destructors(_close_msql_link,NULL);
-	msql_globals.le_plink = register_list_destructors(NULL,_close_msql_plink);
+	msql_globals.le_query = zend_register_list_destructors_ex(_delete_query, NULL, "msql query", module_number);
+	msql_globals.le_link = zend_register_list_destructors_ex(_close_msql_link, NULL, "msql link", module_number);
+	msql_globals.le_plink = zend_register_list_destructors_ex(NULL, _close_msql_plink, "msql link persistent", module_number);
 	
 	msql_module_entry.type = type;
 
@@ -402,7 +404,16 @@ DLEXPORT PHP_FUNCTION(msql_close)
 	
 	ZEND_FETCH_RESOURCE2(msql, int, &msql_link, id, "mSQL-Link", msql_globals.le_link, msql_globals.le_plink);
 	
-	zend_list_delete(id);
+	if (id==-1) { /* explicit resource number */
+		zend_list_delete(Z_RESVAL_P(msql_link));
+	}
+
+	if (id!=-1 
+		|| (msql_link && Z_RESVAL_P(msql_link)==msql_globals.default_link)) {
+		zend_list_delete(msql_globals.default_link);
+		msql_globals.default_link = -1;
+	}
+
 	RETURN_TRUE;
 }
 /* }}} */

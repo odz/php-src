@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: java.c,v 1.37 2000/08/17 10:14:47 rubys Exp $ */
+/* $Id: java.c,v 1.40 2000/11/16 22:19:47 jason Exp $ */
 
 /*
  * This module implements Zend OO syntax overloading support for Java
@@ -552,7 +552,7 @@ static pval _java_getset_property
   zend_hash_index_find(property_reference->object->value.obj.properties,
     0, (void **) &pobject);
   obj = zend_list_find((*pobject)->value.lval,&type);
-  (pval*)(long)result = &presult;
+  result = (jlong)(long) &presult;
   var_uninit(&presult);
 
   if (!obj || (type!=le_jobject)) {
@@ -592,7 +592,9 @@ int java_set_property_handler
 
 /***************************************************************************/
 
-static void _php_java_destructor(void *jobject) {
+static void _php_java_destructor(zend_rsrc_list_entry *rsrc)
+{
+	void *jobject = (void *)rsrc->ptr;
   JG_FETCH();
   if (JG(jenv)) (*JG(jenv))->DeleteGlobalRef(JG(jenv), jobject);
 }
@@ -611,7 +613,7 @@ PHP_MINIT_FUNCTION(java) {
 
   zend_register_internal_class(&java_class_entry);
 
-  le_jobject = register_list_destructors(_php_java_destructor,NULL);
+  le_jobject = zend_register_list_destructors_ex(_php_java_destructor, NULL, "java", module_number);
 
   REGISTER_INI_ENTRIES();
 

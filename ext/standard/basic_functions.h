@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: basic_functions.h,v 1.66 2000/09/19 17:32:27 sas Exp $ */
+/* $Id: basic_functions.h,v 1.69 2000/11/29 15:37:38 sterling Exp $ */
 
 #ifndef BASIC_FUNCTIONS_H
 #define BASIC_FUNCTIONS_H
@@ -41,6 +41,7 @@ PHP_RSHUTDOWN_FUNCTION(basic);
 PHP_MINFO_FUNCTION(basic);
 PHP_GINIT_FUNCTION(basic);
 
+PHP_FUNCTION(constant);
 PHP_FUNCTION(intval);
 PHP_FUNCTION(doubleval);
 PHP_FUNCTION(strval);
@@ -66,6 +67,7 @@ PHP_FUNCTION(get_magic_quotes_runtime);
 PHP_FUNCTION(get_magic_quotes_gpc);
 
 void php_is_type(INTERNAL_FUNCTION_PARAMETERS, int type);
+PHP_FUNCTION(is_null);
 PHP_FUNCTION(is_resource);
 PHP_FUNCTION(is_bool);
 PHP_FUNCTION(is_long);
@@ -78,6 +80,7 @@ PHP_FUNCTION(is_object);
 PHP_FUNCTION(error_log);
 
 PHP_FUNCTION(call_user_func);
+PHP_FUNCTION(call_user_func_array);
 PHP_FUNCTION(call_user_method);
 
 PHP_FUNCTION(register_shutdown_function);
@@ -147,6 +150,8 @@ typedef struct {
 	zval **array_walk_func_name;
 	zval **user_compare_func_name;
 	zend_llist *user_tick_functions;
+
+	zval *active_ini_file_section;
 	
 	HashTable sm_protected_env_vars;
 	char *sm_allowed_env_vars;

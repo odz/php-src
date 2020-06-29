@@ -13,11 +13,11 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors:                                                             |
-   | PHP 4.0 patches by Thies C. Arntzen (thies@digicol.de)               |
+   | PHP 4.0 patches by Thies C. Arntzen (thies@thieso.net)               |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dir.c,v 1.44 2000/09/07 17:55:53 stas Exp $ */
+/* $Id: dir.c,v 1.50.2.1 2000/12/07 19:15:02 sas Exp $ */
 
 /* {{{ includes/startup/misc */
 
@@ -92,7 +92,7 @@ static zend_class_entry *dir_class_entry_ptr;
 static zend_function_entry php_dir_class_functions[] = {
 	PHP_FALIAS(close,	closedir,	NULL)
 	PHP_FALIAS(rewind,	rewinddir,	NULL)
-	PHP_FALIAS(read,	readdir,	NULL)
+	PHP_STATIC_FE("read", php_if_readdir, NULL)
 	{NULL, NULL, NULL}
 };
 
@@ -102,13 +102,18 @@ static void php_set_default_dir(int id DIRLS_DC)
     if (DIRG(default_dir)!=-1) {
         zend_list_delete(DIRG(default_dir));
     }
-    DIRG(default_dir) = id;
-    zend_list_addref(id);
+
+	if (id != -1) {
+		zend_list_addref(id);
+	}
+	
+	DIRG(default_dir) = id;
 }
 
 
-static void _dir_dtor(php_dir *dirp)
+static void _dir_dtor(zend_rsrc_list_entry *rsrc)
 {
+	php_dir *dirp = (php_dir *)rsrc->ptr;
 	closedir(dirp->dir);
 	efree(dirp);
 }
@@ -125,7 +130,7 @@ PHP_MINIT_FUNCTION(dir)
 {
 	zend_class_entry dir_class_entry;
 
-	le_dirp = register_list_destructors(_dir_dtor,NULL);
+	le_dirp = zend_register_list_destructors_ex(_dir_dtor, NULL, "dir", module_number);
 
 	INIT_CLASS_ENTRY(dir_class_entry, "Directory", php_dir_class_functions);
 	dir_class_entry_ptr = zend_register_internal_class(&dir_class_entry);
@@ -210,6 +215,10 @@ PHP_FUNCTION(closedir)
 	FETCH_DIRP();
 
 	zend_list_delete(dirp->id);
+
+	if (dirp->id == DIRG(default_dir)) {
+		php_set_default_dir(-1 DIRLS_CC);
+	}
 }
 
 /* }}} */
@@ -285,11 +294,11 @@ PHP_FUNCTION(rewinddir)
 /* {{{ proto string readdir([int dir_handle])
    Read directory entry from dir_handle */
 
-PHP_FUNCTION(readdir)
+PHP_NAMED_FUNCTION(php_if_readdir)
 {
 	pval **id, **tmp, *myself;
 	php_dir *dirp;
-	char entry[sizeof(struct dirent)+MAXPATHLEN+1];
+	char entry[sizeof(struct dirent)+MAXPATHLEN];
 	struct dirent *result = (struct dirent *)&entry; /* patch for libc5 readdir problems */
 	DIRLS_FETCH();
 

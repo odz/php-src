@@ -5,8 +5,9 @@ PHP Coding Standards
 This file lists several standards that any programmer, adding or changing
 code in PHP, should follow.  Since this file was added at a very late
 stage of the development of PHP v3.0, the code base does not (yet) fully
-follow it, but it's going in that general direction.
-This is an initial version - it'll most probably grow as time passes.
+follow it, but it's going in that general direction.  Since we are now
+well into the version 4 releases, many sections have been recoded to use
+these rules.
 
 
 Code Implementation
@@ -64,7 +65,24 @@ Naming Conventions
 ------------------
 
 [1] Function names for user functions should be enclosed with in
-    the PHP_FUNCTION() macro.  
+    the PHP_FUNCTION() macro. They should be in lowercase, with words
+    underscore delimited, with care taken to minimize the letter count.
+    If they are part of a "parent set" of functions, that parent should
+    be included in the user function name.
+
+    Good:
+    'mcrypt_enc_self_test'
+    'mysql_list_fields'
+
+    Ok:
+    'mcrypt_module_get_algo_supported_key_sizes'
+    (could be 'mcrypt_mod_get_algo_sup_key_sizes'?)
+    'get_html_translation_table'
+    (could be 'html_get_trans_table'?) 
+
+    Bad:
+    'hw_GetObjectByQueryCollObj'
+    'pg_setclientencoding'
 
 [2] Function names used by user functions should be prefixed
     with "_php_", and followed by a word or an underscore-delimited list of
@@ -92,24 +110,31 @@ Syntax and indentation
     is known to accept C++-style comments in C code.
 
 [2] Use K&R-style.  Of course, we can't and don't want to
-    force anybody to use a style she's not used to, but
+    force anybody to use a style he or she is not used to, but,
     at the very least, when you write code that goes into the core
     of PHP or one of its standard modules, please maintain the K&R
     style.  This applies to just about everything, starting with
     indentation and comment styles and up to function decleration
     syntax.
     
-[3] Be generous with whitespace and braces.  Always prefer
-    if (foo) {
+[3] Be generous with whitespace and braces.  Always prefer:
+
+	if (foo) {
 		bar;
 	}
-	to
+
+	to:
+
 	if(foo)bar;
-	
+
     Keep one empty line between the variable decleration section and
     the statements in a block, as well as between logical statement
     groups in a block.  Maintain at least one empty line between
     two functions, preferably two.
+
+[4] When indenting, use the tab character.  A tab is expected to represent
+    four spaces.  It is important to maintain consistency in indenture so
+    that definitions, comments, and control structures line up correctly.
 
 Documentation and Folding Hooks
 -------------------------------
@@ -145,4 +170,17 @@ Optional arguments are written like this:
 
 And yes, please keep everything on a single line, even if that line is massive.
 
+Aliases & Legacy Documentation
+-----------------------------------
+You may also have some deprecated aliases with close to duplicate
+names, for example, somedb_select_result and somedb_selectresult. For
+documentation puposes, these will only be documented by the most
+current name, with the aliases listed in the documentation for
+the parent function. For ease of reference, user-functions with
+completely different names, that alias to the same function (such as
+highlight_file and show_source), will be separately documented. The
+proto should still be included, describing which function is aliased.
 
+Backwards compatible functions and names should be maintained as long
+as the code can be reasonably be kept as part of the codebase. See
+/phpdoc/README for me information on documentation.

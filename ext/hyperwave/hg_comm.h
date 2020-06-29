@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: hg_comm.h,v 1.9 2000/07/24 01:39:46 david Exp $ */
+/* $Id: hg_comm.h,v 1.11 2000/11/23 14:44:09 steinm Exp $ */
 
 #ifndef HG_COMM_H
 #define HG_COMM_H
@@ -68,6 +68,8 @@
 #define UNLOCK_MESSAGE               30
 #define INCOLLECTIONS_MESSAGE        31
 #define INSERTOBJECT_MESSAGE         32
+#define GETOBJBYFTQUERY_MESSAGE      34
+#define GETOBJBYFTQUERYCOLL_MESSAGE  35
 #define PIPEDOCUMENT_MESSAGE         36
 #define DELETEOBJECT_MESSAGE         37
 #define PUTDOCUMENT_MESSAGE          38
@@ -144,19 +146,20 @@ typedef struct {
 
 typedef int hw_objectID;
 typedef char hw_objrec;
+typedef float hw_float;
 
 #ifdef newlist
 void fnDeleteAnchor(void *ptr1);
 void fnListAnchor(zend_llist *pAnchorList);
 zend_llist *fnCreateAnchorList(hw_objectID objID, char **anchors, char **docofanchorrec, char **reldestrec, int ancount, int anchormode);
-char *fnInsAnchorsIntoText(char *text, zend_llist *pAnchorList, char **bodytag, char *urlprefix);
+char *fnInsAnchorsIntoText(char *text, zend_llist *pAnchorList, char **bodytag, char **urlprefix);
 int fnCmpAnchors(const void *e1, const void *e2);
 ANCHOR *fnAddAnchor(zend_llist *pAnchorList, int objectID, int start, int end);
 #else
 void fnDeleteAnchor(ANCHOR *ptr);
 void fnListAnchor(DLIST *pAnchorList);
 DLIST *fnCreateAnchorList(hw_objectID objID, char **anchors, char **docofanchorrec, char **reldestrec, int ancount, int anchormode);
-char *fnInsAnchorsIntoText(char *text, DLIST *pAnchorList, char **bodytag, char *urlprefix);
+char *fnInsAnchorsIntoText(char *text, DLIST *pAnchorList, char **bodytag, char **urlprefix);
 int fnCmpAnchors(ANCHOR *a1, ANCHOR *a2);
 ANCHOR *fnAddAnchor(DLIST *pAnchorList, int objectID, int start, int end);
 #endif
@@ -204,11 +207,15 @@ extern int send_getobjbyquery(int sockfd, char *query, int maxhits, hw_objectID 
 extern int send_getobjbyqueryobj(int sockfd, char *query, int maxhits, char ***childrec, int *count);
 extern int send_getobjbyquerycoll(int sockfd, hw_objectID collID, char *query, int maxhits, hw_objectID **childIDs, int *count);
 extern int send_getobjbyquerycollobj(int sockfd, hw_objectID collID, char *query, int maxhits, char ***childrec, int *count);
+extern int send_getobjbyftquery(int sockfd, char *query, int maxhits, hw_objectID **childIDs, float **weights, int *count);
+extern int send_getobjbyftqueryobj(int sockfd, char *query, int maxhits, char ***childrec, float **weights, int *count);
+extern int send_getobjbyftquerycoll(int sockfd, hw_objectID collID, char *query, int maxhits, hw_objectID **childIDs, float **weight, int *count);
+extern int send_getobjbyftquerycollobj(int sockfd, hw_objectID collID, char *query, int maxhits, char ***childrec, float **weight, int *count);
 extern int send_identify(int sockfd, char *name, char *passwd, char **userdata);
 extern int send_getparents(int sockfd, hw_objectID objectID, hw_objectID **childIDs, int *count);
 extern int send_children(int sockfd, hw_objectID objectID, hw_objectID **childIDs, int *count);
 extern int send_getparentsobj(int sockfd, hw_objectID objectID, char ***childrec, int *count);
-extern int send_pipedocument(int sockfd, char *hostname, hw_objectID objectID, int mode, int rootid, char** objattr, char **bodytag, char **text, int *count, char *urlprefix);
+extern int send_pipedocument(int sockfd, char *hostname, hw_objectID objectID, int mode, int rootid, char** objattr, char **bodytag, char **text, int *count, char **urlprefix);
 extern int send_pipecgi(int sockfd, char *host, hw_objectID objectID, char *cgi_env_str, char **objattr, char **text, int *count);
 extern int send_putdocument(int sockfd, char *hostname, hw_objectID parentID, char *objectRec, char *text, int count, hw_objectID *objectID);
 extern int send_inscoll(int sockfd, hw_objectID objectID, char *objrec, hw_objectID *new_objectID);

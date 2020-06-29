@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: filestat.c,v 1.46 2000/09/16 05:10:03 zak Exp $ */
+/* $Id: filestat.c,v 1.49.2.1 2000/12/07 19:15:02 sas Exp $ */
 
 #include "php.h"
 #include "safe_mode.h"
@@ -180,7 +180,7 @@ PHP_FUNCTION(diskfreespace)
 				&TotalNumberOfBytes,
 				&TotalNumberOfFreeBytes) == 0) RETURN_FALSE;
 
-			/* i know - this is ugly, but i works (thies@digicol.de) */
+			/* i know - this is ugly, but i works (thies@thieso.net) */
 			bytesfree  = FreeBytesAvailableToCaller.HighPart *
 				(double) (((unsigned long)1) << 31) * 2.0 +
 				FreeBytesAvailableToCaller.LowPart;
@@ -252,7 +252,7 @@ PHP_FUNCTION(chgrp)
 		gid = (*group)->value.lval;
 	}
 
-	if (PG(safe_mode) &&(!php_checkuid((*filename)->value.str.val, NULL, 1))) {
+	if (PG(safe_mode) &&(!php_checkuid((*filename)->value.str.val, NULL, CHECKUID_ALLOW_FILE_NOT_EXISTS))) {
 		RETURN_FALSE;
 	}
 
@@ -300,7 +300,7 @@ PHP_FUNCTION(chown)
 		uid = (*user)->value.lval;
 	}
 
-	if (PG(safe_mode) &&(!php_checkuid((*filename)->value.str.val, NULL, 1))) {
+	if (PG(safe_mode) &&(!php_checkuid((*filename)->value.str.val, NULL, CHECKUID_ALLOW_FILE_NOT_EXISTS))) {
 		RETURN_FALSE;
 	}
 
@@ -324,7 +324,8 @@ PHP_FUNCTION(chown)
 PHP_FUNCTION(chmod)
 {
 	pval **filename, **mode;
-	int ret,imode;
+	int ret;
+	mode_t imode;
 	PLS_FETCH();
 
 	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2,&filename,&mode)==FAILURE) {
@@ -333,7 +334,7 @@ PHP_FUNCTION(chmod)
 	convert_to_string_ex(filename);
 	convert_to_long_ex(mode);
 
-	if (PG(safe_mode) &&(!php_checkuid((*filename)->value.str.val, NULL, 1))) {
+	if (PG(safe_mode) &&(!php_checkuid((*filename)->value.str.val, NULL, CHECKUID_ALLOW_FILE_NOT_EXISTS))) {
 		RETURN_FALSE;
 	}
 
@@ -341,7 +342,7 @@ PHP_FUNCTION(chmod)
 	if (php_check_open_basedir((*filename)->value.str.val))
 		RETURN_FALSE;
 
-	imode = (*mode)->value.lval;
+	imode = (mode_t) (*mode)->value.lval;
 	/* in safe mode, do not allow to setuid files.
 	   Setuiding files could allow users to gain privileges
 	   that safe mode doesn't give them.
@@ -396,7 +397,7 @@ PHP_FUNCTION(touch)
 	}
 	convert_to_string_ex(filename);
 
-	if (PG(safe_mode) &&(!php_checkuid((*filename)->value.str.val, NULL, 2))) {
+	if (PG(safe_mode) &&(!php_checkuid((*filename)->value.str.val, NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
 		if (newtime) efree(newtime);
 		RETURN_FALSE;
 	}
@@ -708,12 +709,12 @@ FileFunction(PHP_FN(file_exists),15)
 
 /* {{{ proto array lstat(string filename)
    Give information about a file or symbolic link */
-FileFunction(PHP_FN(lstat),16)
+FileFunction(php_if_lstat,16)
 /* }}} */
 
 /* {{{ proto array stat(string filename)
    Give information about a file */
-FileFunction(PHP_FN(stat),17)
+FileFunction(php_if_stat,17)
 /* }}} */
 
 /*

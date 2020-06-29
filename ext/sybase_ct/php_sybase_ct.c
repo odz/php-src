@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: php_sybase_ct.c,v 1.34 2000/10/05 02:40:53 joey Exp $ */
+/* $Id: php_sybase_ct.c,v 1.38 2000/11/03 02:46:49 zeev Exp $ */
 
 
 #include "php.h"
@@ -127,9 +127,15 @@ static void _free_sybase_result(sybase_result *result)
 	efree(result);
 }
 
-
-static void _close_sybase_link(sybase_link *sybase_ptr)
+static void php_free_sybase_result(zend_rsrc_list_entry *rsrc)
 {
+	sybase_result *result = (sybase_result *)rsrc->ptr;
+	_free_sybase_result(result);
+}
+
+static void _close_sybase_link(zend_rsrc_list_entry *rsrc)
+{
+	sybase_link *sybase_ptr = (sybase_link *)rsrc->ptr;
 	CS_INT con_status;
 	ELS_FETCH();
 	SybCtLS_FETCH();
@@ -160,8 +166,9 @@ static void _close_sybase_link(sybase_link *sybase_ptr)
 }
 
 
-static void _close_sybase_plink(sybase_link *sybase_ptr)
+static void _close_sybase_plink(zend_rsrc_list_entry *rsrc)
 {
+	sybase_link *sybase_ptr = (sybase_link *)rsrc->ptr;
 	CS_INT con_status;
 	SybCtLS_FETCH();
 
@@ -239,12 +246,12 @@ static CS_RETCODE _server_message_handler(CS_CONTEXT *context, CS_CONNECTION *co
 
 
 PHP_INI_BEGIN()
-	STD_PHP_INI_BOOLEAN("sybase.allow_persistent",	"1",	PHP_INI_SYSTEM,		OnUpdateInt,		allow_persistent,	zend_sybase_globals,	sybase_globals)
-	STD_PHP_INI_ENTRY_EX("sybase.max_persistent",	"-1",	PHP_INI_SYSTEM,		OnUpdateInt,		max_persistent,		zend_sybase_globals,	sybase_globals,	display_link_numbers)
-	STD_PHP_INI_ENTRY_EX("sybase.max_links",		"-1",	PHP_INI_SYSTEM,		OnUpdateInt,		max_links,			zend_sybase_globals,	sybase_globals,	display_link_numbers)
-	STD_PHP_INI_ENTRY("sybase.min_server_severity",	"10",	PHP_INI_ALL,		OnUpdateInt,		min_server_severity,	zend_sybase_globals,	sybase_globals)
-	STD_PHP_INI_ENTRY("sybase.min_client_severity",	"10",	PHP_INI_ALL,		OnUpdateInt,		min_client_severity,	zend_sybase_globals,	sybase_globals)
-	STD_PHP_INI_ENTRY("sybase.hostname",			NULL,	PHP_INI_ALL,		OnUpdateString,		hostname,		zend_sybase_globals,		sybase_globals)
+	STD_PHP_INI_BOOLEAN("sybct.allow_persistent",	"1",	PHP_INI_SYSTEM,		OnUpdateInt,		allow_persistent,	zend_sybase_globals,	sybase_globals)
+	STD_PHP_INI_ENTRY_EX("sybct.max_persistent",	"-1",	PHP_INI_SYSTEM,		OnUpdateInt,		max_persistent,		zend_sybase_globals,	sybase_globals,	display_link_numbers)
+	STD_PHP_INI_ENTRY_EX("sybct.max_links",		"-1",	PHP_INI_SYSTEM,		OnUpdateInt,		max_links,			zend_sybase_globals,	sybase_globals,	display_link_numbers)
+	STD_PHP_INI_ENTRY("sybct.min_server_severity",	"10",	PHP_INI_ALL,		OnUpdateInt,		min_server_severity,	zend_sybase_globals,	sybase_globals)
+	STD_PHP_INI_ENTRY("sybct.min_client_severity",	"10",	PHP_INI_ALL,		OnUpdateInt,		min_client_severity,	zend_sybase_globals,	sybase_globals)
+	STD_PHP_INI_ENTRY("sybct.hostname",			NULL,	PHP_INI_ALL,		OnUpdateString,		hostname,		zend_sybase_globals,		sybase_globals)
 PHP_INI_END()
 
 
@@ -315,9 +322,9 @@ PHP_MINIT_FUNCTION(sybase)
 
 	REGISTER_INI_ENTRIES();
 
-	le_link = register_list_destructors(_close_sybase_link,NULL);
-	le_plink = register_list_destructors(NULL,_close_sybase_plink);
-	le_result = register_list_destructors(_free_sybase_result,NULL);
+	le_link = zend_register_list_destructors_ex(_close_sybase_link, NULL, "sybase-ct link", module_number);
+	le_plink = zend_register_list_destructors_ex(NULL, _close_sybase_plink, "sybase-ct link persistent", module_number);
+	le_result = zend_register_list_destructors_ex(php_free_sybase_result, NULL, "sybase-ct result", module_number);
 
 	return SUCCESS;
 }
@@ -680,10 +687,14 @@ PHP_FUNCTION(sybase_close)
 	
 	ZEND_FETCH_RESOURCE2(sybase_ptr, sybase_link *, &sybase_link_index, id, "Sybase-Link", le_link, le_plink);
 	
-	if (sybase_link_index) {
-		zend_list_delete(sybase_link_index->value.lval);
-	} else {
-		zend_list_delete(id);
+	if (id==-1) { /* explicit resource number */
+		zend_list_delete(Z_RESVAL_P(sybase_link_index));
+	}
+
+	if (id!=-1 
+		|| (sybase_link_index && Z_RESVAL_P(sybase_link_index)==SybCtG(default_link))) {
+		zend_list_delete(SybCtG(default_link));
+		SybCtG(default_link) = -1;
 	}
 
 	RETURN_TRUE;

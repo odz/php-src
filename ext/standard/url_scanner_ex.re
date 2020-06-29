@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "php_ini.h"
 #include "php_globals.h"
 #define STATE_TAG SOME_OTHER_STATE_TAG
 #include "basic_functions.h"
@@ -37,6 +38,54 @@
 #define url_scanner url_scanner_ex
 
 #include "php_smart_str.h"
+
+static PHP_INI_MH(OnUpdateTags)
+{
+	url_adapt_state_ex_t *ctx;
+	char *key;
+	char *lasts;
+	char *tmp;
+	BLS_FETCH();
+	
+	ctx = &BG(url_adapt_state_ex);
+	
+	tmp = estrndup(new_value, new_value_length);
+	
+	if (ctx->tags)
+		zend_hash_destroy(ctx->tags);
+	else
+		ctx->tags = malloc(sizeof(HashTable));
+	
+	zend_hash_init(ctx->tags, 0, NULL, NULL, 1);
+	
+	for (key = php_strtok_r(tmp, ",", &lasts);
+			key;
+			key = php_strtok_r(NULL, ",", &lasts)) {
+		char *val;
+
+		val = strchr(key, '=');
+		if (val) {
+			char *q;
+			int keylen;
+			
+			*val++ = '\0';
+			for (q = key; *q; q++)
+				*q = tolower(*q);
+			keylen = q - key;
+			/* key is stored withOUT NUL
+			   val is stored WITH    NUL */
+			zend_hash_add(ctx->tags, key, keylen, val, strlen(val)+1, NULL);
+		}
+	}
+
+	efree(tmp);
+
+	return SUCCESS;
+}
+
+PHP_INI_BEGIN()
+	STD_PHP_INI_ENTRY("url_rewriter.tags", "a=href,area=href,frame=src,form=fakeentry", PHP_INI_ALL, OnUpdateTags, url_adapt_state_ex, php_basic_globals, basic_globals)
+PHP_INI_END()
 
 static inline void append_modified_url(smart_str *url, smart_str *dest, smart_str *name, smart_str *val, const char *separator)
 {
@@ -60,6 +109,12 @@ static inline void append_modified_url(smart_str *url, smart_str *dest, smart_st
 		}
 	}
 
+	/* Don't modify URLs of the format "#mark" */
+	if (bash - url->c == 0) {
+		smart_str_append(dest, url);
+		return;
+	}
+
 	if (bash)
 		smart_str_appendl(dest, url->c, bash - url->c);
 	else
@@ -74,47 +129,20 @@ static inline void append_modified_url(smart_str *url, smart_str *dest, smart_st
 		smart_str_appendl(dest, bash, q - bash);
 }
 
-struct php_tag_arg {
-	char *tag;
-	int taglen;
-	char *arg;
-	int arglen;
-};
-
-#define TAG_ARG_ENTRY(a,b) {#a,sizeof(#a)-1,#b,sizeof(#b)-1},
-
-static struct php_tag_arg check_tag_arg[] = {
-	TAG_ARG_ENTRY(a, href)
-	TAG_ARG_ENTRY(area, href)
-	TAG_ARG_ENTRY(frame, src)
-	TAG_ARG_ENTRY(img, src)
-	TAG_ARG_ENTRY(input, src)
-	TAG_ARG_ENTRY(form, fake_entry_for_passing_on_form_tag)
-	{0}
-};
-
-static inline void tag_arg(url_adapt_state_ex_t *ctx PLS_DC)
+static inline void tag_arg(url_adapt_state_ex_t *ctx, char quote PLS_DC)
 {
 	char f = 0;
-	int i;
 
-	for (i = 0; check_tag_arg[i].tag; i++) {
-		if (check_tag_arg[i].arglen == ctx->arg.len
-				&& check_tag_arg[i].taglen == ctx->tag.len
-				&& strncasecmp(ctx->tag.c, check_tag_arg[i].tag, ctx->tag.len) == 0
-				&& strncasecmp(ctx->arg.c, check_tag_arg[i].arg, ctx->arg.len) == 0) {
-			f = 1;
-			break;
-		}
-	}
+	if (strncasecmp(ctx->arg.c, ctx->lookup_data, ctx->arg.len) == 0)
+		f = 1;
 
-	smart_str_appends(&ctx->result, "\"");
+	smart_str_appendc(&ctx->result, quote);
 	if (f) {
 		append_modified_url(&ctx->val, &ctx->result, &ctx->q_name, &ctx->q_value, PG(arg_separator));
 	} else {
 		smart_str_append(&ctx->result, &ctx->val);
 	}
-	smart_str_appends(&ctx->result, "\"");
+	smart_str_appendc(&ctx->result, quote);
 }
 
 enum {
@@ -133,18 +161,23 @@ enum {
 #define YYMARKER q
 #define STATE ctx->state
 
-#define PASSTHRU() {\
-	smart_str_appendl(&ctx->result, start, YYCURSOR - start); \
+#define STD_PARA url_adapt_state_ex_t *ctx, char *start, char *YYCURSOR PLS_DC
+#define STD_ARGS ctx, start, xp PLS_CC
+
+static inline void passthru(STD_PARA) 
+{
+	smart_str_appendl(&ctx->result, start, YYCURSOR - start);
 }
 
-#define HANDLE_FORM() {\
-	if (ctx->tag.len == 4 && strncasecmp(ctx->tag.c, "form", 4) == 0) {\
-		smart_str_appends(&ctx->result, "<INPUT TYPE=HIDDEN NAME=\""); \
-		smart_str_append(&ctx->result, &ctx->q_name); \
-		smart_str_appends(&ctx->result, "\" VALUE=\""); \
-		smart_str_append(&ctx->result, &ctx->q_value); \
-		smart_str_appends(&ctx->result, "\">"); \
-	} \
+static inline void handle_form(STD_PARA) 
+{
+	if (ctx->tag.len == 4 && strncasecmp(ctx->tag.c, "form", 4) == 0) {
+		smart_str_appends(&ctx->result, "<INPUT TYPE=\"HIDDEN\" NAME=\""); 
+		smart_str_append(&ctx->result, &ctx->q_name);
+		smart_str_appends(&ctx->result, "\" VALUE=\"");
+		smart_str_append(&ctx->result, &ctx->q_value);
+		smart_str_appends(&ctx->result, "\">");
+	}
 }
 
 /*
@@ -154,26 +187,30 @@ enum {
  *  HTML stuff to the result buffer.
  */
 
-#define HANDLE_TAG() {\
-	int ok = 0; \
-	int i; \
-	smart_str_copyl(&ctx->tag, start, YYCURSOR - start); \
-	for (i = 0; check_tag_arg[i].tag; i++) { \
-		if (ctx->tag.len == check_tag_arg[i].taglen \
-				&& strncasecmp(ctx->tag.c, check_tag_arg[i].tag, ctx->tag.len) == 0) { \
-			ok = 1; \
-			break; \
-		} \
-	} \
-	STATE = ok ? STATE_NEXT_ARG : STATE_PLAIN; \
+static inline void handle_tag(STD_PARA) 
+{
+	int ok = 0;
+	int i;
+
+	ctx->tag.len = 0;
+	smart_str_appendl(&ctx->tag, start, YYCURSOR - start);
+	for (i = 0; i < ctx->tag.len; i++)
+		ctx->tag.c[i] = tolower(ctx->tag.c[i]);
+	if (zend_hash_find(ctx->tags, ctx->tag.c, ctx->tag.len, (void **) &ctx->lookup_data) == SUCCESS)
+		ok = 1;
+	STATE = ok ? STATE_NEXT_ARG : STATE_PLAIN;
 }
 
-#define HANDLE_ARG() {\
-	smart_str_copyl(&ctx->arg, start, YYCURSOR - start); \
+static inline void handle_arg(STD_PARA) 
+{
+	ctx->arg.len = 0;
+	smart_str_appendl(&ctx->arg, start, YYCURSOR - start);
 }
-#define HANDLE_VAL(quotes) {\
-	smart_str_setl(&ctx->val, start + quotes, YYCURSOR - start - quotes * 2); \
-	tag_arg(ctx PLS_CC); \
+
+static inline void handle_val(STD_PARA, char quotes, char type) 
+{
+	smart_str_setl(&ctx->val, start + quotes, YYCURSOR - start - quotes * 2);
+	tag_arg(ctx, type PLS_CC);
 }
 
 #ifdef SCANNER_DEBUG
@@ -207,46 +244,46 @@ alpha = [a-zA-Z];
 		
 		case STATE_PLAIN:
 /*!re2c
-  [<]			{ PASSTHRU(); STATE = STATE_TAG; continue; }
-  (any\[<])		{ PASSTHRU(); continue; }
+  [<]			{ passthru(STD_ARGS); STATE = STATE_TAG; continue; }
+  (any\[<])		{ passthru(STD_ARGS); continue; }
 */
 			break;
 			
 		case STATE_TAG:
 /*!re2c
-  alpha+	{ HANDLE_TAG() /* Sets STATE */; PASSTHRU(); continue; }
-  any		{ PASSTHRU(); STATE = STATE_PLAIN; continue; }
+  alpha+	{ handle_tag(STD_ARGS); /* Sets STATE */; passthru(STD_ARGS); continue; }
+  any		{ passthru(STD_ARGS); STATE = STATE_PLAIN; continue; }
 */
   			break;
 			
 		case STATE_NEXT_ARG:
 /*!re2c
-  ">"		{ PASSTHRU(); HANDLE_FORM(); STATE = STATE_PLAIN; continue; }
-  [ \n]		{ PASSTHRU(); continue; }
+  ">"		{ passthru(STD_ARGS); handle_form(STD_ARGS); STATE = STATE_PLAIN; continue; }
+  [ \n]		{ passthru(STD_ARGS); continue; }
   alpha		{ YYCURSOR--; STATE = STATE_ARG; continue; }
-  any		{ PASSTHRU(); continue; }
+  any		{ passthru(STD_ARGS); STATE = STATE_PLAIN; continue; }
 */
  	 		break;
 
 		case STATE_ARG:
 /*!re2c
-  alpha+	{ PASSTHRU(); HANDLE_ARG(); STATE = STATE_BEFORE_VAL; continue; }
-  any		{ PASSTHRU(); STATE = STATE_NEXT_ARG; continue; }
+  alpha+	{ passthru(STD_ARGS); handle_arg(STD_ARGS); STATE = STATE_BEFORE_VAL; continue; }
+  any		{ passthru(STD_ARGS); STATE = STATE_NEXT_ARG; continue; }
 */
 
 		case STATE_BEFORE_VAL:
 /*!re2c
-  [ ]* "=" [ ]*		{ PASSTHRU(); STATE = STATE_VAL; continue; }
+  [ ]* "=" [ ]*		{ passthru(STD_ARGS); STATE = STATE_VAL; continue; }
   any				{ YYCURSOR--; STATE = STATE_NEXT_ARG; continue; }
 */
 			break;
 
 		case STATE_VAL:
 /*!re2c
-  ["] (any\[">])* ["]	{ HANDLE_VAL(1); STATE = STATE_NEXT_ARG; continue; }
-  ['] (any\['>])* [']	{ HANDLE_VAL(1); STATE = STATE_NEXT_ARG; continue; }
-  (any\[ \n>"])+		{ HANDLE_VAL(0); STATE = STATE_NEXT_ARG; continue; }
-  any					{ PASSTHRU(); STATE = STATE_NEXT_ARG; continue; }
+  ["] (any\[">])* ["]	{ handle_val(STD_ARGS, 1, '"');  STATE = STATE_NEXT_ARG; continue; }
+  ['] (any\['>])* [']	{ handle_val(STD_ARGS, 1, '\''); STATE = STATE_NEXT_ARG; continue; }
+  (any\[ \n>"])+		{ handle_val(STD_ARGS, 0, '"');  STATE = STATE_NEXT_ARG; continue; }
+  any					{ passthru(STD_ARGS); STATE = STATE_NEXT_ARG; continue; }
 */
 			break;
 	}
@@ -256,9 +293,32 @@ stop:
 	scdebug(("stopped in state %d at pos %d (%d:%c)\n", STATE, YYCURSOR - ctx->buf.c, *YYCURSOR, *YYCURSOR));
 
 	rest = YYLIMIT - start;
-		
+
+	/* XXX: Crash avoidance. Need to work with reporter to figure out what goes wrong */	
+	if (rest < 0) rest = 0;
+	
 	if (rest) memmove(ctx->buf.c, start, rest);
 	ctx->buf.len = rest;
+}
+
+char *url_adapt_single_url(const char *url, size_t urllen, const char *name, const char *value, size_t *newlen)
+{
+	smart_str surl = {0};
+	smart_str buf = {0};
+	smart_str sname = {0};
+	smart_str sval = {0};
+	PLS_FETCH();
+
+	smart_str_setl(&surl, url, urllen);
+	smart_str_sets(&sname, name);
+	smart_str_sets(&sval, value);
+
+	append_modified_url(&surl, &buf, &sname, &sval, PG(arg_separator));
+
+	smart_str_0(&buf);
+	if (newlen) *newlen = buf.len;
+	
+	return buf.c;
 }
 
 char *url_adapt_ext(const char *src, size_t srclen, const char *name, const char *value, size_t *newlen)
@@ -274,14 +334,12 @@ char *url_adapt_ext(const char *src, size_t srclen, const char *name, const char
 	mainloop(ctx, src, srclen);
 
 	*newlen = ctx->result.len;
-
 	if (ctx->result.len == 0) {
 		return strdup("");
 	}
 	smart_str_0(&ctx->result);
 	ret = malloc(ctx->result.len + 1);
 	memcpy(ret, ctx->result.c, ctx->result.len + 1);
-	
 	ctx->result.len = 0;
 	return ret;
 }
@@ -293,7 +351,7 @@ PHP_RINIT_FUNCTION(url_scanner)
 	
 	ctx = &BG(url_adapt_state_ex);
 
-	memset(ctx, 0, sizeof(*ctx));
+	memset(ctx, 0, ((size_t) &((url_adapt_state_ex_t *)0)->tags));
 
 	return SUCCESS;
 }
@@ -310,6 +368,29 @@ PHP_RSHUTDOWN_FUNCTION(url_scanner)
 	smart_str_free(&ctx->tag);
 	smart_str_free(&ctx->arg);
 
+	return SUCCESS;
+}
+
+PHP_MINIT_FUNCTION(url_scanner)
+{
+	url_adapt_state_ex_t *ctx;
+	BLS_FETCH();
+	
+	ctx = &BG(url_adapt_state_ex);
+
+	ctx->tags = NULL;
+	
+	REGISTER_INI_ENTRIES();
+	return SUCCESS;
+}
+
+PHP_MSHUTDOWN_FUNCTION(url_scanner)
+{
+	BLS_FETCH();
+
+	UNREGISTER_INI_ENTRIES();
+	zend_hash_destroy(BG(url_adapt_state_ex).tags);
+	free(BG(url_adapt_state_ex).tags);
 	return SUCCESS;
 }
 

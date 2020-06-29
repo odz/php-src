@@ -28,7 +28,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ftp.c,v 1.25 2000/09/13 22:00:31 derick Exp $ */
+/* $Id: ftp.c,v 1.30 2000/11/03 21:53:24 sniper Exp $ */
 
 #include "php.h"
 
@@ -378,8 +378,11 @@ ftp_mkdir(ftpbuf_t *ftp, const char *dir)
 		return NULL;
 
 	/* copy out the dir from response */
-	if ((mkd = strchr(ftp->inbuf, '"')) == NULL)
-		return NULL;
+	if ((mkd = strchr(ftp->inbuf, '"')) == NULL) {
+		mkd = strdup(dir);
+		return mkd;
+	}
+
 	end = strrchr(++mkd, '"');
 	*end = 0;
 	mkd = strdup(mkd);
@@ -543,7 +546,7 @@ ftp_get(ftpbuf_t *ftp, FILE *outfp, const char *path, ftptype_t type)
 	if (ferror(outfp))
 		goto bail;
 
-	if (!ftp_getresp(ftp) || ftp->resp != 226)
+	if (!ftp_getresp(ftp) || (ftp->resp != 226 && ftp->resp != 250))
 		goto bail;
 
 	return 1;
@@ -606,7 +609,7 @@ ftp_put(ftpbuf_t *ftp, const char *path, FILE *infp, ftptype_t type)
 
 	data = data_close(data);
 
-	if (!ftp_getresp(ftp) || ftp->resp != 226)
+	if (!ftp_getresp(ftp) || (ftp->resp != 226 && ftp->resp != 250))
 		goto bail;
 
 	return 1;
@@ -732,7 +735,7 @@ ftp_putcmd(ftpbuf_t *ftp, const char *cmd, const char *args)
 	char		*data;
 
 	/* build the output buffer */
-	if (args) {
+	if (args && args[0]) {
 		/* "cmd args\r\n\0" */
 		if (strlen(cmd) + strlen(args) + 4 > FTP_BUFSIZE)
 			return 0;
@@ -1204,7 +1207,7 @@ ftp_genlist(ftpbuf_t *ftp, const char *cmd, const char *path)
 
 	fclose(tmpfp);
 
-	if (!ftp_getresp(ftp) || ftp->resp != 226) {
+	if (!ftp_getresp(ftp) || (ftp->resp != 226 && ftp->resp != 250)) {
 		free(ret);
 		return NULL;
 	}

@@ -15,7 +15,7 @@
    | Author: Hartmut Holzgraefe <hartmut@six.de>                          |
    +----------------------------------------------------------------------+
  */
-/* $Id: levenshtein.c,v 1.12 2000/08/21 09:50:52 sas Exp $ */
+/* $Id: levenshtein.c,v 1.12.2.2 2000/12/14 16:16:04 hholzgra Exp $ */
 
 #include "php.h"
 #include <stdlib.h>

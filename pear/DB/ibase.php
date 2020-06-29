@@ -16,7 +16,7 @@
 // | Authors: Sterling Hughes <sterling@php.net>                          |
 // +----------------------------------------------------------------------+
 //
-// $Id: ibase.php,v 1.8 2000/09/13 11:27:59 ssb Exp $
+// $Id: ibase.php,v 1.9 2000/12/01 14:58:10 sterling Exp $
 //
 // Database independent query interface definition for PHP's Interbase
 // extension.
@@ -52,7 +52,9 @@ class DB_ibase extends DB_common {
 		}
 		$user = $dsninfo['username'];
 		$pw = $dsninfo['password'];
-		$dbhost = $dsninfo['hostspec'] ? $dsninfo['hostspec'] : 'localhost';
+		$dbhost = $dsninfo['hostspec'] ? 
+		          ($dsninfo['hostspec'] . ':/' . $dsninfo['database']) : 
+		          $dsninfo['database'];
 		$connect_function = $persistent ? 'ibase_pconnect' : 'ibase_connect';
 		if ($dbhost && $user && $pw) {
 			$conn = $connect_function($dbhost, $user, $pw);

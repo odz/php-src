@@ -37,7 +37,7 @@ extern unsigned char second_arg_allow_ref[];
 
 #include "zend.h"
 
-#define ZEND_MODULE_API_NO 20000809
+#define ZEND_MODULE_API_NO 20001214
 #ifdef ZTS
 #define USING_ZTS 1
 #else
@@ -75,7 +75,7 @@ struct _zend_module_entry {
 };
 
 
-extern HashTable module_registry;
+extern ZEND_API HashTable module_registry;
 
 void module_destructor(zend_module_entry *module);
 int module_registry_cleanup(zend_module_entry *module);

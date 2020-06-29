@@ -22,6 +22,7 @@
 #include "php.h"
 #include "php_globals.h"
 #include "php_variables.h"
+#include "modules.h"
 
 #include "SAPI.h"
 
@@ -84,7 +85,12 @@ PHPAPI extern char *php_ini_path;
 extern char *ap_php_optarg;
 extern int ap_php_optind;
 
-#define OPTSTRING "ac:d:ef:g:hilnqs?vz:"
+#define OPTSTRING "ac:d:ef:g:hilmnqs?vz:"
+
+static int _print_module_info ( zend_module_entry *module, void *arg ) {
+	php_printf("%s\n", module->name);
+	return 0;
+}
 
 static int sapi_cgibin_ub_write(const char *str, uint str_length)
 {
@@ -92,12 +98,7 @@ static int sapi_cgibin_ub_write(const char *str, uint str_length)
 
 	ret = fwrite(str, 1, str_length, stdout);
 	if (ret != str_length) {
-		PLS_FETCH();
-
-		PG(connection_status) = PHP_CONNECTION_ABORTED;
-		if (!PG(ignore_user_abort)) {
-			zend_bailout();
-		}
+		php_handle_aborted_connection();
 	}
 
 	return ret;
@@ -107,12 +108,7 @@ static int sapi_cgibin_ub_write(const char *str, uint str_length)
 static void sapi_cgibin_flush(void *server_context)
 {
 	if (fflush(stdout)==EOF) {
-		PLS_FETCH();
-
-		PG(connection_status) = PHP_CONNECTION_ABORTED;
-		if (!PG(ignore_user_abort)) {
-			zend_bailout();
-		}
+		php_handle_aborted_connection();
 	}
 }
 
@@ -130,7 +126,7 @@ static int sapi_cgi_read_post(char *buffer, uint count_bytes SLS_DC)
 {
 	uint read_bytes=0, tmp_read_bytes;
 
-	count_bytes = MIN(count_bytes, SG(request_info).content_length-SG(read_post_bytes));
+	count_bytes = MIN(count_bytes, (uint)SG(request_info).content_length-SG(read_post_bytes));
 	while (read_bytes < count_bytes) {
 		tmp_read_bytes = read(0, buffer+read_bytes, count_bytes-read_bytes);
 		if (tmp_read_bytes<=0) {
@@ -151,6 +147,11 @@ static char *sapi_cgi_read_cookies(SLS_D)
 static void sapi_cgi_register_variables(zval *track_vars_array ELS_DC SLS_DC PLS_DC)
 {
 	char *pi;
+
+	/* In CGI mode, we consider the environment to be a part of the server
+	 * variables
+	 */
+	php_import_environment_variables(track_vars_array ELS_CC PLS_CC);
 
 	/* Build the special-case PHP_SELF variable for the CGI version */
 #if FORCE_CGI_REDIRECT
@@ -261,6 +262,7 @@ static void php_cgi_usage(char *argv0)
 				"  -e             Generate extended information for debugger/profiler\n"
 				"  -z<file>       Load Zend extension <file>.\n"
 				"  -l             Syntax check only (lint)\n"
+				"  -m             Show compiled in modules\n"
 				"  -i             PHP information\n"
 				"  -h             This help\n", prog);
 }
@@ -269,6 +271,7 @@ static void php_cgi_usage(char *argv0)
 static void init_request_info(SLS_D)
 {
 	char *content_length = getenv("CONTENT_LENGTH");
+	const char *auth;
 
 #if 0
 /* SG(request_info).path_translated is always set to NULL at the end of this function
@@ -319,11 +322,10 @@ static void init_request_info(SLS_D)
 	SG(request_info).content_type = getenv("CONTENT_TYPE");
 	SG(request_info).content_length = (content_length?atoi(content_length):0);
 	SG(sapi_headers).http_response_code = 200;
-	/* CGI does not support HTTP authentication */
-	SG(request_info).auth_user = NULL;
-	SG(request_info).auth_password = NULL;
-
-
+	
+	/* The CGI RFC allows servers to pass on unvalidated Authorization data */
+	auth = getenv("HTTP_AUTHORIZATION");
+	php_handle_auth_data(auth SLS_CC);
 }
 
 
@@ -339,7 +341,7 @@ static void define_command_line_ini_entry(char *arg)
 	} else {
 		value = "1";
 	}
-	php_alter_ini_entry(name, strlen(name), value, strlen(value), PHP_INI_SYSTEM, PHP_INI_STAGE_ACTIVATE);
+	zend_alter_ini_entry(name, strlen(name)+1, value, strlen(value), PHP_INI_SYSTEM, PHP_INI_STAGE_ACTIVATE);
 }
 
 
@@ -370,12 +372,12 @@ int main(int argc, char *argv[])
 	zend_file_handle file_handle;
 	char *s;
 /* temporary locals */
-	int cgi_started=0;
 	int behavior=PHP_MODE_STANDARD;
 	int no_headers=0;
 	int orig_optind=ap_php_optind;
 	char *orig_optarg=ap_php_optarg;
 	char *argv0=NULL;
+	char *script_file=NULL;
 	zend_llist global_vars;
 #if SUPPORT_INTERACTIVE
 	int interactive=0;
@@ -395,7 +397,7 @@ int main(int argc, char *argv[])
 								that sockets created via fsockopen()
 								don't kill PHP if the remote site
 								closes it.  in apache|apxs mode apache
-								does that for us!  thies@digicol.de
+								does that for us!  thies@thieso.net
 								20000419 */
 #endif
 #endif
@@ -407,7 +409,7 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef ZTS
-	tsrm_startup(1,1,0);
+	tsrm_startup(1,1,0, NULL);
 #endif
 
 	sapi_startup(&sapi_module);
@@ -514,7 +516,7 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 	zend_llist_init(&global_vars, sizeof(char *), NULL, 0);
 
 	if (!cgi) {					/* never execute the arguments if you are a CGI */
-		if (!SG(request_info).argv0) {
+		if (SG(request_info).argv0) {
 			free(SG(request_info).argv0);
 			SG(request_info).argv0 = NULL;
 		}
@@ -539,17 +541,7 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 					break;
 
   			case 'f': /* parse file */
-					if (!cgi_started){ 
-						if (php_request_startup(CLS_C ELS_CC PLS_CC SLS_CC)==FAILURE) {
-							php_module_shutdown();
-							return FAILURE;
-						}
-					}
-					if (no_headers) {
-						SG(headers_sent) = 1;
-					}
-					cgi_started=1;
-					SG(request_info).path_translated = estrdup(ap_php_optarg);
+					script_file = estrdup(ap_php_optarg);
 					no_headers = 1;
 					break;
 
@@ -572,16 +564,14 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 					break;
 
 			case 'i': /* php info & quit */
-					if (!cgi_started) {
-						if (php_request_startup(CLS_C ELS_CC PLS_CC SLS_CC)==FAILURE) {
-							php_module_shutdown();
-							return FAILURE;
-						}
+					if (php_request_startup(CLS_C ELS_CC PLS_CC SLS_CC)==FAILURE) {
+						php_module_shutdown();
+						return FAILURE;
 					}
 					if (no_headers) {
 						SG(headers_sent) = 1;
+						SG(request_info).no_headers = 1;
 					}
-					cgi_started=1;
 					php_print_info(0xFFFFFFFF);
 					exit(1);
 					break;
@@ -590,6 +580,19 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 					no_headers = 1;
 					behavior=PHP_MODE_LINT;
 					break;
+
+			case 'm': /* list compiled in modules */
+		          	php_output_startup();
+                                SG(headers_sent) = 1;
+				php_printf("Running PHP %s\n%s\n", PHP_VERSION , get_zend_version());
+				php_printf("[PHP Modules]\n");
+				zend_hash_apply_with_argument(&module_registry, (int (*)(void *, void *)) _print_module_info, NULL);
+				php_printf("\n[Zend Modules]\n");			
+				zend_llist_apply_with_argument(&zend_extensions, (void (*)(void *, void *)) _print_module_info, NULL);
+				php_printf("\n");
+                             	php_end_ob_buffers(1);
+                                exit(1);
+				break;
 
 #if 0 /* not yet operational, see also below ... */
   			case 'n': /* generate indented source mode*/ 
@@ -607,14 +610,13 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 
 			case 'v': /* show php version & quit */
 					no_headers = 1;
-					if (!cgi_started) {
-						if (php_request_startup(CLS_C ELS_CC PLS_CC SLS_CC)==FAILURE) {
-							php_module_shutdown();
-							return FAILURE;
-						}
+					if (php_request_startup(CLS_C ELS_CC PLS_CC SLS_CC)==FAILURE) {
+						php_module_shutdown();
+						return FAILURE;
 					}
 					if (no_headers) {
 						SG(headers_sent) = 1;
+						SG(request_info).no_headers = 1;
 					}
 					php_printf("%s\n", PHP_VERSION);
 					php_end_ob_buffers(1);
@@ -635,14 +637,43 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 	EG(interactive) = interactive;
 #endif
 
-	if (!cgi_started) {
-		if (php_request_startup(CLS_C ELS_CC PLS_CC SLS_CC)==FAILURE) {
-			php_module_shutdown();
-			return FAILURE;
+	if (!cgi) {
+		if (!SG(request_info).query_string) {
+			len = 0;
+			if (script_file) {
+				len += strlen(script_file) + 1;
+			}
+			for (i = ap_php_optind; i < argc; i++) {
+				len += strlen(argv[i]) + 1;
+			}
+
+			s = malloc(len + 1);	/* leak - but only for command line version, so ok */
+			*s = '\0';			/* we are pretending it came from the environment  */
+			if (script_file) {
+				strcpy(s, script_file);
+				strcat(s, "+");
+			}
+			for (i = ap_php_optind, len = 0; i < argc; i++) {
+				strcat(s, argv[i]);
+				if (i < (argc - 1)) {
+					strcat(s, "+");
+				}
+			}
+			SG(request_info).query_string = s;
 		}
+	}
+
+	if (script_file) {
+		SG(request_info).path_translated = script_file;
+	}
+
+	if (php_request_startup(CLS_C ELS_CC PLS_CC SLS_CC)==FAILURE) {
+		php_module_shutdown();
+		return FAILURE;
 	}
 	if (no_headers) {
 		SG(headers_sent) = 1;
+		SG(request_info).no_headers = 1;
 	}
 	file_handle.filename = "-";
 	file_handle.type = ZEND_HANDLE_FP;
@@ -654,21 +685,9 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 	zend_llist_destroy(&global_vars);
 
 	if (!cgi) {
-		if (!SG(request_info).query_string) {
-			for (i = ap_php_optind, len = 0; i < argc; i++)
-				len += strlen(argv[i]) + 1;
-
-			s = malloc(len + 1);	/* leak - but only for command line version, so ok */
-			*s = '\0';			/* we are pretending it came from the environment  */
-			for (i = ap_php_optind, len = 0; i < argc; i++) {
-				strcat(s, argv[i]);
-				if (i < (argc - 1))
-					strcat(s, "+");
-			}
-			SG(request_info).query_string = s;
-		}
-		if (!SG(request_info).path_translated && argc > ap_php_optind)
+		if (!SG(request_info).path_translated && argc > ap_php_optind) {
 			SG(request_info).path_translated = estrdup(argv[ap_php_optind]);
+		}
 	} else {
 	/* If for some reason the CGI interface is not setting the
 	   PATH_TRANSLATED correctly, SG(request_info).path_translated is NULL.
@@ -692,10 +711,14 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 	}
 
 	if (cgi && !file_handle.handle.fp) {
-		PUTS("No input file specified.\n");
-		php_request_shutdown((void *) 0);
-		php_module_shutdown();
-		return FAILURE;
+		file_handle.handle.fp = V_FOPEN(argv0, "rb");
+		if(!file_handle.handle.fp) {
+			PUTS("No input file specified.\n");
+			php_request_shutdown((void *) 0);
+			php_module_shutdown();
+			return FAILURE;
+		}
+		file_handle.filename = argv0;
 	} else if (file_handle.handle.fp && file_handle.handle.fp!=stdin) {
 		/* #!php support */
 		c = fgetc(file_handle.handle.fp);
@@ -712,7 +735,7 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 	file_handle.free_filename = 0;
 	switch (behavior) {
 		case PHP_MODE_STANDARD:
-			php_execute_script(&file_handle CLS_CC ELS_CC PLS_CC);
+			exit_status = php_execute_script(&file_handle CLS_CC ELS_CC PLS_CC);
 			break;
 		case PHP_MODE_LINT:
 			exit_status = php_lint_script(&file_handle CLS_CC ELS_CC PLS_CC);
@@ -740,9 +763,6 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 #endif
 	}
 
-	php_header();			/* Make sure headers have been sent */
-
-	
 
 	if (SG(request_info).path_translated) {
 		persist_alloc(SG(request_info).path_translated);

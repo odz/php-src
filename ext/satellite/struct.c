@@ -17,7 +17,7 @@
  */
 
 /*
- * $Id: struct.c,v 1.2 2000/09/01 22:29:00 eriksson Exp $
+ * $Id: struct.c,v 1.4 2000/11/30 22:01:57 eriksson Exp $
  * vim: syntax=c tabstop=2 shiftwidth=2
  */
 
@@ -58,7 +58,7 @@ struct _OrbitStruct
 static void OrbitStruct_Wakeup(INTERNAL_FUNCTION_PARAMETERS);
 static void OrbitStruct_Sleep(INTERNAL_FUNCTION_PARAMETERS);
 
-static zend_function_entry OrbitStruct_functions[] =
+static zend_function_entry OrbitStruct_class_functions[] =
 {
 	{"__sleep", OrbitStruct_Sleep},
 	{"__wakeup", OrbitStruct_Wakeup},
@@ -70,7 +70,7 @@ IMPLEMENT_DECLARATIONS(name, flags)		\
 IMPLEMENT_FUNCTION_CALL(name, flags)	\
 IMPLEMENT_PUT_PROPERTY(name, flags)		\
 IMPLEMENT_GET_PROPERTY(name, flags)		\
-IMPLEMENT_INIT_EX(name, flags, ##name##_functions, _##name##_FunctionCall, _##name##_GetProperty, _##name##_PutProperty)\
+IMPLEMENT_INIT_EX(name, flags, ##name##_class_functions, _##name##_FunctionCall, _##name##_GetProperty, _##name##_PutProperty)\
 IMPLEMENT_DATA_HELPERS(name, flags)
 	
 MY_IMPLEMENT_CLASS(OrbitStruct, NO_FUNCTIONS);
@@ -179,7 +179,7 @@ static zend_bool OrbitStruct_Initialize(const char * pId, OrbitStruct * pStruct)
 		pStruct->u.mpExceptionType = TypeManager_FindException(pId);
 		if (pStruct->u.mpExceptionType == NULL)
 		{
-			zend_error(E_ERROR, "(Satellite) unknown struct or exception '%s'", pId);
+			zend_error(E_WARNING, "(Satellite) unknown struct or exception '%s'", pId);
 		
 			goto error;	
 		}
@@ -299,7 +299,7 @@ zend_bool  OrbitStruct_PutProperty(OrbitStruct  * pStruct,
 
 	if (!result)
 	{
-		zend_error(E_ERROR, "(Satellite) unknown member '%s' in struct '%s'",
+		zend_error(E_WARNING, "(Satellite) unknown member '%s' in struct '%s'",
 				pPropertyName, OrbitStruct_GetRepositoryId(pStruct));
 	}
 
@@ -313,7 +313,7 @@ zend_bool  OrbitStruct_GetProperty(OrbitStruct  * pStruct,
 
 	if (p_value == NULL)
 	{
-		zend_error(E_ERROR, "(Satellite) unknown member '%s' in struct '%s'",
+		zend_error(E_WARNING, "(Satellite) unknown member '%s' in struct '%s'",
 				pPropertyName, OrbitStruct_GetRepositoryId(pStruct));
 
 		ZVAL_NULL(pReturnValue);

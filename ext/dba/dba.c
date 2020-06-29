@@ -27,7 +27,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dba.c,v 1.21 2000/07/13 18:44:57 eschmid Exp $ */
+/* $Id: dba.c,v 1.28.2.1 2000/12/04 10:24:06 sas Exp $ */
 
 #include "php.h"
 
@@ -117,9 +117,9 @@ typedef struct dba_handler {
 	
 #define DBA_ID_GET 												\
 	convert_to_long_ex(id); 									\
-	DBA_IF_NOT_CORRECT_TYPE((*id)->value.lval) { 				\
+	DBA_IF_NOT_CORRECT_TYPE(Z_LVAL_PP(id)) { 				\
 		php_error(E_WARNING, "Unable to find DBA identifier %d", \
-				(*id)->value.lval); 							\
+				Z_LVAL_PP(id)); 							\
 		RETURN_FALSE; 											\
 	}
 	
@@ -186,11 +186,17 @@ static void dba_close(dba_info *info)
 }
 /* }}} */
 
+static void dba_close_rsrc(zend_rsrc_list_entry *rsrc)
+{
+	dba_info *info = (dba_info *)rsrc->ptr;
+	dba_close(info);
+}
+
 static PHP_MINIT_FUNCTION(dba)
 {
 	zend_hash_init(&ht_keys, 0, NULL, NULL, 1);
-	GLOBAL(le_db) = register_list_destructors(dba_close, NULL);
-	GLOBAL(le_pdb) = register_list_destructors(NULL, dba_close);
+	GLOBAL(le_db) = zend_register_list_destructors_ex(dba_close_rsrc, NULL, "dba", module_number);
+	GLOBAL(le_pdb) = zend_register_list_destructors_ex(NULL, dba_close_rsrc, "dba persistent", module_number);
 	return SUCCESS;
 }
 
@@ -200,19 +206,30 @@ static PHP_MSHUTDOWN_FUNCTION(dba)
 	return SUCCESS;
 }
 
+#include "ext/standard/php_smart_str.h"
+
 static PHP_MINFO_FUNCTION(dba)
 {
-	/* could be prettier (cmv) */
 	dba_handler *hptr;
-	
-	php_info_print_box_start(0);
-	PUTS("V1 ($Id: dba.c,v 1.21 2000/07/13 18:44:57 eschmid Exp $)");
+	smart_str handlers = {0};
+
 	for(hptr = handler; hptr->name; hptr++) {
-		PUTS(" ");
-		PUTS(hptr->name);
+		smart_str_appends(&handlers, hptr->name);
+		smart_str_appendc(&handlers, ' ');
+ 	}
+
+	php_info_print_table_start();
+ 	php_info_print_table_row(2, "DBA support", "enabled");
+	if (handlers.c) {
+		smart_str_0(&handlers);
+		php_info_print_table_row(2, "Supported handlers", handlers.c);
+		smart_str_free(&handlers);
+	} else {
+		php_info_print_table_row(2, "Supported handlers", "none");
 	}
-	php_info_print_box_end();
+	php_info_print_table_end();
 }
+                                
 
 static void php_dba_update(INTERNAL_FUNCTION_PARAMETERS, int mode)
 {
@@ -261,7 +278,7 @@ static void php_dba_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 	/* we only take string arguments */
 	for(i = 0; i < ac; i++) {
 		convert_to_string_ex(args[i]);
-		keylen += (*args[i])->value.str.len;
+		keylen += Z_STRLEN_PP(args[i]);
 	}
 
 	if(persistent) {
@@ -270,8 +287,8 @@ static void php_dba_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 		keylen = 0;
 		
 		for(i = 0; i < ac; i++) {
-			memcpy(key+keylen,(*args[i])->value.str.val,(*args[i])->value.str.len);
-			keylen += (*args[i])->value.str.len;
+			memcpy(key+keylen,Z_STRVAL_PP(args[i]),Z_STRLEN_PP(args[i]));
+			keylen += Z_STRLEN_PP(args[i]);
 		}
 		
 		if(zend_hash_find(&ht_keys, key, keylen, (void **) &info) == SUCCESS) {
@@ -360,7 +377,7 @@ PHP_FUNCTION(dba_close)
 {
 	DBA_ID_GET1;	
 	
-	zend_list_delete((*id)->value.lval);
+	zend_list_delete(Z_LVAL_PP(id));
 }
 /* }}} */
 

@@ -83,12 +83,12 @@ AUTOMAKE_OPTIONS = foreign
 noinst_LTLIBRARIES = libtsrm.la
 libtsrm_la_SOURCES = TSRM.c tsrm_strtok_r.c tsrm_virtual_cwd.c
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
-CONFIG_HEADER = ../php_config.h
+CONFIG_HEADER = ../main/php_config.h
 CONFIG_CLEAN_FILES = 
 LTLIBRARIES =  $(noinst_LTLIBRARIES)
 
 
-DEFS = @DEFS@ -I. -I$(srcdir) -I..
+DEFS = @DEFS@ -I. -I$(srcdir) -I../main
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
@@ -208,7 +208,7 @@ distdir: $(DISTFILES)
 	@for file in $(DISTFILES); do \
 	  d=$(srcdir); \
 	  if test -d $$d/$$file; then \
-	    cp -pr $$/$$file $(distdir)/$$file; \
+	    cp -pr $$d/$$file $(distdir)/$$file; \
 	  else \
 	    test -f $(distdir)/$$file \
 	    || ln $$d/$$file $(distdir)/$$file 2> /dev/null \

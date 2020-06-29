@@ -40,10 +40,8 @@
 #ifdef PHP_WIN32
 #include "winsock.h"
 #endif
-CALSTREAM *cal_open();
-CALSTREAM *cal_close_it();
-CALSTREAM *cal_close_full();
 
+void cal_close_it(zend_rsrc_list_entry *rsrc);
 
 typedef struct _php_mcal_le_struct {
 	CALSTREAM *mcal_stream;
@@ -122,15 +120,14 @@ ZEND_GET_MODULE(php_mcal)
    thread local_ storage
 */
 int le_mcal;
-char mcal_user[80]="";
-char mcal_password[80]="";
+char *mcal_user;
+char *mcal_password;
 
-CALSTREAM *cal_close_it (pils *mcal_le_struct)
+void cal_close_it (zend_rsrc_list_entry *rsrc)
 {
-	CALSTREAM *ret;
-	ret = cal_close (mcal_le_struct->mcal_stream,0);
+	pils *mcal_le_struct = (pils *)rsrc->ptr;
+	cal_close (mcal_le_struct->mcal_stream,0);
 	efree(mcal_le_struct);
-	return ret;
 }
 
 
@@ -151,7 +148,7 @@ PHP_MINFO_FUNCTION(mcal)
 
 PHP_MINIT_FUNCTION(mcal)
 {
-    le_mcal = register_list_destructors(cal_close_it,NULL);
+    le_mcal = zend_register_list_destructors_ex(cal_close_it, NULL, "mcal", module_number);
 
     REGISTER_MAIN_LONG_CONSTANT("MCAL_SUNDAY",SUNDAY, CONST_PERSISTENT | CONST_CS);
     REGISTER_MAIN_LONG_CONSTANT("MCAL_MONDAY",MONDAY, CONST_PERSISTENT | CONST_CS);
@@ -223,13 +220,16 @@ void php_mcal_do_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 	convert_to_string_ex(calendar);
 	convert_to_string_ex(user);
 	convert_to_string_ex(passwd);
-	strcpy(mcal_user, (*user)->value.str.val);
-	strcpy(mcal_password, (*passwd)->value.str.val);
+	mcal_user = estrndup(Z_STRVAL_PP(user), Z_STRLEN_PP(user));
+	mcal_password = estrndup(Z_STRVAL_PP(passwd), Z_STRLEN_PP(passwd));
 	if (myargc == 4) {
 		convert_to_long_ex(options);
 		flags = (*options)->value.lval;
 	}
 	mcal_stream = cal_open(NULL, (*calendar)->value.str.val, 0);
+	efree(mcal_user);
+	efree(mcal_password);
+	
 	if (!mcal_stream) {
 		php_error(E_WARNING, "Couldn't open stream %s\n", (*calendar)->value.str.val);
 		RETURN_FALSE;
@@ -624,7 +624,7 @@ PHP_FUNCTION(mcal_list_alarms)
 	pils *mcal_le_struct; 
 	cal_list_t *my_cal_list;
 	int myargc=ZEND_NUM_ARGS();
-	if (myargc != 1 || myargc !=7 || zend_get_parameters_ex(myargc, &streamind, &year, &month, &day, &hour, &min, &sec) == FAILURE) {
+	if ((myargc != 1 && myargc != 7) || zend_get_parameters_ex(myargc, &streamind, &year, &month, &day, &hour, &min, &sec) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	
