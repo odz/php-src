@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_builtin_functions.h,v 1.17 2005/08/03 13:30:48 sniper Exp $ */
+/* $Id: zend_builtin_functions.h,v 1.17.2.1 2005/11/24 05:07:28 sebastian Exp $ */
 
 #ifndef ZEND_BUILTIN_FUNCTIONS_H
 #define ZEND_BUILTIN_FUNCTIONS_H
@@ -25,7 +25,7 @@
 int zend_startup_builtin_functions(TSRMLS_D);
 
 BEGIN_EXTERN_C()
-ZEND_API void zend_fetch_debug_backtrace(zval *return_value, int skip_last TSRMLS_DC);
+ZEND_API void zend_fetch_debug_backtrace(zval *return_value, int skip_last, int provide_object TSRMLS_DC);
 END_EXTERN_C()
 
 #endif /* ZEND_BUILTIN_FUNCTIONS_H */

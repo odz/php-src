@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: com_handlers.c,v 1.30 2005/08/03 14:06:41 sniper Exp $ */
+/* $Id: com_handlers.c,v 1.30.2.1 2005/11/27 12:19:04 rrichards Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -677,6 +677,7 @@ zend_object_value php_com_object_new(zend_class_entry *ce TSRMLS_DC)
 	VariantInit(&obj->v);
 	obj->code_page = CP_ACP;
 	obj->ce = ce;
+	obj->zo.ce = ce;
 
 	retval.handle = zend_objects_store_put(obj, NULL, php_com_object_free_storage, php_com_object_clone TSRMLS_CC);
 	retval.handlers = &php_com_object_handlers;

@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_compile.c,v 1.647.2.16 2005/11/23 09:26:43 dmitry Exp $ */
+/* $Id: zend_compile.c,v 1.647.2.18 2005/11/27 06:39:27 iliaa Exp $ */
 
 #include <zend_language_parser.h>
 #include "zend.h"
@@ -1730,12 +1730,14 @@ void zend_do_mark_last_catch(znode *first_catch, znode *last_additional_catch TS
 	} else {
 		CG(active_op_array)->opcodes[last_additional_catch->u.opline_num].op1.u.EA.type = 1;
 	}
+	DEC_BPC(CG(active_op_array));
 }
 
 
 void zend_do_try(znode *try_token TSRMLS_DC)
 {
 	try_token->u.opline_num = zend_add_try_element(get_next_op_number(CG(active_op_array)) TSRMLS_CC);
+	INC_BPC(CG(active_op_array));
 }
 
 
@@ -3996,6 +3998,8 @@ again:
 		case T_END_HEREDOC:
 			efree(zendlval->u.constant.value.str.val);
 			break;
+		case EOF:
+			return EOF;
 	}
 		
 	INIT_PZVAL(&zendlval->u.constant);

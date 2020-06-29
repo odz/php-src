@@ -16,7 +16,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: pdo_odbc.c,v 1.14.2.3 2005/10/18 01:05:22 dbs Exp $ */
+/* $Id: pdo_odbc.c,v 1.14.2.6 2005/11/26 20:50:07 wez Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -37,7 +37,7 @@ function_entry pdo_odbc_functions[] = {
 /* }}} */
 
 /* {{{ pdo_odbc_deps[] */
-#if ZEND_EXTENSION_API_NO >= 220050617
+#if ZEND_MODULE_API_NO >= 20050922
 static zend_module_dep pdo_odbc_deps[] = {
 	ZEND_MOD_REQUIRED("pdo")
 	{NULL, NULL, NULL}
@@ -47,7 +47,7 @@ static zend_module_dep pdo_odbc_deps[] = {
 
 /* {{{ pdo_odbc_module_entry */
 zend_module_entry pdo_odbc_module_entry = {
-#if ZEND_EXTENSION_API_NO >= 220050617
+#if ZEND_MODULE_API_NO >= 20050922
 	STANDARD_MODULE_HEADER_EX, NULL,
 	pdo_odbc_deps,
 #else
@@ -60,7 +60,7 @@ zend_module_entry pdo_odbc_module_entry = {
 	NULL,
 	NULL,
 	PHP_MINFO(pdo_odbc),
-	"1.0RC1",
+	"1.0",
 	STANDARD_MODULE_PROPERTIES
 };
 /* }}} */
@@ -74,6 +74,13 @@ SQLUINTEGER pdo_odbc_pool_on = SQL_CP_OFF;
 SQLUINTEGER pdo_odbc_pool_mode = SQL_CP_ONE_PER_HENV;
 #endif
 
+#if defined(DB2CLI_VER) && !defined(PHP_WIN32)
+PHP_INI_BEGIN()
+	PHP_INI_ENTRY("pdo_odbc.db2_instance_name", NULL, PHP_INI_SYSTEM, NULL)
+PHP_INI_END()
+
+#endif
+
 /* {{{ PHP_MINIT_FUNCTION */
 PHP_MINIT_FUNCTION(pdo_odbc)
 {
@@ -84,6 +91,20 @@ PHP_MINIT_FUNCTION(pdo_odbc)
 	if (FAILURE == php_pdo_register_driver(&pdo_odbc_driver)) {
 		return FAILURE;
 	}
+
+#if defined(DB2CLI_VER) && !defined(PHP_WIN32)
+	REGISTER_INI_ENTRIES();
+	{
+		char *instance = INI_STR("pdo_odbc.db2_instance_name");
+		if (instance) {
+			char *env = malloc(sizeof("DB2INSTANCE=") + strlen(instance));
+			strcpy(env, "DB2INSTANCE=");
+			strcat(env, instance);
+			putenv(env);
+			/* after this point, we can't free env without breaking the environment */
+		}
+	}
+#endif
 
 #ifdef SQL_ATTR_CONNECTION_POOLING
 	/* ugh, we don't really like .ini stuff in PDO, but since ODBC connection
@@ -125,6 +146,9 @@ PHP_MINIT_FUNCTION(pdo_odbc)
  */
 PHP_MSHUTDOWN_FUNCTION(pdo_odbc)
 {
+#if defined(DB2CLI_VER) && !defined(PHP_WIN32)
+	UNREGISTER_INI_ENTRIES();
+#endif
 	php_pdo_unregister_driver(&pdo_odbc_driver);
 	return SUCCESS;
 }
@@ -144,6 +168,9 @@ PHP_MINFO_FUNCTION(pdo_odbc)
 #endif
 	php_info_print_table_end();
 
+#if defined(DB2CLI_VER) && !defined(PHP_WIN32)
+	DISPLAY_INI_ENTRIES();
+#endif
 }
 /* }}} */
 

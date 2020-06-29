@@ -16,7 +16,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: pdo_mysql.c,v 1.8.2.6 2005/10/29 01:58:22 wez Exp $ */
+/* $Id: pdo_mysql.c,v 1.8.2.8 2005/11/26 20:50:07 wez Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -37,7 +37,7 @@ function_entry pdo_mysql_functions[] = {
 /* }}} */
 
 /* {{{ pdo_mysql_functions[] */
-#if ZEND_EXTENSION_API_NO >= 220050617
+#if ZEND_MODULE_API_NO >= 20050922
 static zend_module_dep pdo_mysql_deps[] = {
 	ZEND_MOD_REQUIRED("pdo")
 	{NULL, NULL, NULL}
@@ -47,7 +47,7 @@ static zend_module_dep pdo_mysql_deps[] = {
 
 /* {{{ pdo_mysql_module_entry */
 zend_module_entry pdo_mysql_module_entry = {
-#if ZEND_EXTENSION_API_NO >= 220050617
+#if ZEND_MODULE_API_NO >= 20050922
 	STANDARD_MODULE_HEADER_EX, NULL,
 	pdo_mysql_deps,
 #else
@@ -60,7 +60,7 @@ zend_module_entry pdo_mysql_module_entry = {
 	NULL,
 	NULL,
 	PHP_MINFO(pdo_mysql),
-	"1.0RC1",
+	"1.0",
 	STANDARD_MODULE_PROPERTIES
 };
 /* }}} */

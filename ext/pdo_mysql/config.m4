@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.25.2.2 2005/11/05 16:20:06 wez Exp $
+dnl $Id: config.m4,v 1.25.2.4 2005/11/25 17:07:49 wez Exp $
 dnl
 
 if test "$PHP_PDO" != "no"; then
@@ -85,13 +85,18 @@ if test "$PHP_PDO_MYSQL" != "no"; then
 
   AC_DEFINE_UNQUOTED(PDO_MYSQL_UNIX_ADDR, "$PDO_MYSQL_SOCKET", [ ])
 
-  _SAVE_LDFLAGS=$LDFLAGS
-  LDFLAGS="$LDFLAGS $PDO_MYSQL_LIBS"
-  AC_CHECK_FUNC(mysql_query,[],[
+  PHP_CHECK_LIBRARY(mysqlclient, mysql_query,
+  [
+    PHP_EVAL_LIBLINE($PDO_MYSQL_LIBS, PDO_MYSQL_SHARED_LIBADD)
+  ],[
     AC_MSG_ERROR([mysql_query missing!?])
+  ],[
+    $PDO_MYSQL_LIBS
   ])
+  _SAVE_LIBS=$LIBS
+  LIBS="$LIBS $PDO_MYSQL_LIBS"
   AC_CHECK_FUNCS([mysql_commit mysql_stmt_prepare mysql_next_result mysql_sqlstate]) 
-  LDFLAGS=$_SAVE_LDFLAGS
+  LIBS=$_SAVE_LIBS
 
   ifdef([PHP_CHECK_PDO_INCLUDES],
   [
@@ -117,9 +122,9 @@ if test "$PHP_PDO_MYSQL" != "no"; then
   ])
   PDO_MYSQL_MODULE_TYPE=external
  
+  PDO_MYSQL_SHARED_LIBADD=$PDO_MYSQL_LIBS
   PHP_SUBST(PDO_MYSQL_SHARED_LIBADD)
   PHP_SUBST_OLD(PDO_MYSQL_MODULE_TYPE)
-  PHP_SUBST_OLD(PDO_MYSQL_LIBS)
 fi
 
 fi

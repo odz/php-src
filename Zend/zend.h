@@ -17,12 +17,12 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend.h,v 1.293.2.4 2005/11/15 13:35:22 dmitry Exp $ */
+/* $Id: zend.h,v 1.293.2.6 2005/11/26 21:03:44 iliaa Exp $ */
 
 #ifndef ZEND_H
 #define ZEND_H
 
-#define ZEND_VERSION "2.1.0-dev"
+#define ZEND_VERSION "2.1.0"
 
 #define ZEND_ENGINE_2
 
@@ -171,7 +171,7 @@ char *alloca ();
 # define ZEND_ATTRIBUTE_FORMAT(type, idx, first)
 #endif
 
-#if ZEND_GCC_VERSION >= 3001
+#if ZEND_GCC_VERSION >= 3001 && !defined(__INTEL_COMPILER)
 # define ZEND_ATTRIBUTE_PTR_FORMAT(type, idx, first) __attribute__ ((format(type, idx, first)))
 #else
 # define ZEND_ATTRIBUTE_PTR_FORMAT(type, idx, first)

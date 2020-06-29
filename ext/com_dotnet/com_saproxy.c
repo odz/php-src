@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: com_saproxy.c,v 1.15 2005/08/03 14:06:42 sniper Exp $ */
+/* $Id: com_saproxy.c,v 1.15.2.1 2005/11/27 12:19:04 rrichards Exp $ */
 
 /* This module implements a SafeArray proxy which is used internally
  * by the engine when resolving multi-dimensional array accesses on
@@ -323,7 +323,7 @@ static HashTable *saproxy_properties_get(zval *object TSRMLS_DC)
 	return NULL;
 }
 
-static union _zend_function *saproxy_method_get(zval *object, char *name, int len TSRMLS_DC)
+static union _zend_function *saproxy_method_get(zval **object, char *name, int len TSRMLS_DC)
 {
 	/* no methods */
 	return NULL;
