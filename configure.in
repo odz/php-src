@@ -1,4 +1,4 @@
-dnl ## $Id: configure.in,v 1.396.2.160 2005/03/30 14:18:36 iliaa Exp $ -*- sh -*-
+dnl ## $Id: configure.in,v 1.396.2.164.2.8 2005/07/11 07:45:09 derick Exp $ -*- sh -*-
 dnl ## Process this file with autoconf to produce a configure script.
 
 divert(1)
@@ -39,8 +39,8 @@ PHP_CANONICAL_HOST
 AC_CONFIG_HEADER(main/php_config.h)
 
 MAJOR_VERSION=4
-MINOR_VERSION=3
-RELEASE_VERSION=11
+MINOR_VERSION=4
+RELEASE_VERSION=0
 EXTRA_VERSION=""
 VERSION="$MAJOR_VERSION.$MINOR_VERSION.$RELEASE_VERSION$EXTRA_VERSION"
 
@@ -179,6 +179,17 @@ PHP_C_BIGENDIAN
 
 dnl Platform-specific compile settings.
 dnl -------------------------------------------------------------------------
+
+dnl See bug #28605
+case $host_cpu in
+alpha*)
+    if test "$GCC" = "yes"; then
+      CFLAGS="$CFLAGS -mieee"
+    else
+      CFLAGS="$CFLAGS -ieee"
+    fi
+    ;;
+esac
 
 case $host_alias in
 *solaris*)
@@ -425,6 +436,12 @@ PHP_TM_GMTOFF
 PHP_STRUCT_FLOCK
 PHP_SOCKLEN_T
 
+AC_CHECK_SIZEOF(intmax_t, 0)
+AC_CHECK_SIZEOF(size_t, 8)
+AC_CHECK_SIZEOF(ssize_t, 8)
+AC_CHECK_SIZEOF(ptrdiff_t, 8)
+AC_CHECK_SIZEOF(long long, 8)
+AC_CHECK_SIZEOF(long long int, 8)
 AC_CHECK_SIZEOF(long, 8)
 AC_CHECK_SIZEOF(int, 4)
 
@@ -1269,9 +1286,11 @@ AC_DEFINE([HAVE_BUILD_DEFS_H], 1, [ ])
 
 $php_shtool mkdir -p pear/scripts
 $php_shtool mkdir -p scripts
+$php_shtool mkdir -p scripts/man1
 
 ALL_OUTPUT_FILES="php4.spec main/build-defs.h \
-scripts/phpize scripts/php-config \
+scripts/phpize scripts/man1/phpize.1 \
+scripts/php-config scripts/man1/php-config.1 \
 $PHP_OUTPUT_FILES"
 
 AC_OUTPUT($ALL_OUTPUT_FILES, [], [

@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: main.c,v 1.512.2.60 2005/03/08 21:45:51 sniper Exp $ */
+/* $Id: main.c,v 1.512.2.63.2.1 2005/06/20 19:59:43 tony2001 Exp $ */
 
 /* {{{ includes
  */
@@ -702,8 +702,8 @@ static void php_error_cb(int type, const char *error_filename, const uint error_
 				/* restore memory limit */
 				AG(memory_limit) = PG(memory_limit); 
 #endif
-				zend_bailout();
 				efree(buffer);
+				zend_bailout();
 				return;
 			}
 			break;
@@ -1000,6 +1000,10 @@ void php_request_shutdown(void *dummy)
 		sapi_deactivate(TSRMLS_C);
 	} zend_end_try();
 
+	zend_try {
+		php_shutdown_stream_hashes(TSRMLS_C);
+	} zend_end_try();
+
 	zend_try { 
 		shutdown_memory_manager(CG(unclean_shutdown), 0 TSRMLS_CC);
 	} zend_end_try();
@@ -1206,6 +1210,8 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 	REGISTER_MAIN_STRINGL_CONSTANT("PHP_CONFIG_FILE_SCAN_DIR", PHP_CONFIG_FILE_SCAN_DIR, sizeof(PHP_CONFIG_FILE_SCAN_DIR)-1, CONST_PERSISTENT | CONST_CS);
 	REGISTER_MAIN_STRINGL_CONSTANT("PHP_SHLIB_SUFFIX", PHP_SHLIB_SUFFIX, sizeof(PHP_SHLIB_SUFFIX)-1, CONST_PERSISTENT | CONST_CS);
 	REGISTER_MAIN_STRINGL_CONSTANT("PHP_EOL", PHP_EOL, sizeof(PHP_EOL)-1, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_LONG_CONSTANT("PHP_INT_MAX", LONG_MAX, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_LONG_CONSTANT("PHP_INT_SIZE", sizeof(long), CONST_PERSISTENT | CONST_CS);
 	php_output_register_constants(TSRMLS_C);
 	php_rfc1867_register_constants(TSRMLS_C);
 

@@ -507,6 +507,11 @@ int call_user_function_ex(HashTable *function_table, zval **object_pp, zval *fun
 				zval *new_zval;
 
 				if (no_separation) {
+					if(i) {
+						/* hack to clean up the stack */
+						zend_ptr_stack_n_push(&EG(argument_stack), 2, (void *) (long) i, NULL);
+						zend_ptr_stack_clear_multiple(TSRMLS_C);
+					}
 					return FAILURE;
 				}
 				ALLOC_ZVAL(new_zval);

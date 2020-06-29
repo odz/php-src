@@ -22,7 +22,7 @@
 */
 
 
-/* $Id: array.c,v 1.199.2.42 2004/12/23 16:40:03 tony2001 Exp $ */
+/* $Id: array.c,v 1.199.2.44.2.2 2005/06/21 12:11:19 dmitry Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -66,6 +66,7 @@ php_array_globals array_globals;
 #define SORT_REGULAR			0
 #define SORT_NUMERIC			1
 #define	SORT_STRING				2
+#define	SORT_LOCALE_STRING      5
 
 #define SORT_DESC				3
 #define SORT_ASC				4
@@ -103,6 +104,8 @@ PHP_MINIT_FUNCTION(array)
 	REGISTER_LONG_CONSTANT("SORT_REGULAR", SORT_REGULAR, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SORT_NUMERIC", SORT_NUMERIC, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SORT_STRING", SORT_STRING, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SORT_LOCALE_STRING", SORT_LOCALE_STRING, CONST_CS | CONST_PERSISTENT);
+
 	REGISTER_LONG_CONSTANT("CASE_LOWER", CASE_LOWER, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("CASE_UPPER", CASE_UPPER, CONST_CS | CONST_PERSISTENT);
 
@@ -131,6 +134,12 @@ static void set_compare_func(int sort_type TSRMLS_DC)
 		case SORT_STRING:
 			ARRAYG(compare_func) = string_compare_function;
 			break;
+
+#if HAVE_STRCOLL
+		case SORT_LOCALE_STRING:
+			ARRAYG(compare_func) = string_locale_compare_function;
+			break;
+#endif
 
 		case SORT_REGULAR:
 		default:
@@ -631,7 +640,7 @@ static int array_user_key_compare(const void *a, const void *b TSRMLS_DC)
 	s = *((Bucket **) b);
 
 	if (f->nKeyLength) {
-		Z_STRVAL(key1) = estrndup(f->arKey, f->nKeyLength);
+		Z_STRVAL(key1) = estrndup(f->arKey, f->nKeyLength-1);
 		Z_STRLEN(key1) = f->nKeyLength-1;
 		Z_TYPE(key1) = IS_STRING;
 	} else {
@@ -639,7 +648,7 @@ static int array_user_key_compare(const void *a, const void *b TSRMLS_DC)
 		Z_TYPE(key1) = IS_LONG;
 	}
 	if (s->nKeyLength) {
-		Z_STRVAL(key2) = estrndup(s->arKey, s->nKeyLength);
+		Z_STRVAL(key2) = estrndup(s->arKey, s->nKeyLength-1);
 		Z_STRLEN(key2) = s->nKeyLength-1;
 		Z_TYPE(key2) = IS_STRING;
 	} else {
@@ -1298,7 +1307,11 @@ PHP_FUNCTION(extract)
 						
 						*orig_var = *entry;
 					} else {
-						(*entry)->is_ref = 1;
+						if ((*var_array)->refcount > 1) {
+							SEPARATE_ZVAL_TO_MAKE_IS_REF(entry);
+						} else {
+							(*entry)->is_ref = 1;
+						}
 						zval_add_ref(entry);
 						zend_hash_update(EG(active_symbol_table), final_name.c, final_name.len+1, (void **) entry, sizeof(zval *), NULL);
 					}
@@ -2483,7 +2496,7 @@ PHP_FUNCTION(array_change_key_case)
 				zend_hash_index_update(Z_ARRVAL_P(return_value), num_key, entry, sizeof(entry), NULL);
 				break;
 			case HASH_KEY_IS_STRING:
-				new_key=estrndup(string_key,str_key_len);
+				new_key=estrndup(string_key,str_key_len - 1);
 				if (change_to_upper)
 					php_strtoupper(new_key, str_key_len - 1);
 				else
@@ -3229,8 +3242,11 @@ PHP_FUNCTION(array_reduce)
 	efree(callback_name);
 
 	if (ZEND_NUM_ARGS() > 2) {
-		convert_to_long_ex(initial);
-		result = *initial;
+		ALLOC_ZVAL(result);
+		*result = **initial;
+		zval_copy_ctor(result);
+		convert_to_long(result);
+		INIT_PZVAL(result);
 	} else {
 		MAKE_STD_ZVAL(result);
 		ZVAL_NULL(result);
@@ -3246,6 +3262,7 @@ PHP_FUNCTION(array_reduce)
 		if (result) {
 			*return_value = *result;
 			zval_copy_ctor(return_value);
+			zval_ptr_dtor(&result);
 		}
 		return;
 	}
