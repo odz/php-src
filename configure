@@ -1817,7 +1817,7 @@ echo "$ac_t""$host" 1>&6
 
 MAJOR_VERSION=4
 MINOR_VERSION=4
-RELEASE_VERSION=5
+RELEASE_VERSION=6
 EXTRA_VERSION=""
 VERSION="$MAJOR_VERSION.$MINOR_VERSION.$RELEASE_VERSION$EXTRA_VERSION"
 
@@ -18364,7 +18364,7 @@ if test "$PHP_PCRE_REGEX" != "no"; then
   ext_builddir=ext/pcre
   ext_srcdir=$abs_srcdir/ext/pcre
 
-  ac_extra=`echo "-DEXPORT= -DNEWLINE=10 -DSUPPORT_UTF8 -DSUPPORT_UCP -DLINK_SIZE=2 -DPOSIX_MALLOC_THRESHOLD=10 -DMATCH_LIMIT=10000000 -DMATCH_LIMIT_RECURSION=10000000 -DMAX_NAME_SIZE=32 -DMAX_NAME_COUNT=10000 -DMAX_DUPLENGTH=30000 -I@ext_srcdir@/pcrelib"|sed s#@ext_srcdir@#$ext_srcdir#g`
+  ac_extra=`echo "-DEXPORT= -DNEWLINE=10 -DSUPPORT_UTF8 -DSUPPORT_UCP -DLINK_SIZE=2 -DPOSIX_MALLOC_THRESHOLD=10 -DMATCH_LIMIT=10000000 -DMATCH_LIMIT_RECURSION=10000000 -DMAX_NAME_SIZE=32 -DMAX_NAME_COUNT=10000 -DMAX_DUPLENGTH=30000 -DEBCDIC=0 -I@ext_srcdir@/pcrelib"|sed s#@ext_srcdir@#$ext_srcdir#g`
 
   if test "$ext_shared" != "shared" && test "$ext_shared" != "yes" && test "" != "cli"; then
 
@@ -18388,7 +18388,7 @@ if test "$PHP_PCRE_REGEX" != "no"; then
 
 
   old_IFS=$IFS
-  for ac_src in pcrelib/pcre_chartables.c pcrelib/pcre_ucp_searchfuncs.c pcrelib/pcre_compile.c pcrelib/pcre_config.c pcrelib/pcre_dfa_exec.c pcrelib/pcre_exec.c pcrelib/pcre_fullinfo.c pcrelib/pcre_get.c pcrelib/pcre_globals.c pcrelib/pcre_info.c pcrelib/pcre_maketables.c pcrelib/pcre_ord2utf8.c pcrelib/pcre_refcount.c pcrelib/pcre_study.c pcrelib/pcre_tables.c pcrelib/pcre_try_flipped.c pcrelib/pcre_valid_utf8.c pcrelib/pcre_version.c pcrelib/pcre_xclass.c php_pcre.c; do
+  for ac_src in pcrelib/pcre_chartables.c pcrelib/pcre_ucp_searchfuncs.c pcrelib/pcre_compile.c pcrelib/pcre_config.c pcrelib/pcre_exec.c pcrelib/pcre_fullinfo.c pcrelib/pcre_get.c pcrelib/pcre_globals.c pcrelib/pcre_info.c pcrelib/pcre_maketables.c pcrelib/pcre_newline.c pcrelib/pcre_ord2utf8.c pcrelib/pcre_refcount.c pcrelib/pcre_study.c pcrelib/pcre_tables.c pcrelib/pcre_try_flipped.c pcrelib/pcre_valid_utf8.c pcrelib/pcre_version.c pcrelib/pcre_xclass.c php_pcre.c; do
   
       IFS=.
       set $ac_src
@@ -18434,7 +18434,7 @@ EOF
 
 
   old_IFS=$IFS
-  for ac_src in pcrelib/pcre_chartables.c pcrelib/pcre_ucp_searchfuncs.c pcrelib/pcre_compile.c pcrelib/pcre_config.c pcrelib/pcre_dfa_exec.c pcrelib/pcre_exec.c pcrelib/pcre_fullinfo.c pcrelib/pcre_get.c pcrelib/pcre_globals.c pcrelib/pcre_info.c pcrelib/pcre_maketables.c pcrelib/pcre_ord2utf8.c pcrelib/pcre_refcount.c pcrelib/pcre_study.c pcrelib/pcre_tables.c pcrelib/pcre_try_flipped.c pcrelib/pcre_valid_utf8.c pcrelib/pcre_version.c pcrelib/pcre_xclass.c php_pcre.c; do
+  for ac_src in pcrelib/pcre_chartables.c pcrelib/pcre_ucp_searchfuncs.c pcrelib/pcre_compile.c pcrelib/pcre_config.c pcrelib/pcre_exec.c pcrelib/pcre_fullinfo.c pcrelib/pcre_get.c pcrelib/pcre_globals.c pcrelib/pcre_info.c pcrelib/pcre_maketables.c pcrelib/pcre_newline.c pcrelib/pcre_ord2utf8.c pcrelib/pcre_refcount.c pcrelib/pcre_study.c pcrelib/pcre_tables.c pcrelib/pcre_try_flipped.c pcrelib/pcre_valid_utf8.c pcrelib/pcre_version.c pcrelib/pcre_xclass.c php_pcre.c; do
   
       IFS=.
       set $ac_src
@@ -18551,7 +18551,7 @@ EOF
 
 
   old_IFS=$IFS
-  for ac_src in pcrelib/pcre_chartables.c pcrelib/pcre_ucp_searchfuncs.c pcrelib/pcre_compile.c pcrelib/pcre_config.c pcrelib/pcre_dfa_exec.c pcrelib/pcre_exec.c pcrelib/pcre_fullinfo.c pcrelib/pcre_get.c pcrelib/pcre_globals.c pcrelib/pcre_info.c pcrelib/pcre_maketables.c pcrelib/pcre_ord2utf8.c pcrelib/pcre_refcount.c pcrelib/pcre_study.c pcrelib/pcre_tables.c pcrelib/pcre_try_flipped.c pcrelib/pcre_valid_utf8.c pcrelib/pcre_version.c pcrelib/pcre_xclass.c php_pcre.c; do
+  for ac_src in pcrelib/pcre_chartables.c pcrelib/pcre_ucp_searchfuncs.c pcrelib/pcre_compile.c pcrelib/pcre_config.c pcrelib/pcre_exec.c pcrelib/pcre_fullinfo.c pcrelib/pcre_get.c pcrelib/pcre_globals.c pcrelib/pcre_info.c pcrelib/pcre_maketables.c pcrelib/pcre_newline.c pcrelib/pcre_ord2utf8.c pcrelib/pcre_refcount.c pcrelib/pcre_study.c pcrelib/pcre_tables.c pcrelib/pcre_try_flipped.c pcrelib/pcre_valid_utf8.c pcrelib/pcre_version.c pcrelib/pcre_xclass.c php_pcre.c; do
   
       IFS=.
       set $ac_src
@@ -18594,7 +18594,7 @@ EOF
 
 
   old_IFS=$IFS
-  for ac_src in pcrelib/pcre_chartables.c pcrelib/pcre_ucp_searchfuncs.c pcrelib/pcre_compile.c pcrelib/pcre_config.c pcrelib/pcre_dfa_exec.c pcrelib/pcre_exec.c pcrelib/pcre_fullinfo.c pcrelib/pcre_get.c pcrelib/pcre_globals.c pcrelib/pcre_info.c pcrelib/pcre_maketables.c pcrelib/pcre_ord2utf8.c pcrelib/pcre_refcount.c pcrelib/pcre_study.c pcrelib/pcre_tables.c pcrelib/pcre_try_flipped.c pcrelib/pcre_valid_utf8.c pcrelib/pcre_version.c pcrelib/pcre_xclass.c php_pcre.c; do
+  for ac_src in pcrelib/pcre_chartables.c pcrelib/pcre_ucp_searchfuncs.c pcrelib/pcre_compile.c pcrelib/pcre_config.c pcrelib/pcre_exec.c pcrelib/pcre_fullinfo.c pcrelib/pcre_get.c pcrelib/pcre_globals.c pcrelib/pcre_info.c pcrelib/pcre_maketables.c pcrelib/pcre_newline.c pcrelib/pcre_ord2utf8.c pcrelib/pcre_refcount.c pcrelib/pcre_study.c pcrelib/pcre_tables.c pcrelib/pcre_try_flipped.c pcrelib/pcre_valid_utf8.c pcrelib/pcre_version.c pcrelib/pcre_xclass.c php_pcre.c; do
   
       IFS=.
       set $ac_src
