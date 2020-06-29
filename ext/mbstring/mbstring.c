@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mbstring.c,v 1.142.2.47.2.17 2006/04/03 13:04:13 masugata Exp $ */
+/* $Id: mbstring.c,v 1.142.2.47.2.19 2006/12/21 17:28:57 masugata Exp $ */
 
 /*
  * PHP4 Multibyte String module "mbstring"
@@ -1013,7 +1013,10 @@ PHP_RINIT_FUNCTION(mbstring)
 	MBSTRG(current_http_output_encoding) = MBSTRG(http_output_encoding);
 	MBSTRG(current_filter_illegal_mode) = MBSTRG(filter_illegal_mode);
 	MBSTRG(current_filter_illegal_substchar) = MBSTRG(filter_illegal_substchar);
-	MBSTRG(illegalchars) = 0;
+
+	if (!MBSTRG(encoding_translation)) {
+		MBSTRG(illegalchars) = 0;
+	}
 
 	n = 0;
 	if (MBSTRG(detect_order_list)) {
@@ -1774,6 +1777,8 @@ MBSTRING_API SAPI_TREAT_DATA_FUNC(mbstr_treat_data)
 	info.num_from_encodings     = MBSTRG(http_input_list_size); 
 	info.from_language          = MBSTRG(language);
 
+	MBSTRG(illegalchars) = 0;
+
 	detected = php_mbstr_encoding_handler(&info, array_ptr, res TSRMLS_CC);
 	MBSTRG(http_input_identify) = detected;
 
@@ -2192,11 +2197,11 @@ PHP_FUNCTION(mb_strpos)
 	convert_to_string_ex(arg2);
 
 	if (offset < 0 || offset > Z_STRLEN_PP(arg1)) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Offset is out of range");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Offset not contained in string.");
 		RETURN_FALSE;
 	}
 	if (Z_STRLEN_PP(arg2) == 0) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Empty needle");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Empty delimiter.");
 		RETURN_FALSE;
 	}
 	haystack.val = (unsigned char *)Z_STRVAL_PP(arg1);
@@ -2267,11 +2272,9 @@ PHP_FUNCTION(mb_strrpos)
 	convert_to_string_ex(arg1);
 	convert_to_string_ex(arg2);
 	if (Z_STRLEN_PP(arg1) <= 0) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Empty haystack");
 		RETURN_FALSE;
 	}
 	if (Z_STRLEN_PP(arg2) <= 0) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING,"Empty needle");
 		RETURN_FALSE;
 	}
 	haystack.val = (unsigned char *)Z_STRVAL_PP(arg1);
@@ -2326,7 +2329,7 @@ PHP_FUNCTION(mb_substr_count)
 	convert_to_string_ex(arg2);
 
 	if (Z_STRLEN_PP(arg2) <= 0) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING,"Empty needle");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING,"Empty substring.");
 		RETURN_FALSE;
 	}
 	haystack.val = (unsigned char *)Z_STRVAL_PP(arg1);
@@ -3864,8 +3867,13 @@ PHP_FUNCTION(mb_check_encoding)
 
 	if (ret != NULL) {
 		MBSTRG(illegalchars) += illegalchars;
-		efree(ret->val);
-		RETURN_BOOL(illegalchars == 0);
+		if (illegalchars == 0 && strncmp(string.val, ret->val, string.len) == 0) {
+			efree(ret->val);
+			RETURN_TRUE;
+		} else {
+			efree(ret->val);
+			RETURN_FALSE;
+		}
 	} else {
 		RETURN_FALSE;
 	}

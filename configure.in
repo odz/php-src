@@ -1,4 +1,4 @@
-dnl ## $Id: configure.in,v 1.396.2.164.2.29 2006/08/15 12:22:14 derick Exp $ -*- sh -*-
+dnl ## $Id: configure.in,v 1.396.2.164.2.37 2007/02/13 18:20:11 derick Exp $ -*- sh -*-
 dnl ## Process this file with autoconf to produce a configure script.
 
 divert(1)
@@ -31,16 +31,13 @@ AC_PREREQ(2.13)
 AC_INIT(README.CVS-RULES)
 
 PHP_CONFIG_NICE(config.nice)
-for arg in $0 "$@"; do
-  CONFIGURE_COMMAND="$CONFIGURE_COMMAND '$arg'"
-done
 
 PHP_CANONICAL_HOST
 AC_CONFIG_HEADER(main/php_config.h)
 
 MAJOR_VERSION=4
 MINOR_VERSION=4
-RELEASE_VERSION=4
+RELEASE_VERSION=5
 EXTRA_VERSION=""
 VERSION="$MAJOR_VERSION.$MINOR_VERSION.$RELEASE_VERSION$EXTRA_VERSION"
 
@@ -1048,6 +1045,15 @@ if test -z "$EXTENSION_DIR"; then
   fi
 fi
 
+case $PHP_LAYOUT in
+  GNU)
+    datarootdir=$prefix/share
+    ;;
+  *)
+    datarootdir=$prefix/php
+    ;;
+esac
+
 dnl Expand all directory names for use in macros/constants
 EXPANDED_PEAR_INSTALLDIR=`eval echo $PEAR_INSTALLDIR`
 EXPANDED_EXTENSION_DIR=`eval echo $EXTENSION_DIR`
@@ -1138,6 +1144,7 @@ PHP_SUBST(phptempdir)
 PHP_SUBST(prefix)
 PHP_SUBST(localstatedir)
 PHP_SUBST(datadir)
+PHP_SUBST(datarootdir)
 PHP_SUBST(sysconfdir)
 
 PHP_SUBST(AWK)

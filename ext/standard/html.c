@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: html.c,v 1.63.2.23.2.2 2006/02/25 21:33:06 rasmus Exp $ */
+/* $Id: html.c,v 1.63.2.23.2.4 2007/01/01 09:46:48 sebastian Exp $ */
 
 /*
  * HTML entity resources:
@@ -878,7 +878,7 @@ PHPAPI char *php_escape_html_entities(unsigned char *old, int oldlen, int *newle
 
 		matches_map = 0;
 
-		if (len + 9 > maxlen)
+		if (len + 16 > maxlen)
 			replaced = erealloc (replaced, maxlen += 128);
 
 		if (all) {
@@ -903,9 +903,15 @@ PHPAPI char *php_escape_html_entities(unsigned char *old, int oldlen, int *newle
 			}
 
 			if (matches_map) {
+				int l = strlen(rep);
+				/* increase the buffer size */
+				if (len + 2 + l >= maxlen) {
+					replaced = erealloc(replaced, maxlen += 128);
+				}
+
 				replaced[len++] = '&';
 				strcpy(replaced + len, rep);
-				len += strlen(rep);
+				len += l;
 				replaced[len++] = ';';
 			}
 		}

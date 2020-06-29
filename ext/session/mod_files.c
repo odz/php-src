@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mod_files.c,v 1.83.2.9.2.5 2006/08/11 15:04:28 iliaa Exp $ */
+/* $Id: mod_files.c,v 1.83.2.9.2.7 2007/01/04 23:50:45 iliaa Exp $ */
 
 #include "php.h"
 
@@ -244,6 +244,13 @@ PS_OPEN_FUNC(files)
 
 	if (*save_path == '\0') {
 		save_path = php_get_temporary_directory();
+
+		if (PG(safe_mode) && (!php_checkuid(save_path, NULL, CHECKUID_ALLOW_ONLY_DIR))) {
+			return FAILURE;
+		}
+		if (php_check_open_basedir(save_path TSRMLS_CC)) {
+			return FAILURE;
+		}
 	}
 
 	data->fd = -1;

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -22,7 +22,7 @@
 */
 
 
-/* $Id: array.c,v 1.199.2.44.2.10 2006/01/01 13:46:57 sniper Exp $ */
+/* $Id: array.c,v 1.199.2.44.2.15 2007/01/22 08:23:08 tony2001 Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -1028,32 +1028,28 @@ static int php_array_walk(HashTable *target_hash, zval **userdata TSRMLS_DC)
    Apply a user function to every member of an array */
 PHP_FUNCTION(array_walk)
 {
-	int	argc;
-	zval **array,
-		 **userdata = NULL,
+	zval *array,
+		 *userdata = NULL,
+		 *tmp,
 		 **old_walk_func_name;
 	HashTable *target_hash;
 
-	argc = ZEND_NUM_ARGS();
 	old_walk_func_name = BG(array_walk_func_name);
-	if (argc < 2 || argc > 3 ||
-		zend_get_parameters_ex(argc, &array, &BG(array_walk_func_name), &userdata) == FAILURE) {
-		BG(array_walk_func_name) = old_walk_func_name;
-		WRONG_PARAM_COUNT;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zz|z", &array, &tmp, &userdata) == FAILURE) {
+		return;
 	}
-	target_hash = HASH_OF(*array);
+	target_hash = HASH_OF(array);
 	if (!target_hash) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "The argument should be an array");
-		BG(array_walk_func_name) = old_walk_func_name;
 		RETURN_FALSE;
 	}
-	if (Z_TYPE_PP(BG(array_walk_func_name)) != IS_ARRAY && 
-		Z_TYPE_PP(BG(array_walk_func_name)) != IS_STRING) {
+	if (Z_TYPE_P(tmp) != IS_ARRAY && Z_TYPE_P(tmp) != IS_STRING) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Wrong syntax for function name");
-		BG(array_walk_func_name) = old_walk_func_name;
 		RETURN_FALSE;
+	} else {
+		BG(array_walk_func_name) = &tmp;
 	}
-	php_array_walk(target_hash, userdata TSRMLS_CC);
+	php_array_walk(target_hash, userdata ? &userdata : NULL TSRMLS_CC);
 	BG(array_walk_func_name) = old_walk_func_name;
 	RETURN_TRUE;
 }
@@ -1774,7 +1770,7 @@ static void _phpi_pop(INTERNAL_FUNCTION_PARAMETERS, int off_the_end)
 		}
 		Z_ARRVAL_PP(stack)->nNextFreeElement = k;
 		zend_hash_rehash(Z_ARRVAL_PP(stack));
-	} else if (!key_len) {
+	} else if (!key_len && index >= Z_ARRVAL_PP(stack)->nNextFreeElement-1) {
 		Z_ARRVAL_PP(stack)->nNextFreeElement = Z_ARRVAL_PP(stack)->nNextFreeElement - 1;
 	}
 
@@ -2519,7 +2515,7 @@ PHP_FUNCTION(array_change_key_case)
    Removes duplicate values from array */
 PHP_FUNCTION(array_unique)
 {
-	zval **array;
+	zval **array, *tmp;
 	HashTable *target_hash;
 	Bucket *p;
 	struct bucketindex {
@@ -2538,9 +2534,8 @@ PHP_FUNCTION(array_unique)
 		RETURN_FALSE;
 	}
 
-	/* copy the argument array */
-	*return_value = **array;
-	zval_copy_ctor(return_value);
+	array_init(return_value);
+	zend_hash_copy(Z_ARRVAL_P(return_value), target_hash, (copy_ctor_func_t) zval_add_ref, (void *)&tmp, sizeof(zval*));
 
 	if (target_hash->nNumOfElements <= 1) /* nothing to do */
 			return;

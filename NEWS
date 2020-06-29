@@ -1,5 +1,52 @@
 PHP 4                                                                      NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+14 Feb 2007, Version 4.4.5
+- Upgraded PEAR to 1.5.0. (Greg)
+- Updated PCRE to version 6.7. (Ilia)
+- Moved extensions to PECL:
+  . ext/ovrimos (Derick)
+
+- Added a meta tag to phpinfo() output to prevent search engines from 
+  indexing the page. (Ilia)
+- Backported a fix in the configure tests to detect the "rounding fuzz".
+  (Derick, Joe Orton)
+- Backported fix for ext/imap compilation failure with recent c-client 
+  versions. (Tony)
+- Fixed missing open_basedir check inside chdir() function. (Ilia)
+- Fixed bug #40335 (Compile fails when using GCC 4.1.1/binutils 2.17). (Tony)
+- Fixed bug #39971 (pg_insert/pg_update do not allow now() to be used for   
+  timestamp fields). (Ilia)
+- Fixed bug #39890 (using autoconf 2.6x and --with-layout=GNU breaks PEAR 
+  install path). (Tony)
+- Fixed bug #39819 (Using $this not in object context can cause segfaults).
+  (Dmitry)
+- Fixed bug #39653 (ext/dba doesn't check for db-4.5 and db-4.4 when db4 
+  support is enabled). (Tony)
+- Fixed bug #39583 (ftp_put() does not change transfer mode to ASCII). (Tony)
+- Fixed bug #39458 (ftp_nlist() returns false on empty dirs). (Nuno)
+- Fixed bug #39354 (Allow building of curl extension against libcurl
+  7.16.0). (Ilia)
+- Fixed bug #39034 (curl_exec() with return transfer returns TRUE on empty
+  files). (Ilia)
+- Fixed bug #38963 (Fixed a possible open_basedir bypass in tempnam()). (Ilia)
+- Fixed bug #38882 (ldap_connect causes segfault with newer versions of 
+  OpenLDAP). (Tony)
+- Fixed bug #38859 (parse_url() fails if passing '@' in passwd). (Tony,Ilia)
+- Fixed bug #38722 (Calling undefined method prints insufficient error message)
+  (Hannes)
+- Fixed bug #38534 (segfault when calling setlocale() in userspace session
+  handler). (Tony)
+- Fixed bug #38450 (constructor is not called for classes used in userspace
+  stream wrappers). (Tony)
+- Fixed bug #38378 (wddx_serialize_value() generates no wellformed xml). 
+  (sj at sjaensch dot org, grzegorz dot nosek at netart dot pl, Tony).
+- Fixed bug #37812 (aggregate_methods_by_list fails to take certain methods).
+  (Hannes)
+- Fixed bug #36975 (natcasesort() causes array_pop() to misbehave). (Hannes)
+- Fixed bug #36248 (CURLOPT_HEADERFUNCTION, couldn't set the function in the
+  class). (Ilia)
+- Fixed bug #34066 (recursive array_walk causes segfault). (Tony)
+	
 17 Aug 2006, Version 4.4.4
 - Fixed memory_limit on 64bit systems. (Stefan E.)
 - Fixed overflow on 64bit systems in str_repeat() and wordwrap(). (Stefan E.)
@@ -7,6 +54,8 @@ PHP 4                                                                      NEWS
   enabled. (Stefan E.)
 - Fixed a memory corruption error with an invalid foreach() call. (Stefan E.,
   Dmitry, Derick)
+- Fixed bug #38456 (Apache2 segfaults when virtual() is called in .php
+  ErrorDocument). (Ilia)
 - Fixed bug #38431 (xmlrpc_get_type() crashes PHP on objects). (Tony)
 - Fixed bug #38377 (session_destroy() gives warning after
   session_regenerate_id()). (Ilia)

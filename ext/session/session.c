@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: session.c,v 1.336.2.53.2.7 2006/08/01 08:33:13 tony2001 Exp $ */
+/* $Id: session.c,v 1.336.2.53.2.13 2007/01/09 15:31:36 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -120,6 +120,10 @@ static PHP_INI_MH(OnUpdateSerializer)
 static PHP_INI_MH(OnUpdateSaveDir) {
 	/* Only do the safemode/open_basedir check at runtime */
 	if(stage == PHP_INI_STAGE_RUNTIME) {
+		if (memchr(new_value, '\0', new_value_length) != NULL) {
+			return FAILURE;
+		}
+
 		if (PG(safe_mode) && (!php_checkuid(new_value, NULL, CHECKUID_ALLOW_ONLY_DIR))) {
 			return FAILURE;
    		}
@@ -280,6 +284,10 @@ void php_add_session_var(char *name, size_t namelen TSRMLS_DC)
 		zend_hash_find(&EG(symbol_table), name, namelen + 1, 
 				(void *) &sym_global);
 				
+		if ((Z_TYPE_PP(sym_global) == IS_ARRAY && Z_ARRVAL_PP(sym_global) == &EG(symbol_table)) || *sym_global == PS(http_session_vars)) {
+			return;
+		}
+
 		if (sym_global == NULL && sym_track == NULL) {
 			zval *empty_var;
 
@@ -309,7 +317,10 @@ void php_set_session_var(char *name, size_t namelen, zval *state_val, php_unseri
 	if (PG(register_globals)) {
 		zval **old_symbol;
 		if (zend_hash_find(&EG(symbol_table),name,namelen+1,(void *)&old_symbol) == SUCCESS) { 
-			
+			if ((Z_TYPE_PP(old_symbol) == IS_ARRAY && Z_ARRVAL_PP(old_symbol) == &EG(symbol_table)) || *old_symbol == PS(http_session_vars)) {
+				return;
+			}
+
 			/* 
 			 * A global symbol with the same name exists already. That
 			 * symbol might have been created by other means (e.g. $_GET).
@@ -418,13 +429,26 @@ PS_SERIALIZER_DECODE_FUNC(php_binary)
 	PHP_VAR_UNSERIALIZE_INIT(var_hash);
 
 	for (p = val; p < endptr; ) {
+		zval **tmp;
 		namelen = *p & (~PS_BIN_UNDEF);
+
+		if (namelen > PS_BIN_MAX || (p + namelen) >= endptr) {
+			return FAILURE;
+		}
+
 		has_value = *p & PS_BIN_UNDEF ? 0 : 1;
 
 		name = estrndup(p + 1, namelen);
 		
 		p += namelen + 1;
-		
+
+		if (zend_hash_find(&EG(symbol_table), name, namelen + 1, (void **) &tmp) == SUCCESS) {
+			if ((Z_TYPE_PP(tmp) == IS_ARRAY && Z_ARRVAL_PP(tmp) == &EG(symbol_table)) || *tmp == PS(http_session_vars)) {
+				efree(name);
+				continue;
+			}
+		}
+
 		if (has_value) {
 			ALLOC_INIT_ZVAL(current);
 			if (php_var_unserialize(&current, (const unsigned char **)&p, endptr, &var_hash TSRMLS_CC)) {
@@ -490,6 +514,7 @@ PS_SERIALIZER_DECODE_FUNC(php)
 	p = val;
 
 	while (p < endptr) {
+		zval **tmp;
 		q = p;
 		while (*q != PS_DELIMITER)
 			if (++q >= endptr) goto break_outer_loop;
@@ -504,7 +529,14 @@ PS_SERIALIZER_DECODE_FUNC(php)
 		namelen = q - p;
 		name = estrndup(p, namelen);
 		q++;
-		
+
+		if (zend_hash_find(&EG(symbol_table), name, namelen + 1, (void **) &tmp) == SUCCESS) {
+			if ((Z_TYPE_PP(tmp) == IS_ARRAY && Z_ARRVAL_PP(tmp) == &EG(symbol_table)) || *tmp == PS(http_session_vars)) {
+				efree(name);
+				goto skip;
+			}
+		}
+
 		if (has_value) {
 			ALLOC_INIT_ZVAL(current);
 			if (php_var_unserialize(&current, (const unsigned char **)&q, endptr, &var_hash TSRMLS_CC)) {
@@ -513,6 +545,7 @@ PS_SERIALIZER_DECODE_FUNC(php)
 			zval_ptr_dtor(&current);
 		}
 		PS_ADD_VARL(name, namelen);
+skip:
 		efree(name);
 		
 		p = q;
@@ -532,12 +565,16 @@ static void php_session_track_init(TSRMLS_D)
 	zend_hash_del(&EG(symbol_table), "HTTP_SESSION_VARS", sizeof("HTTP_SESSION_VARS"));
 	zend_hash_del(&EG(symbol_table), "_SESSION", sizeof("_SESSION"));
 
+	if (PS(http_session_vars)) {
+		zval_ptr_dtor(&PS(http_session_vars));
+	}
+
 	MAKE_STD_ZVAL(session_vars);
 	array_init(session_vars);
 	PS(http_session_vars) = session_vars;
 
-	ZEND_SET_GLOBAL_VAR_WITH_LENGTH("HTTP_SESSION_VARS", sizeof("HTTP_SESSION_VARS"), PS(http_session_vars), 2, 1);
-	ZEND_SET_GLOBAL_VAR_WITH_LENGTH("_SESSION", sizeof("_SESSION"), PS(http_session_vars), 2, 1);
+	ZEND_SET_GLOBAL_VAR_WITH_LENGTH("HTTP_SESSION_VARS", sizeof("HTTP_SESSION_VARS"), PS(http_session_vars), 3, 1);
+	ZEND_SET_GLOBAL_VAR_WITH_LENGTH("_SESSION", sizeof("_SESSION"), PS(http_session_vars), 3, 1);
 }
 
 static char *php_session_encode(int *newlen TSRMLS_DC)
@@ -1637,6 +1674,10 @@ static void php_rinit_session_globals(TSRMLS_D)
 
 static void php_rshutdown_session_globals(TSRMLS_D)
 {
+	if (PS(http_session_vars)) {
+		zval_ptr_dtor(&PS(http_session_vars));
+		PS(http_session_vars) = NULL;
+	}
 	if (PS(mod_data)) {
 		zend_try {
 			PS(mod)->s_close(&PS(mod_data) TSRMLS_CC);
