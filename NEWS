@@ -1,5 +1,20 @@
 PHP                                                                        NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+17 Jan 2013, PHP 5.3.21
+
+- Zend Engine:
+  . Fixed bug #63762 (Sigsegv when Exception::$trace is changed by user).
+    (Johannes)
+
+- cURL extension:
+  . Fixed bug (segfault due to libcurl connection caching). (Pierrick)
+  . Fixed bug #63795 (CURL >= 7.28.0 no longer support value 1 for
+    CURLOPT_SSL_VERIFYHOST). (Pierrick)
+  . Fixed bug #63352 (Can't enable hostname validation when using curl stream
+    wrappers). (Pierrick)
+  . Fixed bug #55438 (Curlwapper is not sending http header randomly).
+    (phpnet@lostreality.org, Pierrick)
+
 20 Dec 2012, PHP 5.3.20
 
 - Zend Engine:
