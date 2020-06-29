@@ -15,7 +15,7 @@
    | Authors: Frank M. Kromann <fmk@swwwing.com>                          |
    +----------------------------------------------------------------------+
 */
-/* $Id: setup.c,v 1.3.4.1 2001/05/24 12:41:53 ssb Exp $ */
+/* $Id: setup.c,v 1.7.2.1 2001/10/11 23:51:30 ssb Exp $ */
 
 #ifdef COMPILE_DL_IISFUNC
 #define HAVE_IISFUNC 1
@@ -24,13 +24,18 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
- 
+
 #include "php.h"
 #include "php_globals.h"
 #include "ext/standard/info.h"
-#include "setup.h"
 
-#if HAVE_IISFUNC
+#include <windows.h>
+#include <iadmw.h>    // COM Interface header 
+#include <iiscnfg.h>  // MD_ & IIS_MD_ #defines 
+
+#include "iisfunc.h"
+
+#ifdef HAVE_IISFUNC
 
 function_entry iisfunc_functions[] = {
 	PHP_FE(iis_getserverbypath,		NULL)
@@ -53,6 +58,7 @@ function_entry iisfunc_functions[] = {
 };
 
 zend_module_entry iisfunc_module_entry = {
+	STANDARD_MODULE_HEADER,
 	"iisfunc", 
 	iisfunc_functions, 
 	PHP_MINIT(iisfunc), 
@@ -60,6 +66,7 @@ zend_module_entry iisfunc_module_entry = {
 	PHP_RINIT(iisfunc), 
 	PHP_RSHUTDOWN(iisfunc), 
 	PHP_MINFO(iisfunc), 
+        NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 
@@ -69,6 +76,8 @@ ZEND_GET_MODULE(iisfunc)
 
 PHP_MINIT_FUNCTION(iisfunc)
 {
+	fnIisInit(TSRMLS_C);
+
     REGISTER_LONG_CONSTANT("IIS_READ", 0x1, CONST_CS | CONST_PERSISTENT);
     REGISTER_LONG_CONSTANT("IIS_WRITE", 0x2, CONST_CS | CONST_PERSISTENT);
     REGISTER_LONG_CONSTANT("IIS_EXECUTE", 0x4, CONST_CS | CONST_PERSISTENT);
@@ -81,6 +90,8 @@ PHP_MINIT_FUNCTION(iisfunc)
 
 PHP_MSHUTDOWN_FUNCTION(iisfunc)
 {
+	fnIisShutdown(TSRMLS_C);
+
 	return SUCCESS;
 }
 
@@ -98,11 +109,10 @@ PHP_MINFO_FUNCTION(iisfunc)
 {
 	php_info_print_table_start();
 	php_info_print_table_row(2, "IIS Admin Functions support", "enabled");
-
 	php_info_print_table_end();
 }
 
-/* {{{ proto int iis_GetServerByPath(string Path)
+/* {{{ proto int iis_getserverbypath(string Path)
    Return the instance number associated with the Path*/
 PHP_FUNCTION(iis_getserverbypath)
 {
@@ -117,7 +127,7 @@ PHP_FUNCTION(iis_getserverbypath)
 
 	convert_to_string(ServerPath);
 
-	rc = fnIisGetServerByPath(ServerPath->value.str.val);
+	rc = fnIisGetServerByPath(ServerPath->value.str.val TSRMLS_CC);
 	if (rc) {
 		RETVAL_LONG(rc);
 	}
@@ -127,7 +137,7 @@ PHP_FUNCTION(iis_getserverbypath)
 }
 /* }}} */
 
-/* {{{ proto int iis_GetServerByComment(string Comment)
+/* {{{ proto int iis_getserverbycomment(string Comment)
    Return the instance number associated with the Comment*/
 PHP_FUNCTION(iis_getserverbycomment)
 {
@@ -142,7 +152,7 @@ PHP_FUNCTION(iis_getserverbycomment)
 
 	convert_to_string(ServerComment);
 
-	rc = fnIisGetServerByComment(ServerComment->value.str.val);
+	rc = fnIisGetServerByComment(ServerComment->value.str.val TSRMLS_CC);
 	if (rc) {
 		RETVAL_LONG(rc);
 	}
@@ -152,7 +162,7 @@ PHP_FUNCTION(iis_getserverbycomment)
 }
 /* }}} */
 
-/* {{{ proto int iis_AddServer(string Path, string Comment, string ServerIP, int ServerPort, string HostName, int ServerRights, int StartServer)
+/* {{{ proto int iis_addserver(string Path, string Comment, string ServerIP, int ServerPort, string HostName, int ServerRights, int StartServer)
    Creates a new virtual web server*/
 PHP_FUNCTION(iis_addserver)
 {
@@ -179,7 +189,7 @@ PHP_FUNCTION(iis_addserver)
 						ServerPort->value.str.val,
 						ServerHost->value.str.val,
 						ServerRights->value.lval,
-						StartServer->value.lval);
+						StartServer->value.lval TSRMLS_CC);
 	if (rc) {
 		RETVAL_LONG(rc);
 	}
@@ -189,7 +199,7 @@ PHP_FUNCTION(iis_addserver)
 }
 /* }}} */
 
-/* {{{ proto int iis_RemoveServer(int ServerInstance)
+/* {{{ proto int iis_removeserver(int ServerInstance)
    Removes the virtual web server indicated by ServerInstance*/
 PHP_FUNCTION(iis_removeserver)
 {
@@ -203,7 +213,7 @@ PHP_FUNCTION(iis_removeserver)
 
 	convert_to_long(ServerInstance);
 
-	rc = fnIisRemoveServer(ServerInstance->value.lval);
+	rc = fnIisRemoveServer(ServerInstance->value.lval TSRMLS_CC);
 	if (rc) {
 		RETVAL_LONG(rc);
 	}
@@ -213,7 +223,7 @@ PHP_FUNCTION(iis_removeserver)
 }
 /* }}} */
 
-/* {{{ proto int iis_SetDirectorySecurity(int ServerInstance, string VirtualPath, int DirectoryFlags)
+/* {{{ proto int iis_setdirsecurity(int ServerInstance, string VirtualPath, int DirectoryFlags)
    Sets Directory Security*/
 PHP_FUNCTION(iis_setdirsecurity)
 {
@@ -229,7 +239,7 @@ PHP_FUNCTION(iis_setdirsecurity)
 	convert_to_string(VirtualPath);
 	convert_to_long(DirFlags);
 
-	rc = fnIisSetDirSecurity(ServerInstance->value.lval, VirtualPath->value.str.val, DirFlags->value.lval);
+	rc = fnIisSetDirSecurity(ServerInstance->value.lval, VirtualPath->value.str.val, DirFlags->value.lval TSRMLS_CC);
 	if (rc) {
 		RETVAL_LONG(rc);
 	}
@@ -239,7 +249,7 @@ PHP_FUNCTION(iis_setdirsecurity)
 }
 /* }}} */
 
-/* {{{ proto int iis_DirectorySecurity(int ServerInstance, string VirtualPath)
+/* {{{ proto int iis_getdirsecurity(int ServerInstance, string VirtualPath)
    Gets Directory Security*/
 PHP_FUNCTION(iis_getdirsecurity)
 {
@@ -255,7 +265,7 @@ PHP_FUNCTION(iis_getdirsecurity)
 	convert_to_long(ServerInstance);
 	convert_to_string(VirtualPath);
 
-	rc = fnIisGetDirSecurity(ServerInstance->value.lval, VirtualPath->value.str.val, &DirFlags);
+	rc = fnIisGetDirSecurity(ServerInstance->value.lval, VirtualPath->value.str.val, &DirFlags TSRMLS_CC);
 	if (rc) {
 		RETVAL_LONG(DirFlags);
 	}
@@ -265,7 +275,7 @@ PHP_FUNCTION(iis_getdirsecurity)
 }
 /* }}} */
 
-/* {{{ proto int iis_SetServerRights(int ServerInstance, string VirtualPath, int ServerFlags)
+/* {{{ proto int iis_setserverright(int ServerInstance, string VirtualPath, int ServerFlags)
    Sets server rights*/
 PHP_FUNCTION(iis_setserverright)
 {
@@ -281,7 +291,7 @@ PHP_FUNCTION(iis_setserverright)
 	convert_to_string(VirtualPath);
 	convert_to_long(ServerFlags);
 
-	rc = fnIisSetServerRight(ServerInstance->value.lval, VirtualPath->value.str.val, ServerFlags->value.lval);
+	rc = fnIisSetServerRight(ServerInstance->value.lval, VirtualPath->value.str.val, ServerFlags->value.lval TSRMLS_CC);
 	if (rc) {
 		RETVAL_LONG(rc);
 	}
@@ -291,7 +301,7 @@ PHP_FUNCTION(iis_setserverright)
 }
 /* }}} */
 
-/* {{{ proto int iis_GetServerRights(int ServerInstance, string VirtualPath)
+/* {{{ proto int iis_getserverright(int ServerInstance, string VirtualPath)
    Gets Directory Security*/
 PHP_FUNCTION(iis_getserverright)
 {
@@ -307,7 +317,7 @@ PHP_FUNCTION(iis_getserverright)
 	convert_to_long(ServerInstance);
 	convert_to_string(VirtualPath);
 
-	rc = fnIisGetServerRight(ServerInstance->value.lval, VirtualPath->value.str.val, &DirFlags);
+	rc = fnIisGetServerRight(ServerInstance->value.lval, VirtualPath->value.str.val, &DirFlags TSRMLS_CC);
 	if (rc) {
 		RETVAL_LONG(DirFlags);
 	}
@@ -317,7 +327,7 @@ PHP_FUNCTION(iis_getserverright)
 }
 /* }}} */
 
-/* {{{ proto int iis_SetScriptMap(int ServerInstance, string VirtualPath, string EnginePath, int AllowScripting)
+/* {{{ proto int iis_setscriptmap(int ServerInstance, string VirtualPath, string EnginePath, int AllowScripting)
    Sets script mapping on a virtual directory*/
 PHP_FUNCTION(iis_setscriptmap)
 {
@@ -338,7 +348,7 @@ PHP_FUNCTION(iis_setscriptmap)
 
 	sprintf(ScriptingValue, "%s,%s,%li", ScriptExtention->value.str.val, EnginePath->value.str.val, Scripting->value.lval);
 
-	rc = fnIisSetScriptMap(ServerInstance->value.lval, VirtualPath->value.str.val, ScriptingValue);
+	rc = fnIisSetScriptMap(ServerInstance->value.lval, VirtualPath->value.str.val, ScriptingValue TSRMLS_CC);
 	if (rc) {
 		RETVAL_LONG(rc);
 	}
@@ -348,7 +358,7 @@ PHP_FUNCTION(iis_setscriptmap)
 }
 /* }}} */
 
-/* {{{ proto int iis_GetScriptMap(int ServerInstance, string VirtualPath)
+/* {{{ proto int iis_setscriptmap(int ServerInstance, string VirtualPath)
    Gets script mapping on a virtual directory for a specific extention*/
 PHP_FUNCTION(iis_getscriptmap)
 {
@@ -368,7 +378,7 @@ PHP_FUNCTION(iis_getscriptmap)
 	convert_to_string(VirtualPath);
 	convert_to_string(ScriptExtention);
 
-	rc = fnIisGetScriptMap(ServerInstance->value.lval, VirtualPath->value.str.val, ScriptExtention->value.str.val, strSetting);
+	rc = fnIisGetScriptMap(ServerInstance->value.lval, VirtualPath->value.str.val, ScriptExtention->value.str.val, strSetting TSRMLS_CC);
 	if (rc == 1 && strlen(strSetting)) {
 		RETVAL_STRING(strSetting, 1);
 	}
@@ -379,7 +389,7 @@ PHP_FUNCTION(iis_getscriptmap)
 }
 /* }}} */
 
-/* {{{ proto int iis_SetAppSetings(int ServerInstance, string VirtualPath, string Name)
+/* {{{ proto int iis_setappsettings(int ServerInstance, string VirtualPath, string Name)
    Creates application scope for a virtual directory*/
 PHP_FUNCTION(iis_setappsettings)
 {
@@ -395,7 +405,7 @@ PHP_FUNCTION(iis_setappsettings)
 	convert_to_string(VirtualPath);
 	convert_to_string(Name);
 
-	rc = fnIisSetAppSettings(ServerInstance->value.lval, VirtualPath->value.str.val, Name->value.str.val);
+	rc = fnIisSetAppSettings(ServerInstance->value.lval, VirtualPath->value.str.val, Name->value.str.val TSRMLS_CC);
 	if (rc) {
 		RETVAL_LONG(rc);
 	}
@@ -405,7 +415,7 @@ PHP_FUNCTION(iis_setappsettings)
 }
 /* }}} */
 
-/* {{{ proto int iis_StartServer(int ServerInstance)
+/* {{{ proto int iis_startserver(int ServerInstance)
    Starts the virtual web server*/
 PHP_FUNCTION(iis_startserver)
 {
@@ -420,7 +430,7 @@ PHP_FUNCTION(iis_startserver)
 
 	convert_to_long(ServerInstance);
 
-	rc = fnIisSetServerStatus(ServerInstance->value.lval, 1);
+	rc = fnIisSetServerStatus(ServerInstance->value.lval, 1 TSRMLS_CC);
 	if (rc) {
 		RETVAL_LONG(rc);
 	}
@@ -430,7 +440,7 @@ PHP_FUNCTION(iis_startserver)
 }
 /* }}} */
 
-/* {{{ proto int iis_StopServer(int ServerInstance)
+/* {{{ proto int iis_stopserver(int ServerInstance)
    Stops the virtual web server*/
 PHP_FUNCTION(iis_stopserver)
 {
@@ -445,7 +455,7 @@ PHP_FUNCTION(iis_stopserver)
 
 	convert_to_long(ServerInstance);
 
-	rc = fnIisSetServerStatus(ServerInstance->value.lval, 0);
+	rc = fnIisSetServerStatus(ServerInstance->value.lval, 0 TSRMLS_CC);
 	if (rc) {
 		RETVAL_LONG(rc);
 	}
@@ -455,7 +465,7 @@ PHP_FUNCTION(iis_stopserver)
 }
 /* }}} */
 
-/* {{{ proto int iis_StopService(string ServiceId)
+/* {{{ proto int iis_stopservice(string ServiceId)
    Stops the service defined by ServiceId*/
 PHP_FUNCTION(iis_stopservice)
 {
@@ -470,7 +480,7 @@ PHP_FUNCTION(iis_stopservice)
 
 	convert_to_string(ServiceId);
 
-	rc = fnStopService(ServiceId->value.str.val);
+	rc = fnStopService(ServiceId->value.str.val TSRMLS_CC);
 	if (rc) {
 		RETVAL_LONG(rc);
 	}
@@ -480,7 +490,7 @@ PHP_FUNCTION(iis_stopservice)
 }
 /* }}} */
 
-/* {{{ proto int iis_StartService(string ServiceId)
+/* {{{ proto int iis_stopservice(string ServiceId)
    Starts the service defined by ServiceId*/
 PHP_FUNCTION(iis_startservice)
 {
@@ -495,7 +505,7 @@ PHP_FUNCTION(iis_startservice)
 
 	convert_to_string(ServiceId);
 
-	rc = fnStartService(ServiceId->value.str.val);
+	rc = fnStartService(ServiceId->value.str.val TSRMLS_CC);
 	if (rc) {
 		RETVAL_LONG(rc);
 	}
@@ -505,7 +515,7 @@ PHP_FUNCTION(iis_startservice)
 }
 /* }}} */
 
-/* {{{ proto int iis_GetServiceState(string ServiceId)
+/* {{{ proto int iis_getservicestate(string ServiceId)
    Returns teh state for the service defined by ServiceId*/
 PHP_FUNCTION(iis_getservicestate)
 {
@@ -520,7 +530,7 @@ PHP_FUNCTION(iis_getservicestate)
 
 	convert_to_string(ServiceId);
 
-	rc = fnGetServiceState(ServiceId->value.str.val);
+	rc = fnGetServiceState(ServiceId->value.str.val TSRMLS_CC);
 	if (rc) {
 		RETVAL_LONG(rc);
 	}

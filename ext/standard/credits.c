@@ -17,15 +17,19 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: credits.c,v 1.7 2001/05/10 14:25:48 zeev Exp $ */
+/* $Id: credits.c,v 1.11 2001/08/05 15:55:42 sas Exp $ */
 
 #include "php.h"
 #include "info.h"
 
 #define CREDIT_LINE(module, authors) php_info_print_table_row(2, module, authors)
 
+/* {{{ php_print_credits
+ */
 PHPAPI void php_print_credits(int flag)
 {
+	TSRMLS_FETCH();
+
 	if (flag & PHP_CREDITS_FULLPAGE) {
 		PUTS("<html><head><title>PHP Credits</title></head><body>\n");
 	}
@@ -55,7 +59,7 @@ PHPAPI void php_print_credits(int flag)
 		php_info_print_table_colspan_header(2, "PHP 4.0 Authors");
 		php_info_print_table_header(2, "Contribution", "Authors");
 		CREDIT_LINE("Zend Scripting Language Engine", "Andi Gutmans, Zeev Suraski");
-		CREDIT_LINE("Extension Module API", "Andi Gutmans, Zeev Suraski");
+		CREDIT_LINE("Extension Module API", "Andi Gutmans, Zeev Suraski, Andrei Zmievski");
 		CREDIT_LINE("UNIX Build and Modularization", "Stig Bakken, Sascha Schumann");
 		CREDIT_LINE("Win32 Port", "Shane Caraveo, Zeev Suraski");
 		CREDIT_LINE("Server API (SAPI) Abstraction Layer", "Andi Gutmans, Shane Caraveo, Zeev Suraski");
@@ -109,3 +113,13 @@ PHPAPI void php_print_credits(int flag)
 		PUTS("</body></html>\n");
 	}
 }
+/* }}} */
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

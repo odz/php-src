@@ -17,7 +17,7 @@
  */
 
 /*
- * $Id: zval_to_namedvalue.c,v 1.3 2001/02/26 06:07:15 andi Exp $
+ * $Id: zval_to_namedvalue.c,v 1.5 2001/08/12 09:48:02 eriksson Exp $
  * vim: syntax=c tabstop=2 shiftwidth=2
  */
 
@@ -92,7 +92,7 @@ static zend_bool satellite_zval_to_namedvalue_long(const zval * pSource,
 	if (pSource == NULL)
 		return TRUE;
 	
-	/*convert_to_long(pSource);*/
+	convert_to_long((zval*)pSource);	/* so long "const" */
 	if (pSource->type != IS_LONG)
 		return FALSE;
 
@@ -145,7 +145,7 @@ static zend_bool satellite_zval_to_namedvalue_objref(const zval * pSource,
 		goto error;
 
 	/* see that it's a corba object */
-	if (strcmp(pSource->value.obj.ce->name, "OrbitObject") != 0)
+	if (strcmp(Z_OBJCE_P(pSource)->name, "OrbitObject") != 0)
 		goto error; /* bad class type */
 
 	pObject = OrbitObject_RetrieveData(pSource);
@@ -308,7 +308,7 @@ static zend_bool satellite_zval_to_namedvalue_struct(const zval * pSource,
 		goto error; /* bad source type */
 
 	/* see that it's a structure object */
-	if (strcmp(pSource->value.obj.ce->name, "OrbitStruct") != 0)
+	if (strcmp(Z_OBJCE_P(pSource)->name, "OrbitStruct") != 0)
 		goto error; /* bad class type */
 		
 	/* get struct info */

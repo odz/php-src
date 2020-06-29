@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.9.6.1 2001/05/15 01:52:08 sniper Exp $
+dnl $Id: config.m4,v 1.11 2001/05/15 01:50:46 sniper Exp $
 dnl config.m4 for extension db
 dnl don't forget to call PHP_EXTENSION(db)
 

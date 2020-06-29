@@ -14,7 +14,7 @@
 #  | Authors: Sascha Schumann <sascha@schumann.cx>                        |
 #  +----------------------------------------------------------------------+
 #
-# $Id: library.mk,v 1.8 2000/08/20 05:36:07 sas Exp $ 
+# $Id: library.mk,v 1.9.2.1 2001/09/13 21:41:30 sas Exp $ 
 #
 
 LTLIBRARY_OBJECTS = $(LTLIBRARY_SOURCES:.c=.lo) $(LTLIBRARY_OBJECTS_X)

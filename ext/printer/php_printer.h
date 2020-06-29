@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_printer.h,v 1.8 2001/04/05 12:36:00 dbeu Exp $ */
+/* $Id: php_printer.h,v 1.10 2001/07/28 11:36:10 zeev Exp $ */
 
 #ifndef PHP_PRINTER_H
 #define PHP_PRINTER_H
@@ -67,7 +67,6 @@ typedef struct {
 	HANDLE handle;
 	LPTSTR name;
 	LPDEVMODE device;
-	DOC_INFO_1 info1;
 	DOCINFO info;
 	HDC dc;
 } printer;
@@ -77,11 +76,9 @@ typedef struct {
 } zend_printer_globals;
 
 #ifdef ZTS
-#define PRINTERG(v) (printer_globals->v)
-#define PRINTERLS_FETCH() zend_printer_globals *printer_globals = ts_resource(printer_globals_id)
+#define PRINTERG(v) TSRMG(printer_globals_id, zend_printer_globals *, v)
 #else
 #define PRINTERG(v) (printer_globals.v)
-#define PRINTERLS_FETCH()
 #endif
 
 #else

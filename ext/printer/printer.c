@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: printer.c,v 1.11.2.1 2001/05/24 12:42:04 ssb Exp $ */
+/* $Id: printer.c,v 1.18.2.1 2001/10/11 23:51:56 ssb Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -48,7 +48,8 @@ static int le_printer, le_brush, le_pen, le_font;
 
 COLORREF hex_to_rgb(char * hex);
 char *rgb_to_hex(COLORREF rgb);
-static void destroy_ressources(zend_rsrc_list_entry *resource);
+static void printer_close(zend_rsrc_list_entry *resource TSRMLS_DC);
+static void object_close(zend_rsrc_list_entry *resource TSRMLS_DC);
 char *get_default_printer(void);
 
 function_entry printer_functions[] = {
@@ -87,6 +88,7 @@ function_entry printer_functions[] = {
 };
 
 zend_module_entry printer_module_entry = {
+	STANDARD_MODULE_HEADER,
 	"printer",
 	printer_functions,
 	PHP_MINIT(printer),
@@ -94,6 +96,7 @@ zend_module_entry printer_module_entry = {
 	NULL,
 	NULL,
 	PHP_MINFO(printer),
+    NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 
@@ -104,29 +107,28 @@ ZEND_GET_MODULE(printer)
 
 PHP_MINFO_FUNCTION(printer)
 {
-	PRINTERLS_FETCH();
 	php_info_print_table_start();
 	php_info_print_table_row(2, "Printer Support", "enabled");
 	php_info_print_table_row(2, "Default printing device", PRINTERG(default_printer) ? PRINTERG(default_printer) : "<b>not detected</b>");
 	php_info_print_table_row(2, "Module state", "working");
-	php_info_print_table_row(2, "RCS Version", "$Id: printer.c,v 1.11.2.1 2001/05/24 12:42:04 ssb Exp $");
+	php_info_print_table_row(2, "RCS Version", "$Id: printer.c,v 1.18.2.1 2001/10/11 23:51:56 ssb Exp $");
 	php_info_print_table_end();
 	DISPLAY_INI_ENTRIES();
 }
 
 static PHP_INI_MH(OnUpdatePrinter)
 {
-	PRINTERLS_FETCH();
-	
-	if(new_value != NULL && new_value != "") {
-		efree(PRINTERG(default_printer));
+	if(new_value != "") {
+		if(PRINTERG(default_printer)) {
+			efree(PRINTERG(default_printer));
+		}
 		PRINTERG(default_printer) = estrdup(new_value);
 	}
 	return SUCCESS;
 }
 
 PHP_INI_BEGIN()
-	STD_PHP_INI_ENTRY("printer.default_printer",	NULL, PHP_INI_ALL, OnUpdatePrinter, default_printer, zend_printer_globals, printer_globals)
+	STD_PHP_INI_ENTRY("printer.default_printer", "", PHP_INI_ALL, OnUpdatePrinter, default_printer, zend_printer_globals, printer_globals)
 PHP_INI_END()
 
 #define COPIES			0
@@ -153,14 +155,21 @@ static void php_printer_init(zend_printer_globals *printer_globals) {
 	printer_globals->default_printer = get_default_printer();
 }
 
+static void php_printer_shutdown(zend_printer_globals *printer_globals) {
+	if(printer_globals->default_printer) {
+		efree(printer_globals->default_printer);
+	}
+}
+
 PHP_MINIT_FUNCTION(printer)
 {
-    ZEND_INIT_MODULE_GLOBALS(printer, php_printer_init, NULL);
+    ZEND_INIT_MODULE_GLOBALS(printer, php_printer_init, php_printer_shutdown);
 	REGISTER_INI_ENTRIES();
-	le_printer	= zend_register_list_destructors_ex(destroy_ressources, NULL, "printer", module_number);
-	le_pen		= zend_register_list_destructors_ex(NULL, NULL, "printer pen", module_number);
-	le_font		= zend_register_list_destructors_ex(NULL, NULL, "printer font", module_number);
-	le_brush	= zend_register_list_destructors_ex(NULL, NULL, "printer brush", module_number);
+
+	le_printer	= zend_register_list_destructors_ex(printer_close, NULL, "printer", module_number);
+	le_pen		= zend_register_list_destructors_ex(object_close, NULL, "printer pen", module_number);
+	le_font		= zend_register_list_destructors_ex(object_close, NULL, "printer font", module_number);
+	le_brush	= zend_register_list_destructors_ex(object_close, NULL, "printer brush", module_number);
 
 	REGP_CONSTANT("PRINTER_COPIES",				COPIES);
 	REGP_CONSTANT("PRINTER_MODE",				MODE);
@@ -243,13 +252,12 @@ PHP_MSHUTDOWN_FUNCTION(printer)
 
 
 
-/* {{{ proto mixed printer_open(string printername)
+/* {{{ proto mixed printer_open([string printername])
    Return a handle to the printer or false if connection failed */
 PHP_FUNCTION(printer_open)
 {
 	pval **arg1;
 	printer *resource;
-	PRINTERLS_FETCH();
 	int argc = ZEND_NUM_ARGS();
 
 	resource = (printer *)emalloc(sizeof(printer));
@@ -286,7 +294,7 @@ PHP_FUNCTION(printer_open)
 /* }}} */
 
 
-/* {{{ proto bool printer_close(resource connection)
+/* {{{ proto void printer_close(resource connection)
    Close the printer connection */
 PHP_FUNCTION(printer_close)
 {
@@ -299,14 +307,7 @@ PHP_FUNCTION(printer_close)
 
 	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", le_printer);
 
-	if( ClosePrinter(resource->handle) != 0 ) {
-		efree(resource->device);
-		RETURN_TRUE;
-	}
-	else {
-		php_error(E_WARNING,"the printer connection to [%s] couldn't be closed", resource->name);
-		RETURN_FALSE;
-	}
+	zend_list_delete(Z_RESVAL_PP(arg1));
 }
 /* }}} */
 
@@ -317,6 +318,7 @@ PHP_FUNCTION(printer_write)
 {
 	pval **arg1, **arg2;
 	printer *resource;
+	DOC_INFO_1 docinfo;
 	int sd, sp = 0, recieved;
 
 	if ( zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE ) {
@@ -327,11 +329,11 @@ PHP_FUNCTION(printer_write)
 	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", le_printer);
 	convert_to_string_ex(arg2);
 
-	resource->info1.pDocName	= (PSTR)resource->info.lpszDocName;
-	resource->info1.pDatatype	= (PSTR)resource->info.lpszDatatype;
-	resource->info1.pOutputFile = NULL; 
+	docinfo.pDocName	= (LPTSTR)resource->info.lpszDocName;
+	docinfo.pDatatype	= (LPTSTR)resource->info.lpszDatatype;
+	docinfo.pOutputFile = NULL; 
 
-	sd = StartDocPrinter(resource->handle, 1, (LPSTR)&resource->info1);
+	sd = StartDocPrinter(resource->handle, 1, (LPSTR)&docinfo);
 	sp = StartPagePrinter(resource->handle);
 
 	if( sd && sp ) {
@@ -341,7 +343,7 @@ PHP_FUNCTION(printer_write)
 		RETURN_TRUE;
 	}
 	else {
-		php_error(E_WARNING,"couldn't allocate the printerjob" );
+		php_error(E_WARNING,"couldn't allocate the printerjob [%d]", GetLastError());
 		RETURN_FALSE;
 	}
 }
@@ -783,16 +785,13 @@ PHP_FUNCTION(printer_create_pen)
 		WRONG_PARAM_COUNT;
 	}
 
-	pen = (HPEN)emalloc(sizeof(HPEN));
-
 	convert_to_long_ex(arg1);
 	convert_to_long_ex(arg2);
 	convert_to_string_ex(arg3);
 
 	pen = CreatePen(Z_LVAL_PP(arg1), Z_LVAL_PP(arg2), hex_to_rgb(Z_STRVAL_PP(arg3)));
 
-	if(pen == NULL) {
-		efree(pen);
+	if(!pen) {
 		RETURN_FALSE;
 	}
 
@@ -801,7 +800,7 @@ PHP_FUNCTION(printer_create_pen)
 /* }}} */
 
 
-/* {{{ proto bool printer_delete_pen(resource pen_handle)
+/* {{{ proto void printer_delete_pen(resource pen_handle)
    Delete a pen */
 PHP_FUNCTION(printer_delete_pen)
 {
@@ -814,11 +813,7 @@ PHP_FUNCTION(printer_delete_pen)
 
 	ZEND_FETCH_RESOURCE(pen, HPEN, arg1, -1, "Pen Handle", le_pen);
 
-	if(DeleteObject(pen)) {
-		RETURN_TRUE;
-	}
-
-	RETURN_FALSE;
+	zend_list_delete(Z_RESVAL_PP(arg1));
 }
 /* }}} */
 
@@ -856,8 +851,6 @@ PHP_FUNCTION(printer_create_brush)
 		WRONG_PARAM_COUNT;
 	}
 
-	brush = (HBRUSH)emalloc(sizeof(HBRUSH));
-
 	convert_to_long_ex(arg1);
 	convert_to_string_ex(arg2);
 
@@ -866,7 +859,7 @@ PHP_FUNCTION(printer_create_brush)
 			brush = CreateSolidBrush(hex_to_rgb(Z_STRVAL_PP(arg2)));
 			break;
 		case BRUSH_CUSTOM:
-			virtual_filepath(Z_STRVAL_PP(arg2), &path);
+			virtual_filepath(Z_STRVAL_PP(arg2), &path TSRMLS_CC);
 			bmp = LoadImage(0, path, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 			brush = CreatePatternBrush(bmp);
 			break;
@@ -874,8 +867,7 @@ PHP_FUNCTION(printer_create_brush)
 			brush = CreateHatchBrush(Z_LVAL_PP(arg1), hex_to_rgb(Z_STRVAL_PP(arg2)));
 	}
 
-	if(brush == NULL) {
-		efree(brush);
+	if(!brush) {
 		RETURN_FALSE;
 	}
 
@@ -884,7 +876,7 @@ PHP_FUNCTION(printer_create_brush)
 /* }}} */
 
 
-/* {{{ proto bool printer_delete_brush(resource brush_handle)
+/* {{{ proto void printer_delete_brush(resource brush_handle)
    Delete a brush */
 PHP_FUNCTION(printer_delete_brush)
 {
@@ -897,11 +889,7 @@ PHP_FUNCTION(printer_delete_brush)
 
 	ZEND_FETCH_RESOURCE(brush, HBRUSH, arg1, -1, "Brush Handle", le_brush);
 
-	if(DeleteObject(brush)) {
-		RETURN_TRUE;
-	}
-
-	RETURN_FALSE;
+	zend_list_delete(Z_RESVAL_PP(arg1));
 }
 /* }}} */
 
@@ -938,8 +926,6 @@ PHP_FUNCTION(printer_create_font)
 		WRONG_PARAM_COUNT;
 	}
 
-	font = (HFONT)emalloc(sizeof(HFONT));
-
 	convert_to_string_ex(arg1);
 	face = estrndup(Z_STRVAL_PP(arg1), 32);
 	convert_to_long_ex(arg2);
@@ -953,8 +939,7 @@ PHP_FUNCTION(printer_create_font)
 	font = CreateFont(Z_LVAL_PP(arg2), Z_LVAL_PP(arg3), Z_LVAL_PP(arg8), Z_LVAL_PP(arg8), Z_LVAL_PP(arg4), Z_BVAL_PP(arg5), Z_BVAL_PP(arg6), Z_BVAL_PP(arg7), DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH | FF_ROMAN, face);
 	efree(face);
 
-	if(font == NULL) {
-		efree(font);
+	if(!font) {
 		RETURN_FALSE;
 	}
 
@@ -976,7 +961,7 @@ PHP_FUNCTION(printer_delete_font)
 	
 	ZEND_FETCH_RESOURCE(font, HFONT, arg1, -1, "Font Handle", le_font);
 
-	DeleteObject(font);
+	zend_list_delete(Z_RESVAL_PP(arg1));
 }
 /* }}} */
 
@@ -1212,7 +1197,7 @@ PHP_FUNCTION(printer_draw_bmp)
 	convert_to_long_ex(arg3);
 	convert_to_long_ex(arg4);
 
-	virtual_filepath(Z_STRVAL_PP(arg2), &path);
+	virtual_filepath(Z_STRVAL_PP(arg2), &path TSRMLS_CC);
 
 	bmp = LoadImage(0, path, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 	SelectObject(resource->dc, bmp);
@@ -1273,7 +1258,7 @@ char *get_default_printer(void) {
 		if(need > 0) {
 			printer = (PRINTER_INFO_2 *)emalloc(need+1);
 			EnumPrinters(PRINTER_ENUM_DEFAULT, NULL, 2, (LPBYTE)printer, need, &need, &received);
-			printer_name = estrdup(printer->pDriverName);
+			printer_name = estrdup(printer->pPrinterName);
 			efree(printer);
 		}
 	}
@@ -1330,17 +1315,28 @@ char *rgb_to_hex(COLORREF rgb)
 	sprintf(string, "%02x%02x%02x", GetRValue(rgb), GetGValue(rgb),GetBValue(rgb));
 	return string;
 } 
-/* resource deallocation */
-static void destroy_ressources(zend_rsrc_list_entry *resource)
+
+static void printer_close(zend_rsrc_list_entry *resource TSRMLS_DC)
 {
-	efree(resource);
+	printer *p = (printer*)resource->ptr;
+
+	ClosePrinter(p->handle);
+	efree(p);
+}
+static void object_close(zend_rsrc_list_entry *resource TSRMLS_DC)
+{
+	HGDIOBJ p = (HGDIOBJ)resource->ptr;
+	DeleteObject(p);
 }
 
 #endif
 #endif
+
 /*
  * Local variables:
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

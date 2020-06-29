@@ -14,7 +14,7 @@
 #  | Authors: Sascha Schumann <sascha@schumann.cx>                        |
 #  +----------------------------------------------------------------------+
 #
-# $Id: build2.mk,v 1.19.2.1 2001/06/10 19:27:06 rasmus Exp $ 
+# $Id: build2.mk,v 1.21 2001/06/10 13:51:18 sas Exp $ 
 #
 
 include generated_lists

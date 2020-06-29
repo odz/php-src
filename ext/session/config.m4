@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.10 2001/03/27 20:34:42 sniper Exp $
+dnl $Id: config.m4,v 1.13.2.1 2001/10/27 06:28:44 sniper Exp $
 
 PHP_ARG_WITH(mm,for mm support,
 [  --with-mm[=DIR]         Include mm support for session storage])
@@ -12,7 +12,7 @@ PHP_ARG_ENABLE(session, whether to enable session support,
 if test "$PHP_MM" != "no"; then
   for i in /usr/local /usr $PHP_MM; do
     if test -f "$i/include/mm.h"; then
-      MM_DIR="$i"
+      MM_DIR=$i
     fi
   done
 
@@ -31,6 +31,10 @@ if test "$PHP_TRANS_SID" = "yes"; then
 fi
 
 if test "$PHP_SESSION" != "no"; then
+  AC_CHECK_FUNCS(pread pwrite)
+  PHP_MISSING_PWRITE_DECL
+  PHP_MISSING_PREAD_DECL
   PHP_EXTENSION(session,$ext_shared)
   PHP_SUBST(SESSION_SHARED_LIBADD)
+  AC_DEFINE(HAVE_PHP_SESSION,1,[ ])
 fi

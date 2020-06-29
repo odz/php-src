@@ -17,7 +17,7 @@
 // |          Chuck Hagenbuch <chuck@horde.org>                           |
 // +----------------------------------------------------------------------+
 //
-// $Id: Socket.php,v 1.6 2001/05/06 16:55:57 chagenbu Exp $
+// $Id: Socket.php,v 1.7.2.2 2001/11/13 01:26:48 ssb Exp $
 //
 
 require_once 'PEAR.php';
@@ -39,7 +39,7 @@ class Net_Socket extends PEAR {
     /** Whether the socket is blocking. */
     var $blocking = true;
     
-    /** Whether the socket is persistant. */
+    /** Whether the socket is persistent. */
     var $persistent;
     
     /** The IP address to connect to. */
@@ -291,9 +291,11 @@ class Net_Socket extends PEAR {
             $timeout = time() + $this->timeout;
             while (!feof($this->fp) && (!$this->timeout || time() < $timeout)) {
                 $line .= fgets($this->fp, $this->lineLength);
-                $len = strlen($line);
-                if ($len >=2 && substr($line, $len-2, 2) == "\r\n")
-                    return substr($line, 0, $len-2);
+                if (strlen($line) >= 2 &&
+                    (substr($line, -2) == "\r\n" ||
+                     substr($line, -1) == "\n")) {
+                    return rtrim($line);
+                }
             }
             return $line;
         }

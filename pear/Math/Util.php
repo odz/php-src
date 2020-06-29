@@ -16,43 +16,43 @@
 // | Authors: Sebastian Bergmann <sb@sebastian-bergmann.de>               |
 // +----------------------------------------------------------------------+
 //
-// $Id: Util.php,v 1.2 2001/01/10 01:01:56 ssb Exp $
+// $Id: Util.php,v 1.3.2.3 2001/11/13 01:26:47 ssb Exp $
 //
 
-  // {{{ gcd( $a, $b )
-
-  /**
-  * Calculates the Greatest Common Divisor (gcd) of two numbers.
-  *
-  * @param  int a first number
-  * @param  int b second number
-  * @return int result gcd(a,b)
-  * @access public
-  */
-
-  function gcd( $a, $b )
-  {
-    // make sure that $a > $b holds true
-    if( $b > $a )
+/**
+ * Mathematic utilities
+ *
+ * @author  Sebastian Bergmann <sb@sebastian-bergmann.de>
+ * @version $Revision: 1.3.2.3 $
+ * @package Numbers
+ */
+class Math_Util
+{
+  
+    /**
+     * Calculates the Greatest Common Divisor (gcd) of two numbers.
+     *
+     * @param  int a first number
+     * @param  int b second number
+     * @return int gcd(a,b)
+     * @access public
+     */
+    function gcd($a, $b)
     {
-      // swap $a and $b
-      list( $a, $b ) = array( $b, $a );
+        if ($b > $a) {
+            list($a, $b) = array($b, $a);
+        }
+
+        $c = 1;
+
+        // the magic loop (thanks, Euclid :-)
+        while ($c > 0) {
+            $c = $a % $b;
+            $a = $b;
+            $b = $c;
+        }
+
+        return $a;
     }
-
-    // init $c to 1
-    $c = 1;
-
-    // the magic loop (thanks, Euclid :-)
-    while( $c > 0 )
-    {
-      $c = $a % $b;
-      $a = $b;
-      $b = $c;
-    }
-
-    // return result
-    return $a;
-  }
-
-  // }}}
+}
 ?>

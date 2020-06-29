@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: uniqid.c,v 1.21 2001/02/26 06:07:23 andi Exp $ */
+/* $Id: uniqid.c,v 1.25 2001/08/11 17:03:37 zeev Exp $ */
 
 #include "php.h"
 
@@ -77,12 +77,12 @@ PHP_FUNCTION(uniqid)
 	 * digits for usecs.
 	 */
 	if (MORE_ENTROPY) {
-		sprintf(uniqid, "%s%08x%05x%.8f", (*prefix)->value.str.val, sec, usec, php_combined_lcg() * 10);
+		sprintf(uniqid, "%s%08x%05x%.8f", (*prefix)->value.str.val, sec, usec, php_combined_lcg(TSRMLS_C) * 10);
 	} else {
 		sprintf(uniqid, "%s%08x%05x", (*prefix)->value.str.val, sec, usec);
 	}
 
-	RETURN_STRING(uniqid,1);
+	RETURN_STRING(uniqid, 1);
 #endif
 }
 /* }}} */
@@ -92,9 +92,12 @@ function_entry uniqid_functions[] = {
 	{NULL, NULL, NULL}
 };
 
+
 /*
  * Local variables:
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

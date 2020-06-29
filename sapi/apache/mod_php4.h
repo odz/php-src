@@ -15,7 +15,7 @@
    | Authors: Rasmus Lerdorf <rasmus@php.net>                             |
    +----------------------------------------------------------------------+
  */
-/* $Id: mod_php4.h,v 1.11.4.1 2001/05/13 09:07:02 zeev Exp $ */
+/* $Id: mod_php4.h,v 1.13.2.1 2001/09/17 12:23:43 dbeu Exp $ */
 
 #ifndef MOD_PHP4_H
 #define MOD_PHP4_H
@@ -27,8 +27,8 @@
 #endif
 
 typedef struct {
-    long engine;
-    long last_modified;
+	long engine;
+	long last_modified;
 	long xbithack;
 	long terminate_child;
 	zend_bool in_request;
@@ -38,19 +38,10 @@ extern zend_module_entry apache_module_entry;
 
 #ifdef ZTS
 extern int php_apache_info_id;
-#define APLS_D php_apache_info_struct *apache_globals
-#define AP(v) (apache_globals->v)
-#define APLS_FETCH() APLS_D = ts_resource(php_apache_info_id)
+#define AP(v) TSRMG(php_apache_info_id, php_apache_info_struct *, v)
 #else
 extern php_apache_info_struct php_apache_info;
-#define APLS_D
 #define AP(v) (php_apache_info.v)
-#define APLS_FETCH()
-#endif
-
-
-#ifdef WIN32
-#define S_IXUSR _S_IEXEC
 #endif
 
 #endif							/* MOD_PHP4_H */

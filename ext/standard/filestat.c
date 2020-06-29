@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: filestat.c,v 1.63.2.1 2001/05/22 03:00:26 jon Exp $ */
+/* $Id: filestat.c,v 1.78.2.1 2001/08/21 23:59:21 joey Exp $ */
 
 #include "php.h"
 #include "safe_mode.h"
@@ -32,6 +32,10 @@
 
 #if HAVE_UNISTD_H
 # include <unistd.h>
+#endif
+
+#if HAVE_SYS_VFS_H
+# include <sys/vfs.h>
 #endif
 
 #ifdef OS2
@@ -72,7 +76,6 @@
 #endif
 
 #include "basic_functions.h"
-
 #include "php_filestat.h"
 
 #ifndef S_ISDIR
@@ -85,50 +88,149 @@
 #define S_ISLNK(mode)	(((mode)&S_IFMT) == S_IFLNK)
 #endif
 
-#ifdef PHP_WIN32
-#define S_IRUSR S_IREAD
-#define S_IWUSR S_IWRITE
-#define S_IXUSR S_IEXEC
-
-#define S_IRGRP S_IREAD
-#define S_IWGRP S_IWRITE
-#define S_IXGRP S_IEXEC
-
-#define S_IROTH S_IREAD
-#define S_IWOTH S_IWRITE
-#define S_IXOTH S_IEXEC
-
-#undef getgid
-#define getgroups(a,b) 0
-#define getgid() 1
-#define getuid() 1
-#endif
-
 #define S_IXROOT ( S_IXUSR | S_IXGRP | S_IXOTH )
+
+/* Switches for various filestat functions: */
+#define FS_PERMS    0
+#define FS_INODE    1
+#define FS_SIZE     2
+#define FS_OWNER    3
+#define FS_GROUP    4
+#define FS_ATIME    5
+#define FS_MTIME    6
+#define FS_CTIME    7
+#define FS_TYPE     8
+#define FS_IS_W     9
+#define FS_IS_R    10
+#define FS_IS_X    11
+#define FS_IS_FILE 12
+#define FS_IS_DIR  13
+#define FS_IS_LINK 14
+#define FS_EXISTS  15
+#define FS_LSTAT   16
+#define FS_STAT    17
+
 
 PHP_RINIT_FUNCTION(filestat)
 {
-	BLS_FETCH();
-
 	BG(CurrentStatFile)=NULL;
 	BG(CurrentStatLength)=0;
 	return SUCCESS;
 }
 
-
-PHP_RSHUTDOWN_FUNCTION(filestat)
-{
-	BLS_FETCH();
-
+PHP_RSHUTDOWN_FUNCTION(filestat) {
 	if (BG(CurrentStatFile)) {
 		efree (BG(CurrentStatFile));
 	}
 	return SUCCESS;
 }
 
-/* {{{ proto double diskfreespace(string path)
-   Get free diskspace for filesystem that path is on */
-PHP_FUNCTION(diskfreespace)
+/* {{{ proto double disk_total_space(string path)
+   Get total disk space for filesystem that path is on */
+PHP_FUNCTION(disk_total_space)
+{
+	pval **path;
+#ifdef WINDOWS
+	double bytestotal;
+
+	HINSTANCE kernel32;
+	FARPROC gdfse;
+	typedef BOOL (WINAPI *gdfse_func)(LPCTSTR, PULARGE_INTEGER, PULARGE_INTEGER, PULARGE_INTEGER);
+	gdfse_func func;
+
+	/* These are used by GetDiskFreeSpaceEx, if available. */
+	ULARGE_INTEGER FreeBytesAvailableToCaller;
+	ULARGE_INTEGER TotalNumberOfBytes;
+  	ULARGE_INTEGER TotalNumberOfFreeBytes;
+
+	/* These are used by GetDiskFreeSpace otherwise. */
+	DWORD SectorsPerCluster;
+	DWORD BytesPerSector;
+	DWORD NumberOfFreeClusters;
+	DWORD TotalNumberOfClusters;
+
+#else /* not - WINDOWS */
+#if defined(HAVE_SYS_STATVFS_H) && defined(HAVE_STATVFS)
+	struct statvfs buf;
+#elif (defined(HAVE_SYS_STATFS_H) || defined(HAVE_SYS_MOUNT_H)) && defined(HAVE_STATFS)
+	struct statfs buf;
+#endif
+	double bytestotal = 0;
+#endif /* WINDOWS */
+
+	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &path)==FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	convert_to_string_ex(path);
+
+	if (php_check_open_basedir((*path)->value.str.val TSRMLS_CC)) {
+		RETURN_FALSE;
+	}
+
+#ifdef WINDOWS
+	/* GetDiskFreeSpaceEx is only available in NT and Win95 post-OSR2,
+	   so we have to jump through some hoops to see if the function
+	   exists. */
+	kernel32 = LoadLibrary("kernel32.dll");
+	if (kernel32) {
+		gdfse = GetProcAddress(kernel32, "GetDiskFreeSpaceExA");
+		/* It's available, so we can call it. */
+		if (gdfse) {
+			func = (gdfse_func)gdfse;
+			if (func((*path)->value.str.val,
+				&FreeBytesAvailableToCaller,
+				&TotalNumberOfBytes,
+				&TotalNumberOfFreeBytes) == 0) RETURN_FALSE;
+
+			/* i know - this is ugly, but i works (thies@thieso.net) */
+			bytestotal  = TotalNumberOfBytes.HighPart *
+				(double) (((unsigned long)1) << 31) * 2.0 +
+				TotalNumberOfBytes.LowPart;
+		}
+		/* If it's not available, we just use GetDiskFreeSpace */
+		else {
+			if (GetDiskFreeSpace((*path)->value.str.val,
+				&SectorsPerCluster, &BytesPerSector,
+				&NumberOfFreeClusters, &TotalNumberOfClusters) == 0) RETURN_FALSE;
+			bytestotal = (double)TotalNumberOfClusters * (double)SectorsPerCluster * (double)BytesPerSector;
+		}
+	}
+	else {
+		php_error(E_WARNING, "Unable to load kernel32.dll");
+		RETURN_FALSE;
+	}
+
+#elif defined(OS2)
+	{
+		FSALLOCATE fsinfo;
+  		char drive = (*path)->value.str.val[0] & 95;
+
+		if (DosQueryFSInfo( drive ? drive - 64 : 0, FSIL_ALLOC, &fsinfo, sizeof( fsinfo ) ) == 0)
+			bytestotal = (double)fsinfo.cbSector * fsinfo.cSectorUnit * fsinfo.cUnit;
+	}
+#else /* WINDOWS, OS/2 */
+#if defined(HAVE_SYS_STATVFS_H) && defined(HAVE_STATVFS)
+	if (statvfs((*path)->value.str.val, &buf)) RETURN_FALSE;
+	if (buf.f_frsize) {
+		bytestotal = (((double)buf.f_blocks) * ((double)buf.f_frsize));
+	} else {
+		bytestotal = (((double)buf.f_blocks) * ((double)buf.f_bsize));
+	}
+
+#elif (defined(HAVE_SYS_STATFS_H) || defined(HAVE_SYS_MOUNT_H)) && defined(HAVE_STATFS)
+	if (statfs((*path)->value.str.val, &buf)) RETURN_FALSE;
+	bytestotal = (((double)buf.f_bsize) * ((double)buf.f_blocks));
+#endif
+#endif /* WINDOWS */
+
+	RETURN_DOUBLE(bytestotal);
+}
+/* }}} */
+
+/* {{{ proto double disk_free_space(string path)
+   Get free disk space for filesystem that path is on */
+PHP_FUNCTION(disk_free_space)
 {
 	pval **path;
 #ifdef WINDOWS
@@ -159,13 +261,15 @@ PHP_FUNCTION(diskfreespace)
 	double bytesfree = 0;
 #endif /* WINDOWS */
 
-	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1,&path)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &path)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
 	convert_to_string_ex(path);
 
-	if (php_check_open_basedir((*path)->value.str.val)) RETURN_FALSE;
+	if (php_check_open_basedir((*path)->value.str.val TSRMLS_CC)) {
+		RETURN_FALSE;
+	}
 
 #ifdef WINDOWS
 	/* GetDiskFreeSpaceEx is only available in NT and Win95 post-OSR2,
@@ -210,14 +314,14 @@ PHP_FUNCTION(diskfreespace)
 	}
 #else /* WINDOWS, OS/2 */
 #if defined(HAVE_SYS_STATVFS_H) && defined(HAVE_STATVFS)
-	if (statvfs((*path)->value.str.val,&buf)) RETURN_FALSE;
+	if (statvfs((*path)->value.str.val, &buf)) RETURN_FALSE;
 	if (buf.f_frsize) {
 		bytesfree = (((double)buf.f_bavail) * ((double)buf.f_frsize));
 	} else {
 		bytesfree = (((double)buf.f_bavail) * ((double)buf.f_bsize));
 	}
 #elif (defined(HAVE_SYS_STATFS_H) || defined(HAVE_SYS_MOUNT_H)) && defined(HAVE_STATFS)
-	if (statfs((*path)->value.str.val,&buf)) RETURN_FALSE;
+	if (statfs((*path)->value.str.val, &buf)) RETURN_FALSE;
 	bytesfree = (((double)buf.f_bsize) * ((double)buf.f_bavail));
 #endif
 #endif /* WINDOWS */
@@ -235,9 +339,8 @@ PHP_FUNCTION(chgrp)
 	gid_t gid;
 	struct group *gr=NULL;
 	int ret;
-	PLS_FETCH();
 
-	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2,&filename,&group)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2, &filename, &group)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(filename);
@@ -259,8 +362,9 @@ PHP_FUNCTION(chgrp)
 	}
 
 	/* Check the basedir */
-	if (php_check_open_basedir((*filename)->value.str.val))
+	if (php_check_open_basedir((*filename)->value.str.val TSRMLS_CC)) {
 		RETURN_FALSE;
+	}
 
 	ret = VCWD_CHOWN((*filename)->value.str.val, -1, gid);
 	if (ret == -1) {
@@ -283,9 +387,8 @@ PHP_FUNCTION(chown)
 	int ret;
 	uid_t uid;
 	struct passwd *pw = NULL;
-	PLS_FETCH();
 
-	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2,&filename,&user)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2, &filename, &user)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(filename);
@@ -307,8 +410,9 @@ PHP_FUNCTION(chown)
 	}
 
 	/* Check the basedir */
-	if (php_check_open_basedir((*filename)->value.str.val))
+	if (php_check_open_basedir((*filename)->value.str.val TSRMLS_CC)) {
 		RETURN_FALSE;
+	}
 
 	ret = VCWD_CHOWN((*filename)->value.str.val, uid, -1);
 	if (ret == -1) {
@@ -320,7 +424,6 @@ PHP_FUNCTION(chown)
 }
 /* }}} */
 
-
 /* {{{ proto bool chmod(string filename, int mode)
    Change file mode */
 PHP_FUNCTION(chmod)
@@ -328,9 +431,8 @@ PHP_FUNCTION(chmod)
 	pval **filename, **mode;
 	int ret;
 	mode_t imode;
-	PLS_FETCH();
 
-	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2,&filename,&mode)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2, &filename, &mode)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(filename);
@@ -341,8 +443,9 @@ PHP_FUNCTION(chmod)
 	}
 
 	/* Check the basedir */
-	if (php_check_open_basedir((*filename)->value.str.val))
+	if (php_check_open_basedir((*filename)->value.str.val TSRMLS_CC)) {
 		RETURN_FALSE;
+	}
 
 	imode = (mode_t) (*mode)->value.lval;
 	/* in safe mode, do not allow to setuid files.
@@ -361,7 +464,6 @@ PHP_FUNCTION(chmod)
 }
 /* }}} */
 
-
 /* {{{ proto bool touch(string filename [, int time])
    Set modification time of file */
 PHP_FUNCTION(touch)
@@ -373,9 +475,8 @@ PHP_FUNCTION(touch)
 	FILE *file;
 	struct utimbuf *newtime = NULL;
 	int ac = ZEND_NUM_ARGS();
-	PLS_FETCH();
 
-	if (ac == 1 && zend_get_parameters_ex(1,&filename) != FAILURE) {
+	if (ac == 1 && zend_get_parameters_ex(1, &filename) != FAILURE) {
 #ifndef HAVE_UTIME_NULL
 		newtime = (struct utimbuf *)emalloc(sizeof(struct utimbuf));
 		if (!newtime) {
@@ -385,7 +486,7 @@ PHP_FUNCTION(touch)
 		newtime->actime = time(NULL);
 		newtime->modtime = newtime->actime;
 #endif
-	} else if (ac == 2 && zend_get_parameters_ex(2,&filename,&filetime) != FAILURE) {
+	} else if (ac == 2 && zend_get_parameters_ex(2, &filename, &filetime) != FAILURE) {
 		newtime = (struct utimbuf *)emalloc(sizeof(struct utimbuf));
 		if (!newtime) {
 			php_error(E_WARNING, "unable to emalloc memory for changing time");
@@ -405,8 +506,10 @@ PHP_FUNCTION(touch)
 	}
 
 	/* Check the basedir */
-	if (php_check_open_basedir((*filename)->value.str.val)) {
-		if (newtime) efree(newtime);
+	if (php_check_open_basedir((*filename)->value.str.val TSRMLS_CC)) {
+		if (newtime) {
+			efree(newtime);
+		}
 		RETURN_FALSE;
 	}
 
@@ -434,13 +537,10 @@ PHP_FUNCTION(touch)
 }
 /* }}} */
 
-
 /* {{{ proto void clearstatcache(void)
    Clear file stat cache */
 PHP_FUNCTION(clearstatcache)
 {
-	BLS_FETCH();
-
 	if (BG(CurrentStatFile)) {
 		efree(BG(CurrentStatFile));
 		BG(CurrentStatFile) = NULL;
@@ -450,11 +550,17 @@ PHP_FUNCTION(clearstatcache)
 
 #define IS_LINK_OPERATION() (type == 8 /* filetype */ || type == 14 /* is_link */ || type == 16 /* lstat */)
 
+/* {{{ php_stat
+ */
 static void php_stat(const char *filename, php_stat_len filename_length, int type, pval *return_value)
 {
+	zval *stat_dev, *stat_ino, *stat_mode, *stat_nlink, *stat_uid, *stat_gid, *stat_rdev,
+	 	*stat_size, *stat_atime, *stat_mtime, *stat_ctime, *stat_blksize, *stat_blocks;
 	struct stat *stat_sb;
-	int rmask=S_IROTH,wmask=S_IWOTH,xmask=S_IXOTH; /* access rights defaults to other */
-	BLS_FETCH();
+	int rmask=S_IROTH, wmask=S_IWOTH, xmask=S_IXOTH; /* access rights defaults to other */
+	char *stat_sb_names[13]={"dev", "ino", "mode", "nlink", "uid", "gid", "rdev",
+			      "size", "atime", "mtime", "ctime", "blksize", "blocks"};
+	TSRMLS_FETCH();
 
 	stat_sb = &BG(sb);
 
@@ -472,8 +578,8 @@ static void php_stat(const char *filename, php_stat_len filename_length, int typ
 		BG(lsb).st_mode = 0; /* mark lstat buf invalid */
 #endif
 		if (VCWD_STAT(BG(CurrentStatFile), &BG(sb)) == -1) {
-			if (!IS_LINK_OPERATION() && (type != 15 || errno != ENOENT)) { /* fileexists() test must print no error */
-				php_error(E_NOTICE,"stat failed for %s (errno=%d - %s)", BG(CurrentStatFile), errno, strerror(errno));
+			if (!IS_LINK_OPERATION() && (type != FS_EXISTS || errno != ENOENT)) { /* fileexists() test must print no error */
+				php_error(E_WARNING, "stat failed for %s (errno=%d - %s)", BG(CurrentStatFile), errno, strerror(errno));
 			}
 			efree(BG(CurrentStatFile));
 			BG(CurrentStatFile) = NULL;
@@ -487,14 +593,14 @@ static void php_stat(const char *filename, php_stat_len filename_length, int typ
 	if (IS_LINK_OPERATION() && !BG(lsb).st_mode) {
 		/* do lstat if the buffer is empty */
 		if (VCWD_LSTAT(filename, &BG(lsb)) == -1) {
-			php_error(E_NOTICE, "lstat failed for %s (errno=%d - %s)", filename, errno, strerror(errno));
+			php_error(E_WARNING, "lstat failed for %s (errno=%d - %s)", filename, errno, strerror(errno));
 			RETURN_FALSE;
 		}
 	}
 #endif
 
 
-	if (type >= 9 && type <= 11) {
+	if (type >= FS_IS_W && type <= FS_IS_X) {
 		if(BG(sb).st_uid==getuid()) {
 			rmask=S_IRUSR;
 			wmask=S_IWUSR;
@@ -504,13 +610,13 @@ static void php_stat(const char *filename, php_stat_len filename_length, int typ
 			wmask=S_IWGRP;
 			xmask=S_IXGRP;
 		} else {
-			int   groups,n,i;
+			int   groups, n, i;
 			gid_t *gids;
 
-			groups = getgroups(0,NULL);
+			groups = getgroups(0, NULL);
 			if(groups) {
 				gids=(gid_t *)emalloc(groups*sizeof(gid_t));
-				n=getgroups(groups,gids);
+				n=getgroups(groups, gids);
 				for(i=0;i<n;i++){
 					if(BG(sb).st_gid==gids[i]) {
 						rmask=S_IRGRP;
@@ -525,130 +631,138 @@ static void php_stat(const char *filename, php_stat_len filename_length, int typ
 	}
 
 	switch (type) {
-	case 0: /* fileperms */
+	case FS_PERMS:
 		RETURN_LONG((long)BG(sb).st_mode);
-	case 1: /* fileinode */
+	case FS_INODE:
 		RETURN_LONG((long)BG(sb).st_ino);
-	case 2: /* filesize  */
+	case FS_SIZE:
 		RETURN_LONG((long)BG(sb).st_size);
-	case 3: /* fileowner */
+	case FS_OWNER:
 		RETURN_LONG((long)BG(sb).st_uid);
-	case 4: /* filegroup */
+	case FS_GROUP:
 		RETURN_LONG((long)BG(sb).st_gid);
-	case 5: /* fileatime */
+	case FS_ATIME:
 		RETURN_LONG((long)BG(sb).st_atime);
-	case 6: /* filemtime */
+	case FS_MTIME:
 		RETURN_LONG((long)BG(sb).st_mtime);
-	case 7: /* filectime */
+	case FS_CTIME:
 		RETURN_LONG((long)BG(sb).st_ctime);
-	case 8: /* filetype */
+	case FS_TYPE:
 #if HAVE_SYMLINK
 		if (S_ISLNK(BG(lsb).st_mode)) {
-			RETURN_STRING("link",1);
+			RETURN_STRING("link", 1);
 		}
 #endif
 		switch(BG(sb).st_mode&S_IFMT) {
-		case S_IFIFO: RETURN_STRING("fifo",1);
-		case S_IFCHR: RETURN_STRING("char",1);
-		case S_IFDIR: RETURN_STRING("dir",1);
-		case S_IFBLK: RETURN_STRING("block",1);
-		case S_IFREG: RETURN_STRING("file",1);
+		case S_IFIFO: RETURN_STRING("fifo", 1);
+		case S_IFCHR: RETURN_STRING("char", 1);
+		case S_IFDIR: RETURN_STRING("dir", 1);
+		case S_IFBLK: RETURN_STRING("block", 1);
+		case S_IFREG: RETURN_STRING("file", 1);
 #if defined(S_IFSOCK) && !defined(ZEND_WIN32)&&!defined(__BEOS__)
-		case S_IFSOCK: RETURN_STRING("socket",1);
+		case S_IFSOCK: RETURN_STRING("socket", 1);
 #endif
 		}
-		php_error(E_WARNING,"Unknown file type (%d)",BG(sb).st_mode&S_IFMT);
+		php_error(E_WARNING, "Unknown file type (%d)", BG(sb).st_mode&S_IFMT);
 		RETURN_STRING("unknown", 1);
-	case 9: /*is writable*/
+	case FS_IS_W:
 		if (getuid()==0) {
 			RETURN_LONG(1); /* root */
 		}
 		RETURN_LONG((BG(sb).st_mode & wmask) != 0);
-	case 10: /*is readable*/
+	case FS_IS_R:
 		if (getuid()==0) {
 			RETURN_LONG(1); /* root */
 		}
 		RETURN_LONG((BG(sb).st_mode&rmask)!=0);
-	case 11: /*is executable*/
+	case FS_IS_X:
 		if (getuid()==0) {
 			xmask = S_IXROOT; /* root */
 		}
 		RETURN_LONG((BG(sb).st_mode&xmask)!=0 && !S_ISDIR(BG(sb).st_mode));
-	case 12: /*is file*/
+	case FS_IS_FILE:
 		RETURN_LONG(S_ISREG(BG(sb).st_mode));
-	case 13: /*is dir*/
+	case FS_IS_DIR:
 		RETURN_LONG(S_ISDIR(BG(sb).st_mode));
-	case 14: /*is link*/
+	case FS_IS_LINK:
 #if HAVE_SYMLINK
 		RETURN_LONG(S_ISLNK(BG(lsb).st_mode));
 #else
 		RETURN_FALSE;
 #endif
-	case 15: /*file exists*/
+	case FS_EXISTS:
 		RETURN_TRUE; /* the false case was done earlier */
-	case 16: /* lstat */
+	case FS_LSTAT:
 #if HAVE_SYMLINK
 		stat_sb = &BG(lsb);
 #endif
 		/* FALLTHROUGH */
-	case 17: /* stat */
+	case FS_STAT:
 		if (array_init(return_value) == FAILURE) {
 			RETURN_FALSE;
 		}
-		add_next_index_long(return_value, stat_sb->st_dev);
-		add_next_index_long(return_value, stat_sb->st_ino);
-		add_next_index_long(return_value, stat_sb->st_mode);
-		add_next_index_long(return_value, stat_sb->st_nlink);
-		add_next_index_long(return_value, stat_sb->st_uid);
-		add_next_index_long(return_value, stat_sb->st_gid);
+	
+		MAKE_LONG_ZVAL_INCREF(stat_dev, stat_sb->st_dev);
+		MAKE_LONG_ZVAL_INCREF(stat_ino, stat_sb->st_ino);
+		MAKE_LONG_ZVAL_INCREF(stat_mode, stat_sb->st_mode);
+		MAKE_LONG_ZVAL_INCREF(stat_nlink, stat_sb->st_nlink);
+		MAKE_LONG_ZVAL_INCREF(stat_uid, stat_sb->st_uid);
+		MAKE_LONG_ZVAL_INCREF(stat_gid, stat_sb->st_gid);
 #ifdef HAVE_ST_RDEV
-		add_next_index_long(return_value, stat_sb->st_rdev);
+		MAKE_LONG_ZVAL_INCREF(stat_rdev, stat_sb->st_rdev); 
 #else
-		add_next_index_long(return_value, -1);
+		MAKE_LONG_ZVAL_INCREF(stat_rdev, -1); 
 #endif
-		add_next_index_long(return_value, stat_sb->st_size);
-		add_next_index_long(return_value, stat_sb->st_atime);
-		add_next_index_long(return_value, stat_sb->st_mtime);
-		add_next_index_long(return_value, stat_sb->st_ctime);
+		MAKE_LONG_ZVAL_INCREF(stat_size, stat_sb->st_size);
+		MAKE_LONG_ZVAL_INCREF(stat_atime, stat_sb->st_atime);
+		MAKE_LONG_ZVAL_INCREF(stat_mtime, stat_sb->st_mtime);
+		MAKE_LONG_ZVAL_INCREF(stat_ctime, stat_sb->st_ctime);
 #ifdef HAVE_ST_BLKSIZE
-		add_next_index_long(return_value, stat_sb->st_blksize);
+		MAKE_LONG_ZVAL_INCREF(stat_blksize, stat_sb->st_blksize); 
 #else
-		add_next_index_long(return_value, -1);
+		MAKE_LONG_ZVAL_INCREF(stat_blksize,-1);
 #endif
 #ifdef HAVE_ST_BLOCKS
-		add_next_index_long(return_value, stat_sb->st_blocks);
+		MAKE_LONG_ZVAL_INCREF(stat_blocks, stat_sb->st_blocks);
 #else
-		add_next_index_long(return_value, -1);
+		MAKE_LONG_ZVAL_INCREF(stat_blocks,-1);
 #endif
-		/* Support string references as well as numerical*/
-		add_assoc_long ( return_value , "dev" , stat_sb->st_dev );
-		add_assoc_long ( return_value , "ino" , stat_sb->st_ino );
-		add_assoc_long ( return_value , "mode" , stat_sb->st_mode );
-		add_assoc_long ( return_value , "nlink" , stat_sb->st_nlink );
-		add_assoc_long ( return_value , "uid" , stat_sb->st_uid );
-		add_assoc_long ( return_value , "gid" , stat_sb->st_gid );
+		/* Store numeric indexes in propper order */
+		zend_hash_next_index_insert(HASH_OF(return_value), (void *)&stat_dev, sizeof(zval *), NULL);
+		zend_hash_next_index_insert(HASH_OF(return_value), (void *)&stat_ino, sizeof(zval *), NULL);
+		zend_hash_next_index_insert(HASH_OF(return_value), (void *)&stat_mode, sizeof(zval *), NULL);
+		zend_hash_next_index_insert(HASH_OF(return_value), (void *)&stat_nlink, sizeof(zval *), NULL);
+		zend_hash_next_index_insert(HASH_OF(return_value), (void *)&stat_uid, sizeof(zval *), NULL);
+		zend_hash_next_index_insert(HASH_OF(return_value), (void *)&stat_gid, sizeof(zval *), NULL);
+		zend_hash_next_index_insert(HASH_OF(return_value), (void *)&stat_rdev, sizeof(zval *), NULL);
+		zend_hash_next_index_insert(HASH_OF(return_value), (void *)&stat_size, sizeof(zval *), NULL);
+		zend_hash_next_index_insert(HASH_OF(return_value), (void *)&stat_atime, sizeof(zval *), NULL);
+		zend_hash_next_index_insert(HASH_OF(return_value), (void *)&stat_mtime, sizeof(zval *), NULL);
+		zend_hash_next_index_insert(HASH_OF(return_value), (void *)&stat_ctime, sizeof(zval *), NULL);
+		zend_hash_next_index_insert(HASH_OF(return_value), (void *)&stat_blksize, sizeof(zval *), NULL);
+		zend_hash_next_index_insert(HASH_OF(return_value), (void *)&stat_blocks, sizeof(zval *), NULL);
 
-#ifdef HAVE_ST_RDEV
-		add_assoc_long ( return_value, "rdev" , stat_sb->st_rdev );
-#endif
-#ifdef HAVE_ST_BLKSIZE
-		add_assoc_long ( return_value , "blksize" , stat_sb->st_blksize );
-#endif
-
-		add_assoc_long ( return_value , "size" , stat_sb->st_size );
-		add_assoc_long ( return_value , "atime" , stat_sb->st_atime );
-		add_assoc_long ( return_value , "mtime" , stat_sb->st_mtime );
-		add_assoc_long ( return_value , "ctime" , stat_sb->st_ctime );
-
-#ifdef HAVE_ST_BLOCKS
-		add_assoc_long ( return_value , "blocks" , stat_sb->st_blocks );
-#endif
+		/* Store string indexes referencing the same zval*/
+		zend_hash_update(HASH_OF(return_value), stat_sb_names[0], strlen(stat_sb_names[0])+1, (void *) &stat_dev, sizeof(zval *), NULL);
+		zend_hash_update(HASH_OF(return_value), stat_sb_names[1], strlen(stat_sb_names[1])+1, (void *) &stat_ino, sizeof(zval *), NULL);
+		zend_hash_update(HASH_OF(return_value), stat_sb_names[2], strlen(stat_sb_names[2])+1, (void *) &stat_mode, sizeof(zval *), NULL);
+		zend_hash_update(HASH_OF(return_value), stat_sb_names[3], strlen(stat_sb_names[3])+1, (void *) &stat_nlink, sizeof(zval *), NULL);
+		zend_hash_update(HASH_OF(return_value), stat_sb_names[4], strlen(stat_sb_names[4])+1, (void *) &stat_uid, sizeof(zval *), NULL);
+		zend_hash_update(HASH_OF(return_value), stat_sb_names[5], strlen(stat_sb_names[5])+1, (void *) &stat_gid, sizeof(zval *), NULL);
+		zend_hash_update(HASH_OF(return_value), stat_sb_names[6], strlen(stat_sb_names[6])+1, (void *) &stat_rdev, sizeof(zval *), NULL);
+		zend_hash_update(HASH_OF(return_value), stat_sb_names[7], strlen(stat_sb_names[7])+1, (void *) &stat_size, sizeof(zval *), NULL);
+		zend_hash_update(HASH_OF(return_value), stat_sb_names[8], strlen(stat_sb_names[8])+1, (void *) &stat_atime, sizeof(zval *), NULL);
+		zend_hash_update(HASH_OF(return_value), stat_sb_names[9], strlen(stat_sb_names[9])+1, (void *) &stat_mtime, sizeof(zval *), NULL);
+		zend_hash_update(HASH_OF(return_value), stat_sb_names[10], strlen(stat_sb_names[10])+1, (void *) &stat_ctime, sizeof(zval *), NULL);
+		zend_hash_update(HASH_OF(return_value), stat_sb_names[11], strlen(stat_sb_names[11])+1, (void *) &stat_blksize, sizeof(zval *), NULL);
+		zend_hash_update(HASH_OF(return_value), stat_sb_names[12], strlen(stat_sb_names[12])+1, (void *) &stat_blocks, sizeof(zval *), NULL);
 
 		return;
 	}
 	php_error(E_WARNING, "didn't understand stat call");
 	RETURN_FALSE;
 }
+/* }}} */
 
 /* another quickie macro to make defining similar functions easier */
 #define FileFunction(name, funcnum) \
@@ -663,92 +777,92 @@ void name(INTERNAL_FUNCTION_PARAMETERS) { \
 
 /* {{{ proto int fileperms(string filename)
    Get file permissions */
-FileFunction(PHP_FN(fileperms),0)
+FileFunction(PHP_FN(fileperms), FS_PERMS)
 /* }}} */
 
 /* {{{ proto int fileinode(string filename)
    Get file inode */
-FileFunction(PHP_FN(fileinode),1)
+FileFunction(PHP_FN(fileinode), FS_INODE)
 /* }}} */
 
 /* {{{ proto int filesize(string filename)
    Get file size */
-FileFunction(PHP_FN(filesize), 2)
+FileFunction(PHP_FN(filesize), FS_SIZE)
 /* }}} */
 
 /* {{{ proto int fileowner(string filename)
    Get file owner */
-FileFunction(PHP_FN(fileowner),3)
+FileFunction(PHP_FN(fileowner), FS_OWNER)
 /* }}} */
 
 /* {{{ proto int filegroup(string filename)
    Get file group */
-FileFunction(PHP_FN(filegroup),4)
+FileFunction(PHP_FN(filegroup), FS_GROUP)
 /* }}} */
 
 /* {{{ proto int fileatime(string filename)
    Get last access time of file */
-FileFunction(PHP_FN(fileatime),5)
+FileFunction(PHP_FN(fileatime), FS_ATIME)
 /* }}} */
 
 /* {{{ proto int filemtime(string filename)
    Get last modification time of file */
-FileFunction(PHP_FN(filemtime),6)
+FileFunction(PHP_FN(filemtime), FS_MTIME)
 /* }}} */
 
 /* {{{ proto int filectime(string filename)
    Get inode modification time of file */
-FileFunction(PHP_FN(filectime),7)
+FileFunction(PHP_FN(filectime), FS_CTIME)
 /* }}} */
 
 /* {{{ proto string filetype(string filename)
    Get file type */
-FileFunction(PHP_FN(filetype), 8)
+FileFunction(PHP_FN(filetype), FS_TYPE)
 /* }}} */
 
 /* {{{ proto int is_writable(string filename)
    Returns true if file can be written */
-FileFunction(PHP_FN(is_writable), 9)
+FileFunction(PHP_FN(is_writable), FS_IS_W)
 /* }}} */
 
 /* {{{ proto int is_readable(string filename)
    Returns true if file can be read */
-FileFunction(PHP_FN(is_readable),10)
+FileFunction(PHP_FN(is_readable), FS_IS_R)
 /* }}} */
 
 /* {{{ proto int is_executable(string filename)
    Returns true if file is executable */
-FileFunction(PHP_FN(is_executable),11)
+FileFunction(PHP_FN(is_executable), FS_IS_X)
 /* }}} */
 
 /* {{{ proto int is_file(string filename)
    Returns true if file is a regular file */
-FileFunction(PHP_FN(is_file),12)
+FileFunction(PHP_FN(is_file), FS_IS_FILE)
 /* }}} */
 
 /* {{{ proto int is_dir(string filename)
    Returns true if file is directory */
-FileFunction(PHP_FN(is_dir),13)
+FileFunction(PHP_FN(is_dir), FS_IS_DIR)
 /* }}} */
 
 /* {{{ proto int is_link(string filename)
    Returns true if file is symbolic link */
-FileFunction(PHP_FN(is_link),14)
+FileFunction(PHP_FN(is_link), FS_IS_LINK)
 /* }}} */
 
 /* {{{ proto bool file_exists(string filename)
    Returns true if filename exists */
-FileFunction(PHP_FN(file_exists),15)
+FileFunction(PHP_FN(file_exists), FS_EXISTS)
 /* }}} */
 
 /* {{{ proto array lstat(string filename)
    Give information about a file or symbolic link */
-FileFunction(php_if_lstat, 16)
+FileFunction(php_if_lstat, FS_LSTAT)
 /* }}} */
 
 /* {{{ proto array stat(string filename)
    Give information about a file */
-FileFunction(php_if_stat,17)
+FileFunction(php_if_stat, FS_STAT)
 /* }}} */
 
 /*
@@ -756,4 +870,6 @@ FileFunction(php_if_stat,17)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

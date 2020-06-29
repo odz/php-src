@@ -16,29 +16,27 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_lcg.h,v 1.11 2001/05/06 17:55:10 sniper Exp $ */
+/* $Id: php_lcg.h,v 1.14 2001/08/06 03:50:51 sas Exp $ */
 
 #ifndef PHP_LCG_H
 #define PHP_LCG_H
 
+#include "ext/standard/basic_functions.h"
+
 typedef struct {
-	long s1;
-	long s2;
+	php_int32 s1;
+	php_int32 s2;
 } php_lcg_globals;
 
-double php_combined_lcg(void);
+double php_combined_lcg(TSRMLS_D);
 PHP_FUNCTION(lcg_value);
 
 #ifdef ZTS
 PHP_MINIT_FUNCTION(lcg);
-#define LCGLS_D php_lcg_globals *lcg_globals
-#define LCG(v) (lcg_globals->v)
-#define LCGLS_FETCH() php_lcg_globals *lcg_globals = ts_resource(lcg_globals_id)
+#define LCG(v) TSRMG(lcg_globals_id, php_lcg_globals *, v)
 #else
 PHP_RINIT_FUNCTION(lcg);
-#define LCGLS_D void
 #define LCG(v) (lcg_globals.v)
-#define LCGLS_FETCH()
 #endif
 
 #endif

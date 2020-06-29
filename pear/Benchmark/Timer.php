@@ -16,7 +16,7 @@
 // | Authors: Sebastian Bergmann <sb@sebastian-bergmann.de>               |
 // +----------------------------------------------------------------------+
 //
-// $Id: Timer.php,v 1.8 2001/03/03 06:35:25 sbergmann Exp $
+// $Id: Timer.php,v 1.9 2001/07/23 09:57:52 sbergmann Exp $
 //
 
 /**
@@ -37,11 +37,11 @@
  *     $profiling = $timer->getProfiling();
  * 
  * @author   Sebastian Bergmann <sb@sebastian-bergmann.de>
- * @version  $Revision: 1.8 $
+ * @version  $Revision: 1.9 $
  * @access   public
  */
-class Benchmark_Timer
-{
+
+class Benchmark_Timer {
     /**
      * Contains the markers
      *
@@ -56,8 +56,7 @@ class Benchmark_Timer
      * @see    setMarker(), stop()
      * @access public
      */
-    function start()
-    {
+    function start() {
         $this->setMarker('Start');
     }
 
@@ -67,8 +66,7 @@ class Benchmark_Timer
      * @see    setMarker(), start()
      * @access public
      */
-    function stop()
-    {
+    function stop() {
         $this->setMarker('Stop');
     }
 
@@ -79,8 +77,7 @@ class Benchmark_Timer
      * @see    start(), stop()
      * @access public
      */
-    function setMarker($name)
-    {
+    function setMarker($name) {
         $microtime = explode(' ', microtime());
         $this->markers[$name] = $microtime[1] . substr($microtime[0], 1);
     }
@@ -93,8 +90,7 @@ class Benchmark_Timer
      * @return double  $time_elapsed time elapsed between $start and $end
      * @access public
      */
-    function timeElapsed($start = 'Start', $end = 'Stop')
-    {
+    function timeElapsed($start = 'Start', $end = 'Stop') {
         if (extension_loaded('bcmath')) {
             return bcsub($this->markers[$end], $this->markers[$start], 6);
         } else {
@@ -113,8 +109,7 @@ class Benchmark_Timer
      * @return array $profiling
      * @access public
      */
-    function getProfiling()
-    {
+    function getProfiling() {
         $i = 0;
         $total = 0;
         $result = array();

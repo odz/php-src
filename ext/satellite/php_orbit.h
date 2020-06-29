@@ -17,26 +17,27 @@
  */
 
 /*
- * $Id: php_orbit.h,v 1.3 2001/02/26 06:07:15 andi Exp $
+ * $Id: php_orbit.h,v 1.5 2001/08/09 21:55:09 eriksson Exp $
  * vim: syntax=c tabstop=2 shiftwidth=2
  */
 
 #ifndef _PHP_ORBIT_H
 #define _PHP_ORBIT_H
 
-extern PHP_MINIT_FUNCTION(satellite);
-extern PHP_MSHUTDOWN_FUNCTION(satellite);
+PHP_MINIT_FUNCTION(satellite);
+PHP_MSHUTDOWN_FUNCTION(satellite);
 extern zend_module_entry satellite_module_entry;
 
 #define satellite_module_ptr &satellite_module_entry
 #define phpext_satellite_ptr satellite_module_ptr
 
-extern PHP_FUNCTION(satellite_load_idl);
-extern PHP_FUNCTION(satellite_get_repository_id);
+PHP_FUNCTION(satellite_load_idl);
+PHP_FUNCTION(satellite_get_repository_id);
+PHP_FUNCTION(satellite_object_to_string);
 
 /* exception handling */
-extern PHP_FUNCTION(satellite_caught_exception);
-extern PHP_FUNCTION(satellite_exception_id);
-extern PHP_FUNCTION(satellite_exception_value);
+PHP_FUNCTION(satellite_caught_exception);
+PHP_FUNCTION(satellite_exception_id);
+PHP_FUNCTION(satellite_exception_value);
 
 #endif  /* _PHP_ORBIT_H */

@@ -15,7 +15,7 @@
 // | Authors: Christian Stocker <chregu@nomad.ch>                         |
 // +----------------------------------------------------------------------+
 //
-// $Id: dbx.php,v 1.7 2001/05/06 10:27:54 chregu Exp $
+// $Id: dbx.php,v 1.9 2001/08/11 08:08:06 sebastian Exp $
 
 
 require_once 'Cache/Container.php';
@@ -50,7 +50,7 @@ require_once 'Cache/Container.php';
 * )
 *
 * @author   Christian Stocker <chregu@nomad.ch>
-* @version  $Id: dbx.php,v 1.7 2001/05/06 10:27:54 chregu Exp $
+* @version  $Id: dbx.php,v 1.9 2001/08/11 08:08:06 sebastian Exp $
 * @package  Cache
 */
 class Cache_Container_dbx extends Cache_Container {
@@ -197,7 +197,7 @@ class Cache_Container_dbx extends Cache_Container {
         }
     }
 
-    function delete($id, $group)
+    function remove($id, $group)
     {
         $this->flushPreload($id, $group);
 
@@ -213,7 +213,7 @@ class Cache_Container_dbx extends Cache_Container {
             return new Cache_Error('DBx query failed: ' . dbx_error($this->db), __FILE__, __LINE__);
     }
 
-    function flush($group = "")
+    function flush($group = '')
     {
         $this->flushPreload();
 

@@ -1,4 +1,4 @@
-dnl $Id: configure.in,v 1.16 2000/12/02 13:27:07 sascha Exp $
+dnl $Id: configure.in,v 1.17 2001/08/08 10:26:21 zeev Exp $
 dnl
 dnl Minimalistic configure.in for TSRM.
 dnl
@@ -27,7 +27,5 @@ alloca.h \
 unistd.h \
 limits.h
 )
-
-AC_DEFINE(ZTS,1,[ ])
 
 AC_OUTPUT(Makefile)

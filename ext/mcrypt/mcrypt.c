@@ -35,6 +35,8 @@
 #include "php_globals.h"
 #include "ext/standard/info.h"
 
+static int le_mcrypt;
+
 
 function_entry mcrypt_functions[] = {
 	PHP_FE(mcrypt_ecb, NULL)
@@ -86,11 +88,13 @@ static PHP_MINIT_FUNCTION(mcrypt);
 static PHP_MSHUTDOWN_FUNCTION(mcrypt);
 
 zend_module_entry mcrypt_module_entry = {
+    STANDARD_MODULE_HEADER,
 	"mcrypt", 
 	mcrypt_functions,
 	PHP_MINIT(mcrypt), PHP_MSHUTDOWN(mcrypt),
 	NULL, NULL,
 	PHP_MINFO(mcrypt),
+    NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES,
 };
 
@@ -196,7 +200,7 @@ ZEND_GET_MODULE(mcrypt)
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &mcryptind) == FAILURE) {			\
 		WRONG_PARAM_COUNT																	\
 	}																						\
-	ZEND_FETCH_RESOURCE (td, MCRYPT, mcryptind, -1, "MCrypt", MCG(le_h));				
+	ZEND_FETCH_RESOURCE (td, MCRYPT, mcryptind, -1, "MCrypt", le_mcrypt);				
 
 #define MCRYPT_GET_MODE_DIR_ARGS(DIRECTORY)								\
 	switch (argc) {														\
@@ -244,12 +248,22 @@ PHP_INI_BEGIN()
 PHP_INI_END()
 #endif
 
+static void php_mcrypt_module_dtor(zend_rsrc_list_entry *rsrc)
+{
+	MCRYPT td = (MCRYPT) rsrc->ptr;
+	mcrypt_module_close (td);
+}
+
+    
 static PHP_MINIT_FUNCTION(mcrypt)
 {
 #if defined(ZTS) && defined(HAVE_LIBMCRYPT24)
     ZEND_INIT_MODULE_GLOBALS(mcrypt, NULL, NULL);
     Z_TYPE(mcrypt_module_entry) = type;
 #endif
+	
+	le_mcrypt = zend_register_list_destructors_ex(php_mcrypt_module_dtor, NULL, "mcrypt", module_number);
+    
 	/* modes for mcrypt_??? routines */
 	REGISTER_LONG_CONSTANT("MCRYPT_ENCRYPT", 0, CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("MCRYPT_DECRYPT", 1, CONST_PERSISTENT);
@@ -352,7 +366,6 @@ PHP_MINFO_FUNCTION(mcrypt)
 	int i, count;
 	smart_str tmp1 = {0};
 	smart_str tmp2 = {0};
-	MCLS_FETCH();
 
 	modules = mcrypt_list_algorithms (MCG(algorithms_dir), &count);
 	if (count == 0) {
@@ -409,7 +422,6 @@ PHP_FUNCTION(mcrypt_module_open)
 	zval **cipher, **cipher_directory, **mode, **mode_directory;
 	MCRYPT td;
 	int argc;
-    MCLS_FETCH();
     
 	argc = ZEND_NUM_ARGS();
 	MCRYPT_CHECK_PARAM_COUNT (4,4)
@@ -429,7 +441,7 @@ PHP_FUNCTION(mcrypt_module_open)
 		php_error (E_WARNING, "could not open encryption module");
 		RETURN_FALSE;
 	} else {
-		ZEND_REGISTER_RESOURCE (return_value, td, MCG(le_h));
+		ZEND_REGISTER_RESOURCE (return_value, td, le_mcrypt);
 	}
 }
 /* }}} */
@@ -446,18 +458,22 @@ PHP_FUNCTION(mcrypt_generic_init)
 	int max_key_size, key_size, iv_size;
 	MCRYPT td;
 	int argc;
-    MCLS_FETCH();
 	
 	argc = ZEND_NUM_ARGS();
 	MCRYPT_CHECK_PARAM_COUNT (3,3)
 	
 	zend_get_parameters_ex(3, &mcryptind, &key, &iv);
-	ZEND_FETCH_RESOURCE (td, MCRYPT, mcryptind, -1, "MCrypt", MCG(le_h));				
+	ZEND_FETCH_RESOURCE (td, MCRYPT, mcryptind, -1, "MCrypt", le_mcrypt);				
 	convert_to_string_ex (key);
 	convert_to_string_ex (iv);
 
 	max_key_size = mcrypt_enc_get_key_size (td);
 	iv_size = mcrypt_enc_get_iv_size (td);
+
+	if (Z_STRLEN_PP(key) == 0) {
+		php_error (E_WARNING, "key size is 0");
+		RETURN_FALSE;
+	}
 
 	key_s = emalloc (Z_STRLEN_PP(key));
 	memset (key_s, 0, Z_STRLEN_PP(key));
@@ -498,13 +514,12 @@ PHP_FUNCTION(mcrypt_generic)
 	int argc;
 	unsigned char* data_s;
 	int block_size, data_size;
-    MCLS_FETCH();
 	
 	argc = ZEND_NUM_ARGS();
 	MCRYPT_CHECK_PARAM_COUNT (2,2)
 	
 	zend_get_parameters_ex(2, &mcryptind, &data);
-	ZEND_FETCH_RESOURCE (td, MCRYPT, mcryptind, -1, "MCrypt", MCG(le_h));				
+	ZEND_FETCH_RESOURCE (td, MCRYPT, mcryptind, -1, "MCrypt", le_mcrypt);				
 	convert_to_string_ex (data);
 
 	/* Check blocksize */
@@ -539,13 +554,12 @@ PHP_FUNCTION(mdecrypt_generic)
 	int argc;
 	char* data_s;
 	int block_size, data_size;
-    MCLS_FETCH();
 	
 	argc = ZEND_NUM_ARGS();
 	MCRYPT_CHECK_PARAM_COUNT (2,2)
 	
 	zend_get_parameters_ex(2, &mcryptind, &data);
-	ZEND_FETCH_RESOURCE (td, MCRYPT, mcryptind, -1, "MCrypt", MCG(le_h));				
+	ZEND_FETCH_RESOURCE (td, MCRYPT, mcryptind, -1, "MCrypt", le_mcrypt);				
 	convert_to_string_ex (data);
 
 	/* Check blocksize */
@@ -579,7 +593,6 @@ PHP_FUNCTION(mcrypt_enc_get_supported_key_sizes)
 	MCRYPT td;
 	int argc, i, count;
 	int *key_sizes;
-    MCLS_FETCH();
 	
 	argc = ZEND_NUM_ARGS();
 	MCRYPT_GET_TD_ARG
@@ -606,7 +619,6 @@ PHP_FUNCTION(mcrypt_enc_self_test)
 {
 	zval **mcryptind;
 	MCRYPT td;
-    MCLS_FETCH();
 	
 	MCRYPT_GET_TD_ARG
 
@@ -614,24 +626,19 @@ PHP_FUNCTION(mcrypt_enc_self_test)
 }
 /* }}} */
 
-
+/* {{{ proto bool mcrypt_module_close(resource td)
+   Free the descriptor td */ 
 PHP_FUNCTION(mcrypt_module_close)
 {
 	zval **mcryptind;
 	MCRYPT td;
-    MCLS_FETCH();
 	
 	MCRYPT_GET_TD_ARG
 
-	if (mcrypt_module_close (td) < 0) {
-		php_error (E_WARNING, "could not close module");
-		RETURN_FALSE
-	} else {
-		zend_list_delete (Z_LVAL_PP(mcryptind));
-		RETURN_TRUE
-	}
+	zend_list_delete (Z_LVAL_PP(mcryptind));
+	RETURN_TRUE;
 }
-
+/* }}} */
 
 /* {{{ proto bool mcrypt_generic_end(resource td)
    This function terminates encrypt specified by the descriptor td */
@@ -639,7 +646,6 @@ PHP_FUNCTION(mcrypt_generic_end)
 {
 	zval **mcryptind;
 	MCRYPT td;
-    MCLS_FETCH();
 	
 	MCRYPT_GET_TD_ARG
 
@@ -658,7 +664,6 @@ PHP_FUNCTION(mcrypt_enc_is_block_algorithm_mode)
 {
 	zval **mcryptind;
 	MCRYPT td;
-    MCLS_FETCH();
 	
 	MCRYPT_GET_TD_ARG
 
@@ -676,7 +681,6 @@ PHP_FUNCTION(mcrypt_enc_is_block_algorithm)
 {
 	zval **mcryptind;
 	MCRYPT td;
-    MCLS_FETCH();
 	
 	MCRYPT_GET_TD_ARG
 
@@ -694,7 +698,6 @@ PHP_FUNCTION(mcrypt_enc_is_block_mode)
 {
 	zval **mcryptind;
 	MCRYPT td;
-    MCLS_FETCH();
 	
 	MCRYPT_GET_TD_ARG
 
@@ -712,7 +715,6 @@ PHP_FUNCTION(mcrypt_enc_get_block_size)
 {
 	zval **mcryptind;
 	MCRYPT td;
-    MCLS_FETCH();
 	
 	MCRYPT_GET_TD_ARG
 
@@ -727,7 +729,6 @@ PHP_FUNCTION(mcrypt_enc_get_key_size)
 {
 	zval **mcryptind;
 	MCRYPT td;
-    MCLS_FETCH();
 	
 	MCRYPT_GET_TD_ARG
 
@@ -742,7 +743,6 @@ PHP_FUNCTION(mcrypt_enc_get_iv_size)
 {
 	zval **mcryptind;
 	MCRYPT td;
-    MCLS_FETCH();
 	
 	MCRYPT_GET_TD_ARG
 
@@ -758,7 +758,6 @@ PHP_FUNCTION(mcrypt_enc_get_algorithms_name)
 	zval **mcryptind;
 	MCRYPT td;
 	char *name;
-    MCLS_FETCH();
 	
 	MCRYPT_GET_TD_ARG
 
@@ -776,7 +775,6 @@ PHP_FUNCTION(mcrypt_enc_get_modes_name)
 	zval **mcryptind;
 	MCRYPT td;
 	char *name;
-    MCLS_FETCH();
 	
 	MCRYPT_GET_TD_ARG
 
@@ -794,7 +792,6 @@ PHP_FUNCTION(mcrypt_module_self_test)
 	zval **arg1, **lib_dir;
 	char *lib_dir_s;
 	int argc;
-    MCLS_FETCH();
 	
 	argc = ZEND_NUM_ARGS();
 
@@ -817,7 +814,6 @@ PHP_FUNCTION(mcrypt_module_is_block_algorithm_mode)
 	zval **arg1, **lib_dir;
 	char *lib_dir_s;
 	int argc;
-    MCLS_FETCH();
 	
 	argc = ZEND_NUM_ARGS();
 
@@ -840,7 +836,6 @@ PHP_FUNCTION(mcrypt_module_is_block_algorithm)
 	zval **arg1, **lib_dir;
 	char *lib_dir_s;
 	int argc;
-    MCLS_FETCH();
 	
 	argc = ZEND_NUM_ARGS();
 
@@ -863,7 +858,6 @@ PHP_FUNCTION(mcrypt_module_is_block_mode)
 	zval **arg1, **lib_dir;
 	char *lib_dir_s;
 	int argc;
-    MCLS_FETCH();
 	
 	argc = ZEND_NUM_ARGS();
 
@@ -886,7 +880,6 @@ PHP_FUNCTION(mcrypt_module_get_algo_block_size)
 	zval **arg1, **lib_dir;
 	char *lib_dir_s;
 	int argc;
-    MCLS_FETCH();
 	
 	argc = ZEND_NUM_ARGS();
 
@@ -904,7 +897,6 @@ PHP_FUNCTION(mcrypt_module_get_algo_key_size)
 	zval **arg1, **lib_dir;
 	char *lib_dir_s;
 	int argc;
-    MCLS_FETCH();
 	
 	argc = ZEND_NUM_ARGS();
 
@@ -923,7 +915,6 @@ PHP_FUNCTION(mcrypt_module_get_supported_key_sizes)
 	char *lib_dir_s;
 	int argc, i, count;
 	int *key_sizes;
-    MCLS_FETCH();
 	
 	argc = ZEND_NUM_ARGS();
 
@@ -997,7 +988,6 @@ PHP_FUNCTION(mcrypt_list_modes)
 	char **modules;
 	char *lib_dir_s;
 	int i, count, argc;
-    MCLS_FETCH();
 
 	argc = ZEND_NUM_ARGS();
 	MCRYPT_CHECK_PARAM_COUNT (0,1)
@@ -1044,7 +1034,6 @@ PHP_FUNCTION(mcrypt_get_key_size)
 	char *module_dir_string;
 	long key_size;
 	MCRYPT td;
-    MCLS_FETCH();
 
 	MCRYPT_GET_INI
 
@@ -1085,7 +1074,6 @@ PHP_FUNCTION(mcrypt_get_block_size)
 	char *module_dir_string;
 	long key_size;
 	MCRYPT td;
-    MCLS_FETCH();
 
 	MCRYPT_GET_INI
 
@@ -1126,7 +1114,6 @@ PHP_FUNCTION(mcrypt_get_iv_size)
 	char *module_dir_string;
 	long key_size;
 	MCRYPT td;
-    MCLS_FETCH();
 
 	MCRYPT_GET_INI
 
@@ -1166,7 +1153,6 @@ PHP_FUNCTION(mcrypt_get_cipher_name)
 	char *module_dir_string;
 	char *cipher_name;
 	MCRYPT td;
-    MCLS_FETCH();
 
 	MCRYPT_GET_INI
 
@@ -1213,7 +1199,7 @@ PHP_FUNCTION(mcrypt_get_cipher_name)
 /* }}} */
 
 
-static void php_mcrypt_do_crypt (char* cipher, zval **key, zval **data, char *mode, zval **iv, int argc, int dencrypt, zval* return_value)
+static void php_mcrypt_do_crypt (char* cipher, zval **key, zval **data, char *mode, zval **iv, int argc, int dencrypt, zval* return_value TSRMLS_DC)
 {
 	char *cipher_dir_string;
 	char *module_dir_string;
@@ -1223,8 +1209,7 @@ static void php_mcrypt_do_crypt (char* cipher, zval **key, zval **data, char *mo
 	char *key_s = NULL, *iv_s;
 	char *data_s;
 	MCRYPT td;
-    MCLS_FETCH();
-
+	
 	MCRYPT_GET_INI
 
 	td = mcrypt_module_open (
@@ -1251,7 +1236,7 @@ static void php_mcrypt_do_crypt (char* cipher, zval **key, zval **data, char *mo
 	else if (count == 1) {  /* only m_k_l = OK */
 		key_s = emalloc (key_length_sizes[0]);
 		memset (key_s, 0, key_length_sizes[0]);
-		memcpy (key_s, Z_STRVAL_PP(key), Z_STRLEN_PP(key));
+		memcpy (key_s, Z_STRVAL_PP(key), MIN(Z_STRLEN_PP(key), key_length_sizes[0]));
 		use_key_length = key_length_sizes[0];
 	}
 	else { /* derterminating smallest supported key > length of requested key */
@@ -1265,7 +1250,7 @@ static void php_mcrypt_do_crypt (char* cipher, zval **key, zval **data, char *mo
 		}
 		key_s = emalloc (use_key_length);
 		memset (key_s, 0, use_key_length);
-		memcpy (key_s, Z_STRVAL_PP(key), Z_STRLEN_PP(key));
+		memcpy (key_s, Z_STRVAL_PP(key), MIN(Z_STRLEN_PP(key), use_key_length));
 	}
 	mcrypt_free (key_length_sizes);
 	
@@ -1339,9 +1324,9 @@ PHP_FUNCTION(mcrypt_encrypt)
 
 	MCRYPT_CONVERT;
 
-	php_mcrypt_do_crypt (Z_STRVAL_PP(cipher), key, data, Z_STRVAL_PP(mode), iv, argc, MCRYPT_ENCRYPT, return_value);
+	php_mcrypt_do_crypt (Z_STRVAL_PP(cipher), key, data, Z_STRVAL_PP(mode), iv, argc, MCRYPT_ENCRYPT, return_value TSRMLS_CC);
 }
-
+/* }}} */
 
 /* {{{ proto string mcrypt_decrypt(string cipher, string key, string data, string mode, string iv)
    OFB crypt/decrypt data using key key with cipher cipher starting with iv */
@@ -1357,9 +1342,9 @@ PHP_FUNCTION(mcrypt_decrypt)
 
 	MCRYPT_CONVERT;
 
-	php_mcrypt_do_crypt (Z_STRVAL_PP(cipher), key, data, Z_STRVAL_PP(mode), iv, argc, MCRYPT_DECRYPT, return_value);
+	php_mcrypt_do_crypt (Z_STRVAL_PP(cipher), key, data, Z_STRVAL_PP(mode), iv, argc, MCRYPT_DECRYPT, return_value TSRMLS_CC);
 }
-
+/* }}} */
 
 /* {{{ proto string mcrypt_ecb(int cipher, string key, string data, int mode, string iv)
    ECB crypt/decrypt data using key key with cipher cipher starting with iv */
@@ -1376,9 +1361,9 @@ PHP_FUNCTION(mcrypt_ecb)
 	MCRYPT_CONVERT_WO_MODE;
 	convert_to_long_ex(mode);
 
-	php_mcrypt_do_crypt (Z_STRVAL_PP(cipher), key, data, "ecb", iv, argc, Z_LVAL_PP(mode), return_value);
+	php_mcrypt_do_crypt (Z_STRVAL_PP(cipher), key, data, "ecb", iv, argc, Z_LVAL_PP(mode), return_value TSRMLS_CC);
 }
-
+/* }}} */
 
 /* {{{ proto string mcrypt_cbc(int cipher, string key, string data, int mode, string iv)
    CBC crypt/decrypt data using key key with cipher cipher starting with iv */
@@ -1395,9 +1380,9 @@ PHP_FUNCTION(mcrypt_cbc)
 	MCRYPT_CONVERT_WO_MODE;
 	convert_to_long_ex(mode);
 
-	php_mcrypt_do_crypt (Z_STRVAL_PP(cipher), key, data, "cbc", iv, argc, Z_LVAL_PP(mode), return_value);
+	php_mcrypt_do_crypt (Z_STRVAL_PP(cipher), key, data, "cbc", iv, argc, Z_LVAL_PP(mode), return_value TSRMLS_CC);
 }
-
+/* }}} */
 
 /* {{{ proto string mcrypt_cfb(int cipher, string key, string data, int mode, string iv)
    CFB crypt/decrypt data using key key with cipher cipher starting with iv */
@@ -1414,9 +1399,9 @@ PHP_FUNCTION(mcrypt_cfb)
 	MCRYPT_CONVERT_WO_MODE;
 	convert_to_long_ex(mode);
 
-	php_mcrypt_do_crypt (Z_STRVAL_PP(cipher), key, data, "cfb", iv, argc, Z_LVAL_PP(mode), return_value);
+	php_mcrypt_do_crypt (Z_STRVAL_PP(cipher), key, data, "cfb", iv, argc, Z_LVAL_PP(mode), return_value TSRMLS_CC);
 }
-
+/* }}} */
 
 /* {{{ proto string mcrypt_ofb(int cipher, string key, string data, int mode, string iv)
    OFB crypt/decrypt data using key key with cipher cipher starting with iv */
@@ -1433,8 +1418,9 @@ PHP_FUNCTION(mcrypt_ofb)
 	MCRYPT_CONVERT_WO_MODE;
 	convert_to_long_ex(mode);
 
-	php_mcrypt_do_crypt (Z_STRVAL_PP(cipher), key, data, "ofb", iv, argc, Z_LVAL_PP(mode), return_value);
+	php_mcrypt_do_crypt (Z_STRVAL_PP(cipher), key, data, "ofb", iv, argc, Z_LVAL_PP(mode), return_value TSRMLS_CC);
 }
+/* }}} */
 
 #endif
 
@@ -1597,7 +1583,6 @@ PHP_FUNCTION(mcrypt_cfb)
 }
 /* }}} */
 
-
 /* {{{ proto string mcrypt_cbc(int cipher, string key, string data, int mode [, string iv])
    CBC crypt/decrypt data using key key with cipher cipher using optional iv */
 PHP_FUNCTION(mcrypt_cbc)
@@ -1652,3 +1637,12 @@ PHP_FUNCTION(mcrypt_ecb)
 #endif /* MCRYPT_2_2 */
 
 #endif
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
+ */

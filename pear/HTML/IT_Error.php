@@ -15,7 +15,7 @@
 // | Authors: Ulf Wendel <ulf.wendel@phpdoc.de>                           |
 // +----------------------------------------------------------------------+
 //
-// $Id: IT_Error.php,v 1.1 2001/03/29 21:49:15 uw Exp $
+// $Id: IT_Error.php,v 1.2 2001/07/10 12:17:53 zeev Exp $
 
 require_once "PEAR.php";
 
@@ -41,11 +41,11 @@ class IT_Error extends PEAR_Error {
   * @param  string  file where the error occured
   * @param  string  linenumber where the error occured
   */
-  function Cache_Error($msg, $file = __FILE__, $line = __LINE__) {
+  function IT_Error($msg, $file = __FILE__, $line = __LINE__) {
     
     $this->PEAR_Error(sprintf("%s [%s on line %d].", $msg, $file, $line));
     
-  } // end func Cache_Error
+  } // end func IT_Error
   
-} // end class Cache_Error
+} // end class IT_Error
 ?>

@@ -18,6 +18,14 @@
 // +----------------------------------------------------------------------+
 //
 
+require_once 'PEAR.php';
+
+if (function_exists('mcrypt_module_open')) {
+    define('CRYPT_CBC_USING_24x', 1);
+} else {
+    define('CRYPT_CBC_USING_24x', 0);
+}
+
 /**
 * Class to emulate Perl's Crypt::CBC module
 *
@@ -36,49 +44,76 @@
 * the author of libcrypt decides to name things internally.
 *
 *
-* @version  $Id: CBC.php,v 1.8 2001/04/23 20:51:55 cmv Exp $
+* @version  $Id: CBC.php,v 1.9 2001/08/02 15:23:00 alexmerz Exp $
 * @author   Colin Viebrock <colin@easydns.com>
 * @author   Mike Glover <mpg4@duluoz.net>
-*
+* @access   public
+* @package Crypt
 */
-
-
-
-require_once 'PEAR.php';
-
-
-
-if (function_exists('mcrypt_module_open')) {
-    define('CRYPT_CBC_USING_24x', 1);
-} else {
-    define('CRYPT_CBC_USING_24x', 0);
-}
-
-
 
 class Crypt_CBC extends PEAR {
 
+    /**
+    * supported procedures
+    * @var array
+    */
     var $known_ciphers = array (
         'DES'               => MCRYPT_DES,
         'BLOWFISH'          => MCRYPT_BLOWFISH,
         'BLOWFISH-COMPAT'   => MCRYPT_BLOWFISH_COMPAT,
     );
 
-    var $cipher;                        # used cipher
-    var $TD;                            # crypt resource, for 2.4.x
-    var $blocksize;                     # blocksize of cipher
-    var $keysize;                       # keysize of cipher
-    var $keyhash;                       # mangled key
-    var $rand_source    = MCRYPT_RAND;  # or MCRYPT_DEV_URANDOM or MCRYPT_DEV_RANDOM
-    var $header_spec    = 'RandomIV';   # header
-
-    var $_last_clear;                   # debugging
-    var $_last_crypt;                   # debugging
-
-
+    /**
+    * used cipher
+    * @var string
+    */
+    var $cipher;
+    /**
+    * crypt resource, for 2.4.x
+    * @var string
+    */  
+    var $TD;
+    /**
+    * blocksize of cipher
+    * @var string
+    */    
+    var $blocksize;
+    /**
+    * keysize of cipher
+    * @var int
+    */    
+    var $keysize;
+    /**
+    * mangled key
+    * @var string
+    */        
+    var $keyhash;
+    /**
+    * source type of the initialization vector for creation  
+    * possible types are MCRYPT_RAND or MCRYPT_DEV_URANDOM or MCRYPT_DEV_RANDOM    
+    * @var int
+    */            
+    var $rand_source    = MCRYPT_RAND;
+    /**
+    * header
+    * @var string
+    */           
+    var $header_spec    = 'RandomIV';
+    /**
+    * debugging
+    * @var string
+    */           
+    var $_last_clear;
+    /**
+    * debugging
+    * @var string
+    */              
+    var $_last_crypt;
 
     /**
     * Constructor
+    * $key is the key to use for encryption. $cipher can be DES, BLOWFISH or
+    * BLOWFISH-COMPAT
     *
     * @param    $key        encryption key
     * @param    $cipher     which algorithm to use, defaults to DES
@@ -276,12 +311,35 @@ class Crypt_CBC extends PEAR {
 
 }
 
+/**
+* Inherit from PEAR_Error
+* used to create a specific error message
+* @access public
+* @package Crypt
+*/
 
 class Crypt_CBC_Error extends PEAR_Error
 {
-    var $classname             = 'Crypt_CBC_Error';
+    /**
+    * Name of the this class
+    * @var string
+    */
+    var $classname             = 'Crypt_CBC_Error';    
+    /**
+    * first part of the error message 
+    * @var string
+    */   
     var $error_message_prepend = 'Error in Crypt_CBC';
 
+    /**
+    * creates a new error object
+    * @param    string  $message    error message
+    * @param    int     $code       error code
+    * @param    int     $mode       error mode
+    * @param    int     $level      error level
+    * @return   object  PEAR_Error  PEAR_Error object
+    * @access   public
+    */
     function Crypt_CBC_Error ($message, $code = 0, $mode = PEAR_ERROR_RETURN, $level = E_USER_NOTICE)
     {
         $this->PEAR_Error ($message, $code, $mode, $level);

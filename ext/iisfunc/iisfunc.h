@@ -15,14 +15,9 @@
    | Authors: Frank M. Kromann <fmk@swwwing.com>                          |
    +----------------------------------------------------------------------+
 */
-/* $Id: iisfunc.h,v 1.2 2001/02/26 06:06:58 andi Exp $ */
+/* $Id: iisfunc.h,v 1.3 2001/08/15 12:38:33 phanto Exp $ */
 
-#include <iiscnfg.h>  // MD_ & IIS_MD_ #defines 
-
-#ifdef __cplusplus
-extern "C" 
-{
-#endif
+#include "setup.h"
 
 #ifdef IISFUNC_EXPORTS
 #define IISFUNC_API __declspec(dllexport)
@@ -30,17 +25,31 @@ extern "C"
 #define IISFUNC_API __declspec(dllimport)
 #endif
 
-extern "C" IISFUNC_API int fnIisGetServerByPath(char * ServerPath);
-extern "C" IISFUNC_API int fnIisGetServerByComment(char * ServerComment);
+BEGIN_EXTERN_C();
 
-extern "C" IISFUNC_API int fnIisAddServer(char * ServerPath, char * ServerComment, char * ServerIp, char * ServerPort, char * ServerHost, DWORD ServerRights, DWORD StartServer);
-extern "C" IISFUNC_API int fnIisSetServerRight(DWORD ServerInstance, char * VirtualPath, DWORD ServerRights);
-extern "C" IISFUNC_API int fnIisSetDirSecurity(DWORD ServerInstance, char * VirtualPath, DWORD DirFlags);
+	void fnIisInit(TSRMLS_D);
+	void fnIisShutdown(TSRMLS_D);
 
-extern "C" IISFUNC_API int fnStopService(LPCTSTR ServiceId);
-extern "C" IISFUNC_API int fnStartService(LPCTSTR ServiceId);
-extern "C" IISFUNC_API int fnGetServiceState(LPCTSTR ServiceId);
+	int fnIisGetServerByPath(char * ServerPath TSRMLS_DC);
+	int fnIisGetServerByComment(char * ServerComment TSRMLS_DC);
 
-#ifdef __cplusplus 
-}
-#endif
+	int fnIisAddServer(char * ServerPath, char * ServerComment, char * ServerIp, char * ServerPort, char * ServerHost, DWORD ServerRights, DWORD StartServer TSRMLS_DC);
+	int fnIisRemoveServer(DWORD ServerInstance TSRMLS_DC);
+
+	int fnIisSetDirSecurity(DWORD ServerInstance, char * VirtualPath, DWORD DirFlags TSRMLS_DC);
+	int fnIisGetDirSecurity(DWORD ServerInstance, char * VirtualPath, DWORD * DirFlags TSRMLS_DC);
+
+	int fnIisSetServerRight(DWORD ServerInstance, char * VirtualPath, DWORD ServerRights TSRMLS_DC);
+	int fnIisGetServerRight(DWORD ServerInstance, char * VirtualPath, DWORD * ServerRights TSRMLS_DC);
+	int fnIisSetServerStatus(DWORD ServerInstance, DWORD StartServer TSRMLS_DC);
+
+	int fnIisSetScriptMap(DWORD ServerInstance, char * VirtualPath, char * ScriptMap TSRMLS_DC);
+	int fnIisGetScriptMap(DWORD ServerInstance, char * VirtualPath, char * SeciptExtention, char * ReturnValue TSRMLS_DC);
+
+	int fnIisSetAppSettings(DWORD ServerInstance, char * VirtualPath, char * AppName TSRMLS_DC);
+
+	int fnStopService(LPSTR ServiceId TSRMLS_DC);
+	int fnStartService(LPTSTR ServiceId TSRMLS_DC);
+	int fnGetServiceState(LPTSTR ServiceId TSRMLS_DC);
+
+END_EXTERN_C()

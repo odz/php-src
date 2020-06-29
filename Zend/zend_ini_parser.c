@@ -37,7 +37,7 @@
 */
 
 
-/* $Id: zend_ini_parser.y,v 1.9 2001/02/26 05:43:27 andi Exp $ */
+/* $Id: zend_ini_parser.y,v 1.14 2001/08/06 13:48:51 zeev Exp $ */
 
 #define DEBUG_CFG_PARSER 0
 #include "zend.h"
@@ -54,25 +54,27 @@
 #include <winbase.h>
 #endif
 
-
-typedef struct _zend_ini_parser_param {
-	zend_ini_parser_cb_t ini_parser_cb;
-	void *arg;
-} zend_ini_parser_param;
-
 #define YYSTYPE zval
-#define YYPARSE_PARAM ini_parser_param
 
-#define ZEND_INI_PARSER_CB	((zend_ini_parser_param *) ini_parser_param)->ini_parser_cb
-#define ZEND_INI_PARSER_ARG	((zend_ini_parser_param *) ini_parser_param)->arg
+#ifdef ZTS
+#define YYPARSE_PARAM tsrm_ls
+#define YYLEX_PARAM tsrm_ls
+#endif
 
-int ini_lex(zval *ini_lval);
-int ini_parse(void *ini_parser_param);
+#define ZEND_INI_PARSER_CB	(CG(ini_parser_param))->ini_parser_cb
+#define ZEND_INI_PARSER_ARG	(CG(ini_parser_param))->arg
+
+int ini_lex(zval *ini_lval TSRMLS_DC);
+#ifdef ZTS
+int ini_parse(void *arg);
+#else
+int ini_parse(void);
+#endif
 
 zval yylval;
 
 #ifndef ZTS
-extern int ini_lex(zval *ini_lval);
+extern int ini_lex(zval *ini_lval TSRMLS_DC);
 extern FILE *ini_in;
 extern int ini_lineno;
 extern void init_cfg_scanner(void);
@@ -122,8 +124,9 @@ void zend_ini_do_op(char type, zval *result, zval *op1, zval *op2)
 void zend_ini_get_constant(zval *result, zval *name)
 {
 	zval z_constant;
+	TSRMLS_FETCH();
 
-	if (zend_get_constant(name->value.str.val, name->value.str.len, &z_constant)) {
+	if (zend_get_constant(name->value.str.val, name->value.str.len, &z_constant TSRMLS_CC)) {
 		/* z_constant is emalloc()'d */
 		convert_to_string(&z_constant);
 		result->value.str.val = zend_strndup(z_constant.value.str.val, z_constant.value.str.len);
@@ -141,13 +144,14 @@ static void ini_error(char *str)
 {
 	char *error_buf;
 	int error_buf_len;
-	char *currently_parsed_filename = zend_ini_scanner_get_filename();
-	CLS_FETCH();
+	char *currently_parsed_filename;
+	TSRMLS_FETCH();
 
+	currently_parsed_filename = zend_ini_scanner_get_filename(TSRMLS_C);
 	error_buf_len = 128+strlen(currently_parsed_filename); /* should be more than enough */
 	error_buf = (char *) emalloc(error_buf_len);
 
-	sprintf(error_buf, "Error parsing %s on line %d\n", currently_parsed_filename, zend_ini_scanner_get_lineno());
+	sprintf(error_buf, "Error parsing %s on line %d\n", currently_parsed_filename, zend_ini_scanner_get_lineno(TSRMLS_C));
 
 	if (CG(ini_parser_unbuffered_errors)) {
 #ifdef PHP_WIN32
@@ -164,21 +168,22 @@ static void ini_error(char *str)
 
 int zend_parse_ini_file(zend_file_handle *fh, zend_bool unbuffered_errors, zend_ini_parser_cb_t ini_parser_cb, void *arg)
 {
-	zend_ini_parser_param ini_parser_param;
 	int retval;
-	CLS_FETCH();
+	zend_ini_parser_param ini_parser_param;
+	TSRMLS_FETCH();
 
 	ini_parser_param.ini_parser_cb = ini_parser_cb;
 	ini_parser_param.arg = arg;
 
-	if (zend_ini_open_file_for_scanning(fh)==FAILURE) {
+	CG(ini_parser_param) = &ini_parser_param;
+	if (zend_ini_open_file_for_scanning(fh TSRMLS_CC)==FAILURE) {
 		return FAILURE;
 	}
 
 	CG(ini_parser_unbuffered_errors) = unbuffered_errors;
-	retval = ini_parse(&ini_parser_param);
+	retval = ini_parse(TSRMLS_C);
 
-	zend_ini_close_file(fh);
+	zend_ini_close_file(fh TSRMLS_CC);
 
 	if (retval==0) {
 		return SUCCESS;
@@ -255,8 +260,8 @@ static const short yyrhs[] = {    17,
 
 #if YYDEBUG != 0
 static const short yyrline[] = { 0,
-   185,   187,   190,   199,   200,   201,   205,   207,   208,   209,
-   210,   211,   214,   216,   217,   218,   219,   220,   223
+   190,   192,   195,   204,   205,   206,   210,   212,   213,   214,
+   215,   216,   219,   221,   222,   223,   224,   225,   228
 };
 #endif
 

@@ -15,30 +15,24 @@
    | Authors: Frank M. Kromann <fmk@swwwing.com>                          |
    +----------------------------------------------------------------------+
 */
-/* $Id: setup.h,v 1.2 2001/02/26 06:06:58 andi Exp $ */
+/* $Id: setup.h,v 1.4 2001/08/15 12:38:33 phanto Exp $ */
 
 #ifndef PHP_IIS_SETUP_H
 #define PHP_IIS_SETUP_H
 
-
-#if HAVE_IISFUNC
 #ifdef PHP_WIN32
-#define PHP_IISFUNC_API __declspec(dllexport)
-#else
-#define PHP_IISFUNC_API
-#endif
 
-#ifdef __ZTS
-#include "TSRM.h"
-#endif
+#define HAVE_IISFUNC
 
 extern zend_module_entry iisfunc_module_entry;
 #define iisfunc_module_ptr &iisfunc_module_entry
 
-extern PHP_MINIT_FUNCTION(iisfunc);
-extern PHP_MSHUTDOWN_FUNCTION(iisfunc);
-extern PHP_RINIT_FUNCTION(iisfunc);
-extern PHP_RSHUTDOWN_FUNCTION(iisfunc);
+BEGIN_EXTERN_C()
+
+PHP_MINIT_FUNCTION(iisfunc);
+PHP_MSHUTDOWN_FUNCTION(iisfunc);
+PHP_RINIT_FUNCTION(iisfunc);
+PHP_RSHUTDOWN_FUNCTION(iisfunc);
 PHP_MINFO_FUNCTION(iisfunc);
 
 PHP_FUNCTION(iis_getserverbypath);
@@ -58,28 +52,30 @@ PHP_FUNCTION(iis_stopservice);
 PHP_FUNCTION(iis_startservice);
 PHP_FUNCTION(iis_getservicestate);
 
-int fnIisGetServerByPath(char * ServerPath);
-int fnIisGetServerByComment(char * ServerComment);
-int fnIisAddServer(char * ServerPath, char * ServerComment, char * ServerIp, char * ServerPort, char * ServerHost, DWORD ServerRights, DWORD StartServer);
-int fnIisRemoveServer(DWORD ServerInstance);
-int fnIisSetDirSecurity(DWORD ServerInstance, char * VirtualPath, DWORD DirFlags);
-int fnIisGetDirSecurity(DWORD ServerInstance, char * VirtualPath, DWORD * DirFlags);
-int fnIisSetServerRight(DWORD ServerInstance, char * VirtualPath, DWORD ServerRights);
-int fnIisGetServerRight(DWORD ServerInstance, char * VirtualPath, DWORD * ServerRights);
-int fnIisSetServerStatus(DWORD ServerInstance, DWORD StartServer);
-int fnIisSetScriptMap(DWORD ServerInstance, char * VirtualPath, char * ScriptMap);
-int fnIisGetScriptMap(DWORD ServerInstance, char * VirtualPath, char * SeciptExtention, char * ReturnValue);
-int fnIisSetAppSettings(DWORD ServerInstance, char * VirtualPath, char * AppName);
-int fnStopService(LPSTR ServiceId);
-int fnStartService(LPTSTR ServiceId);
-int fnGetServiceState(LPTSTR ServiceId);
+END_EXTERN_C()
+
+ZEND_BEGIN_MODULE_GLOBALS(iis)
+	void * pIMeta;
+ZEND_END_MODULE_GLOBALS(iis)
+
+#ifdef ZTS
+
+int iis_globals_id;
+#define IISG(v) TSRMG(iis_globals_id, zend_iis_globals *, v)
+
+#else
+
+#define IISG(v) (iis_globals.v)
+
+#endif
+
 
 #else
 
 #define iisfunc_module_ptr NULL
 
-#endif /* HAVE_IISFUNC */
+#endif /* PHP_WIN32 */
 
 #define phpext_iisfunc_ptr iisfunc_module_ptr
 
-#endif
+#endif /* PHP_IIS_SETUP_H */

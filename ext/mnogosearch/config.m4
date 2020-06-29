@@ -1,5 +1,5 @@
 dnl $Source: /repository/php4/ext/mnogosearch/config.m4,v $
-dnl $Id: config.m4,v 1.7.2.1 2001/05/12 09:29:06 sas Exp $
+dnl $Id: config.m4,v 1.8 2001/05/12 09:13:39 sas Exp $
 
 PHP_ARG_WITH(mnogosearch,for mnoGoSearch support,
 [  --with-mnogosearch[=DIR]

@@ -19,7 +19,7 @@
  */
 
 
-/* $Id: datetime.c,v 1.69 2001/04/29 15:48:07 derick Exp $ */
+/* $Id: datetime.c,v 1.75 2001/08/13 00:32:04 zeev Exp $ */
 
 
 #include "php.h"
@@ -75,6 +75,8 @@ PHP_FUNCTION(time)
 }
 /* }}} */
 
+/* {{{ php_mktime
+ */
 void php_mktime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 {
 	pval **arguments[7];
@@ -83,7 +85,7 @@ void php_mktime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 	int i, gmadjust, seconds, arg_count = ZEND_NUM_ARGS();
 	int is_dst = -1;
 
-	if (arg_count > 7 || zend_get_parameters_array_ex(arg_count,arguments) == FAILURE) {
+	if (arg_count > 7 || zend_get_parameters_array_ex(arg_count, arguments) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	/* convert supplied arguments to longs */
@@ -97,7 +99,7 @@ void php_mktime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 	/*
 	** Set default time parameters with local time values,
 	** EVEN when some GMT time parameters are specified!
-	** This may give strange result, with PHP gmmktime(0,0,0),
+	** This may give strange result, with PHP gmmktime(0, 0, 0),
 	** which is assumed to return GMT midnight time
 	** for today (in localtime), so that the result time may be
 	** AFTER or BEFORE the current time.
@@ -190,6 +192,7 @@ void php_mktime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 
 	RETURN_LONG(seconds);
 }
+/* }}} */
 
 /* {{{ proto int mktime(int hour, int min, int sec, int mon, int day, int year)
    Get UNIX timestamp for a date */
@@ -207,13 +210,15 @@ PHP_FUNCTION(gmmktime)
 }
 /* }}} */
 
+/* {{{ php_date
+ */
 static void
 php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 {
 	pval **format, **timestamp;
 	time_t the_time;
 	struct tm *ta, tmbuf;
-	int i, size = 0, length, h, beat;
+	int i, size = 0, length, h, beat, fd, wd, yd, wk;
 	char tmp_buff[32];
 
 	switch(ZEND_NUM_ARGS()) {
@@ -294,6 +299,7 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 			case 'a':		/* am/pm */
 			case 'S':		/* standard english suffix for the day of the month (e.g. 3rd, 2nd, etc) */
 			case 't':		/* days in current month */
+			case 'W':		/* ISO-8601 week number of year, weeks starting on Monday */
 				size += 2;
 				break;
 			case '\\':
@@ -433,7 +439,7 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 #if HAVE_TM_GMTOFF				
 				sprintf(tmp_buff, "%c%02d%02d", (ta->tm_gmtoff < 0) ? '-' : '+', abs(ta->tm_gmtoff / 3600), abs( ta->tm_gmtoff % 3600));
 #else
-				sprintf(tmp_buff, "%c%02d%02d", ((ta->tm_isdst ? timezone - 3600:timezone)>0)?'-':'+',abs((ta->tm_isdst ? timezone - 3600 : timezone) / 3600), abs((ta->tm_isdst ? timezone - 3600 : timezone) % 3600));
+				sprintf(tmp_buff, "%c%02d%02d", ((ta->tm_isdst ? timezone - 3600:timezone)>0)?'-':'+', abs((ta->tm_isdst ? timezone - 3600 : timezone) / 3600), abs((ta->tm_isdst ? timezone - 3600 : timezone) % 3600));
 #endif
 				strcat(return_value->value.str.val, tmp_buff);
 				break;
@@ -500,6 +506,17 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 #endif
 				strcat(return_value->value.str.val, tmp_buff);
 				break;
+			case 'W':		/* ISO-8601 week number of year, weeks starting on Monday */
+				wd = ta->tm_wday==0 ? 7 : ta->tm_wday;
+				yd = ta->tm_yday + 1;
+				fd = (7 + (wd - yd) % 7 ) % 7;
+				wk = ( (yd + fd - 1) / 7 ) + 1;
+				if (fd>3) {
+					wk--;
+				}
+				sprintf(tmp_buff, "%d", wk);  /* SAFE */
+				strcat(return_value->value.str.val, tmp_buff);
+				break;
 
 			default:
 				length = strlen(return_value->value.str.val);
@@ -511,6 +528,7 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 	return_value->value.str.len = strlen(return_value->value.str.val);
 	return_value->type = IS_STRING;
 }
+/* }}} */
 
 /* {{{ proto string date(string format [, int timestamp])
    Format a local time/date */
@@ -598,7 +616,7 @@ PHP_FUNCTION(getdate)
 
 	if (ZEND_NUM_ARGS() == 0) {
 		timestamp = time(NULL);
-	} else if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1,&timestamp_arg) == FAILURE) {
+	} else if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &timestamp_arg) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	} else {
 		convert_to_long_ex(timestamp_arg);
@@ -628,12 +646,13 @@ PHP_FUNCTION(getdate)
 }
 /* }}} */
 
-/* Return date string in standard format for http headers */
+/* {{{ php_std_date
+   Return date string in standard format for http headers */
 char *php_std_date(time_t t)
 {
 	struct tm *tm1, tmbuf;
 	char *str;
-	PLS_FETCH();
+	TSRMLS_FETCH();
 
 	tm1 = php_gmtime_r(&t, &tmbuf);
 	str = emalloc(81);
@@ -656,7 +675,7 @@ char *php_std_date(time_t t)
 	str[79]=0;
 	return (str);
 }
-
+/* }}} */
 
 /* {{{ proto bool checkdate(int month, int day, int year)
    Returns true(1) if it is a valid date in gregorian calendar */
@@ -671,7 +690,7 @@ PHP_FUNCTION(checkdate)
 	}
 
 	if((*year)->type == IS_STRING) {
-		res = is_numeric_string((*year)->value.str.val, (*year)->value.str.len, NULL, NULL);
+		res = is_numeric_string((*year)->value.str.val, (*year)->value.str.len, NULL, NULL, 0);
 		if(res!=IS_LONG && res !=IS_DOUBLE) {
 			RETURN_FALSE;	
 		}
@@ -692,15 +711,17 @@ PHP_FUNCTION(checkdate)
 	if (d < 1 || d > phpday_tab[isleap(y)][m - 1]) {
 		RETURN_FALSE;
 	}
-	RETURN_TRUE;				/* True : This month,day,year arguments are valid */
+	RETURN_TRUE;				/* True : This month, day, year arguments are valid */
 }
 /* }}} */
 
 #if HAVE_STRFTIME
+/* {{{ _php_strftime
+ */
 void _php_strftime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 {
 	pval **format_arg, **timestamp_arg;
-	char *format,*buf;
+	char *format, *buf;
 	time_t timestamp;
 	struct tm *ta, tmbuf;
 	int max_reallocs = 5;
@@ -708,13 +729,13 @@ void _php_strftime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 
 	switch (ZEND_NUM_ARGS()) {
 		case 1:
-			if (zend_get_parameters_ex(1,&format_arg)==FAILURE) {
+			if (zend_get_parameters_ex(1, &format_arg)==FAILURE) {
 				RETURN_FALSE;
 			}
 			time(&timestamp);
 			break;
 		case 2:
-			if (zend_get_parameters_ex(2, &format_arg,&timestamp_arg)==FAILURE) {
+			if (zend_get_parameters_ex(2, &format_arg, &timestamp_arg)==FAILURE) {
 				RETURN_FALSE;
 			}
 			convert_to_long_ex(timestamp_arg);
@@ -740,19 +761,21 @@ void _php_strftime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 	}
 
 	buf = (char *) emalloc(buf_len);
-	while ((real_len=strftime(buf,buf_len,format,ta))==buf_len || real_len==0) {
+	while ((real_len=strftime(buf, buf_len, format, ta))==buf_len || real_len==0) {
 		buf_len *= 2;
 		buf = (char *) erealloc(buf, buf_len);
 		if(!--max_reallocs) break;
 	}
 	
 	if(real_len && real_len != buf_len) {
-		buf = (char *) erealloc(buf,real_len+1);
+		buf = (char *) erealloc(buf, real_len+1);
 		RETURN_STRINGL(buf, real_len, 0);
 	}
 	efree(buf);
 	RETURN_FALSE;
 }
+/* }}} */
+
 /* {{{ proto string strftime(string format [, int timestamp])
    Format a local time/date according to locale settings */
 PHP_FUNCTION(strftime)
@@ -804,4 +827,6 @@ PHP_FUNCTION(strtotime)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: sw=4 ts=4 tw=78 fdm=marker
+ * vim<600: sw=4 ts=4 tw=78
  */

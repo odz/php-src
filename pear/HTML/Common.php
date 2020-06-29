@@ -16,7 +16,7 @@
 // | Authors: Adam Daniel <adaniel1@eesus.jnj.com>                        |
 // +----------------------------------------------------------------------+
 //
-// $Id: Common.php,v 1.9 2001/04/12 18:39:28 chagenbu Exp $
+// $Id: Common.php,v 1.10 2001/08/13 21:04:35 adaniel Exp $
 
 /**
  * Base class for all HTML classes
@@ -264,7 +264,7 @@ class HTML_Common {
      */
     function removeAttribute($attr)
     {
-        $this->_removeAttr($atttr, $this->_attributes);
+        $this->_removeAttr($attr, $this->_attributes);
     } //end func removeAttribute
 
     /**

@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.16.2.2 2001/05/21 19:47:43 sniper Exp $
+dnl $Id: config.m4,v 1.19 2001/05/21 19:47:15 sniper Exp $
 
 AC_DEFUN(PHP_LDAP_CHECKS, [
   if test -f $1/include/ldap.h; then
@@ -42,7 +42,7 @@ if test "$PHP_LDAP" != "no"; then
   dnl Is this really necessary? -Troels Arvin
 
   if test `uname` = "Linux"; then
-    LDAP_PTHREAD="pthread"
+    LDAP_PTHREAD=pthread
   else
     LDAP_PTHREAD=
   fi

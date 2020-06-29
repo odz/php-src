@@ -43,6 +43,10 @@ PHP_FUNCTION(shmop_size);
 PHP_FUNCTION(shmop_write);
 PHP_FUNCTION(shmop_delete);
 
+#ifdef PHP_WIN32
+typedef int key_t;
+#endif
+
 struct php_shmop
 {
 	int shmid;
@@ -57,11 +61,9 @@ typedef struct {
 } php_shmop_globals;
 
 #ifdef ZTS
-#define SHMOPG(v) (shmop_globals->v)
-#define SHMOPLS_FETCH() php_shmop_globals *shmop_globals = ts_resource(gd_shmop_id)
+#define SHMOPG(v) TSRMG(shmop_globals_id, php_shmop_globals *, v)
 #else
 #define SHMOPG(v) (shmop_globals.v)
-#define SHMOPLS_FETCH()
 #endif
 
 #else

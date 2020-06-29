@@ -15,22 +15,44 @@
    | Authors: Frank M. Kromann <fmk@swwwing.com>                          |
    +----------------------------------------------------------------------+
 */
-/* $Id: iisfunc.cpp,v 1.2 2001/02/26 06:06:58 andi Exp $ */
+/* $Id: iisfunc.cpp,v 1.4 2001/08/15 12:38:33 phanto Exp $ */
 /*
 	iisfunc.cpp : Defines the entry point for the DLL application.
 */
+
+#ifdef PHP_WIN32
+
 #define UNICODE
 #define INITGUID
 
 #include <windows.h>
-#include <stdio.h>
+
 #define _ATL_DLL_IMPL
+
+#include <iostream.h>
+#include <math.h>
 #include <ks.h>
 #include <atlbase.h>  // ATL support 
 #include <iadmw.h>    // COM Interface header 
-#include "iisfunc.h"
+#include <iiscnfg.h>  // MD_ & IIS_MD_ #defines 
 
-extern "C" IISFUNC_API int fnIisGetServerByPath(char * ServerPath)
+extern "C" {
+#include "php.h"
+}
+
+#include "setup.h"
+
+extern "C" void fnIisInit(TSRMLS_D)
+{
+	CoCreateInstance(CLSID_MSAdminBase, NULL, CLSCTX_ALL, IID_IMSAdminBase, &IISG(pIMeta));  
+}
+
+extern "C" void fnIisShutdown(TSRMLS_D)
+{
+	((IMSAdminBase *) IISG(pIMeta))->Release();
+}
+
+extern "C" int fnIisGetServerByPath(char * ServerPath TSRMLS_DC)
 {
 	HRESULT hRes = 0, hResSub = 0;
 	DWORD buffer = 0; 
@@ -44,8 +66,8 @@ extern "C" IISFUNC_API int fnIisGetServerByPath(char * ServerPath)
 	CComPtr <IMSAdminBase> pIMeta; 
 	DWORD indx = 0;
 
-	CoInitialize(NULL);
-	hRes = CoCreateInstance(CLSID_MSAdminBase, NULL, CLSCTX_ALL, IID_IMSAdminBase, (void **) &pIMeta);  
+	((IMSAdminBase *) IISG(pIMeta))->AddRef(); /* Attach doesn't call AddRef() */
+	pIMeta.Attach((IMSAdminBase *) IISG(pIMeta));
 
 	if (FAILED(hRes))     
 	return hRes;  
@@ -67,17 +89,18 @@ extern "C" IISFUNC_API int fnIisGetServerByPath(char * ServerPath)
 				swprintf(KeyName, L"%s", MyRecord.pbMDData);
 				memset(TestKey , 0, sizeof(TestKey));
 				swprintf(TestKey, L"%S", ServerPath);
-				if (wcscmp(_wcsupr(KeyName),_wcsupr(TestKey))==0)
-					return wcstol(SubKeyName,NULL,10);
+				if (wcscmp(_wcsupr(KeyName), _wcsupr(TestKey))==0)
+					return wcstol(SubKeyName, NULL, 10);
 			}  
 		}
 		indx++; 
 	}
 	pIMeta->CloseKey(MyHandle); 
+	
 	return 0;
 }
 
-extern "C" IISFUNC_API int fnIisGetServerByComment(char * ServerComment)
+extern "C" int fnIisGetServerByComment(char * ServerComment TSRMLS_DC)
 {
 	HRESULT hRes = 0, hResSub = 0;
 	DWORD buffer = 0; 
@@ -91,8 +114,8 @@ extern "C" IISFUNC_API int fnIisGetServerByComment(char * ServerComment)
 	CComPtr <IMSAdminBase> pIMeta; 
 	DWORD indx = 0;
 
-	CoInitialize(NULL);
-	hRes = CoCreateInstance(CLSID_MSAdminBase, NULL, CLSCTX_ALL, IID_IMSAdminBase, (void **) &pIMeta);  
+	((IMSAdminBase *) IISG(pIMeta))->AddRef(); /* Attach doesn't call AddRef() */
+	pIMeta.Attach((IMSAdminBase *) IISG(pIMeta));
 
 	if (FAILED(hRes))     
 	return hRes;  
@@ -114,17 +137,18 @@ extern "C" IISFUNC_API int fnIisGetServerByComment(char * ServerComment)
 				swprintf(KeyName, L"%s", MyRecord.pbMDData);
 				memset(TestKey , 0, sizeof(TestKey));
 				swprintf(TestKey, L"%S", ServerComment);
-				if (wcscmp(_wcsupr(KeyName),_wcsupr(TestKey))==0)
-					return wcstol(SubKeyName,NULL,10);
+				if (wcscmp(_wcsupr(KeyName), _wcsupr(TestKey))==0)
+					return wcstol(SubKeyName, NULL, 10);
 			}  
 		}
 		indx++; 
 	}
 	pIMeta->CloseKey(MyHandle); 
+	
 	return 0;
 }
 
-extern "C" IISFUNC_API int fnIisAddServer(char * ServerPath, char * ServerComment, char * ServerIp, char * ServerPort, char * ServerHost, DWORD ServerRights, DWORD StartServer)
+extern "C" int fnIisAddServer(char * ServerPath, char * ServerComment, char * ServerIp, char * ServerPort, char * ServerHost, DWORD ServerRights, DWORD StartServer TSRMLS_DC)
 {
 	HRESULT hRes = 0;
 	DWORD dwBuffer = 65535;
@@ -138,35 +162,35 @@ extern "C" IISFUNC_API int fnIisAddServer(char * ServerPath, char * ServerCommen
 	CComPtr <IMSAdminBase> pIMeta; 
 	DWORD indx = 0;
 
-	CoInitialize(NULL);
-	hRes = CoCreateInstance(CLSID_MSAdminBase, NULL, CLSCTX_ALL, IID_IMSAdminBase, (void **) &pIMeta);  
+	((IMSAdminBase *) IISG(pIMeta))->AddRef(); /* Attach doesn't call AddRef() */
+	pIMeta.Attach((IMSAdminBase *) IISG(pIMeta));
 
 	if (FAILED(hRes))     
 	return hRes;  
 
-	swprintf(TestKey,L"1");
+	swprintf(TestKey, L"1");
 	hRes = pIMeta->OpenKey(METADATA_MASTER_ROOT_HANDLE, L"/LM/W3SVC", METADATA_PERMISSION_READ, 20, &MyHandle); 
 	while (SUCCEEDED(hRes)){  
 		hRes = pIMeta->EnumKeys(MyHandle, L"/", SubKeyName, indx);  
 		if (SUCCEEDED(hRes))
-			if (wcstol(SubKeyName,NULL,10)>wcstol(TestKey,NULL,10)) {
+			if (wcstol(SubKeyName, NULL, 10)>wcstol(TestKey, NULL, 10)) {
 				memset(TestKey , 0, sizeof(TestKey));
-				swprintf(TestKey,L"%ld",wcstol(SubKeyName,NULL,10));
+				swprintf(TestKey, L"%ld", wcstol(SubKeyName, NULL, 10));
 			}
 		indx++; 
 	}
 	pIMeta->CloseKey(MyHandle); 
 
-	ServerInstance = wcstol(TestKey,NULL,10)+1;
+	ServerInstance = wcstol(TestKey, NULL, 10)+1;
 	hRes = pIMeta->OpenKey(METADATA_MASTER_ROOT_HANDLE, L"/LM/W3SVC", METADATA_PERMISSION_WRITE, 20, &MyHandle); 
 	if (SUCCEEDED(hRes)) {
-		swprintf(SubKeyName,L"/%ld/ROOT",ServerInstance);
+		swprintf(SubKeyName, L"/%ld/ROOT", ServerInstance);
 		hRes = pIMeta->AddKey(MyHandle, SubKeyName);  
 		if (SUCCEEDED(hRes)) {
 			memset(KeyName , 0, sizeof(KeyName));
 			swprintf(KeyName, L"/%ld", ServerInstance);
 			memset(TestKey , 0, sizeof(TestKey));
-			swprintf(TestKey,L"IIsWebServer");
+			swprintf(TestKey, L"IIsWebServer");
 			MyRecord.dwMDIdentifier = MD_KEY_TYPE;
 			MyRecord.dwMDAttributes = METADATA_INSERT_PATH;
 			MyRecord.dwMDUserType = IIS_MD_UT_SERVER;
@@ -178,7 +202,7 @@ extern "C" IISFUNC_API int fnIisAddServer(char * ServerPath, char * ServerCommen
 				return -503;
 
 			memset(TestKey , 0, sizeof(TestKey));
-			swprintf(TestKey,L"%S",ServerComment);
+			swprintf(TestKey, L"%S", ServerComment);
 			MyRecord.dwMDIdentifier = MD_SERVER_COMMENT;
 			MyRecord.dwMDAttributes = METADATA_INHERIT;
 			MyRecord.dwMDUserType = IIS_MD_UT_SERVER;
@@ -190,7 +214,7 @@ extern "C" IISFUNC_API int fnIisAddServer(char * ServerPath, char * ServerCommen
 				return -504;
 
 			memset(TestKey , 0, sizeof(TestKey));
-			swprintf(TestKey,L"%S:%S:%S",ServerIp,ServerPort,ServerHost);
+			swprintf(TestKey, L"%S:%S:%S", ServerIp, ServerPort, ServerHost);
 			MyRecord.dwMDIdentifier = MD_SERVER_BINDINGS;
 			MyRecord.dwMDAttributes = METADATA_INHERIT;
 			MyRecord.dwMDUserType = IIS_MD_UT_SERVER;
@@ -202,7 +226,7 @@ extern "C" IISFUNC_API int fnIisAddServer(char * ServerPath, char * ServerCommen
 				return -505;
 
 			memset(TestKey , 0, sizeof(TestKey));
-			swprintf(TestKey,L"%S", ServerPath);
+			swprintf(TestKey, L"%S", ServerPath);
 			MyRecord.dwMDIdentifier = MD_VR_PATH;
 			MyRecord.dwMDAttributes = METADATA_INHERIT;
 			MyRecord.dwMDUserType = IIS_MD_UT_FILE;
@@ -238,12 +262,13 @@ extern "C" IISFUNC_API int fnIisAddServer(char * ServerPath, char * ServerCommen
 	}
 	else
 		return -501;
+
 	pIMeta->CloseKey(MyHandle); 
 
 	return ServerInstance;
 }
 
-extern "C" IISFUNC_API int fnIisRemoveServer(DWORD ServerInstance)
+extern "C" int fnIisRemoveServer(DWORD ServerInstance TSRMLS_DC)
 {
 	HRESULT hRes = 0;
 	DWORD dwBuffer = 65535;
@@ -252,8 +277,8 @@ extern "C" IISFUNC_API int fnIisRemoveServer(DWORD ServerInstance)
 	WCHAR SubKeyName[METADATA_MAX_NAME_LEN]; 
 	CComPtr <IMSAdminBase> pIMeta; 
 
-	CoInitialize(NULL);
-	hRes = CoCreateInstance(CLSID_MSAdminBase, NULL, CLSCTX_ALL, IID_IMSAdminBase, (void **) &pIMeta);  
+	((IMSAdminBase *) IISG(pIMeta))->AddRef(); /* Attach doesn't call AddRef() */
+	pIMeta.Attach((IMSAdminBase *) IISG(pIMeta));
 
 	if (FAILED(hRes))     
 	return hRes;  
@@ -276,12 +301,14 @@ extern "C" IISFUNC_API int fnIisRemoveServer(DWORD ServerInstance)
 	}
 	else
 		return -601;
+
 	pIMeta->CloseKey(MyHandle); 
+
 
 	return 1;
 }
 
-extern "C" IISFUNC_API int fnIisSetDirSecurity(DWORD ServerInstance, char * VirtualPath, DWORD DirFlags)
+extern "C" int fnIisSetDirSecurity(DWORD ServerInstance, char * VirtualPath, DWORD DirFlags TSRMLS_DC)
 {
 	HRESULT hRes = 0;
 	METADATA_HANDLE MyHandle; 
@@ -289,8 +316,8 @@ extern "C" IISFUNC_API int fnIisSetDirSecurity(DWORD ServerInstance, char * Virt
 	WCHAR SubKeyName[METADATA_MAX_NAME_LEN]; 
 	CComPtr <IMSAdminBase> pIMeta; 
 
-	CoInitialize(NULL);
-	hRes = CoCreateInstance(CLSID_MSAdminBase, NULL, CLSCTX_ALL, IID_IMSAdminBase, (void **) &pIMeta);  
+	((IMSAdminBase *) IISG(pIMeta))->AddRef(); /* Attach doesn't call AddRef() */
+	pIMeta.Attach((IMSAdminBase *) IISG(pIMeta));
 
 	if (FAILED(hRes))     
 	return hRes;  
@@ -311,12 +338,13 @@ extern "C" IISFUNC_API int fnIisSetDirSecurity(DWORD ServerInstance, char * Virt
 	}
 	else
 		return -501;
+
 	pIMeta->CloseKey(MyHandle); 
 
 	return 1;
 }
 
-extern "C" IISFUNC_API int fnIisGetDirSecurity(DWORD ServerInstance, char * VirtualPath, DWORD * DirFlags)
+extern "C" int fnIisGetDirSecurity(DWORD ServerInstance, char * VirtualPath, DWORD * DirFlags TSRMLS_DC)
 {
 	HRESULT hRes = 0;
 	DWORD buffer = 0; 
@@ -325,8 +353,8 @@ extern "C" IISFUNC_API int fnIisGetDirSecurity(DWORD ServerInstance, char * Virt
 	WCHAR SubKeyName[METADATA_MAX_NAME_LEN]; 
 	CComPtr <IMSAdminBase> pIMeta; 
 
-	CoInitialize(NULL);
-	hRes = CoCreateInstance(CLSID_MSAdminBase, NULL, CLSCTX_ALL, IID_IMSAdminBase, (void **) &pIMeta);  
+	((IMSAdminBase *) IISG(pIMeta))->AddRef(); /* Attach doesn't call AddRef() */
+	pIMeta.Attach((IMSAdminBase *) IISG(pIMeta));
 
 	if (FAILED(hRes))     
 	return hRes;  
@@ -347,12 +375,13 @@ extern "C" IISFUNC_API int fnIisGetDirSecurity(DWORD ServerInstance, char * Virt
 	}
 	else
 		return -501;
+
 	pIMeta->CloseKey(MyHandle); 
 
 	return 1;
 }
 
-extern "C" IISFUNC_API int fnIisSetServerRight(DWORD ServerInstance, char * VirtualPath, DWORD ServerRights)
+extern "C" int fnIisSetServerRight(DWORD ServerInstance, char * VirtualPath, DWORD ServerRights TSRMLS_DC)
 {
 	HRESULT hRes = 0;
 	METADATA_HANDLE MyHandle; 
@@ -360,8 +389,8 @@ extern "C" IISFUNC_API int fnIisSetServerRight(DWORD ServerInstance, char * Virt
 	WCHAR SubKeyName[METADATA_MAX_NAME_LEN]; 
 	CComPtr <IMSAdminBase> pIMeta; 
 
-	CoInitialize(NULL);
-	hRes = CoCreateInstance(CLSID_MSAdminBase, NULL, CLSCTX_ALL, IID_IMSAdminBase, (void **) &pIMeta);  
+	((IMSAdminBase *) IISG(pIMeta))->AddRef(); /* Attach doesn't call AddRef() */
+	pIMeta.Attach((IMSAdminBase *) IISG(pIMeta));
 
 	if (FAILED(hRes))     
 	return hRes;  
@@ -382,12 +411,13 @@ extern "C" IISFUNC_API int fnIisSetServerRight(DWORD ServerInstance, char * Virt
 	}
 	else
 		return -501;
+
 	pIMeta->CloseKey(MyHandle); 
 
 	return 1;
 }
 
-extern "C" IISFUNC_API int fnIisGetServerRight(DWORD ServerInstance, char * VirtualPath, DWORD * ServerRights)
+extern "C" int fnIisGetServerRight(DWORD ServerInstance, char * VirtualPath, DWORD * ServerRights TSRMLS_DC)
 {
 	HRESULT hRes = 0;
 	DWORD buffer = 0; 
@@ -396,8 +426,8 @@ extern "C" IISFUNC_API int fnIisGetServerRight(DWORD ServerInstance, char * Virt
 	WCHAR SubKeyName[METADATA_MAX_NAME_LEN]; 
 	CComPtr <IMSAdminBase> pIMeta; 
 
-	CoInitialize(NULL);
-	hRes = CoCreateInstance(CLSID_MSAdminBase, NULL, CLSCTX_ALL, IID_IMSAdminBase, (void **) &pIMeta);  
+	((IMSAdminBase *) IISG(pIMeta))->AddRef(); /* Attach doesn't call AddRef() */
+	pIMeta.Attach((IMSAdminBase *) IISG(pIMeta));
 
 	if (FAILED(hRes))     
 	return hRes;  
@@ -423,7 +453,7 @@ extern "C" IISFUNC_API int fnIisGetServerRight(DWORD ServerInstance, char * Virt
 	return 1;
 }
 
-extern "C" IISFUNC_API int fnIisSetServerStatus(DWORD ServerInstance, DWORD StartServer)
+extern "C" int fnIisSetServerStatus(DWORD ServerInstance, DWORD StartServer TSRMLS_DC)
 {
 	HRESULT hRes = 0;
 	METADATA_HANDLE MyHandle; 
@@ -431,8 +461,8 @@ extern "C" IISFUNC_API int fnIisSetServerStatus(DWORD ServerInstance, DWORD Star
 	WCHAR SubKeyName[METADATA_MAX_NAME_LEN]; 
 	CComPtr <IMSAdminBase> pIMeta; 
 
-	CoInitialize(NULL);
-	hRes = CoCreateInstance(CLSID_MSAdminBase, NULL, CLSCTX_ALL, IID_IMSAdminBase, (void **) &pIMeta);  
+	((IMSAdminBase *) IISG(pIMeta))->AddRef(); /* Attach doesn't call AddRef() */
+	pIMeta.Attach((IMSAdminBase *) IISG(pIMeta));
 
 	if (FAILED(hRes))     
 	return hRes;  
@@ -458,7 +488,7 @@ extern "C" IISFUNC_API int fnIisSetServerStatus(DWORD ServerInstance, DWORD Star
 	return 1;
 }
 
-extern "C" IISFUNC_API int fnIisSetScriptMap(DWORD ServerInstance, char * VirtualPath, char * ScriptMap)
+extern "C" int fnIisSetScriptMap(DWORD ServerInstance, char * VirtualPath, char * ScriptMap TSRMLS_DC)
 {
 	HRESULT hRes = 0;
 	DWORD buffer = 0; 
@@ -470,8 +500,8 @@ extern "C" IISFUNC_API int fnIisSetScriptMap(DWORD ServerInstance, char * Virtua
 	CComPtr <IMSAdminBase> pIMeta; 
 	WCHAR NewData[65535];
 
-	CoInitialize(NULL);
-	hRes = CoCreateInstance(CLSID_MSAdminBase, NULL, CLSCTX_ALL, IID_IMSAdminBase, (void **) &pIMeta);  
+	((IMSAdminBase *) IISG(pIMeta))->AddRef(); /* Attach doesn't call AddRef() */
+	pIMeta.Attach((IMSAdminBase *) IISG(pIMeta));
 
 	if (FAILED(hRes))     
 	return hRes;  
@@ -512,7 +542,7 @@ extern "C" IISFUNC_API int fnIisSetScriptMap(DWORD ServerInstance, char * Virtua
 	return 1;
 }
 
-extern "C" IISFUNC_API int fnIisGetScriptMap(DWORD ServerInstance, char * VirtualPath, char * ScriptExtention, char * ReturnValue)
+extern "C" int fnIisGetScriptMap(DWORD ServerInstance, char * VirtualPath, char * ScriptExtention, char * ReturnValue TSRMLS_DC)
 {
 	HRESULT hRes = 0;
 	DWORD buffer = 0; 
@@ -525,8 +555,8 @@ extern "C" IISFUNC_API int fnIisGetScriptMap(DWORD ServerInstance, char * Virtua
 	PBYTE temp;
 	char extBuffer[256];
 
-	CoInitialize(NULL);
-	hRes = CoCreateInstance(CLSID_MSAdminBase, NULL, CLSCTX_ALL, IID_IMSAdminBase, (void **) &pIMeta);  
+	((IMSAdminBase *) IISG(pIMeta))->AddRef(); /* Attach doesn't call AddRef() */
+	pIMeta.Attach((IMSAdminBase *) IISG(pIMeta));
 
 	if (FAILED(hRes))     
 	return hRes;  
@@ -534,7 +564,7 @@ extern "C" IISFUNC_API int fnIisGetScriptMap(DWORD ServerInstance, char * Virtua
 	hRes = pIMeta->OpenKey(METADATA_MASTER_ROOT_HANDLE, L"/LM/W3SVC", METADATA_PERMISSION_READ, 20, &MyHandle); 
 	if (SUCCEEDED(hRes)) {
 		memset(SubKeyName , 0, sizeof(SubKeyName));
-		swprintf(SubKeyName,L"/%ld/ROOT%S",ServerInstance,VirtualPath);
+		swprintf(SubKeyName, L"/%ld/ROOT%S", ServerInstance, VirtualPath);
 		MyRecord.dwMDIdentifier = MD_SCRIPT_MAPS;
 		MyRecord.dwMDAttributes = METADATA_INHERIT;
 		MyRecord.dwMDUserType = IIS_MD_UT_FILE;
@@ -557,7 +587,7 @@ extern "C" IISFUNC_API int fnIisGetScriptMap(DWORD ServerInstance, char * Virtua
 	return 1;
 }
 
-extern "C" IISFUNC_API int fnIisSetAppSettings(DWORD ServerInstance, char * VirtualPath, char * AppName)
+extern "C" int fnIisSetAppSettings(DWORD ServerInstance, char * VirtualPath, char * AppName TSRMLS_DC)
 {
 	HRESULT hRes = 0;
 	METADATA_HANDLE MyHandle; 
@@ -567,8 +597,8 @@ extern "C" IISFUNC_API int fnIisSetAppSettings(DWORD ServerInstance, char * Virt
 	CComPtr <IMSAdminBase> pIMeta;
 	DWORD isolated = 0;
 
-	CoInitialize(NULL);
-	hRes = CoCreateInstance(CLSID_MSAdminBase, NULL, CLSCTX_ALL, IID_IMSAdminBase, (void **) &pIMeta);  
+	((IMSAdminBase *) IISG(pIMeta))->AddRef(); /* Attach doesn't call AddRef() */
+	pIMeta.Attach((IMSAdminBase *) IISG(pIMeta));
 
 	if (FAILED(hRes))     
 	return hRes;  
@@ -624,16 +654,16 @@ extern "C" IISFUNC_API int fnIisSetAppSettings(DWORD ServerInstance, char * Virt
 	return 1;
 }
 
-extern "C" IISFUNC_API int fnStopService(LPCTSTR ServiceId)
+extern "C" int fnStopService(LPCTSTR ServiceId TSRMLS_DC)
 {
-	SC_HANDLE hnd,hsvc;
+	SC_HANDLE hnd, hsvc;
 	SERVICE_STATUS ss;
 
 	hnd = OpenSCManager(NULL, NULL, SC_MANAGER_CONNECT);
 	if (hnd) {
-		hsvc = OpenService(hnd,ServiceId,SERVICE_STOP);
+		hsvc = OpenService(hnd, ServiceId, SERVICE_STOP);
 		if (hsvc)
-			if (ControlService(hsvc,SERVICE_CONTROL_STOP,&ss))
+			if (ControlService(hsvc, SERVICE_CONTROL_STOP, &ss))
 				return 1;
 			else
 				return -103;
@@ -644,15 +674,15 @@ extern "C" IISFUNC_API int fnStopService(LPCTSTR ServiceId)
 		return -101;
 }
 
-extern "C" IISFUNC_API int fnStartService(LPCTSTR ServiceId)
+extern "C" int fnStartService(LPCTSTR ServiceId TSRMLS_DC)
 {
-	SC_HANDLE hnd,hsvc;
+	SC_HANDLE hnd, hsvc;
 
 	hnd = OpenSCManager(NULL, NULL, SC_MANAGER_CONNECT);
 	if (hnd) {
-		hsvc = OpenService(hnd,ServiceId,SERVICE_START);
+		hsvc = OpenService(hnd, ServiceId, SERVICE_START);
 		if (hsvc)
-			if (StartService(hsvc,0, NULL))
+			if (StartService(hsvc, 0, NULL))
 				return 1;
 			else
 				return -104;
@@ -663,16 +693,16 @@ extern "C" IISFUNC_API int fnStartService(LPCTSTR ServiceId)
 		return -101;
 }
 
-extern "C" IISFUNC_API int fnGetServiceState(LPCTSTR ServiceId)
+extern "C" int fnGetServiceState(LPCTSTR ServiceId TSRMLS_DC)
 {
-	SC_HANDLE hnd,hsvc;
+	SC_HANDLE hnd, hsvc;
 	SERVICE_STATUS ss;
 
 	hnd = OpenSCManager(NULL, NULL, SC_MANAGER_CONNECT);
 	if (hnd) {
-		hsvc = OpenService(hnd,ServiceId,SERVICE_QUERY_STATUS);
+		hsvc = OpenService(hnd, ServiceId, SERVICE_QUERY_STATUS);
 		if (hsvc)
-			if (QueryServiceStatus(hsvc,&ss))
+			if (QueryServiceStatus(hsvc, &ss))
 				return ss.dwCurrentState;
 			else
 				return -105;
@@ -682,3 +712,5 @@ extern "C" IISFUNC_API int fnGetServiceState(LPCTSTR ServiceId)
 	else
 		return -101;
 }
+
+#endif /* PHP_WIN32 */

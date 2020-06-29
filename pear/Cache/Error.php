@@ -15,9 +15,9 @@
 // | Authors: Ulf Wendel <ulf.wendel@phpdoc.de>                           |
 // +----------------------------------------------------------------------+
 //
-// $Id: Error.php,v 1.3 2001/03/08 22:20:55 sbergmann Exp $
+// $Id: Error.php,v 1.4 2001/07/07 23:15:10 sbergmann Exp $
 
-require_once "PEAR.php";
+require_once 'PEAR.php';
 
 /**
 * Cache Error class
@@ -32,7 +32,7 @@ class Cache_Error extends PEAR_Error {
   * 
   * @var  string
   */
-  var $error_message_prefix = "Cache-Error: ";
+  var $error_message_prefix = 'Cache-Error: ';
   
   /**
   * Creates an cache error object.

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mbstring.h,v 1.5 2001/05/09 11:18:11 hirokawa Exp $ */
+/* $Id: mbstring.h,v 1.7 2001/07/30 01:56:29 zeev Exp $ */
 
 /*
  * PHP4 Multibyte String module "mbstring" (currently only for Japanese)
@@ -58,10 +58,10 @@
 extern zend_module_entry mbstring_module_entry;
 #define mbstring_module_ptr &mbstring_module_entry
 
-extern PHP_MINIT_FUNCTION(mbstring);
-extern PHP_MSHUTDOWN_FUNCTION(mbstring);
-extern PHP_RINIT_FUNCTION(mbstring);
-extern PHP_RSHUTDOWN_FUNCTION(mbstring);
+PHP_MINIT_FUNCTION(mbstring);
+PHP_MSHUTDOWN_FUNCTION(mbstring);
+PHP_RINIT_FUNCTION(mbstring);
+PHP_RSHUTDOWN_FUNCTION(mbstring);
 PHP_MINFO_FUNCTION(mbstring);
 
 /* php function registration */
@@ -118,19 +118,9 @@ ZEND_END_MODULE_GLOBALS(mbstring);
 
 
 #ifdef ZTS
-#define MBSTRLS_D zend_mbstring_globals *mbstring_globals
-#define MBSTRLS_DC , MBSTRLS_D
-#define MBSTRLS_C mbstring_globals
-#define MBSTRLS_CC , MBSTRLS_C
-#define MBSTRG(v) (mbstring_globals->v)
-#define MBSTRLS_FETCH() zend_mbstring_globals *mbstring_globals = ts_resource(mbstring_globals_id)
+#define MBSTRG(v) TSRMG(mbstring_globals_id, zend_mbstring_globals *, v)
 #else
-#define MBSTRLS_D
-#define MBSTRLS_DC
-#define MBSTRLS_C
-#define MBSTRLS_CC
 #define MBSTRG(v) (mbstring_globals.v)
-#define MBSTRLS_FETCH()
 #endif
 
 #else	/* HAVE_MBSTRING */
