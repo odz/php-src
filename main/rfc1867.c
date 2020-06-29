@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,7 +15,7 @@
    | Authors: Rasmus Lerdorf <rasmus@php.net>                             |
    +----------------------------------------------------------------------+
  */
-/* $Id: rfc1867.c,v 1.54.2.1 2000/12/08 16:21:47 sas Exp $ */
+/* $Id: rfc1867.c,v 1.60 2001/02/26 06:07:31 andi Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -83,12 +83,6 @@ static void register_http_post_files_variable_ex(char *var, zval *val, zval *htt
 }
 
 
-static void free_filename(char **filename)
-{
-	efree(*filename);
-}
-
-
 static int unlink_filename(char **filename)
 {
 	V_UNLINK(*filename);
@@ -124,7 +118,7 @@ static void php_mime_split(char *buf, int cnt, char *boundary, zval *array_ptr S
 	zend_hash_init(&PG(rfc1867_protected_variables), 5, NULL, NULL, 0);
 
 	ALLOC_HASHTABLE(SG(rfc1867_uploaded_files));
-	zend_hash_init(SG(rfc1867_uploaded_files), 5, NULL, (dtor_func_t) free_filename, 0);
+	zend_hash_init(SG(rfc1867_uploaded_files), 5, NULL, (dtor_func_t) free_estring, 0);
 
 	ALLOC_ZVAL(http_post_files);
 	array_init(http_post_files);
@@ -167,11 +161,20 @@ static void php_mime_split(char *buf, int cnt, char *boundary, zval *array_ptr S
 					SAFE_RETURN;
 				}
 				loc = memchr(ptr, '\n', rem);
-				name = strstr(ptr, " name=\"");
+				name = strstr(ptr, " name=");
 				if (name && name < loc) {
-					name += 7;
+					name += 6;
 					s = memchr(name, '\"', loc - name);
-					if (!s) {
+					if ( name == s ) { 
+						name++;
+						s = memchr(name, '\"', loc - name);
+						if(!s) {
+							php_error(E_WARNING, "File Upload Mime headers garbled name: [%c%c%c%c%c]", *name, *(name + 1), *(name + 2), *(name + 3), *(name + 4));
+							SAFE_RETURN;
+						}
+					} else if(!s) {
+						s = loc;
+					} else {
 						php_error(E_WARNING, "File Upload Mime headers garbled name: [%c%c%c%c%c]", *name, *(name + 1), *(name + 2), *(name + 3), *(name + 4));
 						SAFE_RETURN;
 					}
@@ -192,13 +195,13 @@ static void php_mime_split(char *buf, int cnt, char *boundary, zval *array_ptr S
 					 * start_arr is set to point to 1st [
 					 * end_arr points to last ]
 					 */
-					is_arr_upload = (start_arr = strrchr(namebuf,'[')) && 
+					is_arr_upload = (start_arr = strchr(namebuf,'[')) && 
 									(end_arr = strrchr(namebuf,']')) && 
 									(end_arr = namebuf+strlen(namebuf)-1);
 					if(is_arr_upload) {
 						arr_len = strlen(start_arr);
 						if(arr_index) efree(arr_index);
-						arr_index = estrndup(start_arr+1,arr_len-1);	
+						arr_index = estrndup(start_arr+1,arr_len-2);	
 					}
 				} else {
 					php_error(E_WARNING, "File upload error - no name component in content disposition");

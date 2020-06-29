@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: oci8.c,v 1.104 2000/11/16 10:16:22 thies Exp $ */
+/* $Id: oci8.c,v 1.113.2.1 2001/04/11 15:48:06 thies Exp $ */
 
 /* TODO list:
  *
@@ -109,6 +109,7 @@ PHP_MSHUTDOWN_FUNCTION(oci);
 PHP_RSHUTDOWN_FUNCTION(oci);
 PHP_MINFO_FUNCTION(oci);
 
+static ub4 oci_handle_error(oci_connection *connection, ub4 errcode);
 static ub4 oci_error(OCIError *err_p, char *what, sword status);
 static int oci_ping(oci_server *server);
 static void oci_debug(const char *format, ...);
@@ -341,11 +342,16 @@ PHP_MINIT_FUNCTION(oci)
 {
 	zend_class_entry oci_lob_class_entry;
 
+/* XXX Joe Brown says OCI_THREADED breaks windows, assuming the same is true for unix - tc
 #ifdef ZTS 
 #define PHP_OCI_INIT_MODE OCI_THREADED
 #else
+*/
 #define PHP_OCI_INIT_MODE OCI_DEFAULT
+
+/*
 #endif
+*/
 
 #if OCI_USE_EMALLOC
     OCIInitialize(PHP_OCI_INIT_MODE, NULL, ocimalloc, ocirealloc, ocifree);
@@ -488,7 +494,7 @@ PHP_MINFO_FUNCTION(oci)
 
 	php_info_print_table_start();
 	php_info_print_table_row(2, "OCI8 Support", "enabled");
-	php_info_print_table_row(2, "Revision", "$Revision: 1.104 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.113.2.1 $");
 #ifndef PHP_WIN32
 	php_info_print_table_row(2, "Oracle Version", PHP_OCI8_VERSION );
 	php_info_print_table_row(2, "Compile-time ORACLE_HOME", PHP_OCI8_DIR );
@@ -508,7 +514,7 @@ _oci_define_hash_dtor(void *data)
 
 	oci_debug("_oci_define_hash_dtor: %s",define->name);
 
-	zval_del_ref(&define->zval);
+	zval_ptr_dtor(&define->zval);
 
 	if (define->name) {
 		efree(define->name);
@@ -526,7 +532,7 @@ _oci_bind_hash_dtor(void *data)
 
 	oci_debug("_oci_bind_hash_dtor:");
 
-   	zval_del_ref(&(bind->zval));
+   	zval_ptr_dtor(&(bind->zval));
 }
 
 /* }}} */
@@ -730,6 +736,23 @@ _oci_session_list_dtor(zend_rsrc_list_entry *rsrc)
 }
 
 /* }}} */
+
+static ub4
+oci_handle_error(oci_connection *connection, ub4 errcode)
+{
+	switch (errcode) {
+    	case 22:   /* ORA-00022 Invalid session id */
+       	case 1012: /* ORA-01012: */
+       	case 3113: /* ORA-03113: end-of-file on communication channel */
+        	connection->open = 0;
+           	connection->session->open = 0;
+           	connection->session->server->open = 0;
+			return 1; /* fatal error */
+   	}
+
+	return 0; /* no fatal error */
+}
+
 /* {{{ oci_error() */
 
 static ub4
@@ -811,9 +834,7 @@ static void oci_debug(const char *format, ...)
 		vsnprintf(buffer, sizeof(buffer)-1, format, args);
 		va_end(args);
 		buffer[sizeof(buffer)-1] = '\0';
-		if (php_header()) {
-			php_printf("OCIDebug: %s<br>\n", buffer);
-		}
+		php_printf("OCIDebug: %s<br>\n", buffer);
 	}
 }
 
@@ -937,7 +958,9 @@ oci_new_desc(int type,oci_connection *connection)
 						   (dvoid **) 0);
 	
 	if (OCI(error)) {
-		oci_error(OCI(pError),"OCIDescriptorAlloc %d",OCI(error));
+		ub4 error;
+		error = oci_error(OCI(pError),"OCIDescriptorAlloc %d",OCI(error));
+		oci_handle_error(connection, error);
 		return 0;
 	}
 
@@ -1005,14 +1028,11 @@ _oci_make_zval(zval *value,oci_statement *statement,oci_out_column *column, char
             	return -1;
         	}
 			
-			oci_loadlob(statement->conn,descr,&buffer,&loblen);
-			
-			if (loblen >= 0)	{
-				ZVAL_STRINGL(value,buffer,loblen,0);
-			} else {
-				/* XXX is this an error? */
+			if (oci_loadlob(statement->conn,descr,&buffer,&loblen)) {
 				ZVAL_BOOL(value,0); 
-			}
+			} else {
+				ZVAL_STRINGL(value,buffer,loblen,0);
+			} 
 		} else { 
 			/* return the locator */
 			object_init_ex(value, oci_lob_class_entry_ptr);
@@ -1060,6 +1080,9 @@ oci_setprefetch(oci_statement *statement,int size)
 							  0, 
 							  OCI_ATTR_PREFETCH_MEMORY,
 							  statement->pError));
+	if (statement->error) {
+	       oci_handle_error(statement->conn, statement->error);
+	}
 	prefetch = size;
 	statement->error = 
 		oci_error(statement->pError, 
@@ -1070,6 +1093,9 @@ oci_setprefetch(oci_statement *statement,int size)
 							  0, 
 							  OCI_ATTR_PREFETCH_ROWS,
 							  statement->pError));
+    if (statement->error) {
+		oci_handle_error(statement->conn, statement->error);
+	}
 
 	return 1;
 }
@@ -1109,6 +1135,7 @@ static oci_statement *oci_parse(oci_connection *connection, char *query, int len
 			OCIHandleFree(statement->pStmt, OCI_HTYPE_STMT);
 		   	OCIHandleFree(statement->pError, OCI_HTYPE_ERROR);
 			efree(statement);
+			oci_handle_error(connection, connection->error);
 			return 0;
 		}
 	}
@@ -1162,6 +1189,7 @@ oci_execute(oci_statement *statement, char *func,ub4 mode)
 							 statement->pError));
 
 	if (statement->error) {
+		oci_handle_error(statement->conn, statement->error);
 		return 0;
 	}
 
@@ -1190,25 +1218,14 @@ oci_execute(oci_statement *statement, char *func,ub4 mode)
 									 NULL,
 									 NULL,
 									 mode));
-		
 		if (statement->binds) {
 			zend_hash_apply(statement->binds, (int (*)(void *)) _oci_bind_post_exec);
 		}
 
-		switch (statement->error) {
-		case 0:
-			break;
-			
-		case 3113: /* ORA-03113: end-of-file on communication channel */
-			statement->conn->open = 0;
-			statement->conn->session->open = 0;
-			statement->conn->session->server->open = 0;
+		oci_handle_error(statement->conn, statement->error);
+
+		if (statement->error) {
 			return 0;
-			break;
-			
-		default:
-			return 0;
-			break;
 		}
 	}
 
@@ -1219,12 +1236,6 @@ oci_execute(oci_statement *statement, char *func,ub4 mode)
 		statement->columns = emalloc(sizeof(HashTable));
 		zend_hash_init(statement->columns, 13, NULL, _oci_column_hash_dtor, 0);
 		
-		OCIHandleAlloc(OCI(pEnv),
-					   (dvoid **)&param,
-					   OCI_DTYPE_PARAM,
-					   0,
-					   NULL);
-
 		counter = 1;
 
 		statement->error = 
@@ -1237,6 +1248,7 @@ oci_execute(oci_statement *statement, char *func,ub4 mode)
 								 OCI_ATTR_PARAM_COUNT,
 								 statement->pError));
 		if (statement->error) {
+			oci_handle_error(statement->conn, statement->error);
 			return 0; /* XXX we loose memory!!! */
 		}
 
@@ -1261,9 +1273,10 @@ oci_execute(oci_statement *statement, char *func,ub4 mode)
 									   (dvoid *)statement->pStmt,
 									   OCI_HTYPE_STMT,
 									   statement->pError,
-									   (dvoid*)&param,
+									   (dvoid**)&param,
 									   counter));
 			if (statement->error) {
+				oci_handle_error(statement->conn, statement->error);
 				return 0; /* XXX we loose memory!!! */
 			}
 
@@ -1277,6 +1290,7 @@ oci_execute(oci_statement *statement, char *func,ub4 mode)
 									  OCI_ATTR_DATA_TYPE,
 									  statement->pError));
 			if (statement->error) {
+				oci_handle_error(statement->conn, statement->error);
 				return 0; /* XXX we loose memory!!! */
 			}
 
@@ -1291,6 +1305,7 @@ oci_execute(oci_statement *statement, char *func,ub4 mode)
 									  OCI_ATTR_DATA_SIZE,
 									  statement->pError));
 			if (statement->error) {
+				oci_handle_error(statement->conn, statement->error);
 				return 0; /* XXX we loose memory!!! */
 			}
 
@@ -1307,6 +1322,7 @@ oci_execute(oci_statement *statement, char *func,ub4 mode)
 									  OCI_ATTR_SCALE,
 									  statement->pError));
 			if (statement->error) {
+				oci_handle_error(statement->conn, statement->error);
 				return 0; /* XXX we lose memory!!! */
 			}
 
@@ -1320,6 +1336,7 @@ oci_execute(oci_statement *statement, char *func,ub4 mode)
 									  OCI_ATTR_PRECISION,
 									  statement->pError));
 			if (statement->error) {
+				oci_handle_error(statement->conn, statement->error);
 				return 0; /* XXX we lose memory!!! */
 			}
 						
@@ -1333,6 +1350,7 @@ oci_execute(oci_statement *statement, char *func,ub4 mode)
 									  (ub4)OCI_ATTR_NAME,
 									  statement->pError));
 			if (statement->error) {
+				oci_handle_error(statement->conn, statement->error);
 				return 0; /* XXX we loose memory!!! */
 			}
 
@@ -1439,6 +1457,7 @@ oci_execute(oci_statement *statement, char *func,ub4 mode)
 											  OCI_DEFAULT));		        /* IN	  mode (OCI_DEFAULT, OCI_DYNAMIC_FETCH) */
 			}
 			if (statement->error) {
+				oci_handle_error(statement->conn, statement->error);
 				return 0; /* XXX we loose memory!!! */
 			}
 		}
@@ -1551,6 +1570,7 @@ oci_fetch(oci_statement *statement, ub4 nrows, char *func)
 	}
 
 	oci_error(statement->pError, func, statement->error);
+	oci_handle_error(statement->conn, statement->error);
 
 	return 0;
 }
@@ -1577,6 +1597,7 @@ oci_loadlob(oci_connection *connection, oci_descriptor *mydescr, char **buffer,u
 						   OCI_FILE_READONLY);
 		if (connection->error) {
 			oci_error(connection->pError, "OCILobFileOpen",connection->error);
+			oci_handle_error(connection, connection->error);
 			return -1;
 		}
 	}
@@ -1588,7 +1609,8 @@ oci_loadlob(oci_connection *connection, oci_descriptor *mydescr, char **buffer,u
 						&readlen);
 
 	if (connection->error) {
-		oci_error(connection->pError, "OCILobFileOpen",connection->error);
+		oci_error(connection->pError, "OCILobGetLength",connection->error);
+		oci_handle_error(connection, connection->error);
 		return -1;
 	}
 
@@ -1621,6 +1643,7 @@ oci_loadlob(oci_connection *connection, oci_descriptor *mydescr, char **buffer,u
 
 	if (connection->error) {
 		oci_error(connection->pError, "OCILobRead", connection->error);
+		oci_handle_error(connection, connection->error);
 		efree(buf);
 		return -1;
 	}
@@ -1632,6 +1655,7 @@ oci_loadlob(oci_connection *connection, oci_descriptor *mydescr, char **buffer,u
 							mydescr->ocidescr);
 		if (connection->error) {
 			oci_error(connection->pError, "OCILobFileClose", connection->error);
+			oci_handle_error(connection, connection->error);
 			efree(buf);
 			return -1;
 		}
@@ -2475,6 +2499,7 @@ PHP_FUNCTION(ocibindbyname)
 		case SQLT_CFILEE:
 		case SQLT_CLOB:
 		case SQLT_BLOB:
+		case SQLT_RDD:
 			if ((*var)->type != IS_OBJECT) {
 				php_error(E_WARNING,"Variable must be allocated using OCINewDescriptor()");
 				RETURN_FALSE;
@@ -2544,6 +2569,7 @@ PHP_FUNCTION(ocibindbyname)
 
 	if (statement->error != OCI_SUCCESS) {
 		oci_error(statement->pError, "OCIBindByName", statement->error);
+		oci_handle_error(statement->conn, statement->error);
 		RETURN_FALSE;
 	}
 
@@ -2557,6 +2583,7 @@ PHP_FUNCTION(ocibindbyname)
 
 	if (statement->error != OCI_SUCCESS) {
 		oci_error(statement->pError, "OCIBindDynamic", statement->error);
+		oci_handle_error(statement->conn, statement->error);
 		RETURN_FALSE;
 	}
 	
@@ -2583,7 +2610,9 @@ PHP_FUNCTION(ocifreedesc)
 		}
 	}
 
-  RETURN_FALSE;
+	php_error(E_NOTICE, "OCIFreeDesc() should not be called like this. Use $somelob->free() to free a LOB");
+
+  	RETURN_FALSE;
 }
 /* }}} */
 
@@ -2666,6 +2695,7 @@ PHP_FUNCTION(ocisavelob)
 
 		if (connection->error) {
 			oci_error(connection->pError, "OCILobWrite", connection->error);
+			oci_handle_error(connection, connection->error);
 			RETURN_FALSE;
 		}
 
@@ -2741,6 +2771,7 @@ PHP_FUNCTION(ocisavelobfile)
 
 			if (connection->error) {
 				oci_error(connection->pError, "OCILobWrite", connection->error);
+				oci_handle_error(connection, connection->error);
 				close(fp);
 				RETURN_FALSE;
 			}
@@ -2763,7 +2794,6 @@ PHP_FUNCTION(ocisavelobfile)
 PHP_FUNCTION(ociloadlob)
 {
 	zval *id;
-	oci_connection *connection;
 	oci_descriptor *descr;
 	char *buffer;
 	int inx;
@@ -2774,11 +2804,7 @@ PHP_FUNCTION(ociloadlob)
 			RETURN_FALSE;
 		}
 
-		connection = descr->conn;
-
-		oci_loadlob(connection,descr,&buffer,&loblen);
-
-		if (loblen >= 0) {
+		if (!oci_loadlob(descr->conn,descr,&buffer,&loblen)) {
 	 		RETURN_STRINGL(buffer,loblen,0);
 		}
 	}
@@ -2853,6 +2879,7 @@ PHP_FUNCTION(ociwritelobtofile)
 
 		if (connection->error) {
 			oci_error(connection->pError, "OCILobGetLength", connection->error);
+			oci_handle_error(connection, connection->error);
 			goto bail;
 		}
 		
@@ -2864,6 +2891,7 @@ PHP_FUNCTION(ociwritelobtofile)
 							   OCI_FILE_READONLY);
 			if (connection->error) {
 				oci_error(connection->pError, "OCILobFileOpen",connection->error);
+				oci_handle_error(connection, connection->error);
 				goto bail;
 			}
 		}
@@ -2916,6 +2944,7 @@ PHP_FUNCTION(ociwritelobtofile)
 
 			if (connection->error) {
 				oci_error(connection->pError, "OCILobRead", connection->error);
+				oci_handle_error(connection, connection->error);
 				goto bail;
 			}
 
@@ -2925,9 +2954,7 @@ PHP_FUNCTION(ociwritelobtofile)
 					goto bail;
 				}
 			} else {
-				if (php_header()) {
-					PHPWRITE(buffer,toread);
-				}
+				PHPWRITE(buffer,toread);
 			}
 
 			length -= toread;
@@ -2949,6 +2976,7 @@ PHP_FUNCTION(ociwritelobtofile)
 								descr->ocidescr);
 			if (connection->error) {
 				oci_error(connection->pError, "OCILobFileClose", connection->error);
+				oci_handle_error(connection, connection->error);
 				goto bail;
 			}
 		}
@@ -3018,6 +3046,7 @@ PHP_FUNCTION(ocirollback)
 
 	if (connection->error) {
 		oci_error(connection->pError, "OCIRollback", connection->error);
+		oci_handle_error(connection, connection->error);
 		RETURN_FALSE;
 	}
 	
@@ -3051,6 +3080,7 @@ PHP_FUNCTION(ocicommit)
 
 	if (connection->error) {
 		oci_error(connection->pError, "OCICommit", connection->error);
+		oci_handle_error(connection, connection->error);
 		RETURN_FALSE;
 	}
 	
@@ -3807,6 +3837,7 @@ PHP_FUNCTION(ociserverversion)
 	
 	if (connection->error != OCI_SUCCESS) {
 		oci_error(connection->pError, "OCIServerVersion", connection->error);
+		oci_handle_error(connection, connection->error);
 		RETURN_FALSE;
 	}
 
@@ -3841,6 +3872,7 @@ PHP_FUNCTION(ocistatementtype)
 				   statement->pError);
 	if (statement->error != OCI_SUCCESS) {
 		oci_error(statement->pError, "OCIStatementType", statement->error);
+		oci_handle_error(statement->conn, statement->error);
 		RETURN_FALSE;
 	}
 
@@ -3902,6 +3934,7 @@ PHP_FUNCTION(ocirowcount)
 
 	if (statement->error != OCI_SUCCESS) {
 		oci_error(statement->pError, "OCIRowCount", statement->error);
+		oci_handle_error(statement->conn, statement->error);
 		RETURN_FALSE;
 	}
 

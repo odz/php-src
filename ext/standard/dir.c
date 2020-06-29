@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,12 +17,12 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dir.c,v 1.50.2.1 2000/12/07 19:15:02 sas Exp $ */
+/* $Id: dir.c,v 1.58 2001/02/26 06:07:17 andi Exp $ */
 
 /* {{{ includes/startup/misc */
 
 #include "php.h"
-#include "fopen-wrappers.h"
+#include "fopen_wrappers.h"
 
 #include "php_dir.h"
 
@@ -222,6 +222,41 @@ PHP_FUNCTION(closedir)
 }
 
 /* }}} */
+
+#if defined(HAVE_CHROOT) && !defined(ZTS)
+/* {{{ proto int chroot(string directory)
+   Change root directory */
+
+PHP_FUNCTION(chroot)
+{
+	pval **arg;
+	int ret;
+	
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+	convert_to_string_ex(arg);
+
+	ret = chroot((*arg)->value.str.val);
+	
+	if (ret != 0) {
+		php_error(E_WARNING, "chroot: %s (errno %d)", strerror(errno), errno);
+		RETURN_FALSE;
+	}
+
+	ret = chdir("/");
+	
+	if (ret != 0) {
+		php_error(E_WARNING, "chdir: %s (errno %d)", strerror(errno), errno);
+		RETURN_FALSE;
+	}
+
+	RETURN_TRUE;
+}
+
+/* }}} */
+#endif
+
 /* {{{ proto int chdir(string directory)
    Change the current directory */
 
@@ -259,7 +294,7 @@ PHP_FUNCTION(getcwd)
 	}
 
 #if HAVE_GETCWD
-	ret = V_GETCWD(path,MAXPATHLEN-1);
+	ret = V_GETCWD(path, MAXPATHLEN);
 #elif HAVE_GETWD
 	ret = V_GETWD(path);
 /*

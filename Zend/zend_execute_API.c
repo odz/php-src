@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -342,6 +342,9 @@ int call_user_function_ex(HashTable *function_table, zval **object_pp, zval *fun
 	zend_function_state *original_function_state_ptr;
 	zend_op_array *original_op_array;
 	zend_op **original_opline_ptr;
+	int orig_free_op1, orig_free_op2;
+	int (*orig_unary_op)(zval *result, zval *op1);
+	int (*orig_binary_op)(zval *result, zval *op1, zval *op2);
 	ELS_FETCH();
 
 	*retval_ptr_ptr = NULL;
@@ -361,11 +364,28 @@ int call_user_function_ex(HashTable *function_table, zval **object_pp, zval *fun
 		(*object_pp)->is_ref = 1;
 	}
 
+	if (object_pp && !*object_pp) {
+		object_pp = NULL;
+	}
 	if (object_pp) {
-		if (Z_TYPE_PP(object_pp) != IS_OBJECT) {
+		if (Z_TYPE_PP(object_pp) == IS_OBJECT) {
+			function_table = &(*object_pp)->value.obj.ce->function_table;
+		} else if (Z_TYPE_PP(object_pp) == IS_STRING) {
+			zend_class_entry *ce;
+			char *lc_class;
+			int found;
+
+			lc_class = estrndup(Z_STRVAL_PP(object_pp), Z_STRLEN_PP(object_pp));
+			zend_str_tolower(lc_class, Z_STRLEN_PP(object_pp));
+			found = zend_hash_find(EG(class_table), lc_class, Z_STRLEN_PP(object_pp) + 1, (void **) &ce);
+			efree(lc_class);
+			if (found == FAILURE)
+				return FAILURE;
+
+			function_table = &ce->function_table;
+			object_pp = NULL;
+		} else
 			return FAILURE;
-		}
-		function_table = &(*object_pp)->value.obj.ce->function_table;
 	}
 
 	if (function_name->type!=IS_STRING) {
@@ -414,6 +434,8 @@ int call_user_function_ex(HashTable *function_table, zval **object_pp, zval *fun
 
 	zend_ptr_stack_n_push(&EG(argument_stack), 2, (void *) (long) param_count, NULL);
 
+	EG(function_state_ptr) = &function_state;
+
 	if (function_state.function->type == ZEND_USER_FUNCTION) {
 		calling_symbol_table = EG(active_symbol_table);
 		if (symbol_table) {
@@ -435,6 +457,10 @@ int call_user_function_ex(HashTable *function_table, zval **object_pp, zval *fun
 		EG(return_value_ptr_ptr) = retval_ptr_ptr;
 		EG(active_op_array) = (zend_op_array *) function_state.function;
 		original_opline_ptr = EG(opline_ptr);
+		orig_free_op1 = EG(free_op1);
+		orig_free_op2 = EG(free_op2);
+		orig_unary_op = EG(unary_op);
+		orig_binary_op = EG(binary_op);
 		zend_execute(EG(active_op_array) ELS_CC);
 		if (!symbol_table) {
 			zend_hash_destroy(EG(active_symbol_table));
@@ -444,9 +470,13 @@ int call_user_function_ex(HashTable *function_table, zval **object_pp, zval *fun
 		EG(active_op_array) = original_op_array;
 		EG(return_value_ptr_ptr)=original_return_value;
 		EG(opline_ptr) = original_opline_ptr;
+		EG(free_op1) = orig_free_op1;
+		EG(free_op2) = orig_free_op2;
+		EG(unary_op) = orig_unary_op;
+		EG(binary_op) = orig_binary_op;
 	} else {
 		ALLOC_INIT_ZVAL(*retval_ptr_ptr);
-		((zend_internal_function *) function_state.function)->handler(param_count, *retval_ptr_ptr, *object_pp, 1 ELS_CC);
+		((zend_internal_function *) function_state.function)->handler(param_count, *retval_ptr_ptr, (object_pp?*object_pp:NULL), 1 ELS_CC);
 		INIT_PZVAL(*retval_ptr_ptr);
 	}
 	zend_ptr_stack_clear_multiple(ELS_C);

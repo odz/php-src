@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -22,7 +22,7 @@
 #include "php.h"
 #include "php_globals.h"
 #include "php_variables.h"
-#include "modules.h"
+#include "zend_modules.h"
 
 #include "SAPI.h"
 
@@ -52,15 +52,12 @@
 #include "php_ini.h"
 #include "php_globals.h"
 #include "php_main.h"
-#include "fopen-wrappers.h"
+#include "fopen_wrappers.h"
 #include "ext/standard/php_standard.h"
 #ifdef PHP_WIN32
 #include <io.h>
 #include <fcntl.h>
-#include "win32/syslog.h"
 #include "win32/php_registry.h"
-#else
-#include <syslog.h>
 #endif
 
 #if HAVE_SIGNAL_H
@@ -74,8 +71,6 @@
 
 
 #include "php_getopt.h"
-
-PHPAPI extern char *php_ini_path;
 
 #define PHP_MODE_STANDARD	1
 #define PHP_MODE_HIGHLIGHT	2
@@ -201,7 +196,7 @@ static int sapi_cgi_deactivate(SLS_D)
 
 
 
-static sapi_module_struct sapi_module = {
+static sapi_module_struct cgi_sapi_module = {
 	"cgi",							/* name */
 	"CGI",							/* pretty name */
 									
@@ -246,21 +241,18 @@ static void php_cgi_usage(char *argv0)
 		prog = "php";
 	}
 
-	php_printf("Usage: %s [-q] [-h]"
-				" [-s]"
-				" [-v] [-i] [-f <file>] | "
-				"{<file> [args...]}\n"
+	php_printf("Usage: %s [-q] [-h] [-s [-v] [-i] [-f <file>] |  {<file> [args...]}\n"
 				"  -q             Quiet-mode.  Suppress HTTP Header output.\n"
 				"  -s             Display colour syntax highlighted source.\n"
-				"  -f<file>       Parse <file>.  Implies `-q'\n"
+				"  -f <file>      Parse <file>.  Implies `-q'\n"
 				"  -v             Version number\n"
-				"  -c<path>       Look for php.ini file in this directory\n"
+				"  -c <path>      Look for php.ini file in this directory\n"
 #if SUPPORT_INTERACTIVE
 				"  -a             Run interactively\n"
 #endif
 				"  -d foo[=bar]   Define INI entry foo with value 'bar'\n"
 				"  -e             Generate extended information for debugger/profiler\n"
-				"  -z<file>       Load Zend extension <file>.\n"
+				"  -z <file>      Load Zend extension <file>.\n"
 				"  -l             Syntax check only (lint)\n"
 				"  -m             Show compiled in modules\n"
 				"  -i             PHP information\n"
@@ -345,7 +337,7 @@ static void define_command_line_ini_entry(char *arg)
 }
 
 
-void php_register_command_line_global_vars(char **arg)
+static void php_register_command_line_global_vars(char **arg)
 {
 	char *var, *val;
 	ELS_FETCH();
@@ -412,7 +404,7 @@ int main(int argc, char *argv[])
 	tsrm_startup(1,1,0, NULL);
 #endif
 
-	sapi_startup(&sapi_module);
+	sapi_startup(&cgi_sapi_module);
 
 #ifdef PHP_WIN32
 	_fmode = _O_BINARY;			/*sets default for file streams to binary */
@@ -421,6 +413,9 @@ int main(int argc, char *argv[])
 	setmode(_fileno(stderr), O_BINARY);		/* make the stdio mode be binary */
 #endif
 
+	if (php_module_startup(&cgi_sapi_module)==FAILURE) {
+		return FAILURE;
+	}
 
 	/* Make sure we detect we are a cgi - a bit redundancy here,
 	   but the default case is that we have to check only the first one. */
@@ -468,7 +463,7 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 		while ((c=ap_php_getopt(argc, argv, OPTSTRING))!=-1) {
 			switch (c) {
 				case 'c':
-					php_ini_path = strdup(ap_php_optarg);		/* intentional leak */
+					cgi_sapi_module.php_ini_path_override = strdup(ap_php_optarg);
 					break;
 			}
 
@@ -477,9 +472,6 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 		ap_php_optarg = orig_optarg;
 	}
 
-	if (php_module_startup(&sapi_module)==FAILURE) {
-		return FAILURE;
-	}
 #ifdef ZTS
 	compiler_globals = ts_resource(compiler_globals_id);
 	executor_globals = ts_resource(executor_globals_id);
@@ -590,8 +582,8 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 				php_printf("\n[Zend Modules]\n");			
 				zend_llist_apply_with_argument(&zend_extensions, (void (*)(void *, void *)) _print_module_info, NULL);
 				php_printf("\n");
-                             	php_end_ob_buffers(1);
-                                exit(1);
+                php_end_ob_buffers(1);
+                exit(1);
 				break;
 
 #if 0 /* not yet operational, see also below ... */
@@ -773,6 +765,9 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 
 	STR_FREE(SG(request_info).path_translated);
 
+	if (cgi_sapi_module.php_ini_path_override) {
+		free(cgi_sapi_module.php_ini_path_override);
+	}
 #ifdef ZTS
 	tsrm_shutdown();
 #endif

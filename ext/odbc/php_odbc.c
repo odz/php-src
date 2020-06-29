@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -14,11 +14,11 @@
    +----------------------------------------------------------------------+
    | Authors: Stig Sæther Bakken <ssb@fast.no>                            |
    |          Andreas Karajannis <Andreas.Karajannis@gmd.de>              |
-   |          Frank M. Kromann <fmk@businessnet.dk> Support for DB/2 CLI  |
+   |          Frank M. Kromann <frank@frontbase.com> Support for DB/2 CLI |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_odbc.c,v 1.65 2000/11/17 15:48:09 kalowsky Exp $ */
+/* $Id: php_odbc.c,v 1.73 2001/03/09 23:44:55 fmk Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -66,6 +66,8 @@ static int le_result, le_conn, le_pconn;
 static unsigned char a3_arg3_force_ref[] = { 3, BYREF_NONE, BYREF_ALLOW, BYREF_FORCE };
 
 function_entry odbc_functions[] = {
+    PHP_FE(odbc_error, NULL)
+    PHP_FE(odbc_errormsg, NULL)
 	PHP_FE(odbc_setoption, NULL)
 	PHP_FE(odbc_autocommit, NULL)
 	PHP_FE(odbc_close, NULL)
@@ -89,6 +91,7 @@ function_entry odbc_functions[] = {
 	PHP_FE(odbc_field_type, NULL)
 	PHP_FE(odbc_field_num, NULL)
 	PHP_FE(odbc_free_result, NULL)
+	PHP_FE(odbc_next_result, NULL)
 	PHP_FE(odbc_num_fields, NULL)
 	PHP_FE(odbc_num_rows, NULL)
 	PHP_FE(odbc_result, NULL)
@@ -319,7 +322,7 @@ PHP_MINIT_FUNCTION(odbc)
 {
 	ODBCLS_D;
 #ifdef SQLANY_BUG
-	HDBC    foobar;
+	ODBC_SQL_CONN_T foobar;
 	RETCODE rc;
 #endif
 
@@ -336,6 +339,7 @@ PHP_MINIT_FUNCTION(odbc)
 	le_pconn = zend_register_list_destructors_ex(NULL, _close_odbc_pconn, "odbc link persistent", module_number);
 	odbc_module_entry.type = type;
 	
+	REGISTER_STRING_CONSTANT("ODBC_TYPE", PHP_ODBC_TYPE, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("ODBC_BINMODE_PASSTHRU", 0, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("ODBC_BINMODE_RETURN", 1, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("ODBC_BINMODE_CONVERT", 2, CONST_CS | CONST_PERSISTENT);
@@ -419,6 +423,8 @@ PHP_RINIT_FUNCTION(odbc)
 	
 	ODBCG(defConn) = -1;
 	ODBCG(num_links) = ODBCG(num_persistent);
+    memset(ODBCG(laststate), '\0', 6);
+    memset(ODBCG(lasterrormsg), '\0', SQL_MAX_MESSAGE_LENGTH);
 	return SUCCESS;
 }
 
@@ -465,22 +471,38 @@ void odbc_sql_error(ODBC_SQL_ERROR_PARAMS)
 	char	errormsg[SQL_MAX_MESSAGE_LENGTH];
 	SWORD	errormsgsize; /* Not used */
 	RETCODE rc;
+    ODBC_SQL_ENV_T henv;
+    ODBC_SQL_CONN_T conn;
 	ODBCLS_FETCH();
+
+    if (conn_resource) {
+        henv = conn_resource->henv;
+        conn = conn_resource->hdbc;
+    } else {
+        henv = SQL_NULL_HENV;
+        conn = SQL_NULL_HDBC;
+    }
 
 	/* This leads to an endless loop in many drivers! 
 	 *
 	   while(henv != SQL_NULL_HENV){
 		do {
 	 */
-			rc = SQLError(henv, conn, stmt, state,
-			    &error, errormsg, sizeof(errormsg)-1, &errormsgsize);
-	    	if (func) {
-		    	php_error(E_WARNING, "SQL error: %s, SQL state %s in %s",
-				   errormsg, state, func);
-			} else {
-		    	php_error(E_WARNING, "SQL error: %s, SQL state %s",
-						    errormsg, state);
-			}
+    rc = SQLError(henv, conn, stmt, state,
+                  &error, errormsg, sizeof(errormsg)-1, &errormsgsize);
+    if (conn_resource) {
+        memcpy(conn_resource->laststate, state, sizeof(state));
+        memcpy(conn_resource->lasterrormsg, errormsg, sizeof(errormsg));
+    }
+    memcpy(ODBCG(laststate), state, sizeof(state));
+    memcpy(ODBCG(lasterrormsg), errormsg, sizeof(errormsg));
+    if (func) {
+        php_error(E_WARNING, "SQL error: %s, SQL state %s in %s",
+                  errormsg, state, func);
+    } else {
+        php_error(E_WARNING, "SQL error: %s, SQL state %s",
+                  errormsg, state);
+    }
 	/*		
 		} while (SQL_SUCCEEDED(rc));
 	}
@@ -590,7 +612,7 @@ void odbc_transact(INTERNAL_FUNCTION_PARAMETERS, int type)
 	
 	rc = SQLTransact(conn->henv, conn->hdbc, (UWORD)((type)?SQL_COMMIT:SQL_ROLLBACK));
 	if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLTransact");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLTransact");
 		RETURN_FALSE;
 	}
 
@@ -610,7 +632,7 @@ static int _close_pconn_with_id(list_entry *le, int *id)
 void odbc_column_lengths(INTERNAL_FUNCTION_PARAMETERS, int type)
 {
 	odbc_result *result;
-#if defined(HAVE_SOLID) || defined(HAVE_SOLID_30)
+#if defined(HAVE_SOLID) || defined(HAVE_SOLID_30) || defined(HAVE_OPENLINK)
 	/* this seems to be necessary for Solid2.3 ( tested by 
 	 * tammy@synchronis.com) and Solid 3.0 (tested by eric@terra.telemediair.nl)
 	 * Solid does not seem to declare a SQLINTEGER, but it does declare a
@@ -709,6 +731,7 @@ PHP_FUNCTION(odbc_longreadlen)
 }
 /* }}} */
 
+
 /* {{{ proto int odbc_prepare(int connection_id, string query)
    Prepares a statement for execution */
 PHP_FUNCTION(odbc_prepare)
@@ -747,7 +770,7 @@ PHP_FUNCTION(odbc_prepare)
 	}
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -763,7 +786,7 @@ PHP_FUNCTION(odbc_prepare)
 			*/
 			if (SQLSetStmtOption(result->stmt, SQL_CURSOR_TYPE, SQL_CURSOR_DYNAMIC)
 				== SQL_ERROR) {
-				odbc_sql_error(conn->henv, conn->hdbc, result->stmt, " SQLSetStmtOption");
+				odbc_sql_error(conn, result->stmt, " SQLSetStmtOption");
 				SQLFreeStmt(result->stmt, SQL_DROP);
 				efree(result);
 				RETURN_FALSE;
@@ -774,11 +797,17 @@ PHP_FUNCTION(odbc_prepare)
 	}
 #endif
 
-	if ((rc = SQLPrepare(result->stmt, query, SQL_NTS)) != SQL_SUCCESS) {
-		odbc_sql_error(conn->henv, conn->hdbc, result->stmt, "SQLPrepare");
-		SQLFreeStmt(result->stmt, SQL_DROP);
-		RETURN_FALSE;
-	}
+    rc = SQLPrepare(result->stmt, query, SQL_NTS);
+    switch (rc) {
+    case SQL_SUCCESS:
+        break;
+    case SQL_SUCCESS_WITH_INFO:
+        odbc_sql_error(conn, result->stmt, "SQLPrepare");
+        break;
+    default:
+        odbc_sql_error(conn, result->stmt, "SQLPrepare");
+        RETURN_FALSE;
+    }
 	
 	SQLNumParams(result->stmt, &(result->numparams));
     SQLNumResultCols(result->stmt, &(result->numcols));
@@ -916,7 +945,7 @@ PHP_FUNCTION(odbc_execute)
 	rc = SQLFreeStmt(result->stmt, SQL_CLOSE);
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(result->conn_ptr->henv, result->conn_ptr->hdbc, result->stmt, "SQLFreeStmt");	
+		odbc_sql_error(result->conn_ptr, result->stmt, "SQLFreeStmt");	
 	}
 
 	rc = SQLExecute(result->stmt);
@@ -933,10 +962,16 @@ PHP_FUNCTION(odbc_execute)
 			}
 		}
 	} else {
-		if (rc != SQL_SUCCESS) {
-			odbc_sql_error(result->conn_ptr->henv, result->conn_ptr->hdbc, result->stmt, "SQLExecute");
-			RETVAL_FALSE;
-		}
+        switch (rc) {
+        case SQL_SUCCESS:
+            break;
+        case SQL_NO_DATA_FOUND:
+        case SQL_SUCCESS_WITH_INFO:
+            odbc_sql_error(result->conn_ptr, result->stmt, "SQLExecute");
+            break;
+        default:
+            RETVAL_FALSE;
+        }
 	}	
 	
 	if (result->numparams > 0) {
@@ -948,7 +983,8 @@ PHP_FUNCTION(odbc_execute)
 		efree(params);
 	}
 
-	if (rc == SQL_SUCCESS) {
+	if (rc == SQL_SUCCESS || rc == SQL_SUCCESS_WITH_INFO 
+        || rc == SQL_NO_DATA_FOUND) {
 		RETVAL_TRUE;
 	}
 
@@ -986,7 +1022,7 @@ PHP_FUNCTION(odbc_cursor)
 
 	rc = SQLGetInfo(result->conn_ptr->hdbc,SQL_MAX_CURSOR_NAME_LEN,
 					(void *)&max_len,0,&len);
-	if (rc != SQL_SUCCESS) {
+	if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
 		RETURN_FALSE;
 	}
 	
@@ -997,7 +1033,7 @@ PHP_FUNCTION(odbc_cursor)
 			RETURN_FALSE;
 		}
 		rc = SQLGetCursorName(result->stmt,cursorname,(SWORD)max_len,&len);
-		if (rc != SQL_SUCCESS) {
+		if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
 			char    state[6];     /* Not used */
 	 		SDWORD  error;        /* Not used */
 			char    errormsg[255];
@@ -1010,8 +1046,7 @@ PHP_FUNCTION(odbc_cursor)
 			if (!strncmp(state,"S1015",5)) {
 				sprintf(cursorname,"php_curs_%d", (int)result->stmt);
 				if (SQLSetCursorName(result->stmt,cursorname,SQL_NTS) != SQL_SUCCESS) {
-					odbc_sql_error(result->conn_ptr->henv, result->conn_ptr->hdbc,
-									result->stmt, "SQLSetCursorName");
+					odbc_sql_error(result->conn_ptr, result->stmt, "SQLSetCursorName");
 					RETVAL_FALSE;
 				} else {
 					RETVAL_STRING(cursorname,1);
@@ -1074,7 +1109,7 @@ PHP_FUNCTION(odbc_exec)
 	}
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -1090,7 +1125,7 @@ PHP_FUNCTION(odbc_exec)
 			 */
 			if (SQLSetStmtOption(result->stmt, SQL_CURSOR_TYPE, SQL_CURSOR_DYNAMIC)
 				== SQL_ERROR) {
-				odbc_sql_error(conn->henv, conn->hdbc, result->stmt, " SQLSetStmtOption");
+				odbc_sql_error(conn, result->stmt, " SQLSetStmtOption");
 				SQLFreeStmt(result->stmt, SQL_DROP);
 				efree(result);
 				RETURN_FALSE;
@@ -1102,11 +1137,13 @@ PHP_FUNCTION(odbc_exec)
 #endif
 
 	rc = SQLExecDirect(result->stmt, query, SQL_NTS);
-	if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
+	if (rc != SQL_SUCCESS 
+        && rc != SQL_SUCCESS_WITH_INFO
+        && rc != SQL_NO_DATA_FOUND) { 
 		/* XXX FIXME we should really check out SQLSTATE with SQLError
 		 * in case rc is SQL_SUCCESS_WITH_INFO here.
 		 */
-		odbc_sql_error(conn->henv, conn->hdbc, result->stmt, "SQLExecDirect"); 
+		odbc_sql_error(conn, result->stmt, "SQLExecDirect"); 
 		SQLFreeStmt(result->stmt, SQL_DROP);
 		efree(result);
 		RETURN_FALSE;
@@ -1231,7 +1268,7 @@ static void php_odbc_fetch_hash(INTERNAL_FUNCTION_PARAMETERS, int result_type)
         buf, result->longreadlen + 1, &result->values[i].vallen);
 
      if (rc == SQL_ERROR) {
-     odbc_sql_error(result->conn_ptr->henv, result->conn_ptr->hdbc, result->stmt, "SQLGetData");
+     odbc_sql_error(result->conn_ptr, result->stmt, "SQLGetData");
      efree(buf);
      RETURN_FALSE;
     }
@@ -1396,7 +1433,7 @@ PHP_FUNCTION(odbc_fetch_into)
 								buf, result->longreadlen + 1, &result->values[i].vallen);
 
 					if (rc == SQL_ERROR) {
-					odbc_sql_error(result->conn_ptr->henv, result->conn_ptr->hdbc, result->stmt, "SQLGetData");
+					odbc_sql_error(result->conn_ptr, result->stmt, "SQLGetData");
 					efree(buf);
 					RETURN_FALSE;
 				}
@@ -1616,7 +1653,7 @@ PHP_FUNCTION(odbc_result)
                             field, fieldsize, &result->values[field_ind].vallen);
             
             if (rc == SQL_ERROR) {
-                odbc_sql_error(result->conn_ptr->henv, result->conn_ptr->hdbc, result->stmt, "SQLGetData");
+                odbc_sql_error(result->conn_ptr, result->stmt, "SQLGetData");
                 efree(field);
                 RETURN_FALSE;
             }
@@ -1659,7 +1696,7 @@ PHP_FUNCTION(odbc_result)
                             field, fieldsize, &result->values[field_ind].vallen);
 
 		if (rc == SQL_ERROR) {
-			odbc_sql_error(result->conn_ptr->henv, result->conn_ptr->hdbc, result->stmt, "SQLGetData");
+			odbc_sql_error(result->conn_ptr, result->stmt, "SQLGetData");
             efree(field);
 			RETURN_FALSE;
 		}
@@ -1765,7 +1802,7 @@ PHP_FUNCTION(odbc_result_all)
 					php_printf("<td>");
 
 					if (rc == SQL_ERROR) {
-						odbc_sql_error(result->conn_ptr->henv, result->conn_ptr->hdbc, result->stmt, "SQLGetData");
+						odbc_sql_error(result->conn_ptr, result->stmt, "SQLGetData");
 						php_printf("</td></tr></table>");
 						efree(buf);
 						RETURN_FALSE;
@@ -1864,7 +1901,7 @@ int odbc_sqlconnect(odbc_connection **conn, char *db, char *uid, char *pwd, int 
 	if (cur_opt != SQL_CUR_DEFAULT) {
 		rc = SQLSetConnectOption((*conn)->hdbc, SQL_ODBC_CURSORS, cur_opt);
 		if (rc != SQL_SUCCESS) {  /* && rc != SQL_SUCCESS_WITH_INFO ? */
-			odbc_sql_error((*conn)->henv, (*conn)->hdbc, SQL_NULL_HSTMT, "SQLSetConnectOption");
+			odbc_sql_error(*conn, SQL_NULL_HSTMT, "SQLSetConnectOption");
 			SQLFreeConnect((*conn)->hdbc);
 			pefree(*conn, persistent);
 			return FALSE;
@@ -1902,7 +1939,7 @@ int odbc_sqlconnect(odbc_connection **conn, char *db, char *uid, char *pwd, int 
 #endif
 #endif
 	if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
-		odbc_sql_error((*conn)->henv, (*conn)->hdbc, SQL_NULL_HSTMT, "SQLConnect");
+		odbc_sql_error(*conn, SQL_NULL_HSTMT, "SQLConnect");
 		SQLFreeConnect((*conn)->hdbc);
 		pefree((*conn), persistent);
 		return FALSE;
@@ -2171,6 +2208,54 @@ PHP_FUNCTION(odbc_num_rows)
 }
 /* }}} */
 
+/* {{{ proto bool next_result(int result_id)
+   Checks if multiple results are avaiable */
+PHP_FUNCTION(odbc_next_result)
+{
+	odbc_result   *result;
+	pval     **pv_res;
+	int rc, i;
+
+ 	if (zend_get_parameters_ex(1, &pv_res) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}                            
+	ZEND_FETCH_RESOURCE(result, odbc_result *, pv_res, -1, "ODBC result", le_result); 
+
+	if (result->values) {
+		for(i = 0; i < result->numcols; i++) {
+			if (result->values[i].value)
+				efree(result->values[i].value);
+		}
+		efree(result->values);
+		result->values = NULL;
+	}
+
+	result->fetched = 0;
+	rc = SQLMoreResults(result->stmt);
+	if (rc == SQL_SUCCESS) {
+		RETURN_TRUE;
+	}
+	else if (rc == SQL_SUCCESS_WITH_INFO) {
+		rc = SQLFreeStmt(result->stmt, SQL_UNBIND);
+		SQLNumParams(result->stmt, &(result->numparams));
+		SQLNumResultCols(result->stmt, &(result->numcols));
+
+		if (result->numcols > 0) {
+			if (!odbc_bindcols(result)) {
+				efree(result);
+				RETVAL_FALSE;
+			}
+		} else {
+			result->values = NULL;
+		}
+		RETURN_TRUE;
+	}
+	else {
+		RETURN_FALSE;
+	}
+}
+/* }}} */
+
 /* {{{ proto int odbc_num_fields(int result_id)
    Get number of columns in a result */
 PHP_FUNCTION(odbc_num_fields)
@@ -2345,7 +2430,7 @@ PHP_FUNCTION(odbc_autocommit)
 								 ((*pv_onoff)->value.lval) ?
 								 SQL_AUTOCOMMIT_ON : SQL_AUTOCOMMIT_OFF);
 		if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
-			odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "Set autocommit");
+			odbc_sql_error(conn, SQL_NULL_HSTMT, "Set autocommit");
 			RETURN_FALSE;
 		}
 		RETVAL_TRUE;
@@ -2354,7 +2439,7 @@ PHP_FUNCTION(odbc_autocommit)
 
 		rc = SQLGetConnectOption(conn->hdbc, SQL_AUTOCOMMIT, (PTR)&status);
 		if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
-			odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "Get commit status");
+			odbc_sql_error(conn, SQL_NULL_HSTMT, "Get commit status");
 			RETURN_FALSE;
 		}
 		RETVAL_LONG((long)status);
@@ -2378,6 +2463,59 @@ PHP_FUNCTION(odbc_rollback)
 }
 /* }}} */
 
+static void php_odbc_lasterror(INTERNAL_FUNCTION_PARAMETERS, int mode)
+{
+	odbc_connection *conn;
+	pval **pv_handle;
+    char *ptr;
+    int argc, len;
+
+    argc = ZEND_NUM_ARGS();
+
+    if (argc > 1 || zend_get_parameters_ex(argc, &pv_handle)) {
+		WRONG_PARAM_COUNT;
+	}                            
+ 
+    if (mode == 0) {  /* last state */
+        len = 6;
+    } else { /* last error message */
+        len = SQL_MAX_MESSAGE_LENGTH;
+    }
+    ptr = ecalloc(len + 1, 1);
+    if (argc == 1) {
+        ZEND_FETCH_RESOURCE2(conn, odbc_connection *, pv_handle, -1, "ODBC-Link", le_conn, le_pconn);
+        if (mode == 0) {
+            strncpy(ptr, conn->laststate, len);
+        } else {
+            strncpy(ptr, conn->lasterrormsg, len);
+        }
+    } else {
+		ODBCLS_FETCH();
+
+        if (mode == 0) {
+            strncpy(ptr, ODBCG(laststate), len);
+        } else {
+            strncpy(ptr, ODBCG(lasterrormsg), len);
+        }
+    }
+    RETVAL_STRING(ptr, 0);
+}
+
+/* {{{ proto string odbc_error([int connection_id])
+   Get the last error code */
+PHP_FUNCTION(odbc_error)
+{
+    php_odbc_lasterror(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0);
+}
+/* }}}    */
+
+/* {{{ proto string odbc_errormsg([int connection_id])
+   Get the last error message */
+PHP_FUNCTION(odbc_errormsg)
+{
+    php_odbc_lasterror(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1);
+}
+/* }}}    */
 
 /* {{{ proto int odbc_setoption(int conn_id|result_id, int which, int option, int value)
    Sets connection or statement options */
@@ -2411,7 +2549,7 @@ PHP_FUNCTION(odbc_setoption)
 			}
 			rc = SQLSetConnectOption(conn->hdbc, (unsigned short)((*pv_opt)->value.lval), (*pv_val)->value.lval);
 			if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
-				odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SetConnectOption");
+				odbc_sql_error(conn, SQL_NULL_HSTMT, "SetConnectOption");
 				RETURN_FALSE;
 			}
 			break;
@@ -2421,7 +2559,7 @@ PHP_FUNCTION(odbc_setoption)
 			rc = SQLSetStmtOption(result->stmt, (unsigned short)((*pv_opt)->value.lval), ((*pv_val)->value.lval));
 
 			if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
-				odbc_sql_error(result->conn_ptr->henv, result->conn_ptr->hdbc, result->stmt, "SetStmtOption");
+				odbc_sql_error(result->conn_ptr, result->stmt, "SetStmtOption");
 				RETURN_FALSE;
 			}
 			break;
@@ -2485,10 +2623,13 @@ PHP_FUNCTION(odbc_tables)
 	}
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
+
+	/* This hack is needed to access table information in Access databases (fmk) */
+	if (table && strlen(table) && schema && !strlen(schema)) schema = NULL;
 
 	rc = SQLTables(result->stmt, 
             cat, SAFE_SQL_NTS(cat), 
@@ -2497,7 +2638,7 @@ PHP_FUNCTION(odbc_tables)
             type, SAFE_SQL_NTS(type));
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLTables");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLTables");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2565,7 +2706,7 @@ PHP_FUNCTION(odbc_columns)
 	}
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2577,7 +2718,7 @@ PHP_FUNCTION(odbc_columns)
             column, SAFE_SQL_NTS(column));
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLColumns");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLColumns");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2644,7 +2785,7 @@ PHP_FUNCTION(odbc_columnprivileges)
 	}
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2656,7 +2797,7 @@ PHP_FUNCTION(odbc_columnprivileges)
             column, SAFE_SQL_NTS(column));
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLColumnPrivileges");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLColumnPrivileges");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2742,7 +2883,7 @@ PHP_FUNCTION(odbc_foreignkeys)
 	}
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2756,7 +2897,7 @@ PHP_FUNCTION(odbc_foreignkeys)
             ftable, SAFE_SQL_NTS(ftable) );
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLForeignKeys");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLForeignKeys");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2821,7 +2962,7 @@ PHP_FUNCTION(odbc_gettypeinfo)
 	}
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2829,7 +2970,7 @@ PHP_FUNCTION(odbc_gettypeinfo)
 	rc = SQLGetTypeInfo(result->stmt, data_type );
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLGetTypeInfo");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLGetTypeInfo");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2893,7 +3034,7 @@ PHP_FUNCTION(odbc_primarykeys)
 	}
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2904,7 +3045,7 @@ PHP_FUNCTION(odbc_primarykeys)
             table, SAFE_SQL_NTS(table) );
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLPrimaryKeys");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLPrimaryKeys");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2975,7 +3116,7 @@ PHP_FUNCTION(odbc_procedurecolumns)
 	}
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2987,7 +3128,7 @@ PHP_FUNCTION(odbc_procedurecolumns)
             col, SAFE_SQL_NTS(col) );
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLProcedureColumns");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLProcedureColumns");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -3057,7 +3198,7 @@ PHP_FUNCTION(odbc_procedures)
 	}
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -3068,7 +3209,7 @@ PHP_FUNCTION(odbc_procedures)
             proc, SAFE_SQL_NTS(proc) );
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLProcedures");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLProcedures");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -3143,7 +3284,7 @@ PHP_FUNCTION(odbc_specialcolumns)
 	}
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -3157,7 +3298,7 @@ PHP_FUNCTION(odbc_specialcolumns)
             nullable);
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLSpecialColumns");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLSpecialColumns");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -3228,7 +3369,7 @@ PHP_FUNCTION(odbc_statistics)
 	}
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -3241,7 +3382,7 @@ PHP_FUNCTION(odbc_statistics)
             reserved);
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLStatistics");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLStatistics");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -3306,7 +3447,7 @@ PHP_FUNCTION(odbc_tableprivileges)
 	}
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -3317,7 +3458,7 @@ PHP_FUNCTION(odbc_tableprivileges)
             table, SAFE_SQL_NTS(table));
 
 	if (rc == SQL_ERROR) {
-		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLTablePrivileges");
+		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLTablePrivileges");
 		efree(result);
 		RETURN_FALSE;
 	}

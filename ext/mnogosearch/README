@@ -1,0 +1,19 @@
+$Source: /repository/php4/ext/mnogosearch/README,v $
+$Id: README,v 1.7 2001/03/02 12:14:20 gluke Exp $
+
+mnoGoSearch extension module for PHP4.
+
+For details please refer to http://search.mnogo.ru
+
+If used with mysql you should not use bundled mysql library 
+in the php distribution. You should use native mysql 
+library. To do this you should compile php with specefying mysql-dir
+(for example --with-mysql=/usr, not --with-mysql).
+
+  TODO
+  ----
+
+1. Implement native ispell functions. 
+
+2. Implement indexing functions of the library.
+   For example retrieving, parsing, checking of the URL and so on...

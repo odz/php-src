@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
  */
 
 
-/* $Id: php_mssql.h,v 1.9 2000/11/29 22:06:47 fmk Exp $ */
+/* $Id: php_mssql.h,v 1.11 2001/03/09 23:37:56 fmk Exp $ */
 
 #ifndef PHP_MSSQL_H
 #define PHP_MSSQL_H
@@ -77,6 +77,7 @@ PHP_FUNCTION(mssql_field_type);
 PHP_FUNCTION(mssql_data_seek);
 PHP_FUNCTION(mssql_field_seek);
 PHP_FUNCTION(mssql_result);
+PHP_FUNCTION(mssql_next_result);
 PHP_FUNCTION(mssql_min_error_severity);
 PHP_FUNCTION(mssql_min_message_severity);
 
@@ -116,6 +117,7 @@ typedef struct mssql_result {
 	mssql_link *mssql_ptr;
 	int batchsize;
 	int lastresult;
+	int blocks_initialized;
 	int cur_row,cur_field;
 	int num_rows,num_fields;
 } mssql_result;

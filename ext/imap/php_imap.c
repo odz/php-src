@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -22,10 +22,11 @@
    |          Andrew Skalski      <askalski@chekinc.com>                  |
    |          Hartmut Holzgraefe  <hartmut@six.de>                        |
    |          Jani Taskinen       <sniper@iki.fi>                         |
+   |          Daniel R Kalowsky   <dank@deadmime.org>                     |
    | PHP 4.0 updates:  Zeev Suraski <zeev@zend.com>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_imap.c,v 1.50 2000/10/25 17:43:52 andrei Exp $ */
+/* $Id: php_imap.c,v 1.62.2.2 2001/04/24 14:17:41 chagenbu Exp $ */
 
 #define IMAP41
 
@@ -71,7 +72,7 @@ void *fs_get(size_t size);
 int imap_mail(char *to, char *subject, char *message, char *headers, char *cc, char *bcc, char *rpath);
 
 
-void mail_close_it(zend_rsrc_list_entry *rsrc);
+void mail_close_it (zend_rsrc_list_entry *rsrc);
 #ifdef OP_RELOGIN
 /* AJS: close persistent connection */
 void mail_userlogout_it(zend_rsrc_list_entry *rsrc);
@@ -101,6 +102,10 @@ function_entry imap_functions[] = {
 	PHP_FE(imap_createmailbox,	NULL)
 	PHP_FE(imap_renamemailbox,	NULL)
 	PHP_FE(imap_deletemailbox,	NULL)
+#ifdef HAVE_IMAP2000
+	PHP_FE(imap_get_quota,		NULL)
+	PHP_FE(imap_set_quota,		NULL)
+#endif
 	PHP_FALIAS(imap_listmailbox, imap_list,	NULL)
 	PHP_FALIAS(imap_getmailboxes, imap_list_full,	NULL)
 	PHP_FALIAS(imap_scanmailbox, imap_listscan,	NULL)
@@ -183,7 +188,19 @@ extern char imsp_password[80];
 void mail_close_it(zend_rsrc_list_entry *rsrc)
 {
 	pils *imap_le_struct = (pils *)rsrc->ptr;
+	IMAPLS_FETCH();
+
 	mail_close_full(imap_le_struct->imap_stream, imap_le_struct->flags);
+
+	if (IMAPG(imap_user)) {
+		efree(IMAPG(imap_user));
+		IMAPG(imap_user) = 0;
+	}
+	if (IMAPG(imap_password)) {
+		efree(IMAPG(imap_password));
+		IMAPG(imap_password) = 0;
+	}
+
 	efree(imap_le_struct);
 }
 
@@ -343,6 +360,24 @@ MESSAGELIST *mail_newmessagelist(void)
 								  sizeof(MESSAGELIST));
 }
 
+#ifdef HAVE_IMAP2000
+/* Mail GET_QUOTA callback
+ * Called via the mail_parameter function in c-client:src/c-client/mail.c
+ * Author DRK
+ */
+void mail_getquota(MAILSTREAM *stream, char *qroot,QUOTALIST *qlist)
+{
+	IMAPLS_FETCH();
+
+	/* this should only be run through once */
+	for (; qlist; qlist = qlist->next)
+	{
+		IMAPG(quota_usage) = qlist->usage;
+		IMAPG(quota_limit) = qlist->limit;
+	}
+}
+#endif
+
 /* Mail garbage collect MESSAGELIST
  * Accepts: pointer to MESSAGELIST pointer
  * Author: CJH
@@ -411,6 +446,10 @@ PHP_MINIT_FUNCTION(imap)
 	mail_link(&newsdriver);      /* link in the news driver */
 	mail_link(&philedriver);     /* link in the phile driver */
 	auth_link(&auth_log);        /* link in the log authenticator */
+#ifdef  HAVE_IMAP_SSL
+	ssl_onceonlyinit ();
+	auth_link (&auth_ssl);       /* link in the ssl authenticator */
+#endif
 #endif
 	mail_link(&dummydriver);     /* link in the dummy driver */
 #else
@@ -519,17 +558,6 @@ PHP_MINIT_FUNCTION(imap)
 	/* next UID to be assigned */
 	REGISTER_MAIN_LONG_CONSTANT("SA_UIDVALIDITY",SA_UIDVALIDITY , CONST_PERSISTENT | CONST_CS);
 	/* UID validity value */
-
-#ifdef SA_QUOTA
-	sa_all |= SA_QUOTA;
-        REGISTER_MAIN_LONG_CONSTANT("SA_QUOTA",SA_QUOTA , CONST_PERSISTENT | CONST_CS);
-     /* Disk space taken up by mailbox. */
-#endif
-#ifdef SA_QUOTA_ALL
-	sa_all |= SA_QUOTA_ALL;
-        REGISTER_MAIN_LONG_CONSTANT("SA_QUOTA_ALL",SA_QUOTA_ALL , CONST_PERSISTENT | CONST_CS);
-     /* Disk space taken up by all mailboxes owned by user. */
-#endif
 	REGISTER_MAIN_LONG_CONSTANT("SA_ALL", sa_all, CONST_PERSISTENT | CONST_CS);
      /* get all status information */
 		
@@ -633,6 +661,14 @@ void imap_do_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 		}
 	}
 
+	if (IMAPG(imap_user)) { 
+		efree(IMAPG(imap_user));
+	}
+
+	if (IMAPG(imap_password)) { 
+		efree(IMAPG(imap_password));
+	}
+
 	IMAPG(imap_user)     = estrndup(Z_STRVAL_PP(user), Z_STRLEN_PP(user));
 	IMAPG(imap_password) = estrndup(Z_STRVAL_PP(passwd), Z_STRLEN_PP(passwd));
 	
@@ -712,6 +748,8 @@ void imap_do_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 				}
  			}
 			efree(hashed_details);
+			efree(IMAPG(imap_user)); IMAPG(imap_user) = 0;
+			efree(IMAPG(imap_password)); IMAPG(imap_password) = 0;
 			RETURN_FALSE;
 		}
 
@@ -721,6 +759,8 @@ void imap_do_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			node = malloc(sizeof(pils));
 			if (node == NULL) {
 				efree(hashed_details);
+				efree(IMAPG(imap_user)); IMAPG(imap_user) = 0;
+				efree(IMAPG(imap_password)); IMAPG(imap_password) = 0;
 				RETURN_FALSE;
 			}
 
@@ -757,6 +797,8 @@ void imap_do_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 
 			free(headp);
 			efree(hashed_details);
+			efree(IMAPG(imap_user)); IMAPG(imap_user) = 0;
+			efree(IMAPG(imap_password)); IMAPG(imap_password) = 0;
  			RETURN_FALSE;
 		}
 
@@ -766,11 +808,11 @@ void imap_do_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 	} else {
 #endif
 		imap_stream = mail_open(NIL, Z_STRVAL_PP(mailbox), flags);
-		efree(IMAPG(imap_user));
-		efree(IMAPG(imap_password));
 
 		if (imap_stream == NIL) {
 			php_error(E_WARNING, "Couldn't open stream %s\n", (*mailbox)->value.str.val);
+			efree(IMAPG(imap_user)); IMAPG(imap_user) = 0;
+			efree(IMAPG(imap_password)); IMAPG(imap_password) = 0;
 			RETURN_FALSE;
 		}
 
@@ -972,6 +1014,84 @@ PHP_FUNCTION(imap_num_recent)
 	RETURN_LONG(imap_le_struct->imap_stream->recent);
 }
 /* }}} */
+
+#ifdef HAVE_IMAP2000
+/* {{{ proto array imap_get_quota(int stream_id, string qroot)
+	Returns the quota set to the mailbox account qroot */
+PHP_FUNCTION(imap_get_quota)
+{
+	zval **streamind, **qroot;
+
+	int ind, ind_type;
+	pils *imap_le_struct;
+
+	IMAPLS_FETCH();
+
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &streamind, &qroot) == FAILURE) {
+		ZEND_WRONG_PARAM_COUNT();
+	}
+
+	convert_to_long_ex(streamind);
+	convert_to_string_ex(qroot);
+
+	ind = Z_LVAL_PP(streamind);
+	imap_le_struct = (pils *) zend_list_find(ind, &ind_type);
+	if (!imap_le_struct || !IS_STREAM(ind_type)) {
+		php_error(E_WARNING, "Unable to find stream pointer");
+		RETURN_FALSE;
+	}
+
+	/* set the callback for the GET_QUOTA function */
+	mail_parameters(NIL, SET_QUOTA, (void *) mail_getquota);
+	if(!imap_getquota(imap_le_struct->imap_stream, Z_STRVAL_PP(qroot))) {
+		php_error(E_WARNING, "c-client imap_getquota failed");
+		RETURN_FALSE;
+	}
+
+	/* MAKE_STD_ZVAL(quota_array); */
+	/* if (array_init(quota_array) != SUCCESS) { */
+	if (array_init(return_value) == FAILURE) {
+		php_error(E_WARNING, "Unable to allocate array memory");
+		RETURN_FALSE;
+	}
+		
+	add_assoc_long(return_value, "usage", IMAPG(quota_usage));
+	add_assoc_long(return_value, "limit", IMAPG(quota_limit));
+}
+/* }}} */
+
+
+/* {{{ proto int imap_set_quota(int stream_id, string qroot, int mailbox_size)
+   Will set the quota for qroot mailbox */
+PHP_FUNCTION(imap_set_quota)
+{
+	zval **streamind, **qroot, **mailbox_size;
+	STRINGLIST	limits;
+	int ind, ind_type;
+	pils *imap_le_struct;
+
+	if (ZEND_NUM_ARGS() != 3 || zend_get_parameters_ex(3, &streamind, &qroot, &mailbox_size) == FAILURE) {
+		ZEND_WRONG_PARAM_COUNT();
+	}
+
+	convert_to_long_ex(streamind);
+	convert_to_string_ex(qroot);
+	convert_to_long_ex(mailbox_size);
+
+	limits.text.data = "STORAGE";
+	limits.text.size = Z_LVAL_PP(mailbox_size);
+	limits.next = NIL;
+
+	ind = Z_LVAL_PP(streamind);
+	imap_le_struct = (pils *) zend_list_find(ind, &ind_type);
+	if (!imap_le_struct || !IS_STREAM(ind_type)) {
+		php_error(E_WARNING, "Unable to find stream pointer");
+		RETURN_FALSE;
+	}
+	RETURN_LONG(imap_setquota(imap_le_struct->imap_stream, Z_STRVAL_PP(qroot), &limits)); 
+}
+/* }}} */
+#endif
 
 
 /* {{{ proto int imap_expunge(int stream_id)
@@ -2628,12 +2748,18 @@ PHP_FUNCTION(imap_sort)
 	mypgm->next = NIL;
 	
 	slst = mail_sort(imap_le_struct->imap_stream, NIL, spg, mypgm, myargc >= 4 ? Z_LVAL_PP(flags) : NIL);
+	if (spg) {
+		mail_free_searchpgm(&spg);
+	}
+
 	
 	array_init(return_value);
-	for (sl = slst; *sl; sl++) { 
-		add_next_index_long(return_value, *sl);
+	if (slst != NIL && slst != 0) {
+		for (sl = slst; *sl; sl++) { 
+			add_next_index_long(return_value, *sl);
+		}
+		fs_give ((void **) &slst);
 	}
-	fs_give ((void **) &slst); 
 }
 /* }}} */
 
@@ -2787,6 +2913,7 @@ PHP_FUNCTION(imap_status)
 	if (object_init(return_value) == FAILURE) {
 		RETURN_FALSE;
 	}
+
  	if (mail_status(imap_le_struct->imap_stream, Z_STRVAL_PP(mbx), Z_LVAL_PP(flags))) {
 	    add_property_long(return_value, "flags", IMAPG(status_flags));
 		if (IMAPG(status_flags) & SA_MESSAGES) {
@@ -2804,16 +2931,6 @@ PHP_FUNCTION(imap_status)
 		if (IMAPG(status_flags) & SA_UIDVALIDITY) {
 			add_property_long(return_value, "uidvalidity", IMAPG(status_uidvalidity));
 		}
-#ifdef SA_QUOTA
-		if (IMAPG(status_flags) & SA_QUOTA) {
-			add_property_long(return_value, "quota", IMAPG(status_quota));
-		}
-#endif
-#ifdef SA_QUOTA
-		if (IMAPG(status_flags) & SA_QUOTA_ALL) {
-			add_property_long(return_value, "quota_all", IMAPG(status_quota_all));
-		}
-#endif
 	} else {
 		RETURN_FALSE;
 	}
@@ -3109,7 +3226,7 @@ PHP_FUNCTION(imap_mail_compose)
 
 	zend_hash_internal_pointer_reset(Z_ARRVAL_PP(body));
 	zend_hash_get_current_data(Z_ARRVAL_PP(body), (void **) &data);
-	zend_hash_get_current_key(Z_ARRVAL_PP(body), &key, &ind);
+	zend_hash_get_current_key(Z_ARRVAL_PP(body), &key, &ind, 0); /* FIXME: is this necessary?  we're not using key/ind */
 
 	if (Z_TYPE_PP(data) == IS_ARRAY) {
 		bod=mail_newbody();
@@ -3154,7 +3271,7 @@ PHP_FUNCTION(imap_mail_compose)
  	zend_hash_move_forward(Z_ARRVAL_PP(body));
 
 	while(zend_hash_get_current_data(Z_ARRVAL_PP(body), (void **) &data) == SUCCESS) { 
-		zend_hash_get_current_key(Z_ARRVAL_PP(body), &key, &ind); 
+		zend_hash_get_current_key(Z_ARRVAL_PP(body), &key, &ind, 0);  /* FIXME: Is this necessary?  We're not using key/ind */
 		if (Z_TYPE_PP(data) == IS_ARRAY) {
 			if (!toppart) {
 				bod->nested.part=mail_newbody_part();
@@ -3439,12 +3556,14 @@ PHP_FUNCTION(imap_search)
 	imap_le_struct = (pils *) zend_list_find(ind, &ind_type);
 	if (!imap_le_struct || !IS_STREAM(ind_type)) {
 		php_error(E_WARNING, "Unable to find stream pointer");
+    	efree(search_criteria);
 		RETURN_FALSE;
 	}
 	
 	IMAPG(imap_messages) = NIL;
 	mail_search_full(imap_le_struct->imap_stream, NIL, mail_criteria(search_criteria), flags);
 	if (IMAPG(imap_messages) == NIL) {
+    	efree(search_criteria);
 		RETURN_FALSE;
 	}
 	
@@ -3566,50 +3685,52 @@ PHP_FUNCTION(imap_mime_header_decode)
 		RETURN_FALSE;
 	}
 
-	string=(*str)->value.str.val;
-	end=(*str)->value.str.len;
+	string = (*str)->value.str.val;
+	end = (*str)->value.str.len;
 			
-	if ((charset=((char *)emalloc((end+1)*2)))) {
-		text=&charset[end+1];
-		while(offset<end) {	/* Reached end of the string? */
-			if ((charset_token=(long) php_memnstr(&string[offset], "=?", 2, string+end))) {	/* Is there anything encoded in the string? */
+	if ((charset = ((char *)emalloc((end + 1) * 2)))) {
+		text = &charset[end + 1];
+		while (offset < end) {	/* Reached end of the string? */
+			if ((charset_token = (long)php_memnstr(&string[offset], "=?", 2, string + end))) {	/* Is there anything encoded in the string? */
 				charset_token -= (long)string;
-				if (offset!=charset_token) {	/* Is there anything before the encoded data? */
+				if (offset != charset_token) {	/* Is there anything before the encoded data? */
 					/* Retrieve unencoded data that is found before encoded data */
 					memcpy(text, &string[offset], charset_token-offset);
-					text[charset_token-offset]=0x00;
+					text[charset_token - offset] = 0x00;
 					MAKE_STD_ZVAL(myobject);
 					object_init(myobject);
 					add_property_string(myobject, "charset", "default", 1);
 					add_property_string(myobject, "text", text, 1);
-					zend_hash_next_index_insert(return_value->value.ht,(void *)&myobject,sizeof(zval *),NULL);
+					zend_hash_next_index_insert(return_value->value.ht, (void *)&myobject, sizeof(zval *), NULL);
 				}
-				if ((encoding_token=(long) php_memnstr(&string[charset_token+2], "?", 1, string+end))) {		/* Find token for encoding */
-					encoding_token -= (long) string;
-					if ((end_token=(long) php_memnstr(&string[encoding_token+3], "?=", 2, string+end))) {	/* Find token for end of encoded data */
-						end_token -= (long) string;
-						memcpy(charset, &string[charset_token+2], encoding_token-(charset_token+2));	/* Extract charset encoding */
-						charset[encoding_token-(charset_token+2)]=0x00;
-						encoding=string[encoding_token+1];	/* Extract encoding from string */
-						memcpy(text, &string[encoding_token+3], end_token-(encoding_token+3));	/* Extract text */
-						text[end_token-(encoding_token+3)]=0x00;
-						decode=text;
-						if (encoding=='q' || encoding=='Q') {	/* Decode 'q' encoded data */
-							for(i=0;text[i]!=0x00;i++) if (text[i]=='_') text[i]=' ';	/* Replace all *_' with space. */
-							decode = (char *) rfc822_qprint((unsigned char *) text, strlen(text), &newlength);
-						} else if (encoding=='b' || encoding=='B') {
-							decode = (char *) rfc822_base64((unsigned char *) text, strlen(text), &newlength); /* Decode 'B' encoded data */
+				if ((encoding_token = (long)php_memnstr(&string[charset_token+2], "?", 1, string+end))) {		/* Find token for encoding */
+					encoding_token -= (long)string;
+					if ((end_token = (long)php_memnstr(&string[encoding_token+3], "?=", 2, string+end))) {	/* Find token for end of encoded data */
+						end_token -= (long)string;
+						memcpy(charset, &string[charset_token + 2], encoding_token - (charset_token + 2));	/* Extract charset encoding */
+						charset[encoding_token-(charset_token + 2)] = 0x00;
+						encoding=string[encoding_token + 1];	/* Extract encoding from string */
+						memcpy(text, &string[encoding_token + 3], end_token - (encoding_token + 3));	/* Extract text */
+						text[end_token - (encoding_token + 3)] = 0x00;
+						decode = text;
+						if (encoding == 'q' || encoding == 'Q') {	/* Decode 'q' encoded data */
+							for(i=0; text[i] != 0x00; i++) if (text[i] == '_') text[i] = ' ';	/* Replace all *_' with space. */
+							decode = (char *)rfc822_qprint((unsigned char *) text, strlen(text), &newlength);
+						} else if (encoding == 'b' || encoding == 'B') {
+							decode = (char *)rfc822_base64((unsigned char *) text, strlen(text), &newlength); /* Decode 'B' encoded data */
 						}
 						MAKE_STD_ZVAL(myobject);
 						object_init(myobject);
 						add_property_string(myobject, "charset", charset, 1);
 						add_property_string(myobject, "text", decode, 1);
-						zend_hash_next_index_insert(return_value->value.ht,(void *)&myobject,sizeof(zval *),NULL);
-						fs_give((void**) &decode);
+						zend_hash_next_index_insert(return_value->value.ht, (void *)&myobject, sizeof(zval *), NULL);
+						fs_give((void**)&decode);
 						
-						offset=end_token+2;
-						for(i=0;(string[offset+i]==' ') || (string[offset+i]==0x0a) || (string[offset+i]==0x0d);i++);
-						if((string[offset+i]=='=') && (string[offset+i+1]=='?') && (offset+i<end)) offset+=i;
+						offset = end_token+2;
+						for (i = 0; (string[offset + i] == ' ') || (string[offset + i] == 0x0a) || (string[offset + i] == 0x0d); i++);
+						if ((string[offset + i] == '=') && (string[offset + i + 1] == '?') && (offset + i < end)) {
+							offset += i;
+						}
 						continue;	/*/ Iterate the loop again please. */
 					}
 				}
@@ -3617,19 +3738,19 @@ PHP_FUNCTION(imap_mime_header_decode)
 				/* Just some tweaking to optimize the code, and get the end statements work in a general manner.
 				   If we end up here we didn't find a position for "charset_token",
 				   so we need to set it to the start of the yet unextracted data. */
-				charset_token=offset;
+				charset_token = offset;
 			}
 			/* Return the rest of the data as unencoded, as it was either unencoded or was missing separators
 			   which rendered the the remainder of the string impossible for us to decode. */
-			memcpy(text, &string[charset_token], end-charset_token);	/* Extract unencoded text from string */
-			text[end-charset_token]=0x00;
+			memcpy(text, &string[charset_token], end - charset_token);	/* Extract unencoded text from string */
+			text[end - charset_token] = 0x00;
 			MAKE_STD_ZVAL(myobject);
 			object_init(myobject);
 			add_property_string(myobject, "charset", "default", 1);
 			add_property_string(myobject, "text", text, 1);
-			zend_hash_next_index_insert(return_value->value.ht,(void *)&myobject,sizeof(zval *),NULL);
+			zend_hash_next_index_insert(return_value->value.ht, (void *)&myobject, sizeof(zval *), NULL);
 			
-			offset=end;	/* We have reached the end of the string. */
+			offset = end;	/* We have reached the end of the string. */
 		}
 		efree(charset);
 	} else {
@@ -4045,17 +4166,6 @@ void mm_status(MAILSTREAM *stream, char *mailbox,MAILSTATUS *status)
 	if (IMAPG(status_flags) & SA_UIDVALIDITY) {
 		IMAPG(status_uidvalidity)=status->uidvalidity;
 	}
-
-#ifdef SA_QUOTA
-	if (IMAPG(status_flags) & SA_QUOTA) {
-		IMAPG(status_quota)=status->quota;
-	}
-#endif
-#ifdef SA_QUOTA_ALL
-	if (IMAPG(status_flags) & SA_QUOTA_ALL) { 
-		IMAPG(status_quota_all)=status->quota_all;
-	}
-#endif
 }
 
 void mm_log(char *str, long errflg)

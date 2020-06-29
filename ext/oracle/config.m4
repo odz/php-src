@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.17 2000/10/29 04:36:32 sniper Exp $
+dnl $Id: config.m4,v 1.19.2.1 2001/04/09 15:47:27 sniper Exp $
 
 AC_DEFUN(AC_ORACLE_VERSION,[
   AC_MSG_CHECKING([Oracle version])
@@ -9,8 +9,12 @@ AC_DEFUN(AC_ORACLE_VERSION,[
     ORACLE_VERSION=8.1
   elif test -f $ORACLE_DIR/lib/libclntsh.s?.1.0; then
     ORACLE_VERSION=8.0
-  elif test -f $ORACLE_DIR/lib/libclntsh.a; then # AIX - XXX is this check still right for 8.1?
-    ORACLE_VERSION=8.0
+  elif test -f $OCI8_DIR/lib/libclntsh.a; then
+    if test -f $OCI8_DIR/lib/libcore4.a; then
+      OCI8_VERSION=8.0
+    else
+      OCI8_VERSION=8.1
+    fi
   else
   	AC_MSG_ERROR(Oracle needed libraries not found)
   fi
@@ -154,7 +158,7 @@ if test "$PHP_ORACLE" != "no"; then
   PHP_EXTENSION(oracle, $ext_shared)
   AC_DEFINE(HAVE_ORACLE,1,[ ])
 
-  PHP_SUBST(ORACLE_SHARED_LIBADD)
-  PHP_SUBST(ORACLE_DIR)
-  PHP_SUBST(ORACLE_VERSION)
+  PHP_SUBST_OLD(ORACLE_SHARED_LIBADD)
+  PHP_SUBST_OLD(ORACLE_DIR)
+  PHP_SUBST_OLD(ORACLE_VERSION)
 fi

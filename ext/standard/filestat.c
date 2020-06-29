@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,11 +16,11 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: filestat.c,v 1.49.2.1 2000/12/07 19:15:02 sas Exp $ */
+/* $Id: filestat.c,v 1.56 2001/02/26 06:07:17 andi Exp $ */
 
 #include "php.h"
 #include "safe_mode.h"
-#include "fopen-wrappers.h"
+#include "fopen_wrappers.h"
 #include "php_globals.h"
 
 #include <stdlib.h>
@@ -551,6 +551,9 @@ static void php_stat(const char *filename, int type, pval *return_value)
 		case S_IFDIR: RETURN_STRING("dir",1);
 		case S_IFBLK: RETURN_STRING("block",1);
 		case S_IFREG: RETURN_STRING("file",1);
+#if !defined(ZEND_WIN32)&&!defined(__BEOS__)
+		case S_IFSOCK: RETURN_STRING("socket",1);
+#endif
 		}
 		php_error(E_WARNING,"Unknown file type (%d)",BG(sb).st_mode&S_IFMT);
 		RETURN_STRING("unknown",1);
@@ -590,7 +593,7 @@ static void php_stat(const char *filename, int type, pval *return_value)
 		add_next_index_long(return_value, stat_sb->st_nlink);
 		add_next_index_long(return_value, stat_sb->st_uid);
 		add_next_index_long(return_value, stat_sb->st_gid);
-#ifdef HAVE_ST_BLKSIZE
+#ifdef HAVE_ST_RDEV
 		add_next_index_long(return_value, stat_sb->st_rdev);
 #else
 		add_next_index_long(return_value, -1);
@@ -647,7 +650,7 @@ FileFunction(PHP_FN(filesize), 2)
 FileFunction(PHP_FN(fileowner),3)
 /* }}} */
 
-/* {{{ proto nt filegroup(string filename)
+/* {{{ proto int filegroup(string filename)
    Get file group */
 FileFunction(PHP_FN(filegroup),4)
 /* }}} */

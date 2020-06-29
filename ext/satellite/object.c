@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
  */
 
 /*
- * $Id: object.c,v 1.4 2000/11/30 22:01:57 eriksson Exp $
+ * $Id: object.c,v 1.6 2001/02/26 06:07:15 andi Exp $
  * vim: syntax=c tabstop=2 shiftwidth=2
  */
 
@@ -391,13 +391,18 @@ static zend_bool OrbitObject_AddArguments(OrbitObject * pObject,
 		CORBA_Request request, OperationType * pOperation, int argumentCount, 
 		const zval ** ppArguments, CORBA_NamedValue ** ppNamedValue)
 {
-	ParameterType * p_parameter = OperationType_GetFirstParameter(pOperation);
+	ParameterType * p_parameter = NULL;
 	int i = 0;
-	zend_bool success;
+	zend_bool success = FALSE;
 
 	if (argumentCount < 1)
 		return TRUE;	/* nothing to do */
 
+	p_parameter = OperationType_GetFirstParameter(pOperation);
+
+	if (NULL == p_parameter)
+		return FALSE; /* oups! */
+	
 	do
 	{
 		ppNamedValue[i] = satellite_new(CORBA_NamedValue);
@@ -405,7 +410,7 @@ static zend_bool OrbitObject_AddArguments(OrbitObject * pObject,
 				request, p_parameter, ppArguments[i], ppNamedValue[i]);
 
 		if (!success)
-			return FALSE;
+			goto error;
 
 		i++;
 	} while (i < argumentCount && ParameterType_GetNext(p_parameter));
@@ -417,10 +422,19 @@ static zend_bool OrbitObject_AddArguments(OrbitObject * pObject,
 		
 		/* bad number of arguments */
 		wrong_param_count();
-		return FALSE;
+		goto error;
 	}
 
-	return TRUE;
+	success = TRUE;
+	goto exit;
+
+error:
+	success = FALSE;
+
+exit:
+	orbit_delete(p_parameter);
+	return success;
+
 }
 
 /*

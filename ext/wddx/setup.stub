@@ -1,4 +1,4 @@
-# $Source: /repository/php4/ext/wddx/setup.stub,v $
+# $Source: /repository/php4/ext/wddx/Attic/setup.stub,v $
 # $Id: setup.stub,v 1.1 1999/07/19 20:24:03 andrey Exp $
 
 define_option with-wddx 'wddx support?' yesnodir no \

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    |          Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: crypt.c,v 1.32 2000/11/27 13:31:21 sas Exp $ */
+/* $Id: crypt.c,v 1.38 2001/02/26 06:07:17 andi Exp $ */
 #include <stdlib.h>
 
 #include "php.h"
@@ -48,6 +48,7 @@ extern char *crypt(char *__key,char *__salt);
 
 #include "php_lcg.h"
 #include "php_crypt.h"
+#include "php_rand.h"
 
 /* 
    The capabilities of the crypt() function is determined by the test programs
@@ -71,7 +72,7 @@ extern char *crypt(char *__key,char *__salt);
 
 #if PHP_BLOWFISH_CRYPT
 #undef PHP_MAX_SALT_LEN
-#define PHP_MAX_SALT_LEN 17
+#define PHP_MAX_SALT_LEN 60
 #endif
 
  /*
@@ -85,13 +86,9 @@ extern char *crypt(char *__key,char *__salt);
 #define PHP_STD_DES_CRYPT 1
 #endif
 
-#if HAVE_LRAND48
-#define PHP_CRYPT_RAND lrand48()
-#elif HAVE_RANDOM
-#define PHP_CRYPT_RAND random()
-#else
-#define PHP_CRYPT_RAND rand()
-#endif
+
+#define PHP_CRYPT_RAND php_rand()
+
 
 PHP_MINIT_FUNCTION(crypt)
 {
@@ -105,13 +102,7 @@ PHP_MINIT_FUNCTION(crypt)
     REGISTER_LONG_CONSTANT("CRYPT_MD5", PHP_MD5_CRYPT, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("CRYPT_BLOWFISH", PHP_BLOWFISH_CRYPT, CONST_CS | CONST_PERSISTENT);
 
-#if HAVE_SRAND48
-	srand48((unsigned int) time(0) * getpid() * (php_combined_lcg() * 10000.0));
-#elif HAVE_SRANDOM
-	srandom((unsigned int) time(0) * getpid() * (php_combined_lcg() * 10000.0));
-#else
-	srand((unsigned int) time(0) * getpid() * (php_combined_lcg() * 10000.0));
-#endif
+	php_srand(time(0) * getpid() * (php_combined_lcg() * 10000.0));
 
     return SUCCESS;
 }

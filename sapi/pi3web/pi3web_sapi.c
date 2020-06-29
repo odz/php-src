@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: pi3web_sapi.c,v 1.12 2000/11/18 02:44:04 zeev Exp $ */
+/* $Id: pi3web_sapi.c,v 1.15 2001/02/26 06:07:37 andi Exp $ */
 
 #if WIN32|WINNT
 #  include <windows.h>
@@ -77,10 +77,10 @@ static void php_info_pi3web(ZEND_MODULE_INFO_FUNC_ARGS)
 
 	lpCB = (LPCONTROL_BLOCK) SG(server_context);
 
-	PUTS("<table border=5 width=600>\n");
+	PUTS("<table border=0 cellpadding=3 cellspacing=1 width=600 align=center>\n");
 	PUTS("<tr><th colspan=2 bgcolor=\"" PHP_HEADER_COLOR "\">Pi3Web Server Information</th></tr>\n");
 	php_info_print_table_header(2, "Information Field", "Value");
-	php_info_print_table_row(2, "Pi3Web SAPI module version", "$Id: pi3web_sapi.c,v 1.12 2000/11/18 02:44:04 zeev Exp $");
+	php_info_print_table_row(2, "Pi3Web SAPI module version", "$Id: pi3web_sapi.c,v 1.15 2001/02/26 06:07:37 andi Exp $");
 	php_info_print_table_row(2, "Server Name Stamp", HTTPCore_getServerStamp());
 	snprintf(variable_buf, 511, "%d", HTTPCore_debugEnabled());
 	php_info_print_table_row(2, "Debug Enabled", variable_buf);
@@ -96,7 +96,7 @@ static void php_info_pi3web(ZEND_MODULE_INFO_FUNC_ARGS)
 
 	PUTS("</table><BR>");	
 
-	PUTS("<table border=5 width=\"600\">\n");
+	PUTS("<table border=0 cellpadding=3 cellspacing=1 width=600 align=center>\n");
 	PUTS("<tr><th colspan=2 bgcolor=\"" PHP_HEADER_COLOR "\">HTTP Request Information</th></tr>\n");
 	php_info_print_table_row(2, "HTTP Request Line", lpCB->lpszReq);
 	PUTS("<tr><th colspan=2 bgcolor=\"" PHP_HEADER_COLOR "\">HTTP Headers</th></tr>\n");
@@ -280,7 +280,7 @@ static char *sapi_pi3web_read_cookies(SLS_D)
 }
 
 
-static sapi_module_struct sapi_module = {
+static sapi_module_struct pi3web_sapi_module = {
 	"pi3web",				/* name */
 	"PI3WEB",				/* pretty name */
 
@@ -428,17 +428,17 @@ DWORD fnWrapperProc(LPCONTROL_BLOCK lpCB)
 
 BOOL PHP4_startup() {
 	tsrm_startup(1, 1, 0, NULL);
-	sapi_startup(&sapi_module);
-	if (sapi_module.startup) {
-		sapi_module.startup(&sapi_module);
+	sapi_startup(&pi3web_sapi_module);
+	if (pi3web_sapi_module.startup) {
+		pi3web_sapi_module.startup(&pi3web_sapi_module);
 	};
 	IWasLoaded = 1;
 	return IWasLoaded;
 };
 
 BOOL PHP4_shutdown() {
-	if (sapi_module.shutdown) {
-		sapi_module.shutdown(&sapi_module);
+	if (pi3web_sapi_module.shutdown) {
+		pi3web_sapi_module.shutdown(&pi3web_sapi_module);
 	};
 	sapi_shutdown();
 	tsrm_shutdown();

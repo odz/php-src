@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -21,7 +21,7 @@
 #ifndef ZEND_H
 #define ZEND_H
 
-#define ZEND_VERSION "1.0.3"
+#define ZEND_VERSION "1.0.5"
 
 #ifdef __cplusplus
 #define BEGIN_EXTERN_C() extern "C" {
@@ -39,8 +39,10 @@
 
 #ifdef ZEND_WIN32
 # include "zend_config.w32.h"
+# define ZEND_PATHS_SEPARATOR		';'
 #else
 # include "zend_config.h"
+# define ZEND_PATHS_SEPARATOR		':'
 #endif
 
 /* all HAVE_XXX test have to be after the include of zend_config above */
@@ -232,7 +234,7 @@ typedef struct _zend_utility_functions {
 	void (*message_handler)(long message, void *data);
 	void (*block_interruptions)(void);
 	void (*unblock_interruptions)(void);
-	int (*get_ini_entry)(char *name, uint name_length, zval *contents);
+	int (*get_configuration_directive)(char *name, uint name_length, zval *contents);
 	void (*ticks_function)(int ticks);
 } zend_utility_functions;
 
@@ -307,6 +309,8 @@ ZEND_API void zend_output_debug_string(zend_bool trigger_break, char *format, ..
 
 ZEND_API extern char *empty_string;
 
+ZEND_API void free_estring(char **str_p);
+
 #define STR_FREE(ptr) if (ptr && ptr!=empty_string) { efree(ptr); }
 #define STR_FREE_REL(ptr) if (ptr && ptr!=empty_string) { efree_rel(ptr); }
 
@@ -354,7 +358,7 @@ BEGIN_EXTERN_C()
 ZEND_API void zend_message_dispatcher(long message, void *data);
 END_EXTERN_C()
 
-ZEND_API int zend_get_ini_entry(char *name, uint name_length, zval *contents);
+ZEND_API int zend_get_configuration_directive(char *name, uint name_length, zval *contents);
 
 
 /* Messages for applications of Zend */
@@ -436,7 +440,7 @@ ZEND_API int zend_get_ini_entry(char *name, uint name_length, zval *contents);
 	(*ppzv_dest)->refcount = refcount;			\
 }
 
-#define ZEND_MAX_RESERVED_RESOURCES	2
+#define ZEND_MAX_RESERVED_RESOURCES	4
 
 #ifdef ZEND_WIN32
 /* Only use this macro if you know for sure that all of the switches values

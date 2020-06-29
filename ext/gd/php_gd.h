@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_gd.h,v 1.19 2000/11/28 08:06:30 sniper Exp $ */
+/* $Id: php_gd.h,v 1.24 2001/02/26 06:06:56 andi Exp $ */
 
 #ifndef PHP_GD_H
 #define PHP_GD_H
@@ -43,9 +43,16 @@
 #define PHP_GDIMG_TYPE_XBM 5
 #define PHP_GDIMG_TYPE_XPM 6
 
-extern const char php_sig_gif[3];
-extern const char php_sig_jpg[3];
-extern const char php_sig_png[3];
+#ifdef PHP_WIN32
+#define PHP_GD_API __declspec(dllexport)
+#else
+#define PHP_GD_API
+#endif
+
+
+PHPAPI extern const char php_sig_gif[3];
+PHPAPI extern const char php_sig_jpg[3];
+PHPAPI extern const char php_sig_png[3];
 
 extern zend_module_entry gd_module_entry;
 #define phpext_gd_ptr &gd_module_entry
@@ -131,13 +138,25 @@ PHP_FUNCTION(imagepsslantfont);
 PHP_FUNCTION(imagepstext);
 PHP_FUNCTION(imagepsbbox);
 
+PHP_FUNCTION(jpeg2wbmp);
+PHP_FUNCTION(png2wbmp);
+PHP_FUNCTION(image2wbmp);
+
+
 gdImagePtr _php_image_create_from_string ( zval **Data, char *tn, gdImagePtr (*ioctx_func_p)() );
 static void _php_image_create_from(INTERNAL_FUNCTION_PARAMETERS, int image_type, char *tn, gdImagePtr (*func_p)(), gdImagePtr (*ioctx_func_p)());
 static void _php_image_output(INTERNAL_FUNCTION_PARAMETERS, int image_type, char *tn, void (*func_p)());
-static void _php_image_output_wbmp(gdImagePtr im, FILE *fp);
+/* static void _php_image_output_wbmp(gdImagePtr im, FILE *fp); */
 static int _php_image_type ( char data[8] );
+static void _php_image_bw_convert( gdImagePtr im_org, int threshold, FILE *out );
+static void _php_image_convert(INTERNAL_FUNCTION_PARAMETERS, int image_type);
 
 PHPAPI int phpi_get_le_gd(void);
+
+/* This is missing from gd.h */
+#if HAVE_COLORCLOSESTHWB
+int gdImageColorClosestHWB(gdImagePtr im, int r, int g, int b);
+#endif
 
 #ifdef ZTS
 #define GDLS_D php_gd_globals *gd_globals

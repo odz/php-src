@@ -36,9 +36,9 @@ $e = $dbh->raiseError("object callback testing error");
 
 ?>
 --EXPECT--
-default: [db_error: message="DB Error: return testing error" code=0 mode=return level=notice prefix="" prepend="" append="" debug=""]
+default: [db_error: message="DB Error: return testing error" code=-1 mode=return level=notice prefix="" prepend="" append="" debug=""]
 mode=print: DB Error: print testing error
 mode=trigger: <br>
-<b>Notice</b>:  DB Error: trigger testing error in <b>PEAR.php</b> on line <b>204</b><br>
-mode=function callback: myfunc here, obj=[db_error: message="DB Error: function callback testing error" code=0 mode=callback callback=myfunc prefix="" prepend="" append="" debug=""]
-mode=object callback: myclass::myfunc here, obj=[db_error: message="DB Error: object callback testing error" code=0 mode=callback callback=myclass::myfunc prefix="" prepend="" append="" debug=""]
+<b>Notice</b>:  DB Error: trigger testing error in <b>PEAR.php</b> on line <b>353</b><br>
+mode=function callback: myfunc here, obj=[db_error: message="DB Error: function callback testing error" code=-1 mode=callback callback=myfunc prefix="" prepend="" append="" debug=""]
+mode=object callback: myclass::myfunc here, obj=[db_error: message="DB Error: object callback testing error" code=-1 mode=callback callback=myclass::myfunc prefix="" prepend="" append="" debug=""]

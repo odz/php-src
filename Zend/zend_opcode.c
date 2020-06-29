@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -251,7 +251,9 @@ static void zend_update_extended_info(zend_op_array *op_array CLS_DC)
 					opline++;
 					continue;
 				}
-				opline->lineno = (opline+1)->lineno;
+				if (opline+1<end) {
+					opline->lineno = (opline+1)->lineno;
+				}
 			} else {
 				opline->opcode = ZEND_NOP;
 			}
@@ -262,9 +264,6 @@ static void zend_update_extended_info(zend_op_array *op_array CLS_DC)
 	opline->opcode = ZEND_EXT_STMT;
 	SET_UNUSED(opline->op1);
 	SET_UNUSED(opline->op2);
-	if (op_array->last>0) {
-		opline->lineno= op_array->opcodes[op_array->last-2].lineno;
-	}
 }
 
 

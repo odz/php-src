@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: info.c,v 1.124 2000/11/20 10:05:57 hholzgra Exp $ */
+/* $Id: info.c,v 1.132 2001/03/04 22:03:23 zeev Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -39,7 +39,7 @@
 
 #define SECTION(name)  PUTS("<H2 align=\"center\">" name "</H2>\n")
 
-PHPAPI extern char *php_ini_path;
+PHPAPI extern char *php_ini_opened_path;
 
 static int _display_module_info(zend_module_entry *module, void *arg)
 {
@@ -60,7 +60,7 @@ static int _display_module_info(zend_module_entry *module, void *arg)
 
 static void php_print_gpcse_array(char *name, uint name_length ELS_DC)
 {
-	zval **data, **tmp;
+	zval **data, **tmp, tmp2;
 	char *string_key;
 	ulong num_key;
 
@@ -68,24 +68,13 @@ static void php_print_gpcse_array(char *name, uint name_length ELS_DC)
 		&& ((*data)->type==IS_ARRAY)) {
 		zend_hash_internal_pointer_reset((*data)->value.ht);
 		while (zend_hash_get_current_data((*data)->value.ht, (void **) &tmp) == SUCCESS) {
-			zval tmp2, *value_ptr;
-
-			if ((*tmp)->type != IS_STRING) {
-				tmp2 = **tmp;
-				zval_copy_ctor(&tmp2);
-				convert_to_string(&tmp2);
-				value_ptr = &tmp2;
-			} else {
-				value_ptr = *tmp;
-			}
 			PUTS("<TR VALIGN=\"baseline\" BGCOLOR=\"" PHP_CONTENTS_COLOR "\">");
 			PUTS("<TD BGCOLOR=\"" PHP_ENTRY_NAME_COLOR "\"><B>");
 			PUTS(name);
 			PUTS("[\"");
-			switch (zend_hash_get_current_key((*data)->value.ht, &string_key, &num_key)) {
+			switch (zend_hash_get_current_key((*data)->value.ht, &string_key, &num_key, 0)) {
 				case HASH_KEY_IS_STRING:
 					PUTS(string_key);
-					efree(string_key);
 					break;
 				case HASH_KEY_IS_LONG:
 					php_printf("%ld",num_key);
@@ -96,14 +85,17 @@ static void php_print_gpcse_array(char *name, uint name_length ELS_DC)
 				PUTS("<PRE>");
 				zend_print_zval_r(*tmp, 0);
 				PUTS("</PRE>");
+			} else if ((*tmp)->type != IS_STRING) {
+				tmp2 = **tmp;
+				zval_copy_ctor(&tmp2);
+				convert_to_string(&tmp2);
+				PUTS(tmp2.value.str.val);
+				zval_dtor(&tmp2);
 			} else {
-				PUTS(value_ptr->value.str.val);
+				PUTS((*tmp)->value.str.val);
 			}
 			PUTS("</TD></TR>\n");
 			zend_hash_move_forward((*data)->value.ht);
-			if (value_ptr==&tmp2) {
-				zval_dtor(value_ptr);
-			}
 		}
 	}
 }
@@ -198,7 +190,7 @@ PHPAPI void php_print_info(int flag)
 		php_info_print_table_row(2, "Virtual Directory Support", "disabled" );
 #endif
 
-		php_info_print_table_row(2, "Configuration File (php.ini) Path", php_ini_path?php_ini_path:CONFIGURATION_FILE_PATH );
+		php_info_print_table_row(2, "Configuration File (php.ini) Path", php_ini_opened_path?php_ini_opened_path:CONFIGURATION_FILE_PATH);
 
 #if ZEND_DEBUG
 		php_info_print_table_row(2, "ZEND_DEBUG", "enabled" );
@@ -240,7 +232,7 @@ PHPAPI void php_print_info(int flag)
 		PUTS("</a></h1>\n");
 	}
 
-	zend_ini_sort_entries();
+	zend_ini_sort_entries(ELS_C);
 
 	if (flag & PHP_INFO_CONFIGURATION) {
 		php_info_print_hr();
@@ -434,6 +426,7 @@ void register_phpinfo_constants(INIT_FUNC_ARGS)
 	REGISTER_LONG_CONSTANT("CREDITS_MODULES",	PHP_CREDITS_MODULES, CONST_PERSISTENT|CONST_CS);
 	REGISTER_LONG_CONSTANT("CREDITS_DOCS",	PHP_CREDITS_DOCS, CONST_PERSISTENT|CONST_CS);
 	REGISTER_LONG_CONSTANT("CREDITS_FULLPAGE",	PHP_CREDITS_FULLPAGE, CONST_PERSISTENT|CONST_CS);
+	REGISTER_LONG_CONSTANT("CREDITS_QA",	PHP_CREDITS_QA, CONST_PERSISTENT|CONST_CS);
 	REGISTER_LONG_CONSTANT("CREDITS_ALL",	PHP_CREDITS_ALL, CONST_PERSISTENT|CONST_CS);
 }
 

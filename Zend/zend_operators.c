@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -426,11 +426,13 @@ ZEND_API void _convert_to_string(zval *op ZEND_FILE_LINE_DC)
 			zval_dtor(op);
 			op->value.str.val = estrndup_rel("Array",sizeof("Array")-1);
 			op->value.str.len = sizeof("Array")-1;
+			zend_error(E_NOTICE, "Array to string conversion");
 			break;
 		case IS_OBJECT:
 			zval_dtor(op);
 			op->value.str.val = estrndup_rel("Object",sizeof("Object")-1);
 			op->value.str.len = sizeof("Object")-1;
+			zend_error(E_NOTICE, "Object to string conversion");
 			break;
 		default:
 			zval_dtor(op);
@@ -740,47 +742,6 @@ ZEND_API int mod_function(zval *result, zval *op1, zval *op2)
 	return SUCCESS;
 }
 
-
-ZEND_API int boolean_or_function(zval *result, zval *op1, zval *op2)
-{
-	zval op1_copy, op2_copy;
-	
-	result->type = IS_BOOL;
-
-	zendi_convert_to_boolean(op1, op1_copy, result);
-	if (op1->value.lval) {
-		result->value.lval = 1;
-		return SUCCESS;
-	}
-	zendi_convert_to_boolean(op2, op2_copy, result);
-	if (op2->value.lval) {
-		result->value.lval = 1;
-		return SUCCESS;
-	}
-	result->value.lval = 0;
-	return SUCCESS;
-}
-
-
-ZEND_API int boolean_and_function(zval *result, zval *op1, zval *op2)
-{
-	zval op1_copy, op2_copy;
-	
-	result->type = IS_BOOL;
-
-	zendi_convert_to_boolean(op1, op1_copy, result);
-	if (!op1->value.lval) {
-		result->value.lval = 0;
-		return SUCCESS;
-	}
-	zendi_convert_to_boolean(op2, op2_copy, result);
-	if (!op2->value.lval) {
-		result->value.lval = 0;
-		return SUCCESS;
-	}
-	result->value.lval = 1;
-	return SUCCESS;
-}
 
 
 ZEND_API int boolean_xor_function(zval *result, zval *op1, zval *op2)
@@ -1137,7 +1098,7 @@ ZEND_API int compare_function(zval *result, zval *op1, zval *op2)
 
 	if (op1->type == IS_LONG && op2->type == IS_LONG) {
 		result->type = IS_LONG;
-		result->value.lval = ZEND_NORMALIZE_BOOL(op1->value.lval-op2->value.lval);
+		result->value.lval = op1->value.lval>op2->value.lval?1:(op1->value.lval<op2->value.lval?-1:0);
 		return SUCCESS;
 	}
 	if ((op1->type == IS_DOUBLE || op1->type == IS_LONG)

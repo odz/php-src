@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: gd.c,v 1.105 2000/11/29 15:25:42 dbeu Exp $ */
+/* $Id: gd.c,v 1.118 2001/03/12 13:57:53 sasha Exp $ */
 
 /* gd 1.2 is copyright 1994, 1995, Quest Protein Database Center, 
    Cold Spring Harbor Labs. */
@@ -30,7 +30,6 @@
 #include <math.h>
 #include "SAPI.h"
 #include "php_gd.h"
-#include "ext/standard/fsock.h"
 #include "ext/standard/info.h"
 
 #if HAVE_SYS_WAIT_H
@@ -51,6 +50,12 @@ static int le_gd, le_gd_font;
 static int le_ps_font, le_ps_enc;
 #endif
 
+#ifdef ZTS
+int gd_globals_id;
+#else
+static php_gd_globals gd_globals;
+#endif
+
 #include <gd.h>
 #include <gdfontt.h>  /* 1 Tiny font */
 #include <gdfonts.h>  /* 2 Small font */
@@ -69,18 +74,25 @@ static int le_ps_font, le_ps_enc;
 static void php_imagettftext_common(INTERNAL_FUNCTION_PARAMETERS, int);
 #endif
 
-#ifdef GD2_VERS
+#if HAVE_LIBGD15
 /* it's >= 1.5, i.e. has IOCtx */
 #define USE_GD_IOCTX 1
 #else
 #undef USE_GD_IOCTX
 #endif
 
-#ifndef USE_GD_IOCTX
+#ifdef USE_GD_IOCTX
+#include "gd_ctx.c"
+#else
+#define gdImageCreateFromGifCtx NULL
 #define gdImageCreateFromJpegCtx NULL
 #define gdImageCreateFromPngCtx  NULL
 #define gdImageCreateFromWBMPCtx NULL
+typedef FILE gdIOCtx;
+#define CTX_PUTC(c,fp) fputc(c, fp)
 #endif
+
+static void _php_image_output_wbmp(gdImagePtr im, gdIOCtx *fp);
 
 #ifdef THREAD_SAFE
 DWORD GDlibTls;
@@ -175,18 +187,17 @@ function_entry gd_functions[] = {
 	PHP_FE(imagepstext,								NULL)
 	PHP_FE(imagepsbbox,								NULL)
 	PHP_FE(imagetypes,								NULL)
+	
+	PHP_FE(jpeg2wbmp,								NULL)
+	PHP_FE(png2wbmp,								NULL)
+	PHP_FE(image2wbmp,								NULL)
+	
 	{NULL, NULL, NULL}
 };
 
 zend_module_entry gd_module_entry = {
 	"gd", gd_functions, PHP_MINIT(gd), NULL, NULL, NULL, PHP_MINFO(gd), STANDARD_MODULE_PROPERTIES
 };
-
-#ifdef ZTS
-int gd_globals_id;
-#else
-static php_gd_globals gd_globals;
-#endif
 
 #ifdef COMPILE_DL_GD
 ZEND_GET_MODULE(gd)
@@ -299,7 +310,7 @@ PHP_MINFO_FUNCTION(gd)
 }
 
 /* Need this for cpdf. See also comment in file.c php3i_get_le_fp() */
-PHPAPI int phpi_get_le_gd(void)
+PHP_GD_API int phpi_get_le_gd(void)
 {
 	GDLS_FETCH();
 
@@ -360,13 +371,15 @@ gdImageColorResolve(gdImagePtr im, int r, int g, int b)
 
 #endif
 
+#define FLIPWORD(a) (((a & 0xff000000) >> 24) | ((a & 0x00ff0000) >> 8) | ((a & 0x0000ff00) << 8) | ((a & 0x000000ff) << 24))
+
 /* {{{ proto int imageloadfont(string filename)
    Load a new font */
 PHP_FUNCTION(imageloadfont) 
 {
 	zval **file;
 	int hdr_size = sizeof(gdFont) - sizeof(char *);
-	int ind, body_size, n=0, b;
+	int ind, body_size, n=0, b, i, body_size_check;
 	gdFontPtr font;
 	FILE *fp;
 	int issock=0, socketd=0;
@@ -414,7 +427,23 @@ PHP_FUNCTION(imageloadfont)
 		}
 		RETURN_FALSE;
 	}
+	i = ftell(fp);
+	fseek(fp, 0, SEEK_END);
+	body_size_check = ftell(fp) - hdr_size;
+	fseek(fp, i, SEEK_SET);
 	body_size = font->w * font->h * font->nchars;
+	if (body_size != body_size_check) {
+		font->w = FLIPWORD(font->w);
+		font->h = FLIPWORD(font->h);
+		font->nchars = FLIPWORD(font->nchars);
+		body_size = font->w * font->h * font->nchars;
+	}
+	if (body_size != body_size_check) {
+		php_error(E_WARNING, "ImageFontLoad: error reading font");
+		efree(font);
+		RETURN_FALSE;
+	}
+
 	font->data = emalloc(body_size);
 	b = 0;
 	while (b < body_size && (n = fread(&font->data[b], 1, body_size - b, fp)))
@@ -464,7 +493,7 @@ PHP_FUNCTION(imagecreate)
 /* }}} */
 
 /* {{{ proto int imagetypes(void)
-   Return the types of images supported in a bitfield - 1=gif, 2=jpeg, 4=png, 8=wbmp */
+   Return the types of images supported in a bitfield - 1=GIF, 2=JPEG, 4=PNG, 8=WBMP */
 PHP_FUNCTION(imagetypes)
 {
 	int ret=0;	
@@ -656,26 +685,24 @@ static void _php_image_create_from(INTERNAL_FUNCTION_PARAMETERS, int image_type,
 	if(issock && socketd) {
 #ifdef USE_GD_IOCTX
 		gdIOCtx* io_ctx;
-#define  CHUNK_SIZE 8192
-		int read_len=0,buff_len=0,buff_size=5*CHUNK_SIZE;
-		char *buff,*buff_cur;
+		int buff_size;
+		char *buff,*buff_em;
 
+		buff_size = php_fread_all(&buff_em, socketd, fp, issock);
+
+		if(!buff_size) {
+			php_error(E_WARNING,"%s: Cannot read image data",get_active_function_name());
+			RETURN_FALSE;
+		}
+		
 		buff = malloc(buff_size); /* Should be malloc! GD uses free */
-		buff_cur = buff;
+		memcpy(buff, buff_em, buff_size);
+		efree(buff_em);
 
-		do {
-			if(buff_len > buff_size - CHUNK_SIZE) {
-				buff_size += CHUNK_SIZE;
-				buff = realloc(buff, buff_size);
-			}
-			read_len = SOCK_FREAD(buff_cur, CHUNK_SIZE, socketd);
-			buff_len += read_len;
-			buff_cur += read_len;
-		} while(read_len>0);
-
-		io_ctx = gdNewDynamicCtx(buff_len,buff);
+		io_ctx = gdNewDynamicCtx(buff_size,buff);
 		if(!io_ctx) {
 			php_error(E_WARNING,"%s: Cannot allocate GD IO context",get_active_function_name());
+			RETURN_FALSE;
 		}
 		im = (*ioctx_func_p)(io_ctx);
 		io_ctx->free(io_ctx);
@@ -700,7 +727,7 @@ static void _php_image_create_from(INTERNAL_FUNCTION_PARAMETERS, int image_type,
 PHP_FUNCTION(imagecreatefromgif)
 {
 #ifdef HAVE_GD_GIF
-	_php_image_create_from(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_GDIMG_TYPE_GIF, "GIF", gdImageCreateFromGif,NULL);
+	_php_image_create_from(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_GDIMG_TYPE_GIF, "GIF", gdImageCreateFromGif,gdImageCreateFromGifCtx);
 #else /* HAVE_GD_GIF */
 	php_error(E_WARNING, "ImageCreateFromGif: No GIF support in this PHP build");
 	RETURN_FALSE;
@@ -787,6 +814,9 @@ static void _php_image_output(INTERNAL_FUNCTION_PARAMETERS, int image_type, char
 	int output = 1, q = -1;
 	GDLS_FETCH();
 
+	/* The quality parameter for Wbmp stands for the threshold
+	   So the q variable */
+
 	if (argc < 1 || argc > 3 || zend_get_parameters_ex(argc, &imgind, &file, &quality) == FAILURE) 
 	{
 		WRONG_PARAM_COUNT;
@@ -814,10 +844,20 @@ static void _php_image_output(INTERNAL_FUNCTION_PARAMETERS, int image_type, char
 			php_error(E_WARNING, "%s: unable to open '%s' for writing", get_active_function_name(), fn);
 			RETURN_FALSE;
 		}
-		if (image_type == PHP_GDIMG_TYPE_JPG) {
-			(*func_p)(im, fp, q);
-		} else {
-			(*func_p)(im, fp);
+		
+		switch(image_type) {
+			case PHP_GDIMG_TYPE_JPG:
+				(*func_p)(im, fp, q);
+				break;
+			case PHP_GDIMG_TYPE_WBM:
+				if(q<0||q>255) {
+					php_error(E_WARNING, "%s: invalid threshold value '%d'. It must be between 0 and 255",get_active_function_name(), q);
+				}
+				(*func_p)(im, q, fp);
+				break;
+			default:
+				(*func_p)(im, fp);
+				break;
 		}
 		fflush(fp);
 		fclose(fp);
@@ -831,23 +871,35 @@ static void _php_image_output(INTERNAL_FUNCTION_PARAMETERS, int image_type, char
 			php_error(E_WARNING, "%s: unable to open temporary file", get_active_function_name());
 			RETURN_FALSE;
 		}
-		output = php_header();
-		if (output) {
-			if (image_type == PHP_GDIMG_TYPE_JPG) {
+
+		switch(image_type) {
+			case PHP_GDIMG_TYPE_JPG:
 				(*func_p)(im, tmp, q);
-			} else {
+				break;
+			case PHP_GDIMG_TYPE_WBM:
+				if(q<0||q>255) {
+					php_error(E_WARNING, "%s: invalid threshold value '%d'. It must be between 0 and 255",get_active_function_name(), q);
+				}
+				(*func_p)(im, q, tmp);
+				break;
+			default:
 				(*func_p)(im, tmp);
-			}
-            fseek(tmp, 0, SEEK_SET);
+				break;
+		}
+
+		fseek(tmp, 0, SEEK_SET);
+
 #if APACHE && defined(CHARSET_EBCDIC)
-			SLS_FETCH();
-            /* This is a binary file already: avoid EBCDIC->ASCII conversion */
-            ap_bsetflag(php3_rqst->connection->client, B_EBCDIC2ASCII, 0);
+		/* XXX this is unlikely to work any more thies@thieso.net */
+
+		SLS_FETCH();
+		/* This is a binary file already: avoid EBCDIC->ASCII conversion */
+		ap_bsetflag(php3_rqst->connection->client, B_EBCDIC2ASCII, 0);
 #endif
-            while ((b = fread(buf, 1, sizeof(buf), tmp)) > 0) {
-                php_write(buf, b);
-            }
-        }
+		while ((b = fread(buf, 1, sizeof(buf), tmp)) > 0) {
+			php_write(buf, b);
+		}
+
         fclose(tmp);
         /* the temporary file is automatically deleted */
 	}
@@ -859,7 +911,11 @@ static void _php_image_output(INTERNAL_FUNCTION_PARAMETERS, int image_type, char
 PHP_FUNCTION(imagegif)
 {
 #ifdef HAVE_GD_GIF
+#ifdef USE_GD_IOCTX
+	_php_image_output_ctx(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_GDIMG_TYPE_GIF, "GIF", gdImageGifCtx);
+#else
 	_php_image_output(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_GDIMG_TYPE_GIF, "GIF", gdImageGif);
+#endif
 #else /* HAVE_GD_GIF */
 	php_error(E_WARNING, "ImageGif: No GIF support in this PHP build");
 	RETURN_FALSE;
@@ -872,7 +928,11 @@ PHP_FUNCTION(imagegif)
 PHP_FUNCTION(imagepng)
 {
 #ifdef HAVE_GD_PNG
+#ifdef USE_GD_IOCTX
+	_php_image_output_ctx(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_GDIMG_TYPE_PNG, "PNG", gdImagePngCtx);
+#else
 	_php_image_output(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_GDIMG_TYPE_PNG, "PNG", gdImagePng);
+#endif
 #else /* HAVE_GD_PNG */
 	php_error(E_WARNING, "ImagePng: No PNG support in this PHP build");
 	RETURN_FALSE;
@@ -886,7 +946,11 @@ PHP_FUNCTION(imagepng)
 PHP_FUNCTION(imagejpeg)
 {
 #ifdef HAVE_GD_JPG
+#ifdef USE_GD_IOCTX
+	_php_image_output_ctx(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_GDIMG_TYPE_JPG, "JPEG", gdImageJpegCtx);
+#else
 	_php_image_output(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_GDIMG_TYPE_JPG, "JPEG", gdImageJpeg);
+#endif
 #else /* HAVE_GD_JPG */
 	php_error(E_WARNING, "ImageJpeg: No JPG support in this PHP build");
 	RETURN_FALSE;
@@ -898,29 +962,33 @@ PHP_FUNCTION(imagejpeg)
    Output WBMP image to browser or file */
 PHP_FUNCTION(imagewbmp)
 {
+#ifdef USE_GD_IOCTX
+	_php_image_output_ctx(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_GDIMG_TYPE_WBM, "WBMP", _php_image_output_wbmp);
+#else
 	_php_image_output(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_GDIMG_TYPE_WBM, "WBMP", _php_image_output_wbmp);
+#endif
 }
 /* }}} */
 
 /* {{{ _php_image_output_wbmp(gdImagePtr im, FILE *fp)
  */
-static void _php_image_output_wbmp(gdImagePtr im, FILE *fp)
+static void _php_image_output_wbmp(gdImagePtr im, gdIOCtx *fp)
 {
 	int x, y;
 	int c, p, width, height;
 
 	/* WBMP header, black and white, no compression */
-	fputc(0,fp); fputc(0,fp);
+	CTX_PUTC(0,fp); CTX_PUTC(0,fp);
 		
 	/* Width and height of image */
 	c = 1; width = im->sx;
 	while(width & 0x7f << 7*c) c++;
-	while(c > 1) fputc(0x80 | ((width >> 7*--c) & 0xff), fp);
-	fputc(width & 0x7f,fp);
+	while(c > 1) CTX_PUTC(0x80 | ((width >> 7*--c) & 0xff), fp);
+	CTX_PUTC(width & 0x7f,fp);
 	c = 1; height = im->sy;
 	while(height & 0x7f << 7*c) c++;
-	while(c > 1) fputc(0x80 | ((height >> 7*--c) & 0xff), fp);
-	fputc(height & 0x7f,fp);
+	while(c > 1) CTX_PUTC(0x80 | ((height >> 7*--c) & 0xff), fp);
+	CTX_PUTC(height & 0x7f,fp);
 		
 	/* Actual image data */
 	for(y = 0; y < im->sy; y++) {
@@ -932,11 +1000,11 @@ static void _php_image_output_wbmp(gdImagePtr im, FILE *fp)
 			if(im->pixels[y][x] == 0) c = c | (1 << (7-p));
 #endif
 			if(++p == 8) {
-				fputc(c,fp);
+				CTX_PUTC(c,fp);
 				p = c = 0;
 			}
 		}
-		if(p) fputc(c,fp);
+		if(p) CTX_PUTC(c,fp);
 	}
 }
 /* }}} */
@@ -2616,8 +2684,301 @@ PHP_FUNCTION(imagepsbbox)
 }
 /* }}} */
 
-#endif	/* HAVE_LIBGD */
 
+/* {{{ proto int image2wbmp(int im [, string filename [, int threshold]])
+   Output WBMP image to browser or file */
+PHP_FUNCTION(image2wbmp)
+{
+#ifdef HAVE_GD_WBMP
+	_php_image_output (INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_GDIMG_TYPE_WBM, "WBMP", _php_image_bw_convert);
+#else /* HAVE_GD_WBMP */
+	php_error(E_WARNING, "Image2Wbmp: No WBMP support in this PHP build");
+	RETURN_FALSE;
+#endif /* HAVE_GD_WBMP */
+}
+
+
+/* {{{ proto void jpeg2wbmp (string f_org, string f_dest, int d_height, int d_width)
+   Convert JPEG image to WBMP image */
+PHP_FUNCTION(jpeg2wbmp)
+{
+#ifdef HAVE_GD_JPG
+#ifdef HAVE_GD_WBMP
+	_php_image_convert (INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_GDIMG_TYPE_JPG);
+#else /* HAVE_GD_WBMP */
+	php_error(E_WARNING, "jpeg2wbmp: No WBMP support in this PHP build");
+	RETURN_FALSE;
+#endif /* HAVE_GD_WBMP */
+#else /* HAVE_GD_JPG */
+	php_error(E_WARNING, "jpeg2wbmp: No JPG support in this PHP build");
+	RETURN_FALSE;
+#endif /* HAVE_GD_JPG */
+}
+/* }}} */
+
+/* {{{ proto void png2wbmp (string f_org, string f_dest, int d_height, int d_width)
+   Convert PNG image to WBMP image */
+PHP_FUNCTION(png2wbmp)
+{
+#ifdef HAVE_GD_PNG
+#ifdef HAVE_GD_WBMP
+	_php_image_convert (INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_GDIMG_TYPE_PNG);
+#else /* HAVE_GD_WBMP */
+	php_error(E_WARNING, "png2wbmp: No WBMP support in this PHP build");
+	RETURN_FALSE;
+#endif /* HAVE_GD_WBMP */
+#else /* HAVE_GD_PNG */
+	php_error(E_WARNING, "png2wbmp: No PNG support in this PHP build");
+	RETURN_FALSE;
+#endif /* HAVE_GD_PNG */
+}
+/* }}} */
+
+
+
+#ifdef HAVE_GD_WBMP
+/* It converts a gd Image to bw using a threshold value */
+static void _php_image_bw_convert( gdImagePtr im_org, int threshold, FILE *out) {
+	gdImagePtr im_dest;
+	int white, black;
+	int color, color_org, median;
+	int dest_height = gdImageSY (im_org);
+	int dest_width = gdImageSX (im_org);
+	int x,y;
+
+	im_dest = gdImageCreate (dest_width, dest_height);
+	if (im_dest == NULL) {
+		php_error (E_WARNING, "%s: unable to allocate temporary buffer", get_active_function_name());
+		return;
+	}
+	white = gdImageColorAllocate (im_dest, 255, 255, 255);
+	if( white == -1) {
+		php_error (E_WARNING, "%s: unable to allocate the colors for the destination buffer", get_active_function_name());
+		return;
+	}
+
+	black = gdImageColorAllocate (im_dest, 0, 0, 0);
+	if (black == -1) {
+		php_error (E_WARNING, "%s: unable to allocate the colors for the destination buffer", get_active_function_name());
+		return;
+	}
+
+	for (y = 0; y < dest_height; y++) {
+		for (x = 0; x < dest_width; x++) {
+			color_org = gdImageGetPixel (im_org, x, y);
+			median = (im_org->red[color_org] + im_org->green[color_org] + im_org->blue[color_org]) / 3;
+			if (median < threshold) {
+				color = black;
+			}
+			else {
+				color = white;
+			}
+			gdImageSetPixel (im_dest, x, y, color);
+		}
+	}
+
+	gdImageWBMP (im_dest, black, out);
+}
+
+
+/* _php_image_convert converts jpeg/png images to wbmp and resizes them as needed  */
+static void _php_image_convert(INTERNAL_FUNCTION_PARAMETERS, int image_type ) {
+	zval **f_org, **f_dest, **height, **width, **threshold;
+	gdImagePtr im_org, im_dest, im_tmp;
+	char *fn_org = NULL;
+	char *fn_dest = NULL;
+	FILE *org,*dest;
+	int argc;
+	int dest_height = -1;
+	int dest_width = -1;
+	int org_height, org_width;
+	int output = 1;
+	int q = -1;
+	int white, black;
+	int color, color_org, median;
+	int int_threshold;
+	int x, y;
+	float x_ratio, y_ratio;
+	GDLS_FETCH();
+
+	argc = ZEND_NUM_ARGS();
+	if (argc < 1 || argc > 5 || zend_get_parameters_ex(argc, &f_org, &f_dest, &height, &width, &threshold) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	if (argc == 5) {
+		convert_to_string_ex (f_org);
+		convert_to_string_ex (f_dest);
+		fn_org  = Z_STRVAL_PP(f_org);
+		fn_dest = Z_STRVAL_PP(f_dest);
+		convert_to_long_ex(height);
+		dest_height = Z_LVAL_PP(height);
+		convert_to_long_ex(width);
+		dest_width = Z_LVAL_PP(width);
+		convert_to_long_ex(threshold);
+		int_threshold = Z_LVAL_PP(threshold);
+
+		/* Check threshold value */
+		if( int_threshold < 0 || int_threshold > 8 ) {
+			php_error (E_WARNING, "Invalid threshold value '%d' in %s",int_threshold, get_active_function_name());
+			RETURN_FALSE;
+		}
+
+		/* Check origin file */
+		if (!fn_org || fn_org == empty_string || php_check_open_basedir(fn_org)) {
+			php_error (E_WARNING, "%s: invalid origin filename '%s'", get_active_function_name(), fn_org);
+			RETURN_FALSE;
+		}
+
+		/* Check destination file */
+		if (!fn_dest || fn_dest == empty_string || php_check_open_basedir(fn_dest)) {
+			php_error (E_WARNING, "%s: invalid destination filename '%s'", get_active_function_name(), fn_dest);
+			RETURN_FALSE;
+		}
+
+		/* Open origin file */
+		org = V_FOPEN(fn_org, "rb");
+		if (!org) {
+			php_error (E_WARNING, "%s: unable to open '%s' for reading", get_active_function_name(), fn_org);
+			RETURN_FALSE;
+		}
+
+		/* Open destination file */
+		dest = V_FOPEN(fn_dest, "wb");
+		if (!dest) {
+			php_error (E_WARNING, "%s: unable to open '%s' for writing", get_active_function_name(), fn_dest);
+			RETURN_FALSE;
+		}
+
+		switch (image_type) {
+#ifdef HAVE_GD_GIF
+			case PHP_GDIMG_TYPE_GIF:
+				im_org = gdImageCreateFromGif (org);
+				if (im_org == NULL) {
+					php_error (E_WARNING, "%s: unable to open '%s' Not a valid GIF file", get_active_function_name(), fn_dest);
+					RETURN_FALSE;
+				}
+				break;
+#endif /* HAVE_GD_GIF */
+
+#ifdef HAVE_GD_JPG
+			case PHP_GDIMG_TYPE_JPG:
+				im_org = gdImageCreateFromJpeg (org);
+				if (im_org == NULL) {
+					php_error (E_WARNING, "%s: unable to open '%s' Not a valid JPEG file", get_active_function_name(), fn_dest);
+					RETURN_FALSE;
+				}
+				break;
+#endif /* HAVE_GD_JPG */
+
+
+#ifdef HAVE_GD_PNG
+			case PHP_GDIMG_TYPE_PNG:
+				im_org = gdImageCreateFromPng(org);
+				if (im_org == NULL) {
+					php_error (E_WARNING, "%s: unable to open '%s' Not a valid PNG file", get_active_function_name(), fn_dest);
+					RETURN_FALSE;
+				}
+				break;
+#endif /* HAVE_GD_PNG */
+
+			default:
+				php_error(E_WARNING, "%s: Format not supported", get_active_function_name());
+				break;
+		}
+
+		org_width  = gdImageSX (im_org);
+		org_height = gdImageSY (im_org);
+
+		x_ratio = (float) org_width / (float) dest_width;
+		y_ratio = (float) org_height / (float) dest_height;
+
+		if (x_ratio > 1 && y_ratio > 1) {
+			if (y_ratio > x_ratio) {
+				x_ratio = y_ratio;
+			}
+			else {
+				y_ratio = x_ratio;
+			}
+			dest_width = org_width / x_ratio;
+			dest_height = org_height / y_ratio;
+		}
+		else {
+			x_ratio = (float) dest_width / (float) org_width;
+			y_ratio = (float) dest_height / (float) org_height;
+
+			if (y_ratio < x_ratio) {
+				x_ratio = y_ratio;
+			}
+			else {
+				y_ratio = x_ratio;
+			}
+			dest_width = org_width * x_ratio;
+			dest_height = org_height * y_ratio;
+		}
+
+		im_tmp = gdImageCreate (dest_width, dest_height);
+		if (im_tmp == NULL ) {
+			php_error(E_WARNING, "%s: unable to allocate temporary buffer", get_active_function_name());
+			RETURN_FALSE;
+		}
+
+		gdImageCopyResized (im_tmp, im_org, 0, 0, 0, 0, dest_width, dest_height, org_width, org_height);
+
+		gdImageDestroy(im_org);
+
+		fclose(org);
+
+		im_dest = gdImageCreate(dest_width, dest_height);
+		if (im_dest == NULL) {
+			php_error(E_WARNING, "%s: unable to allocate destination buffer", get_active_function_name());
+			RETURN_FALSE;
+		}
+		white = gdImageColorAllocate(im_dest, 255, 255, 255);
+		if (white == -1) {
+			php_error(E_WARNING, "%s: unable to allocate the colors for the destination buffer", get_active_function_name());
+			RETURN_FALSE;
+		}
+
+		black = gdImageColorAllocate(im_dest, 0, 0, 0);
+		if (black == -1) {
+			php_error(E_WARNING, "%s: unable to allocate the colors for the destination buffer", get_active_function_name());
+			RETURN_FALSE;
+		}
+
+		int_threshold = int_threshold * 32;
+
+		for (y = 0; y < dest_height; y++) {
+			for(x = 0; x < dest_width; x++) {
+				color_org = gdImageGetPixel (im_tmp, x, y);
+				median = (im_tmp->red[color_org] + im_tmp->green[color_org] + im_tmp->blue[color_org]) / 3;
+				if (median < int_threshold) {
+					color = black;
+				}
+				else {
+					color = white;
+				}
+				gdImageSetPixel (im_dest, x, y, color);
+			}
+		}
+
+		gdImageDestroy (im_tmp );
+
+		gdImageWBMP (im_dest, black , dest);
+
+		fflush(dest);
+		fclose(dest);
+
+		gdImageDestroy( im_dest );
+		
+		RETURN_TRUE;
+	}
+	WRONG_PARAM_COUNT;
+}
+#endif /* HAVE_GD_WBMP */
+
+
+#endif	/* HAVE_LIBGD */
 
 /*
  * Local variables:

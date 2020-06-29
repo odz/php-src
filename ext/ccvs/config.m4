@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.5.2.1 2000/12/06 17:41:40 sas Exp $
+dnl $Id: config.m4,v 1.6 2000/12/06 17:34:56 sas Exp $
 dnl config.m4 for PHP4 CCVS Extension
 
 AC_MSG_CHECKING(CCVS Support)

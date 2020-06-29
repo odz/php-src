@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: dns.h,v 1.6 2000/07/24 01:39:49 david Exp $ */
+/* $Id: dns.h,v 1.8.2.1 2001/03/20 01:49:56 sniper Exp $ */
 
 #ifndef DNS_H
 #define DNS_H
@@ -25,7 +25,8 @@
 PHP_FUNCTION(gethostbyaddr);
 PHP_FUNCTION(gethostbyname);
 PHP_FUNCTION(gethostbynamel);
-#if !defined(PHP_WIN32)||(HAVE_BINDLIB)
+
+#if HAVE_RES_SEARCH && !(defined(__BEOS__)||defined(PHP_WIN32))
 PHP_FUNCTION(checkdnsrr);
 PHP_FUNCTION(getmxrr);
 #endif

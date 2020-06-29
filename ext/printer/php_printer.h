@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_printer.h,v 1.5 2000/11/16 22:16:47 dbeu Exp $ */
+/* $Id: php_printer.h,v 1.7 2001/02/26 06:07:13 andi Exp $ */
 
 #ifndef PHP_PRINTER_H
 #define PHP_PRINTER_H
@@ -82,12 +82,8 @@ typedef struct {
 	HFONT pointer;
 } font_struct;
 
-
 typedef struct {
 	int printer_id;
-	int pen_id;
-	int font_id;
-	int brush_id;
 } php_printer_globals;
 
 #ifdef ZTS

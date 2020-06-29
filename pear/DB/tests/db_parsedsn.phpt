@@ -22,6 +22,7 @@ test("mysql://remote.host.com/db");
 test("mysql://testuser:testpw");
 test("oci8://user:pass@tns-name");
 test("odbc(solid)://foo:bar@tcp+localhost+1313");
+test("ibase://user%40domain:password@database");
 
 /* phptype,dbsyntax,protocol,hostspec,database,username,password */
 ?>
@@ -36,3 +37,4 @@ mysql,mysql,,remote.host.com,db,,
 mysql,mysql,,,,testuser,testpw
 oci8,oci8,,tns-name,,user,pass
 odbc,solid,tcp,localhost 1313,,foo,bar
+ibase,ibase,,database,,user@domain,password

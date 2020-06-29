@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Sterling Hughes <Sterling.Hughes@pentap.net>                 |
+   | Author: Sterling Hughes <sterling@php.net>                           |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: curl.c,v 1.29.2.2 2000/12/13 10:23:11 stas Exp $ */
+/* $Id: curl.c,v 1.39 2001/03/03 01:06:55 sterling Exp $ */
 
 
 #include "php.h"
@@ -47,12 +47,6 @@
 #include "ext/standard/info.h"
 #include "ext/standard/file.h"
 #include "php_curl.h"
-
-#ifdef ZTS
-int curl_globals_id;
-#else
-php_curl_globals curl_globals;
-#endif
 
 static int le_curl;
 
@@ -103,6 +97,8 @@ function_entry curl_functions[] = {
 	PHP_FE(curl_exec,     NULL)
 #if LIBCURL_VERSION_NUM >= 0x070401
 	PHP_FE(curl_getinfo,  NULL)
+#else
+	PHP_FALIAS(curl_getinfo, warn_not_available, NULL)
 #endif
 	PHP_FE(curl_error,    NULL)
 	PHP_FE(curl_errno,    NULL)
@@ -146,7 +142,7 @@ PHP_MINIT_FUNCTION(curl)
 	REGISTER_LONG_CONSTANT("CURLOPT_PROXY", CURLOPT_PROXY, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("CURLOPT_VERBOSE", CURLOPT_VERBOSE, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("CURLOPT_HEADER", CURLOPT_HEADER, CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("CURLOPT_HTTPHEADER", CURLOPT_HEADER, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("CURLOPT_HTTPHEADER", CURLOPT_HTTPHEADER, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("CURLOPT_NOPROGRESS", CURLOPT_NOPROGRESS, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("CURLOPT_NOBODY", CURLOPT_NOBODY, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("CURLOPT_FAILONERROR", CURLOPT_FAILONERROR, CONST_CS | CONST_PERSISTENT);
@@ -315,7 +311,7 @@ PHP_FUNCTION(curl_init)
 
 		urlstr = estrndup(Z_STRVAL_PP(url), Z_STRLEN_PP(url));
 		curl_easy_setopt(curl_handle->cp, CURLOPT_URL, urlstr);
-		zend_llist_add_element(&curl_handle->to_free,&urlstr);
+		zend_llist_add_element(&curl_handle->to_free, &urlstr);
 	}
 
 	curl_easy_setopt(curl_handle->cp, CURLOPT_NOPROGRESS, 1);
@@ -383,11 +379,13 @@ PHP_FUNCTION(curl_setopt)
 				copystr = estrndup(Z_STRVAL_PP(curl_value), Z_STRLEN_PP(curl_value));
 				
 				ret = curl_easy_setopt(curl_handle->cp, option, copystr);
-				zend_llist_add_element(&curl_handle->to_free,&copystr);
+				zend_llist_add_element(&curl_handle->to_free, &copystr);
 			}
 			break;
 			
-		case CURLOPT_FILE:   case CURLOPT_INFILE: case CURLOPT_WRITEHEADER:
+		case CURLOPT_FILE:   
+		case CURLOPT_INFILE: 
+		case CURLOPT_WRITEHEADER:
 		case CURLOPT_STDERR: 
 
 			{
@@ -418,6 +416,7 @@ PHP_FUNCTION(curl_setopt)
 				
 				zval **current;
 				HashTable *u_post = HASH_OF(*curl_value);
+
 				struct HttpPost *first = NULL, 
 				                *last  = NULL;
 				
@@ -433,7 +432,7 @@ PHP_FUNCTION(curl_setopt)
 					SEPARATE_ZVAL(current);
 					convert_to_string_ex(current);
 					
-					if (zend_hash_get_current_key(u_post, &string_key, &num_key) == HASH_KEY_IS_LONG) {
+					if (zend_hash_get_current_key(u_post, &string_key, &num_key, 0) == HASH_KEY_IS_LONG) {
 						php_error(E_WARNING, "Array passed to %s() must be an associative array", get_active_function_name());
 						RETURN_FALSE;
 					}
@@ -448,8 +447,7 @@ PHP_FUNCTION(curl_setopt)
 					sprintf(str, "%s=%s", string_key, val_str);
 
 					ret = curl_formparse(str, &first, &last);
-					
-					efree(string_key);
+
 					efree(val_str);
 				}
 				
@@ -488,11 +486,12 @@ PHP_FUNCTION(curl_setopt)
 				HashTable *headers = HASH_OF(*curl_value);
 				struct curl_slist *header = NULL;
 				
-				header = (struct curl_slist *)emalloc(sizeof(struct curl_slist));
-				if (!header) {
-					php_error(E_WARNING, "Couldn't allocate header list from %s()", get_active_function_name());
+				if (!headers) {
 					RETURN_FALSE;
 				}
+				
+				header = (struct curl_slist *)emalloc(sizeof(struct curl_slist));
+					
 				memset(header, 0, sizeof(struct curl_slist));
 				
 				for (zend_hash_internal_pointer_reset(headers);
@@ -525,11 +524,11 @@ PHP_FUNCTION(curl_setopt)
 				HashTable *php_commands = HASH_OF(*curl_value);
 				struct curl_slist *commands = NULL;
 				
-				commands = (struct curl_slist *)emalloc(sizeof(struct curl_slist));
-				if (!commands) {
-					php_error(E_WARNING, "Couldn't allocate command list from %s()", get_active_function_name());
+				if (!php_commands) {
 					RETURN_FALSE;
 				}
+
+				commands = (struct curl_slist *) emalloc(sizeof(struct curl_slist));
 				memset(commands, 0, sizeof(struct curl_slist));
 				
 				for (zend_hash_internal_pointer_reset(php_commands);
@@ -603,7 +602,7 @@ PHP_FUNCTION(curl_exec)
 	} else if (curl_handle->return_transfer &&
 	           curl_handle->output_file) {
 
-		ZEND_FETCH_RESOURCE(fp, FILE *, (zval **)NULL, curl_handle->output_file, "File-Handle", php_file_le_fopen());
+		ZEND_FETCH_RESOURCE(fp, FILE *, (zval **) NULL, curl_handle->output_file, "File-Handle", php_file_le_fopen());
 
 	}
 	
@@ -625,38 +624,38 @@ PHP_FUNCTION(curl_exec)
 	}
 	
 	fseek(fp, 0, SEEK_SET);
-		
+
 	if (curl_handle->php_stdout) {
 		
 		while ((b = fread(buf, 1, sizeof(buf), fp)) > 0) {
 			php_write(buf, b);
 		}
-		
+
 		if (is_temp_file)
 			fclose(fp);
-		
+
 	} else {
-		
+
 		char *ret_data;
 		struct stat stat_sb;
-		
+
 		if (fstat(fileno(fp), &stat_sb)) {
 			RETURN_FALSE;
 		}
 				
-		ret_data = emalloc(stat_sb.st_size+1);
-		
+		ret_data = (char *) emalloc(stat_sb.st_size + 1);
+
 		while ((b = fread(buf, 1, sizeof(buf), fp)) > 0) {
 			memcpy(ret_data + pos, buf, b);
 			pos += b;
 		}
-		ret_data[stat_sb.st_size - 1] = '\0';
-		
+		ret_data[stat_sb.st_size] = '\0';
+
 		if (is_temp_file)
 			fclose(fp);
-		
+
 		RETURN_STRINGL(ret_data, stat_sb.st_size, 0);
-	
+
 	}
 
 }
@@ -687,37 +686,37 @@ PHP_FUNCTION(curl_getinfo)
 
 		curl_easy_getinfo(curl_handle->cp, CURLINFO_EFFECTIVE_URL, &url);
 		add_assoc_string(return_value, "url", url, 1);
-		
+
 		curl_easy_getinfo(curl_handle->cp, CURLINFO_HTTP_CODE, &l_code);
 		add_assoc_long(return_value, "http_code", l_code);
-		
+
 		curl_easy_getinfo(curl_handle->cp, CURLINFO_HEADER_SIZE, &l_code);
 		add_assoc_long(return_value, "header_size", l_code);
-		
+
 		curl_easy_getinfo(curl_handle->cp, CURLINFO_REQUEST_SIZE, &l_code);
 		add_assoc_long(return_value, "request_size", l_code);
-		
+
 		curl_easy_getinfo(curl_handle->cp, CURLINFO_TOTAL_TIME, &d_code);
 		add_assoc_double(return_value, "total_time", d_code);
-		
+
 		curl_easy_getinfo(curl_handle->cp, CURLINFO_NAMELOOKUP_TIME, &d_code);
 		add_assoc_double(return_value, "namelookup_time", d_code);
-		
+
 		curl_easy_getinfo(curl_handle->cp, CURLINFO_CONNECT_TIME, &d_code);
 		add_assoc_double(return_value, "connect_time", d_code);
-		
+
 		curl_easy_getinfo(curl_handle->cp, CURLINFO_PRETRANSFER_TIME, &d_code);
 		add_assoc_double(return_value, "pretransfer_time", d_code);
-		
+
 		curl_easy_getinfo(curl_handle->cp, CURLINFO_SIZE_UPLOAD, &d_code);
 		add_assoc_double(return_value, "size_upload", d_code);
-		
+
 		curl_easy_getinfo(curl_handle->cp, CURLINFO_SIZE_DOWNLOAD, &d_code);
 		add_assoc_double(return_value, "size_download", d_code);
-		
+
 		curl_easy_getinfo(curl_handle->cp, CURLINFO_SPEED_DOWNLOAD, &d_code);
 		add_assoc_double(return_value, "speed_download", d_code);
-		
+
 		curl_easy_getinfo(curl_handle->cp, CURLINFO_SPEED_UPLOAD, &d_code);
 		add_assoc_double(return_value, "speed_upload", d_code);
 	} else {
@@ -767,7 +766,7 @@ PHP_FUNCTION(curl_error)
 	    zend_get_parameters_ex(1, &curl_id) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
-	
+
 	ZEND_FETCH_RESOURCE(curl_handle, php_curl *, curl_id, -1, "CURL Handle", le_curl);
 	RETURN_STRING(curl_handle->error, 1);
 }

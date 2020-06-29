@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: assert.c,v 1.26 2000/10/29 09:14:53 thies Exp $ */
+/* $Id: assert.c,v 1.28 2001/02/27 20:16:35 andi Exp $ */
 
 /* {{{ includes/startup/misc */
 
@@ -227,9 +227,9 @@ PHP_FUNCTION(assert)
 		call_user_function(CG(function_table), NULL, args[0], retval, 3, args+1);
 
 		for (i = 0; i < 4; i++) {
-			zval_del_ref(&(args[i]));
+			zval_ptr_dtor(&(args[i]));
 		}
-		zval_del_ref(&retval);
+		zval_ptr_dtor(&retval);
 	}
 
 	if (ASSERT(warning)) {

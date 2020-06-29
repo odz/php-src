@@ -44,9 +44,9 @@ require( PHPDOC_INCLUDE_DIR . "xmlexporter/PhpdocXMLDocumentExporter.php");
 require( PHPDOC_INCLUDE_DIR . "xmlexporter/PhpdocXMLModuleExporter.php" );
 require( PHPDOC_INCLUDE_DIR . "xmlexporter/PhpdocXMLClassExporter.php" );
 
-// Redistributed IT[X] Templates from the PHPLib
-require( PHPDOC_INCLUDE_DIR . "redist/IT.php" );
-require( PHPDOC_INCLUDE_DIR . "redist/ITX.php" );
+// IT[X] Templates
+require_once "HTML/IT.php";
+require_once "HTML/ITX.php";
 
 // XML Reader
 require( PHPDOC_INCLUDE_DIR . "xmlreader/PhpdocXMLReader.php" );

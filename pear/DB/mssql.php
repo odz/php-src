@@ -3,7 +3,7 @@
 // +----------------------------------------------------------------------+
 // | PHP version 4.0                                                      |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+// | Copyright (c) 1997-2001 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
 // | Authors: Sterling Hughes <sterling@php.net>                          |
 // +----------------------------------------------------------------------+
 //
-// $Id: mssql.php,v 1.12 2000/09/13 11:27:59 ssb Exp $
+// $Id: mssql.php,v 1.19 2001/02/19 12:22:26 ssb Exp $
 //
 // Database independent query interface definition for PHP's Microsoft SQL Server
 // extension.
@@ -24,14 +24,16 @@
 
 require_once 'DB/common.php';
 
-class DB_mssql extends DB_common {
-
+class DB_mssql extends DB_common
+{
     var $connection;
     var $phptype, $dbsyntax;
     var $prepare_tokens = array();
     var $prepare_types = array();
 
-    function DB_mssql() {
+    function DB_mssql()
+    {
+        $this->DB_common();
         $this->phptype = 'mssql';
         $this->dbsyntax = 'mssql';
         $this->features = array(
@@ -41,16 +43,17 @@ class DB_mssql extends DB_common {
         );
     }
 
-    function connect (&$dsn, $persistent=false) {
+    function connect($dsn, $persistent = false)
+    {
         if(is_array($dsn)) {
             $dsninfo = &$dsn;
         } else {
             $dsninfo = DB::parseDSN($dsn);
         }
         if (!$dsninfo || !$dsninfo['phptype']) {
-            return $this->raiseError(); 
+            return $this->raiseError(mssql_get_last_message()); 
         }
-
+        $this->dsn = $dsninfo;
         $user = $dsninfo['username'];
         $pw = $dsninfo['password'];
         $dbhost = $dsninfo['hostspec'] ? $dsninfo['hostspec'] : 'localhost';
@@ -65,48 +68,32 @@ class DB_mssql extends DB_common {
         if ($dsninfo['database']) {
             @mssql_select_db($dsninfo['database'], $conn);
         } else {
-            return $this->raiseError();
+            return $this->raiseError(mssql_get_last_message());
         }
         $this->connection = $conn;
         return DB_OK;
     }
 
-    function disconnect() {
+    function disconnect()
+    {
         return @mssql_close($this->connection);
     }
 
-    function &query( $stmt ) {
+    function simpleQuery($query)
+    {
 	$this->last_query = $query;
-        $result = @mssql_query($stmt, $this->connection);
+        $query = $this->modifyQuery($query);
+        $result = @mssql_query($query, $this->connection);
         if (!$result) {
-            return $this->raiseError();
+            return $this->raiseError(mssql_get_last_message());
         }
         // Determine which queries that should return data, and which
         // should return an error code only.
-        if (preg_match('/(SELECT|SHOW|LIST|DESCRIBE)/i', $stmt)) {
-            $resultObj = new DB_result($this, $result);
-            return $resultObj;
-        } else {
-            return DB_OK;
-        }
+        return DB::isManip($query) ? DB_OK : $result;
     }
 
-    function simpleQuery($stmt) {
-	$this->last_query = $query;
-        $result = @mssql_query($stmt, $this->connection);
-        if (!$result) {
-            return $this->raiseError();
-        }
-        // Determine which queries that should return data, and which
-        // should return an error code only.
-        if ( preg_match('/(SELECT|SHOW|LIST|DESCRIBE)/i', $stmt) ) {
-            return $result;
-        } else {
-            return DB_OK;
-        }
-    }
-
-    function &fetchRow($result, $fetchmode=DB_FETCHMODE_DEFAULT) {
+    function &fetchRow($result, $fetchmode=DB_FETCHMODE_DEFAULT)
+    {
 	if ($fetchmode == DB_FETCHMODE_DEFAULT) {
 	    $fetchmode = $this->fetchmode;
 	}
@@ -115,13 +102,20 @@ class DB_mssql extends DB_common {
         } else {
             $row = @mssql_fetch_row($result);
         }
+	
         if (!$row) {
-            return $this->raiseError();
+	    if ($msg = mssql_get_last_message()) {
+		return $this->raiseError($msg);
+	    } else {
+		return null;
+	    }
         }
+	
         return $row;
     }
 
-    function fetchInto($result, &$ar, $fetchmode=DB_FETCHMODE_DEFAULT) {
+    function fetchInto($result, &$ar, $fetchmode=DB_FETCHMODE_DEFAULT)
+    {
 	if ($fetchmode == DB_FETCHMODE_DEFAULT) {
 	    $fetchmode = $this->fetchmode;
 	}
@@ -131,12 +125,13 @@ class DB_mssql extends DB_common {
             $ar = @mssql_fetch_row($result);
         }
         if (!$ar) {
-            return $this->raiseError();
+            return $this->raiseError(mssql_get_last_message());
         }
         return DB_OK;
     }
 
-    function freeResult($result) {
+    function freeResult($result)
+    {
         if (is_resource($result)) {
             return @mssql_free_result($result);
         }
@@ -148,59 +143,22 @@ class DB_mssql extends DB_common {
         return true; 
     }
 
-    function numCols($result) {
+    function numCols($result)
+    {
         $cols = @mssql_num_fields($result);
         if (!$cols) {
-            return $this->raiseError();
+            return $this->raiseError(mssql_get_last_message());
         }
         return $cols;
     }
 
-    function prepare($query) {
-        $tokens = split('[\&\?]', $query);
-        $token = 0;
-        $types = array();
-        for ($i = 0; $i < strlen($query); $i++) {
-            switch ($query[$i]) {
-                case '?':
-                    $types[$token++] = DB_PARAM_SCALAR;
-                    break;
-                case '&':
-                    $types[$token++] = DB_PARAM_OPAQUE;
-                    break;
-            }
+    function numRows($result)
+    {
+        $rows = @mssql_num_rows($result);
+        if (!$rows) {
+            return $this->raiseError(mssql_get_last_message());
         }
-        $this->prepare_tokens[] = &$tokens;
-        end($this->prepare_tokens);
-        $k = key($this->prepare_tokens);
-        $this->prepare_types[$k] = $types;
-        return $k;
-    }
-
-    function execute($stmt, $data = false) {
-        $realquery = $this->execute_emulate_query($stmt, $data);
-	$this->last_query = $realquery;
-        $result = @mssql_query($realquery, $this->connection);
-        if (!$result) {
-            return $this->raiseError();
-        }
-        if ( preg_match('/(SELECT|SHOW|LIST|DESCRIBE)/i', $realquery) ) {
-            return $result;
-        } else {
-            return DB_OK;
-        }
-    }
-
-    function autoCommit($onoff=false) {
-        return $this->raiseError(DB_ERROR_NOT_CAPABLE);
-    }
-
-    function commit() {
-        return $this->raiseError(DB_ERROR_NOT_CAPABLE);
-    }
-
-    function rollback() {
-        return $this->raiseError(DB_ERROR_NOT_CAPABLE);
+        return $rows;
     }
 }
 

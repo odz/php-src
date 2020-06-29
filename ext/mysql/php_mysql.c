@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
  
-/* $Id: php_mysql.c,v 1.60.2.1 2000/12/03 21:25:28 zeev Exp $ */
+/* $Id: php_mysql.c,v 1.73 2001/03/12 15:14:38 elixer Exp $ */
 
 
 /* TODO:
@@ -73,6 +73,18 @@ static int le_result, le_link, le_plink;
 #	endif
 #endif
 
+#if MYSQL_VERSION_ID >= 32032
+#define HAVE_GETINFO_FUNCS
+#endif
+
+#if MYSQL_VERSION_ID > 32133 || defined(FIELD_TYPE_TINY)
+#define MYSQL_HAS_TINY
+#endif
+
+#if MYSQL_VERSION_ID >= 32200
+#define MYSQL_HAS_YEAR
+#endif
+
 #define MYSQL_ASSOC		1<<0
 #define MYSQL_NUM		1<<1
 #define MYSQL_BOTH		(MYSQL_ASSOC|MYSQL_NUM)
@@ -124,6 +136,12 @@ function_entry mysql_functions[] = {
 	PHP_FE(mysql_field_type,							NULL)
 	PHP_FE(mysql_field_flags,							NULL)
 	PHP_FE(mysql_escape_string,							NULL)
+#ifdef HAVE_GETINFO_FUNCS
+	PHP_FE(mysql_get_client_info,							NULL)
+	PHP_FE(mysql_get_host_info,							NULL)
+	PHP_FE(mysql_get_proto_info,							NULL)
+	PHP_FE(mysql_get_server_info,							NULL)
+#endif
 	 
 	/* for downwards compatability */
 	PHP_FALIAS(mysql,				mysql_db_query,		NULL)
@@ -256,6 +274,10 @@ PHP_INI_END()
 static void php_mysql_init_globals(zend_mysql_globals *mysql_globals)
 {
 	mysql_globals->num_persistent = 0;
+	mysql_globals->default_socket = NULL;
+	mysql_globals->default_host = NULL;
+	mysql_globals->default_user = NULL;
+	mysql_globals->default_password = NULL;
 }
 
 
@@ -331,10 +353,10 @@ PHP_MINFO_FUNCTION(mysql)
 
 static void php_mysql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 {
-	char *user, *passwd, *host_and_port, *socket, *tmp, *host=NULL;
-	char *hashed_details;
+	char *user=NULL, *passwd=NULL, *host_and_port=NULL, *socket=NULL, *tmp=NULL, *host=NULL;
+	char *hashed_details=NULL;
 	int hashed_details_length, port = MYSQL_PORT;
-	MYSQL *mysql;
+	MYSQL *mysql=NULL;
 	void (*handler) (int);
 	zval **z_host=NULL, **z_user=NULL, **z_passwd=NULL;
 	zend_bool free_host=0;
@@ -681,6 +703,114 @@ PHP_FUNCTION(mysql_select_db)
 }
 /* }}} */
 
+#ifdef HAVE_GETINFO_FUNCS
+
+/* {{{ proto string mysql_get_client_info(void)
+   Returns a string that represents the client library version */
+PHP_FUNCTION(mysql_get_client_info)
+{
+	if (ZEND_NUM_ARGS() != 0) {
+		WRONG_PARAM_COUNT;
+	}
+
+	RETURN_STRING(mysql_get_client_info(),1);	
+}
+/* }}} */
+
+/* {{{ proto string mysql_get_host_info([int link_identifier])
+   Returns a string describing the type of connection in use, including the server host name */
+PHP_FUNCTION(mysql_get_host_info)
+{
+	zval **mysql_link;
+	int id;
+	MYSQL *mysql;
+	MySLS_FETCH();
+
+	switch(ZEND_NUM_ARGS()) {
+		case 0:
+			id = php_mysql_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU MySLS_CC);
+			CHECK_LINK(id);
+			break;
+		case 1:
+			if (zend_get_parameters_ex(1,&mysql_link)==FAILURE) {
+				RETURN_FALSE;
+			}
+			id = -1;
+			break;
+		default:
+			WRONG_PARAM_COUNT;
+			break;
+	}
+
+	ZEND_FETCH_RESOURCE2(mysql, MYSQL *, mysql_link, id, "MySQL-Link", le_link, le_plink);
+
+	RETURN_STRING(mysql_get_host_info(mysql),1);
+}
+/* }}} */
+
+/* {{{ proto int mysql_get_proto_info([int link_identifier])
+   Returns the protocol version used by current connection */
+PHP_FUNCTION(mysql_get_proto_info)
+{
+	zval **mysql_link;
+	int id;
+	MYSQL *mysql;
+	MySLS_FETCH();
+
+	switch(ZEND_NUM_ARGS()) {
+		case 0:
+			id = php_mysql_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU MySLS_CC);
+			CHECK_LINK(id);
+			break;
+		case 1:
+			if (zend_get_parameters_ex(1,&mysql_link)==FAILURE) {
+				RETURN_FALSE;
+			}
+			id = -1;
+			break;
+		default:
+			WRONG_PARAM_COUNT;
+			break;
+	}
+
+	ZEND_FETCH_RESOURCE2(mysql, MYSQL *, mysql_link, id, "MySQL-Link", le_link, le_plink);
+
+	RETURN_LONG(mysql_get_proto_info(mysql));
+}
+/* }}} */
+
+/* {{{ proto string mysql_get_server_info([int link_identifier])
+   Returns a string that represents the server version number */
+PHP_FUNCTION(mysql_get_server_info)
+{
+	zval **mysql_link;
+	int id;
+	MYSQL *mysql;
+	MySLS_FETCH();
+
+	switch(ZEND_NUM_ARGS()) {
+		case 0:
+			id = php_mysql_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU MySLS_CC);
+			CHECK_LINK(id);
+			break;
+		case 1:
+			if (zend_get_parameters_ex(1,&mysql_link)==FAILURE) {
+				RETURN_FALSE;
+			}
+			id = -1;
+			break;
+		default:
+			WRONG_PARAM_COUNT;
+			break;
+	}
+
+	ZEND_FETCH_RESOURCE2(mysql, MYSQL *, mysql_link, id, "MySQL-Link", le_link, le_plink);
+
+	RETURN_STRING(mysql_get_server_info(mysql),1);
+}
+/* }}} */
+
+#endif
 
 /* {{{ proto int mysql_create_db(string database_name [, int link_identifier])
    Create a MySQL database */
@@ -1417,9 +1547,9 @@ static void php_mysql_fetch_hash(INTERNAL_FUNCTION_PARAMETERS, int result_type)
 		} else {
 			/* NULL value. */
 			if (result_type & MYSQL_NUM)
-				add_index_unset(return_value, i);
+				add_index_null(return_value, i);
 			else
-				add_assoc_unset(return_value, mysql_field->name);
+				add_assoc_null(return_value, mysql_field->name);
 		}
 	}
 }
@@ -1438,7 +1568,7 @@ PHP_FUNCTION(mysql_fetch_row)
    Fetch a result row as an object */
 PHP_FUNCTION(mysql_fetch_object)
 {
-	php_mysql_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0);
+	php_mysql_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU, MYSQL_ASSOC);
 	if (return_value->type==IS_ARRAY) {
 		return_value->type=IS_OBJECT;
 		return_value->value.obj.properties = return_value->value.ht;
@@ -1528,7 +1658,7 @@ static char *php_mysql_get_field_name(int field_type)
 		case FIELD_TYPE_VAR_STRING:
 			return "string";
 			break;
-#ifdef FIELD_TYPE_TINY
+#ifdef MYSQL_HAS_TINY
 		case FIELD_TYPE_TINY:
 #endif
 		case FIELD_TYPE_SHORT:
@@ -1545,6 +1675,11 @@ static char *php_mysql_get_field_name(int field_type)
 		case FIELD_TYPE_TIMESTAMP:
 			return "timestamp";
 			break;
+#ifdef MYSQL_HAS_YEAR
+		case FIELD_TYPE_YEAR:
+			return "year";
+			break;
+#endif
 		case FIELD_TYPE_DATE:
 			return "date";
 			break;
@@ -1796,7 +1931,7 @@ PHP_FUNCTION(mysql_field_table)
 /* }}} */
 
 
-/* {{{ proto int mysql_field_len(int result, int field_offet)
+/* {{{ proto int mysql_field_len(int result, int field_offset)
    Returns the length of the specified field */
 PHP_FUNCTION(mysql_field_len)
 {

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: hg_comm.c,v 1.34 2000/11/23 14:44:09 steinm Exp $ */
+/* $Id: hg_comm.c,v 1.39 2001/02/26 06:06:57 andi Exp $ */
 
 /* #define HW_DEBUG */
 
@@ -31,7 +31,7 @@
 #include <string.h> 
 #include <sys/types.h>
 #ifdef PHP_WIN32
-# include <winsock2.h>
+# include <winsock.h>
 # define EWOULDBLOCK WSAEWOULDBLOCK
 # define ETIMEDOUT WSAETIMEDOUT
 # define bcopy memcpy
@@ -364,7 +364,8 @@ DLIST *fnCreateAnchorList(hw_objectID objID, char **anchors, char **docofanchorr
 		if(NULL != anchors[i]) {
 			object = anchors[i];
 			docofanchorptr = docofanchorrec[i];
-			reldestptr = reldestrec[i];
+			if(reldestrec) /* FIXME reldestrec may only be NULL if anchormode != 0 */
+				reldestptr = reldestrec[i];
 	
 			/* Determine Position. Doesn't matter if Src or Dest
 			   The Position field should always be there. Though there
@@ -374,7 +375,7 @@ DLIST *fnCreateAnchorList(hw_objectID objID, char **anchors, char **docofanchorr
 			   In such a case the Position has the value 'invisible' */
 			str = strstr(object, "Position");
 			str += 9;
-			if(0 != strncmp(str, "invisible", 9)) {
+			if((str != 9) && (0 != strncmp(str, "invisible", 9))) {
 				sscanf(str, "0x%X 0x%X", &start, &end);
 		
 				/* Determine ObjectID */
@@ -464,16 +465,16 @@ DLIST *fnCreateAnchorList(hw_objectID objID, char **anchors, char **docofanchorr
 					}
 		
 					if(!cur_ptr->destdocname) {
-					cur_ptr->link = NULL;
-					if(NULL != (str = strstr(object, "Hint=URL:"))) {
-						str += 9;
-						if(sscanf(str, "%s\n", link))
-							cur_ptr->link = estrdup(link);
-					} else if(NULL != (str = strstr(object, "Hint="))) {
-						str += 5;
-						if(sscanf(str, "%s\n", link))
-							cur_ptr->link = estrdup(link);
-					}
+						cur_ptr->link = NULL;
+						if(NULL != (str = strstr(object, "Hint=URL:"))) {
+							str += 9;
+							if(sscanf(str, "%s\n", link))
+								cur_ptr->link = estrdup(link);
+						} else if(NULL != (str = strstr(object, "Hint="))) {
+							str += 5;
+							if(sscanf(str, "%s\n", link))
+								cur_ptr->link = estrdup(link);
+						}
 					}
 		
 					cur_ptr->fragment = NULL;
@@ -587,7 +588,8 @@ DLIST *fnCreateAnchorList(hw_objectID objID, char **anchors, char **docofanchorr
 		
 				efree(anchors[i]);
 				if(docofanchorrec[i]) efree(docofanchorrec[i]);
-				if(reldestrec[i]) efree(reldestrec[i]);
+				if(reldestrec)
+					if(reldestrec[i]) efree(reldestrec[i]);
 			}
 		}
 	}
@@ -617,6 +619,7 @@ char *fnInsAnchorsIntoText(char *text, DLIST *pAnchorList, char **bodytag, char 
 	int laststart=0;
 	char emptystring[BUFFERLEN];
 	int i;
+	ELS_FETCH();
 	
 	emptystring[0] = '\0';
 
@@ -685,7 +688,7 @@ char *fnInsAnchorsIntoText(char *text, DLIST *pAnchorList, char **bodytag, char 
 				/* The link is only set if the Link points to an external document */
 				switch(cur_ptr->linktype) {
 					case HW_BACKGROUND_LINK:
-						snprintf(bgstr, BUFFERLEN, " background='%s'", cur_ptr->link);
+						snprintf(istr, BUFFERLEN, " background='%s'", cur_ptr->link);
 						break;
 					case HW_INTAG_LINK:
 						snprintf(istr, BUFFERLEN, " %s='%s'", cur_ptr->tagattr, cur_ptr->link);
@@ -713,10 +716,10 @@ char *fnInsAnchorsIntoText(char *text, DLIST *pAnchorList, char **bodytag, char 
 			} else {
 				switch(cur_ptr->linktype) {
 					case HW_BACKGROUND_LINK:
-						if(NULL != cur_ptr->destdocname)
-							snprintf(bgstr, BUFFERLEN, " background='%s/%s'", scriptname[HW_BACKGROUND_LINK], cur_ptr->destdocname);
-						else
-							bgstr[0] = '\0';
+						if(NULL != cur_ptr->destdocname) {
+							snprintf(istr, BUFFERLEN, " background='%s/%s'", scriptname[HW_BACKGROUND_LINK], cur_ptr->destdocname);
+						} else
+							istr[0] = '\0';
 						break;
 					case HW_INTAG_LINK:
 						if(cur_ptr->fragment)
@@ -2138,7 +2141,7 @@ int send_gettext(int sockfd, hw_objectID objectID, int mode, int rootid, char **
 
 			if(pAnchorList != NULL) {
 				char *newtext;
-				char *body;
+				char *body = NULL;
 				char **prefixarray;
 
 				prefixarray = emalloc(5*sizeof(char *));
@@ -2155,7 +2158,7 @@ int send_gettext(int sockfd, hw_objectID objectID, int mode, int rootid, char **
 				dlst_kill(pAnchorList, fnDeleteAnchor);
 #endif
 				*bodytag = strdup(body);
-				efree(body);
+				if(body) efree(body);
 				*text = newtext;
 				*count = strlen(newtext);
 			}
@@ -2164,6 +2167,43 @@ int send_gettext(int sockfd, hw_objectID objectID, int mode, int rootid, char **
 
 	if(documenttype) efree(documenttype);
 	return(0);
+}
+
+send_insertanchors(char **text, int *count, char **anchors, char **destrec, int ancount, char **urlprefix, char **bodytag) {
+	char **reldestrec = NULL;
+	int mode = 0;
+	hw_objectID objectID = 0;
+#ifdef newlist
+	zend_llist *pAnchorList = NULL;
+#else
+	DLIST *pAnchorList = NULL;
+#endif
+	pAnchorList = fnCreateAnchorList(objectID, anchors, destrec, reldestrec, ancount, mode);
+
+	/* Free only the array, the objrecs has been freed in fnCreateAnchorList() */
+	if(anchors) efree(anchors);
+	if(destrec) efree(destrec);
+	if(reldestrec) efree(reldestrec);
+
+	if(pAnchorList != NULL) {
+		char *newtext;
+		char *body = NULL;
+
+		newtext = fnInsAnchorsIntoText(*text, pAnchorList, &body, urlprefix);
+
+#ifdef newlist
+		zend_llist_destroy(pAnchorList);
+		efree(pAnchorList);
+#else
+		dlst_kill(pAnchorList, fnDeleteAnchor);
+#endif
+		*bodytag = strdup(body);
+		if(body) efree(body);
+fprintf(stderr, "bodytag = %s\n", *bodytag);
+		*text = newtext;
+		*count = strlen(newtext);
+	}
+	return 0;
 }
 
 int send_edittext(int sockfd, char *objattr, char *text)
@@ -5056,7 +5096,7 @@ int send_pipedocument(int sockfd, char *host, hw_objectID objectID, int mode, in
 
 			if(pAnchorList != NULL) {
 				char *newtext;
-				char *body;
+				char *body = NULL;
 
 				newtext = fnInsAnchorsIntoText(*text, pAnchorList, &body, urlprefix);
 #ifdef newlist
@@ -5066,7 +5106,7 @@ int send_pipedocument(int sockfd, char *host, hw_objectID objectID, int mode, in
 				dlst_kill(pAnchorList, fnDeleteAnchor);
 #endif
 				*bodytag = strdup(body);
-				efree(body);
+				if(body) efree(body);
 				*text = newtext;
 				*count = strlen(newtext);
 			}

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: browscap.c,v 1.37 2000/10/30 23:39:14 zeev Exp $ */
+/* $Id: browscap.c,v 1.42 2001/02/26 06:07:16 andi Exp $ */
 
 #include "php.h"
 #include "php_regex.h"
@@ -92,7 +92,7 @@ static void php_browscap_parser_cb(zval *arg1, zval *arg2, int callback_type, vo
 
 				new_property = (zval *) malloc(sizeof(zval));
 				INIT_PZVAL(new_property);
-				new_property->value.str.val = Z_STRVAL_P(arg2);
+				new_property->value.str.val = Z_STRLEN_P(arg2)?zend_strndup(Z_STRVAL_P(arg2), Z_STRLEN_P(arg2)):"";
 				new_property->value.str.len = Z_STRLEN_P(arg2);
 				new_property->type = IS_STRING;
 				
@@ -141,10 +141,11 @@ PHP_MINIT_FUNCTION(browscap)
 
 		fh.handle.fp = V_FOPEN(browscap, "r");
 		if (!fh.handle.fp) {
-			php_error(E_WARNING,"Cannot open '%s' for reading", browscap);
+			php_error(E_CORE_WARNING,"Cannot open '%s' for reading", browscap);
 			return FAILURE;
 		}
 		fh.filename = browscap;
+		fh.type = ZEND_HANDLE_FP;
 		zend_parse_ini_file(&fh, 1, (zend_ini_parser_cb_t) php_browscap_parser_cb, &browser_hash);
 	}
 

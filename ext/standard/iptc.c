@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: iptc.c,v 1.24 2000/10/29 09:14:53 thies Exp $ */
+/* $Id: iptc.c,v 1.26 2001/02/26 06:07:23 andi Exp $ */
 
 /*
  * Functions to parse & compse IPTC data.
@@ -202,16 +202,6 @@ PHP_FUNCTION(iptcembed)
         php_error(E_WARNING, "Unable to open %s", (*jpeg_file)->value.str.val);
         RETURN_FALSE;
     }
-
-	if (spool > 0) 
-		if (!php_header()){  /* we got a HEAD request. */
-			if (spool == 2){ 
-				RETURN_TRUE;	/* we only wanted to spool - report success. */
-			} else 
-			if (spool == 1) {
-				spool = 0; 		/* we wanted the file to be spooled/returned, just return it */
-			}
-		}
 
 	len = (*iptcdata)->value.str.len;
 

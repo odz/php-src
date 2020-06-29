@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: hg_comm.h,v 1.11 2000/11/23 14:44:09 steinm Exp $ */
+/* $Id: hg_comm.h,v 1.13 2001/02/26 06:06:57 andi Exp $ */
 
 #ifndef HG_COMM_H
 #define HG_COMM_H
@@ -225,6 +225,7 @@ extern int send_incollections(int sockfd, int retcol, int cobjids, hw_objectID *
 extern int send_getsrcbydest(int sockfd, hw_objectID objid, char ***childrec, int *count);
 extern int send_mapid(int sockfd, int servid, hw_objectID id, int *virtid);
 extern int send_dummy(int sockfd, hw_objectID objectID, int msgid, char **attributes);
+extern send_insertanchors(char **text, int *count, char **anchors, char **destrec, int ancount, char **urlprefix, char **bodytag);
 extern char *get_hw_info(hw_connection *conn);
 
 #define send_mvcpdocscoll(sockfd,objectIDs,count,from,dest,mvcp) \

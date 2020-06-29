@@ -40,7 +40,7 @@
 				// Directory with include files
 				define("PHPDOC_INCLUDE_DIR", "c:/www/apache/doc/");
 				// Important: set this to the Linebreak sign of your system!
-				define("LINEBREAK", "\r\n");
+				define("PHPDOC_LINEBREAK", "\r\n");
 		
 				// main PHPDoc Include File
 				include("./prepend.php");		
@@ -93,8 +93,6 @@
 					Have fun!
 					<p>
 					<a href="mailto:ulf.wendel@phpdoc.de">Ulf</a>
-					<p>
-					... and what about the warning? I use xml_parse_into_struct() as documented, but PHP4 likes to throw a warning, ignore it.
 				</font>
 			</td>
 		</tr>

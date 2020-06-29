@@ -1,0 +1,11 @@
+Maintainers for DB database backends/drivers:
+
+ibase     : 
+msql      : 
+mssql     : 
+mysql     : Stig Bakken <ssb@fast.no>
+oci8      : 
+odbc      : 
+pgsql     : Rui Hirokawa <louis@cityfujisawa.ne.jp>
+            Stig Bakken <ssb@fast.no>
+sybase    : 

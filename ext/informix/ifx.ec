@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,12 +15,12 @@
    | Authors: Danny Heijl  <Danny.Heijl@cevi.be> : initial cut (ODS 7.2x) |
    |                                               PHP4 port              |
    |          Christian Cartus <chc@idgruppe.de> : blobs, and IUS 9       |
-   |          Jouni Ahto <jah@mork.net>   : configuration stuff           |
+   |          Jouni Ahto <jouni.ahto@exdec.fi>   : configuration stuff    |
    | Based on the MySQL code by:  Zeev Suraski <zeev@php.net>             |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: ifx.ec,v 1.50 2000/11/09 19:34:30 danny Exp $ */
+/* $Id: ifx.ec,v 1.52 2001/02/26 06:06:58 andi Exp $ */
 
 /* -------------------------------------------------------------------
  * if you want a function reference : "grep '^\*\*' ifx.ec" will give

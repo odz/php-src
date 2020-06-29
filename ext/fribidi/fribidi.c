@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -132,6 +132,8 @@ PHP_MINFO_FUNCTION(fribidi)
 /*         on failure:						*/ 
 /*--------------------------------------------------------------*/           
 
+/* {{{ proto string fribidi_log2vis(string str, string direction, int charset)
+   Convert a logical string to a visual one */
 ZEND_FUNCTION(fribidi_log2vis)
 {
 	zval **parameter1,**parameter2, **parameter3;
@@ -253,6 +255,8 @@ ZEND_FUNCTION(fribidi_log2vis)
 	
 	RETURN_STRING(outString,1);
 }
+/* }}} */
+
 
 #endif	/* HAVE_FRIBIDI */
 

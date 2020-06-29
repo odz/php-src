@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_string.h,v 1.27 2000/09/27 15:18:00 sas Exp $ */
+/* $Id: php_string.h,v 1.36 2001/02/26 06:07:23 andi Exp $ */
 
 /* Synced with php 3.0 revision 1.43 1999-06-16 [ssb] */
 
@@ -65,6 +65,7 @@ PHP_FUNCTION(chr);
 PHP_FUNCTION(ord);
 PHP_FUNCTION(nl2br);
 PHP_FUNCTION(setlocale);
+PHP_FUNCTION(localeconv);
 PHP_FUNCTION(stristr);
 PHP_FUNCTION(chunk_split);
 PHP_FUNCTION(parse_str);
@@ -78,6 +79,15 @@ PHP_FUNCTION(strnatcasecmp);
 PHP_FUNCTION(substr_count);
 PHP_FUNCTION(str_pad);
 PHP_FUNCTION(sscanf);
+#ifdef HAVE_STRCOLL
+PHP_FUNCTION(strcoll);
+#endif
+
+
+#if defined(HAVE_LOCALECONV) && defined(ZTS)
+PHP_MINIT_FUNCTION(localeconv);
+PHP_MSHUTDOWN_FUNCTION(localeconv);
+#endif
 
 #define strnatcmp(a, b) \
 	strnatcmp_ex(a, strlen(a), b, strlen(b), 0)

@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_virtual_cwd.c,v 1.11 2000/11/22 04:59:32 andi Exp $ */
+/* $Id: tsrm_virtual_cwd.c,v 1.13 2001/01/21 17:35:31 andi Exp $ */
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -275,7 +275,7 @@ CWD_API int virtual_file_ex(cwd_state *state, const char *path, verify_path_func
 	if (path_length == 0) 
 		return (0);
 
-#ifndef TSRM_WIN32
+#if !defined(TSRM_WIN32) && !defined(__BEOS__)
 	if (IS_ABSOLUTE_PATH(path, path_length)) {
 		if (realpath(path, resolved_path)) {
 			path = resolved_path;

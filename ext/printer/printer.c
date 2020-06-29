@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: printer.c,v 1.7 2000/11/16 22:16:47 dbeu Exp $ */
+/* $Id: printer.c,v 1.10 2001/03/13 14:24:25 dbeu Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -35,7 +35,7 @@ int printer_globals_id;
 php_printer_globals printer_globals;
 #endif
 
-static int printer_id, brush_id, pen_id, font_id;
+static int le_printer, le_brush, le_pen, le_font;
 
 #ifdef PHP_WIN32
 /* windows headers */
@@ -106,16 +106,16 @@ PHP_MINFO_FUNCTION(printer)
 	php_info_print_table_row(2, "Printer Support", "enabled");
 	php_info_print_table_row(2, "Default printing device", default_printer ? default_printer : "<b>not detected</b>");
 	php_info_print_table_row(2, "Module state", "experimental");
-	php_info_print_table_row(2, "RCS Version", "$Id: printer.c,v 1.7 2000/11/16 22:16:47 dbeu Exp $");
+	php_info_print_table_row(2, "RCS Version", "$Id: printer.c,v 1.10 2001/03/13 14:24:25 dbeu Exp $");
 	php_info_print_table_end();
 }
 
 PHP_MINIT_FUNCTION(printer)
 {
-	printer_id = zend_register_list_destructors_ex(destroy_ressources, NULL, "printer", module_number);
-	pen_id = zend_register_list_destructors_ex(destroy_ressources, NULL, "printer pen", module_number);
-	font_id = zend_register_list_destructors_ex(destroy_ressources, NULL, "printer font", module_number);
-	brush_id = zend_register_list_destructors_ex(destroy_ressources, NULL, "printer brush", module_number);
+	le_printer = zend_register_list_destructors_ex(destroy_ressources, NULL, "printer", module_number);
+	le_pen = zend_register_list_destructors_ex(destroy_ressources, NULL, "printer pen", module_number);
+	le_font = zend_register_list_destructors_ex(destroy_ressources, NULL, "printer font", module_number);
+	le_brush = zend_register_list_destructors_ex(destroy_ressources, NULL, "printer brush", module_number);
 	return SUCCESS;
 }
 
@@ -126,8 +126,6 @@ PHP_FUNCTION(printer_open)
 {
 	pval **arg1;
 	printer *resource;
-
-	PRINTERLS_FETCH();
 
 	resource = (printer *)emalloc(sizeof(printer));
 
@@ -153,7 +151,7 @@ PHP_FUNCTION(printer_open)
 		resource->info.fwType = 0;
 		resource->info.cbSize = sizeof(resource->info);
 		resource->dc = CreateDC(NULL, resource->name, NULL, resource->device);
-		ZEND_REGISTER_RESOURCE(return_value, resource, PRINTERG(printer_id));
+		ZEND_REGISTER_RESOURCE(return_value, resource, le_printer);
 	}
 	else {
 		php_error(E_WARNING,"couldn't connect to the printer [%s]", resource->name);
@@ -170,13 +168,11 @@ PHP_FUNCTION(printer_close)
 	pval **arg1;
 	printer *resource;
 
-	PRINTERLS_FETCH();
-
 	if ( zend_get_parameters_ex(1, &arg1) == FAILURE ) {
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", PRINTERG(printer_id));
+	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", le_printer);
 
 	if( ClosePrinter(resource->handle) != 0 ) {
 		RETURN_TRUE;
@@ -198,14 +194,12 @@ PHP_FUNCTION(printer_write)
 	LPDWORD recieved = NULL;
 	int sd, sp = 0;
 
-	PRINTERLS_FETCH();
-
 	if ( zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE ) {
 		WRONG_PARAM_COUNT;
 	}
 
 
-	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", PRINTERG(printer_id));
+	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", le_printer);
 	convert_to_string_ex(arg2);
 	resource->data = estrdup((*arg2)->value.str.val);
 
@@ -238,13 +232,11 @@ PHP_FUNCTION(printer_name)
 	pval **arg1;
 	printer *resource;
 
-	PRINTERLS_FETCH();
-
 	if ( zend_get_parameters_ex(1, &arg1) == FAILURE ) {
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", PRINTERG(printer_id));
+	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", le_printer);
 	RETURN_STRING(resource->name,1);
 }
 /* }}} */
@@ -361,13 +353,11 @@ PHP_FUNCTION(printer_set_option)
 	pval **arg1, **arg2, **arg3;
 	printer *resource;
 
-	PRINTERLS_FETCH();
-
 	if( zend_get_parameters_ex(3, &arg1, &arg2, &arg3) == FAILURE ) {
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", PRINTERG(printer_id));
+	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", le_printer);
 	convert_to_string_ex(arg2);
 
 	if(!strcmp((*arg2)->value.str.val,"copies")) {
@@ -431,13 +421,11 @@ PHP_FUNCTION(printer_get_option)
 	pval **arg1, **arg2;
 	printer *resource;
 
-	PRINTERLS_FETCH();
-
 	if( zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE ) {
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", PRINTERG(printer_id));
+	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", le_printer);
 	convert_to_string_ex(arg2);
 
 	if(!strcmp((*arg2)->value.str.val,"copies")) {
@@ -491,13 +479,11 @@ PHP_FUNCTION(printer_create_dc)
 	pval **arg1;
 	printer *resource;
 
-	PRINTERLS_FETCH();
-
 	if( zend_get_parameters_ex(1, &arg1) == FAILURE ) {
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", PRINTERG(printer_id));
+	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", le_printer);
 
 	if( resource->dc != NULL ) {
 		php_error(E_NOTICE,"Deleting old DeviceContext");
@@ -516,13 +502,11 @@ PHP_FUNCTION(printer_delete_dc)
 	pval **arg1;
 	printer *resource;
 
-	PRINTERLS_FETCH();
-
 	if( zend_get_parameters_ex(1, &arg1) == FAILURE ) {
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", PRINTERG(printer_id));
+	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", le_printer);
 
 	if( resource->dc != NULL ) {
 		DeleteDC(resource->dc);
@@ -543,13 +527,11 @@ PHP_FUNCTION(printer_start_doc)
 	pval **arg1;
 	printer *resource;
 
-	PRINTERLS_FETCH();
-
 	if( zend_get_parameters_ex(1, &arg1) == FAILURE ) {
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", PRINTERG(printer_id));
+	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", le_printer);
 
 	if(StartDoc(resource->dc, &resource->info) < 0) {
 		php_error(E_ERROR,"couldn't allocate new print job");
@@ -568,13 +550,11 @@ PHP_FUNCTION(printer_end_doc)
 	pval **arg1;
 	printer *resource;
 
-	PRINTERLS_FETCH();
-
 	if( zend_get_parameters_ex(1, &arg1) == FAILURE ) {
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", PRINTERG(printer_id));
+	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", le_printer);
 
 	if(EndDoc(resource->dc) < 0) {
 		php_error(E_ERROR,"couldn't terminate print job");
@@ -593,13 +573,11 @@ PHP_FUNCTION(printer_start_page)
 	pval **arg1;
 	printer *resource;
 
-	PRINTERLS_FETCH();
-
 	if( zend_get_parameters_ex(1, &arg1) == FAILURE ) {
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", PRINTERG(printer_id));
+	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", le_printer);
 
 	if(StartPage(resource->dc) < 0) {
 		php_error(E_ERROR,"couldn't start a new page");
@@ -618,13 +596,11 @@ PHP_FUNCTION(printer_end_page)
 	pval **arg1;
 	printer *resource;
 
-	PRINTERLS_FETCH();
-
 	if( zend_get_parameters_ex(1, &arg1) == FAILURE ) {
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", PRINTERG(printer_id));
+	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", le_printer);
 
 	if(EndPage(resource->dc) < 0) {
 		php_error(E_ERROR,"couldn't end the page");
@@ -643,8 +619,6 @@ PHP_FUNCTION(printer_create_pen)
 	pval **arg1, **arg2, **arg3;
 	pen_struct *pen = emalloc(sizeof(pen_struct));
 
-	PRINTERLS_FETCH();
-
 	if( zend_get_parameters_ex(3, &arg1, &arg2, &arg3) == FAILURE ) {
 		WRONG_PARAM_COUNT;
 	}
@@ -655,7 +629,7 @@ PHP_FUNCTION(printer_create_pen)
 
 	pen->pointer = CreatePen(get_pen_style((*arg1)->value.str.val), (*arg2)->value.lval, hex_to_rgb((*arg3)->value.str.val));
 
-	ZEND_REGISTER_RESOURCE(return_value, pen, PRINTERG(pen_id));
+	ZEND_REGISTER_RESOURCE(return_value, pen, le_pen);
 }
 /* }}} */
 
@@ -667,13 +641,11 @@ PHP_FUNCTION(printer_delete_pen)
 	pval **arg1;
 	pen_struct *pen;
 
-	PRINTERLS_FETCH();
-
 	if( zend_get_parameters_ex(1, &arg1) == FAILURE ) {
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(pen, pen_struct *, arg1, -1, "Pen Handle", PRINTERG(pen_id));
+	ZEND_FETCH_RESOURCE(pen, pen_struct *, arg1, -1, "Pen Handle", le_pen);
 
 	DeleteObject(pen->pointer);
 }
@@ -688,14 +660,12 @@ PHP_FUNCTION(printer_select_pen)
 	pen_struct *pen;
 	printer *resource;
 
-	PRINTERLS_FETCH();
-
 	if( zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE ) {
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", PRINTERG(printer_id));
-	ZEND_FETCH_RESOURCE(pen, pen_struct *, arg1, -1, "Pen Handle", PRINTERG(pen_id));
+	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", le_printer);
+	ZEND_FETCH_RESOURCE(pen, pen_struct *, arg1, -1, "Pen Handle", le_pen);
 
 	SelectObject(resource->dc, pen->pointer);
 }
@@ -708,8 +678,6 @@ PHP_FUNCTION(printer_create_brush)
 {
 	pval **arg1, **arg2;
 	brush_struct *brush = emalloc(sizeof(brush_struct));
-
-	PRINTERLS_FETCH();
 
 	if( zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE ) {
 		WRONG_PARAM_COUNT;
@@ -725,7 +693,7 @@ PHP_FUNCTION(printer_create_brush)
 		brush->pointer = CreateHatchBrush(hex_to_rgb((*arg2)->value.str.val), get_hatch_style((*arg1)->value.str.val));
 	}
 
-	ZEND_REGISTER_RESOURCE(return_value, brush, PRINTERG(brush_id));
+	ZEND_REGISTER_RESOURCE(return_value, brush, le_brush);
 }
 /* }}} */
 
@@ -736,14 +704,12 @@ PHP_FUNCTION(printer_delete_brush)
 {
 	pval **arg1;
 	brush_struct *brush;
-	
-	PRINTERLS_FETCH();
 
 	if( zend_get_parameters_ex(1, &arg1) == FAILURE ) {
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(brush, brush_struct *, arg1, -1, "Brush Handle", PRINTERG(brush_id));
+	ZEND_FETCH_RESOURCE(brush, brush_struct *, arg1, -1, "Brush Handle", le_brush);
 
 	DeleteObject(brush->pointer);
 }
@@ -758,14 +724,12 @@ PHP_FUNCTION(printer_select_brush)
 	brush_struct *brush;
 	printer *resource;
 
-	PRINTERLS_FETCH();
-
 	if( zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE ) {
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", PRINTERG(printer_id));
-	ZEND_FETCH_RESOURCE(brush, brush_struct *, arg2, -1, "Brush Handle", PRINTERG(brush_id));
+	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", le_printer);
+	ZEND_FETCH_RESOURCE(brush, brush_struct *, arg2, -1, "Brush Handle", le_brush);
 
 	SelectObject(resource->dc, brush->pointer);
 }
@@ -779,13 +743,11 @@ PHP_FUNCTION(printer_logical_fontheight)
 	pval **arg1, **arg2;
 	printer *resource;
 
-	PRINTERLS_FETCH();
-
 	if( zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE ) {
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", PRINTERG(printer_id));
+	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", le_printer);
 
 	convert_to_long_ex(arg2);
 
@@ -800,14 +762,12 @@ PHP_FUNCTION(printer_draw_roundrect)
 {
 	pval **arg1, **arg2, **arg3, **arg4, **arg5, **arg6, **arg7; 
 	printer *resource;
-
-	PRINTERLS_FETCH();
 	
 	if( zend_get_parameters_ex(7, &arg1, &arg2, &arg3, &arg4, &arg5, &arg6, &arg7) == FAILURE ) {
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", PRINTERG(printer_id));
+	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", le_printer);
 
 	convert_to_long_ex(arg2);
 	convert_to_long_ex(arg3);
@@ -828,13 +788,11 @@ PHP_FUNCTION(printer_draw_rectangle)
 	pval **arg1, **arg2, **arg3, **arg4, **arg5; 
 	printer *resource;
 
-	PRINTERLS_FETCH();
-
 	if( zend_get_parameters_ex(5, &arg1, &arg2, &arg3, &arg4, &arg5) == FAILURE ) {
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", PRINTERG(printer_id));
+	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", le_printer);
 
 	convert_to_long_ex(arg2);
 	convert_to_long_ex(arg3);
@@ -853,13 +811,11 @@ PHP_FUNCTION(printer_draw_elipse)
 	pval **arg1, **arg2, **arg3, **arg4, **arg5; 
 	printer *resource;
 
-	PRINTERLS_FETCH();
-
 	if( zend_get_parameters_ex(5, &arg1, &arg2, &arg3, &arg4, &arg5) == FAILURE ) {
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", PRINTERG(printer_id));
+	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", le_printer);
 
 	convert_to_long_ex(arg2);
 	convert_to_long_ex(arg3);
@@ -878,13 +834,11 @@ PHP_FUNCTION(printer_draw_text)
 	pval **arg1, **arg2, **arg3, **arg4; 
 	printer *resource;
 
-	PRINTERLS_FETCH();
-
 	if( zend_get_parameters_ex(4, &arg1, &arg2, &arg3, &arg4) == FAILURE ) {
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", PRINTERG(printer_id));
+	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", le_printer);
 
 	convert_to_long_ex(arg2);
 	convert_to_long_ex(arg3);
@@ -910,13 +864,11 @@ PHP_FUNCTION(printer_delete_font)
 	pval **arg1; 
 	font_struct *font;
 
-	PRINTERLS_FETCH();
-
 	if( zend_get_parameters_ex(1, &arg1) == FAILURE ) {
 		WRONG_PARAM_COUNT;
 	}
 	
-	ZEND_FETCH_RESOURCE(font, font_struct *, arg1, -1, "Font Handle", PRINTERG(font_id));
+	ZEND_FETCH_RESOURCE(font, font_struct *, arg1, -1, "Font Handle", le_font);
 
 	DeleteObject(font->pointer);
 }
@@ -931,14 +883,12 @@ PHP_FUNCTION(printer_select_font)
 	font_struct *font;
 	printer *resource;
 
-	PRINTERLS_FETCH();
-
 	if( zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE ) {
 		WRONG_PARAM_COUNT;
 	}
 
-	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", PRINTERG(printer_id));
-	ZEND_FETCH_RESOURCE(font, font_struct *, arg2, -1, "Font Handle", PRINTERG(font_id));
+	ZEND_FETCH_RESOURCE(resource, printer *, arg1, -1, "Printer Handle", le_printer);
+	ZEND_FETCH_RESOURCE(font, font_struct *, arg2, -1, "Font Handle", le_font);
 
 	SelectObject(resource->dc, font->pointer);
 }

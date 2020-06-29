@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.1.2.1 2000/12/06 17:41:39 sas Exp $
+dnl $Id: config.m4,v 1.2 2000/12/06 17:34:55 sas Exp $
 dnl config.m4 for extension ctype
 dnl don't forget to call PHP_EXTENSION(ctype)
 

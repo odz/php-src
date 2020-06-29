@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.11.2.1 2000/12/06 17:41:40 sas Exp $
+dnl $Id: config.m4,v 1.12 2000/12/06 17:34:57 sas Exp $
 
 PHP_ARG_ENABLE(bcmath, for bc style precision math functions,
 [  --enable-bcmath         Enable bc style precision math functions.])

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php.h,v 1.127.2.2 2000/12/07 19:15:03 sas Exp $ */
+/* $Id: php.h,v 1.134 2001/02/26 18:14:30 andi Exp $ */
 
 #ifndef PHP_H
 #define PHP_H
@@ -26,7 +26,7 @@
 #include <dmalloc.h>
 #endif
 
-#define PHP_API_VERSION 19990421
+#define PHP_API_VERSION 20010119
 
 #define YYDEBUG 0
 
@@ -40,11 +40,6 @@
 #undef sprintf
 #define sprintf php_sprintf
 #endif
-
-extern unsigned char first_arg_force_ref[];   
-extern unsigned char first_arg_allow_ref[];
-extern unsigned char second_arg_force_ref[];
-extern unsigned char second_arg_allow_ref[];
 
 #ifdef PHP_WIN32
 #include "win95nt.h"
@@ -161,7 +156,7 @@ typedef unsigned int socklen_t;
 char *strerror(int);
 #endif
 
-#include "fopen-wrappers.h"
+#include "fopen_wrappers.h"
 
 #if (REGEX == 1 || REGEX == 0) && !defined(NO_REGEX_EXTRA_H)
 #include "regex/regex_extra.h"

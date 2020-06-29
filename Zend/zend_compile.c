@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -33,11 +33,6 @@ ZEND_API zend_op_array *(*zend_compile_file)(zend_file_handle *file_handle, int 
 ZEND_API zend_compiler_globals compiler_globals;
 ZEND_API zend_executor_globals executor_globals;
 #endif
-
-static void free_filename(void *p)
-{
-	efree(*((char **) p));
-}
 
 
 static void build_runtime_defined_function_key(zval *result, zval *name, zend_op *opline CLS_DC)
@@ -80,7 +75,7 @@ void init_compiler(CLS_D ELS_DC)
 	CG(active_class_entry) = NULL;
 	zend_llist_init(&CG(list_llist), sizeof(list_llist_element), NULL, 0);
 	zend_llist_init(&CG(dimension_llist), sizeof(int), NULL, 0);
-	zend_hash_init(&CG(filenames_table), 5, NULL, (dtor_func_t) free_filename, 0);
+	zend_hash_init(&CG(filenames_table), 5, NULL, (dtor_func_t) free_estring, 0);
 	CG(handle_op_arrays) = 1;
 	CG(in_compilation) = 0;
 	zend_init_rsrc_list(ELS_C);
@@ -576,7 +571,7 @@ static zend_bool is_method_call(CLS_D)
 	}
 	cur_opline = (zend_op *)cur->data;
 	if (cur_opline->opcode == ZEND_FETCH_OBJ_W) {
-			return 1;
+		return 1;
 	}
 	return 0;
 }
@@ -699,7 +694,9 @@ void zend_do_free(znode *op1 CLS_DC)
 				opline--;
 			}
 		}
-	}
+	} else if (op1->op_type == IS_CONST) {
+		zval_dtor(&op1->u.constant);
+	}		
 }
 
 
@@ -874,10 +871,9 @@ void zend_do_begin_class_member_function_call(znode *class_name, znode *function
 	opline->opcode = ZEND_INIT_FCALL_BY_NAME;
 	zend_str_tolower(class_name->u.constant.value.str.val, class_name->u.constant.value.str.len);
 	if ((class_name->u.constant.value.str.len == sizeof("parent")-1)
-		&& !memcmp(class_name->u.constant.value.str.val, "parent", sizeof("parent")-1)) {
-		if (!CG(active_class_entry) || !CG(active_class_entry)->parent) {
-			zend_error(E_COMPILE_ERROR, "No parent class available in this context");
-		}
+		&& !memcmp(class_name->u.constant.value.str.val, "parent", sizeof("parent")-1)
+		&& CG(active_class_entry)
+		&& CG(active_class_entry)->parent) {
 		efree(class_name->u.constant.value.str.val);
 		class_name->u.constant.value.str.len = CG(active_class_entry)->parent->name_length;
 		class_name->u.constant.value.str.val = estrndup(CG(active_class_entry)->parent->name, class_name->u.constant.value.str.len);
@@ -1106,6 +1102,12 @@ void zend_do_inheritance(zend_class_entry *ce, zend_class_entry *parent_ce)
 	zend_hash_merge(&ce->default_properties, &parent_ce->default_properties, (void (*)(void *)) zval_add_ref, (void *) &tmp, sizeof(zval *), 0);
 	zend_hash_merge(&ce->function_table, &parent_ce->function_table, (void (*)(void *)) function_add_ref, &tmp_zend_function, sizeof(zend_function), 0);
 	ce->parent = parent_ce;
+	if (!ce->handle_property_get)
+	   ce->handle_property_get	= parent_ce->handle_property_get;
+	if (!ce->handle_property_set)
+		ce->handle_property_set = parent_ce->handle_property_set;
+	if (!ce->handle_function_call)
+		ce->handle_function_call = parent_ce->handle_function_call;
 	do_inherit_parent_constructor(ce);
 }
 

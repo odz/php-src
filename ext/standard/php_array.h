@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_array.h,v 1.17 2000/10/25 17:40:10 andrei Exp $ */
+/* $Id: php_array.h,v 1.22 2001/03/12 03:06:53 andrei Exp $ */
 
 #ifndef PHP_ARRAY_H
 #define PHP_ARRAY_H
@@ -49,6 +49,7 @@ PHP_FUNCTION(key);
 PHP_FUNCTION(min);
 PHP_FUNCTION(max);
 PHP_FUNCTION(in_array);
+PHP_FUNCTION(array_search);
 PHP_FUNCTION(extract);
 PHP_FUNCTION(compact);
 PHP_FUNCTION(range);
@@ -66,6 +67,7 @@ PHP_FUNCTION(array_keys);
 PHP_FUNCTION(array_values);
 PHP_FUNCTION(array_count_values);
 PHP_FUNCTION(array_reverse);
+PHP_FUNCTION(array_reduce);
 PHP_FUNCTION(array_pad);
 PHP_FUNCTION(array_flip);
 PHP_FUNCTION(array_rand);
@@ -75,6 +77,7 @@ PHP_FUNCTION(array_diff);
 PHP_FUNCTION(array_sum);
 
 HashTable* php_splice(HashTable *, int, int, zval ***, int, HashTable **);
+PHPAPI void php_array_merge(HashTable *dest, HashTable *src, int recursive);
 int multisort_compare(const void *a, const void *b);
 
 typedef struct {

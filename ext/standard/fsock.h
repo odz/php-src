@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,12 +17,14 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: fsock.h,v 1.29 2000/07/24 01:39:49 david Exp $ */
+/* $Id: fsock.h,v 1.34 2001/02/26 06:07:17 andi Exp $ */
 
 /* Synced with php 3.0 revision 1.24 1999-06-18 [ssb] */
 
 #ifndef FSOCK_H
 #define FSOCK_H
+
+#include "file.h"
 
 #ifdef PHP_WIN32
 # ifndef WINNT
@@ -45,6 +47,8 @@
 #include <sys/time.h>
 #endif
 
+#define PHP_FSOCK_CHUNK_SIZE 8192
+
 struct php_sockbuf {
 	int socket;
 	unsigned char *readbuf;
@@ -66,47 +70,23 @@ typedef struct php_sockbuf php_sockbuf;
 PHP_FUNCTION(fsockopen);
 PHP_FUNCTION(pfsockopen);
 
-int lookup_hostname(const char *addr, struct in_addr *in);
-char *php_sock_fgets(char *buf, size_t maxlen, int socket);
-size_t php_sock_fread(char *buf, size_t maxlen, int socket);
-int php_sock_feof(int socket);
-int php_sock_fgetc(int socket);
-int php_is_persistent_sock(int);
-int php_sockset_blocking(int socket, int mode);
-void php_sockset_timeout(int socket, struct timeval *timeout);
-int php_sockdestroy(int socket);
-int php_sock_close(int socket);
-size_t php_sock_set_def_chunk_size(size_t size);
-void php_msock_destroy(int *data);
+PHPAPI int php_lookup_hostname(const char *addr, struct in_addr *in);
+PHPAPI char *php_sock_fgets(char *buf, size_t maxlen, int socket);
+PHPAPI size_t php_sock_fread(char *buf, size_t maxlen, int socket);
+PHPAPI int php_sock_feof(int socket);
+PHPAPI int php_sock_fgetc(int socket);
+PHPAPI int php_is_persistent_sock(int);
+PHPAPI int php_sockset_blocking(int socket, int mode);
+PHPAPI void php_sockset_timeout(int socket, struct timeval *timeout);
+PHPAPI int php_sockdestroy(int socket);
+PHPAPI int php_sock_close(int socket);
+PHPAPI size_t php_sock_set_def_chunk_size(size_t size);
+PHPAPI void php_msock_destroy(int *data);
+PHPAPI void php_cleanup_sockbuf(int persistent FLS_DC);
 
 PHPAPI int connect_nonb(int sockfd, struct sockaddr *addr, socklen_t addrlen, struct timeval *timeout);
 PHPAPI struct php_sockbuf *php_get_socket(int socket);
 
-PHP_MINIT_FUNCTION(fsock);
-PHP_MSHUTDOWN_FUNCTION(fsock);
 PHP_RSHUTDOWN_FUNCTION(fsock);
-
-typedef struct {
-	HashTable ht_fsock_keys;
-	HashTable ht_fsock_socks;
-	struct php_sockbuf *phpsockbuf;
-	size_t def_chunk_size;
-} php_fsock_globals;
-
-#ifdef ZTS
-#define FLS_D php_fsock_globals *fsock_globals
-#define FLS_DC , FLS_D
-#define FLS_C fsock_globals
-#define FLS_CC , FLS_C
-#define FG(v) (fsock_globals->v)
-#define FLS_FETCH() php_fsock_globals *fsock_globals = ts_resource(fsock_globals_id)
-#else
-#define FLS_D	void
-#define FLS_DC
-#define FLS_C
-#define FLS_CC
-#define FG(v) (fsock_globals.v)
-#define FLS_FETCH()
-#endif
 
 #endif /* FSOCK_H */

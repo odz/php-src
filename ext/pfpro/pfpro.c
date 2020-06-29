@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,8 +17,9 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: pfpro.c,v 1.6 2000/10/03 18:52:44 sas Exp $ */
+/* $Id: pfpro.c,v 1.9 2001/02/26 06:07:12 andi Exp $ */
 
+/* {{{ includes */
 #include "php.h"
 #include "php_ini.h"
 #include "php_pfpro.h"
@@ -28,15 +29,17 @@
 #if HAVE_PFPRO
 
 #include "ext/standard/php_string.h"
+/* }}} */
 
+/* {{{ zts */
 #ifdef ZTS
 int pfpro_globals_id;
 #else
 php_pfpro_globals pfpro_globals;
 #endif
+/* }}} */
 
-/* Function table */
-
+/* {{{ Function table */
 function_entry pfpro_functions[] = {
 	PHP_FE(pfpro_version, NULL)
 	PHP_FE(pfpro_init, NULL)
@@ -45,7 +48,9 @@ function_entry pfpro_functions[] = {
 	PHP_FE(pfpro_process, NULL)
 	{NULL, NULL, NULL}
 };
+/* }}} */
 
+/* {{{ Zend module entry */
 zend_module_entry pfpro_module_entry = {
 	"pfpro",
 	pfpro_functions,
@@ -56,12 +61,15 @@ zend_module_entry pfpro_module_entry = {
 	PHP_MINFO(pfpro),
 	STANDARD_MODULE_PROPERTIES
 };
+/* }}} */
 
+/* {{{ dl() stuff */
 #ifdef COMPILE_DL_PFPRO
 ZEND_GET_MODULE(pfpro)
 #endif
+/* }}} */
 
-
+/* {{{ initialization defaults */
 PHP_INI_BEGIN()
 	STD_PHP_INI_ENTRY("pfpro.defaulthost",		"test.signio.com",	PHP_INI_ALL, OnUpdateString,	defaulthost,			php_pfpro_globals,	pfpro_globals)
 	STD_PHP_INI_ENTRY("pfpro.defaultport",			"443",			PHP_INI_ALL, OnUpdateInt,		defaultport,			php_pfpro_globals,	pfpro_globals)
@@ -104,8 +112,9 @@ PHP_RSHUTDOWN_FUNCTION(pfpro)
 
     return SUCCESS;
 }
+/* }}} */
 
-
+/* {{{ minfo registration */
 PHP_MINFO_FUNCTION(pfpro)
 {
 	php_info_print_table_start();
@@ -115,8 +124,7 @@ PHP_MINFO_FUNCTION(pfpro)
 
 	DISPLAY_INI_ENTRIES();
 }
-
-
+/* }}} */
 
 /* {{{ proto string pfpro_version()
    Returns the version of the Payflow Pro library */
@@ -129,8 +137,6 @@ PHP_FUNCTION(pfpro_version)
 	RETURN_STRING(PNVersion(), 1);
 }
 /* }}} */
-
-
 
 /* {{{ proto void pfpro_init()
    Initialises the Payflow Pro library */
@@ -150,8 +156,6 @@ PHP_FUNCTION(pfpro_init)
 }
 /* }}} */
 
-
-
 /* {{{ proto void pfpro_cleanup()
    Shuts down the Payflow Pro library */
 PHP_FUNCTION(pfpro_cleanup)
@@ -169,8 +173,6 @@ PHP_FUNCTION(pfpro_cleanup)
 	RETURN_TRUE;
 }
 /* }}} */
-
-
 
 /* {{{ proto string pfpro_process_raw(string parmlist [, string hostaddress [, int port, [, int timeout [, string proxyAddress [, int proxyPort [, string proxyLogon [, string proxyPassword]]]]]]])
    Raw Payflow Pro transaction processing */
@@ -290,8 +292,6 @@ PHP_FUNCTION(pfpro_process_raw)
 }
 /* }}} */
 
-
-
 /* {{{ proto array pfpro_process(array parmlist [, string hostaddress [, int port, [, int timeout [, string proxyAddress [, int proxyPort [, string proxyLogon [, string proxyPassword]]]]]]])
    Payflow Pro transaction processing using arrays */
 PHP_FUNCTION(pfpro_process)
@@ -409,15 +409,13 @@ PHP_FUNCTION(pfpro_process)
 				parmlength += 1;
 			}
 
-			switch (zend_hash_get_current_key(target_hash, &string_key, &num_key)) {
+			switch (zend_hash_get_current_key(target_hash, &string_key, &num_key, 0)) {
 
 				case HASH_KEY_IS_STRING:
 
 					if (pass == 1)
 						strcpy(parmlist + parmlength, string_key);
 					parmlength += strlen(string_key);
-
-					efree(string_key);
 
 					break;
 

@@ -3,7 +3,7 @@
 // +----------------------------------------------------------------------+
 // | PHP version 4.0                                                      |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+// | Copyright (c) 1997-2001 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -21,6 +21,7 @@
 // can be manipulated and that updates the database accordingly.
 //
 
+require_once "PEAR.php";
 require_once "DB.php";
 
 function DB_storage_destructor() {
@@ -35,7 +36,8 @@ function DB_storage_destructor() {
     }
 }
 
-class DB_storage {
+class DB_storage extends PEAR
+{
     /** the name of the table (or view, if the backend database supports
         updates in views) we hold data from */
     var $_table = null;

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -13,12 +13,12 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Paul Panotzki - Bunyip Information Systems                  |
-   |          Jim Winstead (jimw@php.net)                                 |
+   |          Jim Winstead <jimw@php.net>                                 |
    |          Sascha Schumann <sascha@schumann.cx>                        |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: fsock.c,v 1.55 2000/10/28 01:31:56 zeev Exp $ */
+/* $Id: fsock.c,v 1.65.2.1 2001/04/26 15:07:57 sterling Exp $ */
 
 /* Synced with php 3.0 revision 1.121 1999-06-18 [ssb] */
 /* Synced with php 3.0 revision 1.133 1999-07-21 [sas] */
@@ -48,7 +48,9 @@
 #else
 #include <netinet/in.h>
 #include <netdb.h>
+#if HAVE_ARPA_INET_H
 #include <arpa/inet.h>
+#endif
 #endif
 #ifdef PHP_WIN32
 #undef AF_UNIX
@@ -71,7 +73,6 @@
 #ifdef ZTS
 static int fsock_globals_id;
 #else
-static php_fsock_globals fsock_globals;
 extern int le_fp;
 #endif
 
@@ -95,12 +96,12 @@ extern int le_fp;
 #include "build-defs.h"
 #endif
 
-/* {{{ lookup_hostname */
+/* {{{ php_lookup_hostname */
 
 /*
  * Converts a host name to an IP address.
  */
-int lookup_hostname(const char *addr, struct in_addr *in)
+PHPAPI int php_lookup_hostname(const char *addr, struct in_addr *in)
 {
 	struct hostent *host_info;
 
@@ -118,7 +119,7 @@ int lookup_hostname(const char *addr, struct in_addr *in)
 /* }}} */
 /* {{{ php_is_persistent_sock */
 
-int php_is_persistent_sock(int sock)
+PHPAPI int php_is_persistent_sock(int sock)
 {
 	char *key;
 	FLS_FETCH();
@@ -137,7 +138,8 @@ PHPAPI int connect_nonb(int sockfd,
 						struct timeval *timeout)
 {
 /* probably won't work on Win32, someone else might try it (read: fix it ;) */
-#if !defined(PHP_WIN32) && (defined(O_NONBLOCK) || defined(O_NDELAY))
+
+#if (!defined(__BEOS__) && !defined(PHP_WIN32)) && (defined(O_NONBLOCK) || defined(O_NDELAY))
 
 #ifndef O_NONBLOCK
 #define O_NONBLOCK O_NDELAY
@@ -259,12 +261,7 @@ static void php_fsockopen(INTERNAL_FUNCTION_PARAMETERS, int persistent) {
 		struct sockaddr_in server;
 
 		memset(&server, 0, sizeof(server));
-		if((*args[0])->value.str.val[0] == 'u' &&
-			(*args[0])->value.str.val[1] == 'd' &&
-			(*args[0])->value.str.val[2] == 'p' &&
-			(*args[0])->value.str.val[3] == ':' &&
-			(*args[0])->value.str.val[4] == '/' &&
-			(*args[0])->value.str.val[5] == '/') {
+		if(Z_STRLEN_PP(args[0]) >= 6 && !memcmp(Z_STRVAL_PP(args[0]), "udp://", sizeof("udp://")-1)) {
 			udp = 1;
 		}
 		
@@ -277,7 +274,7 @@ static void php_fsockopen(INTERNAL_FUNCTION_PARAMETERS, int persistent) {
 	  
 		server.sin_family = AF_INET;
 		
-		if(lookup_hostname(udp ? &(*args[0])->value.str.val[6] : (*args[0])->value.str.val,&server.sin_addr)) {
+		if(php_lookup_hostname(udp ? &(*args[0])->value.str.val[6] : (*args[0])->value.str.val,&server.sin_addr)) {
 			CLOSE_SOCK(1);
 			RETURN_FALSE;
 		}
@@ -288,9 +285,11 @@ static void php_fsockopen(INTERNAL_FUNCTION_PARAMETERS, int persistent) {
 			CLOSE_SOCK(1);
 
 			if (arg_count>2) {
+				zval_dtor(*args[2]);
 				ZVAL_LONG(*args[2],errno);
 			}
 			if (arg_count>3) {
+				zval_dtor(*args[3]);
 				ZVAL_STRING(*args[3],strerror(errno),1);
 			}
 			RETURN_FALSE;
@@ -311,10 +310,12 @@ static void php_fsockopen(INTERNAL_FUNCTION_PARAMETERS, int persistent) {
 
 		if (connect_nonb(socketd, (struct sockaddr *) &unix_addr, sizeof(unix_addr), &timeout) == SOCK_CONN_ERR) {
 			CLOSE_SOCK(1);
-			if(arg_count>2) {
+			if (arg_count>2) {
+				zval_dtor(*args[2]);
 				ZVAL_LONG(*args[2],errno);
 			}
-			if(arg_count>3) {
+			if (arg_count>3) {
+				zval_dtor(*args[3]);
 				ZVAL_STRING(*args[3],strerror(errno),1);
 			}
 			RETURN_FALSE;
@@ -362,7 +363,6 @@ PHP_FUNCTION(pfsockopen)
 }
 /* }}} */
 
-#define CHUNK_SIZE 8192
 #define SOCK_DESTROY(sock) \
 		if(sock->readbuf) pefree(sock->readbuf, sock->persistent); \
 		if(sock->prev) sock->prev->next = sock->next; \
@@ -371,7 +371,7 @@ PHP_FUNCTION(pfsockopen)
 			FG(phpsockbuf) = sock->next; \
 		pefree(sock, sock->persistent)
 
-static void php_cleanup_sockbuf(int persistent FLS_DC)
+PHPAPI void php_cleanup_sockbuf(int persistent FLS_DC)
 {
 	php_sockbuf *now, *next;
 
@@ -429,20 +429,20 @@ PHPAPI php_sockbuf *php_get_socket(int socket)
 	return sock;
 }
 
-size_t php_sock_set_def_chunk_size(size_t size)
+PHPAPI size_t php_sock_set_def_chunk_size(size_t size)
 {
 	size_t old;
 	FLS_FETCH();
 
 	old = FG(def_chunk_size);
 
-	if(size <= CHUNK_SIZE || size > 0) 
+	if(size <= PHP_FSOCK_CHUNK_SIZE || size > 0) 
 		FG(def_chunk_size) = size;
 
 	return old;
 }
 
-int php_sockdestroy(int socket)
+PHPAPI int php_sockdestroy(int socket)
 {
 	int ret = 0;
 	php_sockbuf *sock;
@@ -469,7 +469,7 @@ int php_sockdestroy(int socket)
 
 #define SOCK_CLOSE(s) shutdown(s, 0); closesocket(s)
 
-int php_sock_close(int socket)
+PHPAPI int php_sock_close(int socket)
 {
 	int ret = 0;
 	php_sockbuf *sock;
@@ -521,7 +521,7 @@ static void php_sockwait_for_data(php_sockbuf *sock)
 
 static size_t php_sockread_internal(php_sockbuf *sock)
 {
-	char buf[CHUNK_SIZE];
+	char buf[PHP_FSOCK_CHUNK_SIZE];
 	int nr_bytes;
 	size_t nr_read = 0;
 	
@@ -579,7 +579,7 @@ static size_t php_sockread(php_sockbuf *sock)
 	return nr_read;
 }
 
-int php_sockset_blocking(int socket, int mode)
+PHPAPI int php_sockset_blocking(int socket, int mode)
 {
 	int old;
 	SOCK_FIND(sock, socket);
@@ -591,11 +591,12 @@ int php_sockset_blocking(int socket, int mode)
 	return old;
 }
 
-void php_sockset_timeout(int socket, struct timeval *timeout)
+PHPAPI void php_sockset_timeout(int socket, struct timeval *timeout)
 {
 	SOCK_FIND(sock, socket);
 
 	sock->timeout = *timeout;
+	sock->timeout_event = 0;
 }
 
 #define SOCK_FIND_AND_READ_MAX(max) \
@@ -606,7 +607,7 @@ void php_sockset_timeout(int socket, struct timeval *timeout)
 /*
  * FIXME: fgets depends on '\n' as line delimiter
  */
-char *php_sock_fgets(char *buf, size_t maxlen, int socket)
+PHPAPI char *php_sock_fgets(char *buf, size_t maxlen, int socket)
 {
 	char *p = NULL;
 	char *ret = NULL;
@@ -665,7 +666,7 @@ char *php_sock_fgets(char *buf, size_t maxlen, int socket)
  * ss@2ns.de 19990528
  */
 
-int php_sock_fgetc(int socket)
+PHPAPI int php_sock_fgetc(int socket)
 {
 	int ret = EOF;
 	SOCK_FIND_AND_READ_MAX(1);
@@ -678,7 +679,7 @@ int php_sock_fgetc(int socket)
 	return ret;
 }
 
-int php_sock_feof(int socket)
+PHPAPI int php_sock_feof(int socket)
 {
 	int ret = 0;
 	SOCK_FIND(sock, socket);
@@ -694,7 +695,7 @@ int php_sock_feof(int socket)
 
 /* {{{ php_sock_fread() */
 
-size_t php_sock_fread(char *ptr, size_t size, int socket)
+PHPAPI size_t php_sock_fread(char *ptr, size_t size, int socket)
 {
 	size_t ret = 0;
 	SOCK_FIND_AND_READ_MAX(size);
@@ -715,44 +716,12 @@ size_t php_sock_fread(char *ptr, size_t size, int socket)
 /* {{{ module start/shutdown functions */
 
 	/* {{{ php_msock_destroy */
-void php_msock_destroy(int *data)
+PHPAPI void php_msock_destroy(int *data)
 {
 	close(*data);
 }
 /* }}} */
 
-static void fsock_globals_ctor(FLS_D)
-{
-	zend_hash_init(&FG(ht_fsock_keys), 0, NULL, NULL, 1);
-	zend_hash_init(&FG(ht_fsock_socks), 0, NULL, (void (*)(void *))php_msock_destroy, 1);
-	FG(def_chunk_size) = CHUNK_SIZE;
-	FG(phpsockbuf) = NULL;
-}
-
-static void fsock_globals_dtor(FLS_D)
-{
-	zend_hash_destroy(&FG(ht_fsock_socks));
-	zend_hash_destroy(&FG(ht_fsock_keys));
-	php_cleanup_sockbuf(1 FLS_CC);
-}
-
-PHP_MINIT_FUNCTION(fsock)
-{
-#ifdef ZTS
-	fsock_globals_id = ts_allocate_id(sizeof(php_fsock_globals), (ts_allocate_ctor) fsock_globals_ctor, (ts_allocate_dtor) fsock_globals_dtor);
-#else
-	fsock_globals_ctor(FLS_C);
-#endif
-	return SUCCESS;
-}
-
-PHP_MSHUTDOWN_FUNCTION(fsock)
-{
-#ifndef ZTS
-	fsock_globals_dtor(FLS_C);
-#endif
-	return SUCCESS;
-}
 
 PHP_RSHUTDOWN_FUNCTION(fsock)
 {

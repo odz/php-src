@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: php_pcre.h,v 1.22 2000/07/02 23:46:44 sas Exp $ */
+/* $Id: php_pcre.h,v 1.26 2001/03/13 05:24:03 andrei Exp $ */
 
 #ifndef PHP_PCRE_H
 #define PHP_PCRE_H
@@ -36,21 +36,17 @@
 PHP_FUNCTION(preg_match);
 PHP_FUNCTION(preg_match_all);
 PHP_FUNCTION(preg_replace);
+PHP_FUNCTION(preg_replace_callback);
 PHP_FUNCTION(preg_split);
 PHP_FUNCTION(preg_quote);
 PHP_FUNCTION(preg_grep);
-
-char *php_pcre_replace(char *regex,   int regex_len,
-					   char *subject, int subject_len,
-					   char *replace, int replace_len,
-					   int  *result_len, int limit);
 
 extern zend_module_entry pcre_module_entry;
 #define pcre_module_ptr &pcre_module_entry
 
 typedef struct {
-        pcre *re;
-        pcre_extra *extra;
+	pcre *re;
+	pcre_extra *extra;
 	int preg_options;
 #if HAVE_SETLOCALE
 	char *locale;

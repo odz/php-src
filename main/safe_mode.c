@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,7 +15,7 @@
    | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: safe_mode.c,v 1.23 2000/11/01 18:05:27 andi Exp $ */
+/* $Id: safe_mode.c,v 1.27 2001/02/26 06:07:31 andi Exp $ */
 
 #include "php.h"
 
@@ -106,7 +106,7 @@ PHPAPI int php_checkuid(const char *filename, char *fopen_mode, int mode)
 		}
 		duid = sb.st_uid;
 	} else {
-		char cwd[MAXPATHLEN+1];
+		char cwd[MAXPATHLEN];
 		if (!V_GETCWD(cwd, MAXPATHLEN)) {
 			php_error(E_WARNING, "Unable to access current working directory");
 			return 0;
@@ -121,6 +121,14 @@ PHPAPI int php_checkuid(const char *filename, char *fopen_mode, int mode)
 	if (duid == (uid=php_getuid())) {
 		return 1;
 	} else {
+		SLS_FETCH();
+
+		if (SG(rfc1867_uploaded_files)) {
+			if (zend_hash_exists(SG(rfc1867_uploaded_files), (char *) filename, strlen(filename)+1)) {
+				return 1;
+			}
+		}
+
 		php_error(E_WARNING, "SAFE MODE Restriction in effect.  The script whose uid is %ld is not allowed to access %s owned by uid %ld", uid, filename, duid);
 		return 0;
 	}

@@ -4,7 +4,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -29,6 +29,7 @@
 %x ST_LOOKING_FOR_PROPERTY
 %x ST_LOOKING_FOR_VARNAME
 %x ST_COMMENT
+%x ST_ONE_LINE_COMMENT
 %option stack
 
 %{
@@ -86,16 +87,7 @@
 #  define MY_INPUT input
 #endif
 
-#if defined(ZTS) && !defined(HAVE_CLASS_ISTDIOSTREAM)
-class istdiostream : public istream
-{
-private:
-	stdiobuf _file;
-public:
-	istdiostream (FILE* __f) : istream(), _file(__f) { init(&_file); }
-	stdiobuf* rdbuf()/* const */ { return &_file; }
-};
-#endif
+#include "zend_istdiostream.h"
 
 #define YY_FATAL_ERROR zend_fatal_scanner_error
 
@@ -118,7 +110,7 @@ do { \
 }
 		
 
-#define ZEND_IS_OCT(c)  ((c)>='0' && (c)<'8')
+#define ZEND_IS_OCT(c)  ((c)>='0' && (c)<='7')
 #define ZEND_IS_HEX(c)  (((c)>='0' && (c)<='9') || ((c)>='a' && (c)<='f') || ((c)>='A' && (c)<='F'))
 
 
@@ -251,23 +243,18 @@ ZEND_API int open_file_for_scanning(zend_file_handle *file_handle CLS_DC)
 	switch (file_handle->type) {
 		case ZEND_HANDLE_FILENAME:
 			file_handle->handle.fp = zend_fopen(file_handle->filename, &file_handle->opened_path);
-		    file_path = file_handle->opened_path; 
 			break;
 		case ZEND_HANDLE_FD:
-		  /* file_handle->opened_path = NULL; */
 			file_handle->handle.fp = fdopen(file_handle->handle.fd, "r");
 			break;
 		case ZEND_HANDLE_FP:
-		  /* file_handle->opened_path = NULL; */
 			file_handle->handle.fp = file_handle->handle.fp;
 			break;
 	}
 	if (!file_handle->handle.fp) {
 		return FAILURE;
 	}
-	if (!file_path) {
-		file_path = file_handle->filename;
-	}
+
 	file_handle->type = ZEND_HANDLE_FP;	
 	if (file_handle->handle.fp != stdin) {
 		zend_llist_add_element(&CG(open_files), file_handle);
@@ -279,7 +266,6 @@ ZEND_API int open_file_for_scanning(zend_file_handle *file_handle CLS_DC)
 #else
 	switch (file_handle->type) {
 		case ZEND_HANDLE_FD:
-		  /* file_handle->opened_path = NULL; */
 			file_handle->handle.is = new ifstream(file_handle->handle.fd);
 			file_handle->type = ZEND_HANDLE_FSTREAM;
 			break;
@@ -294,7 +280,6 @@ ZEND_API int open_file_for_scanning(zend_file_handle *file_handle CLS_DC)
 				break;
 			}
 		case ZEND_HANDLE_FP:
-		  /* file_handle->opened_path = NULL; */
 			if (file_handle->handle.fp==stdin) {
 				file_handle->handle.is = &cin;
 			} else {
@@ -307,8 +292,6 @@ ZEND_API int open_file_for_scanning(zend_file_handle *file_handle CLS_DC)
 			break;
 	}
 
-	file_path = file_handle->filename;
-
 	if (file_handle->handle.is->fail()) {
 		delete file_handle->handle.is;
 		return FAILURE;
@@ -320,6 +303,13 @@ ZEND_API int open_file_for_scanning(zend_file_handle *file_handle CLS_DC)
 	CG(ZFL) = new ZendFlexLexer;
 	CG(ZFL)->switch_streams(file_handle->handle.is, &cout);
 #endif
+
+	if(file_handle->opened_path) {
+		file_path = file_handle->opened_path; 
+	} else {
+		file_path = file_handle->filename;
+	}
+
 	zend_set_compiled_filename(file_path);
 	CG(zend_lineno) = 1;
 	return SUCCESS;
@@ -362,7 +352,6 @@ ZEND_API zend_op_array *compile_file(zend_file_handle *file_handle, int type CLS
 		CG(active_op_array) = op_array;
 		compiler_result = zendparse(CLS_C);
 		zend_do_return(&retval_znode, 0 CLS_CC);
-		restore_lexical_state(&original_lex_state CLS_CC);
 		CG(in_compilation) = original_in_compilation;
 		if (compiler_result==1) { /* parser error */
 			CG(unclean_shutdown) = 1;
@@ -379,6 +368,9 @@ ZEND_API zend_op_array *compile_file(zend_file_handle *file_handle, int type CLS
 			efree(op_array);
 			retval = NULL;
 		}
+	}
+	if (compilation_successful) {
+		restore_lexical_state(&original_lex_state CLS_CC);
 	}
 	return retval;
 }
@@ -483,7 +475,6 @@ zend_op_array *compile_string(zval *source_string, char *filename CLS_DC)
 		CG(ZFL)->BeginState(ST_IN_SCRIPTING);
 #endif
 		compiler_result = zendparse(CLS_C);
-		restore_lexical_state(&original_lex_state CLS_CC);
 		
 		if (compiler_result==1) {
 			CG(active_op_array) = original_active_op_array;
@@ -495,6 +486,7 @@ zend_op_array *compile_string(zval *source_string, char *filename CLS_DC)
 			pass_two(op_array);
 			retval = op_array;
 		}
+		restore_lexical_state(&original_lex_state CLS_CC);
 	}
 #ifdef ZTS
 	delete input_stream;
@@ -751,7 +743,6 @@ ANY_CHAR (.|[\n])
 }
 
 <ST_LOOKING_FOR_PROPERTY>{ANY_CHAR} {
-	/*unput(yytext[0]);*/
 	yyless(0);
 	yy_pop_state();
 }
@@ -904,7 +895,6 @@ ANY_CHAR (.|[\n])
 	return T_CONCAT_EQUAL;
 }
 
-
 <ST_IN_SCRIPTING>"%=" {
 	return T_MOD_EQUAL;
 }
@@ -994,7 +984,6 @@ ANY_CHAR (.|[\n])
 
 
 <ST_LOOKING_FOR_VARNAME>{ANY_CHAR} {
-	/*unput(yytext[0]);*/
 	yyless(0);
 	yy_pop_state();
 	yy_push_state(ST_IN_SCRIPTING);
@@ -1060,7 +1049,7 @@ ANY_CHAR (.|[\n])
 		filename = "";
 	}
 	zendlval->value.str.len = strlen(filename);
-	zendlval->value.str.val = estrndup(filename,zendlval->value.str.len);
+	zendlval->value.str.val = estrndup(filename, zendlval->value.str.len);
 	zendlval->type = IS_STRING;
 	return T_FILE;
 }
@@ -1070,7 +1059,7 @@ ANY_CHAR (.|[\n])
 	zendlval->value.str.val = (char *) estrndup(yytext, yyleng);
 	zendlval->value.str.len = yyleng;
 	zendlval->type = IS_STRING;
-	HANDLE_NEWLINES(yytext,yyleng);
+	HANDLE_NEWLINES(yytext, yyleng);
 	return T_INLINE_HTML;
 }
 
@@ -1134,7 +1123,7 @@ ANY_CHAR (.|[\n])
 }
 
 
-<INITIAL>"<?php_track_vars?>"([\n]|"\r\n")? {
+<INITIAL>"<?php_track_vars?>"("\n"|"\r\n")? {
 	zend_error(E_WARNING, "&lt;?php_track_vars?&gt; is no longer supported - please use the track_vars INI directive instead");
 	HANDLE_NEWLINE(yytext[yyleng-1]);
 	zendlval->value.str.val = (char *) estrndup(yytext, yyleng);
@@ -1176,9 +1165,39 @@ ANY_CHAR (.|[\n])
 }
 
 
-<ST_IN_SCRIPTING>([#]|"//")([^\n\r?]|"?"[^>\n\r])*("?\n"|"?\r\n")? { /* eat one line comments */
-	HANDLE_NEWLINE(yytext[yyleng-1]);
+<ST_IN_SCRIPTING>"#"|"//" {
+	BEGIN(ST_ONE_LINE_COMMENT);
+	yymore();
+}
+
+<ST_ONE_LINE_COMMENT>"?"|"%"|">" {
+	yymore();
+}
+
+<ST_ONE_LINE_COMMENT>[^\n\r?%>]+ {
+	yymore();
+}
+
+<ST_ONE_LINE_COMMENT>"\n"|"\r\n" {
+	zendlval->value.str.val = yytext; /* no copying - intentional */
+	zendlval->value.str.len = yyleng;
+	zendlval->type = IS_STRING;
+	BEGIN(ST_IN_SCRIPTING);
+	CG(zend_lineno)++;
 	return T_COMMENT;
+}
+
+<ST_ONE_LINE_COMMENT>"?>"|"%>" {
+    if(CG(asp_tags) || yytext[yyleng-2] != '%') { /* asp comment? */
+		zendlval->value.str.val = yytext; /* no copying - intentional */
+		zendlval->value.str.len = yyleng;
+		zendlval->type = IS_STRING;
+		yyless(yyleng-2);
+		BEGIN(ST_IN_SCRIPTING);
+		return T_COMMENT;
+	} else {
+		yymore();
+	}
 }
 
 <ST_IN_SCRIPTING>"/*" {
@@ -1202,7 +1221,7 @@ ANY_CHAR (.|[\n])
 	yymore();
 }
 
-<ST_IN_SCRIPTING>("?>"|"</script"{WHITESPACE}*">")([\n]|"\r\n")? {
+<ST_IN_SCRIPTING>("?>"|"</script"{WHITESPACE}*">")("\n"|"\r\n")? {
 	zendlval->value.str.val = yytext; /* no copying - intentional */
 	zendlval->value.str.len = yyleng;
 	zendlval->type = IS_STRING;
@@ -1212,17 +1231,17 @@ ANY_CHAR (.|[\n])
 }
 
 
-<ST_IN_SCRIPTING>"%>"([\n]|"\r\n")? {
-	zendlval->value.str.len = yyleng;
-	zendlval->type = IS_STRING;
-	HANDLE_NEWLINES(yytext,yyleng);
+<ST_IN_SCRIPTING>"%>"("\n"|"\r\n")? {
 	if (CG(asp_tags)) {
 		BEGIN(INITIAL);
+		zendlval->value.str.len = yyleng;
+		zendlval->type = IS_STRING;
 		zendlval->value.str.val = yytext; /* no copying - intentional */
+		HANDLE_NEWLINES(yytext,yyleng);
 		return T_CLOSE_TAG;  /* implicit ';' at php-end tag */
 	} else {
-	        zendlval->value.str.val = (char *) estrndup(yytext, yyleng);
-		return T_INLINE_HTML;
+		yyless(1);
+		return yytext[0];
 	}
 }
 
@@ -1457,9 +1476,6 @@ ANY_CHAR (.|[\n])
 	zendlval->value.lval = (long) yytext[0];
 	if (yyleng == 2) {
 		yyless(1);
-		/*unput(yytext[1]);
-		yytext[1] = 0;
-		yyleng--;*/
 	}
 	return T_CHARACTER;	
 }
@@ -1473,7 +1489,6 @@ ANY_CHAR (.|[\n])
 <ST_DOUBLE_QUOTES,ST_BACKQUOTE,ST_HEREDOC>"{$" {
 	zendlval->value.lval = (long) yytext[0];
 	yy_push_state(ST_IN_SCRIPTING);
-	/*unput('$');*/
 	yyless(1);
 	return T_CURLY_OPEN;
 }

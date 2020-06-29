@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.16.2.2 2000/12/08 13:13:04 sniper Exp $
+dnl $Id: config.m4,v 1.21 2001/02/07 16:01:29 sas Exp $
 dnl config.m4 for extension domxml
 
 AC_DEFUN(PHP_DOM_CHECK_VERSION,[
@@ -46,11 +46,16 @@ if test "$PHP_DOM" != "no"; then
 
   AC_ADD_INCLUDE($DOMXML_DIR/include)
 
+  if test -f $DOMXML_DIR/lib/libxml2.a -o -f $DOMXML_DIR/lib/libxml2.s? ; then
+    DOM_LIBNAME="xml2"
+  else
+    DOM_LIBNAME="xml"
+  fi
+
   PHP_SUBST(DOMXML_SHARED_LIBADD)
-  AC_ADD_LIBRARY_WITH_PATH(xml, $DOMXML_DIR/lib, DOMXML_SHARED_LIBADD)
+  AC_ADD_LIBRARY_WITH_PATH($DOM_LIBNAME, $DOMXML_DIR/lib, DOMXML_SHARED_LIBADD)
 
   if test $HAVE_ZLIB; then
-    old_withval=$withval
     AC_MSG_CHECKING([for zlib (needed by DOM support)])
     AC_ARG_WITH(zlib-dir,
     [  --with-zlib-dir[=DIR]   zlib dir for libxml or include zlib support],[
@@ -65,10 +70,9 @@ if test "$PHP_DOM" != "no"; then
      AC_MSG_RESULT(no)
      AC_MSG_WARN(If configure fails try --with-zlib=<DIR>)
     ])
-    withval=$old_withval
   else
     echo "checking for libz needed by libxml ... already zlib support"
-    LIBS="$LIBS -L$withval/lib -lz"
+    LIBS="$LIBS -lz"
   fi
 
   AC_DEFINE(HAVE_DOMXML,1,[ ])

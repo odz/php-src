@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -502,7 +502,7 @@ ZEND_API void shutdown_memory_manager(int silent, int clean_cache)
 			/* we're shutting down completely, don't even touch the INI subsystem */
 			break;
 		}
-		if (zend_get_ini_entry("display_memory_cache_stats", sizeof("display_memory_cache_stats"), &display_memory_cache_stats)==FAILURE) {
+		if (zend_get_configuration_directive("display_memory_cache_stats", sizeof("display_memory_cache_stats"), &display_memory_cache_stats)==FAILURE) {
 			break;
 		}
 		if (!atoi(display_memory_cache_stats.value.str.val)) {

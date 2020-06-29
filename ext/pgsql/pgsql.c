@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -13,11 +13,11 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Zeev Suraski <zeev@zend.com>                                |
-   |          Jouni Ahto <jah@mork.net> (large object interface)          |
+   |          Jouni Ahto <jouni.ahto@exdec.fi> (large object interface)   |
    +----------------------------------------------------------------------+
  */
  
-/* $Id: pgsql.c,v 1.80.2.1 2000/12/14 00:03:21 sas Exp $ */
+/* $Id: pgsql.c,v 1.93.2.5 2001/04/04 21:51:58 thies Exp $ */
 
 #include <stdlib.h>
 
@@ -31,6 +31,9 @@
 
 #if HAVE_PGSQL
 
+#ifndef InvalidOid
+#define InvalidOid ((Oid) 0)
+#endif
 
 #define PGSQL_ASSOC		1<<0
 #define PGSQL_NUM		1<<1
@@ -93,7 +96,7 @@ zend_module_entry pgsql_module_entry = {
 	PHP_MINIT(pgsql),
 	PHP_MSHUTDOWN(pgsql),
 	PHP_RINIT(pgsql),
-	NULL,
+	PHP_RSHUTDOWN(pgsql),
 	PHP_MINFO(pgsql),
 	STANDARD_MODULE_PROPERTIES
 };
@@ -114,13 +117,14 @@ static void php_pgsql_set_default_link(int id)
 {   
 	PGLS_FETCH();
 
-    if (PGG(default_link)!=-1) {
+	zend_list_addref(id); /* increase refcount for the new default link */
+
+    if (PGG(default_link) != -1) {
+		/* decrease refcount for the old default link */
         zend_list_delete(PGG(default_link));
     }
-    if (PGG(default_link) != id) {
-        PGG(default_link) = id;
-        zend_list_addref(id);
-    }
+
+	PGG(default_link) = id;
 }
 
 
@@ -142,6 +146,29 @@ static void _close_pgsql_plink(zend_rsrc_list_entry *rsrc)
 	PQfinish(link);
 	PGG(num_persistent)--;
 	PGG(num_links)--;
+}
+
+
+static void
+_notice_handler(void *arg, const char *message)
+{
+	PGLS_FETCH();
+
+	if (! PGG(ignore_notices)) {
+		php_log_err(message);
+	}
+}
+
+
+static int _rollback_transactions(zend_rsrc_list_entry *rsrc)
+{
+	PGconn *link = (PGconn *)rsrc->ptr;
+
+	PGG(ignore_notices) = 1;
+	PQexec(link,"BEGIN;ROLLBACK;");
+	PGG(ignore_notices) = 0;
+
+	return 0;
 }
 
 
@@ -169,6 +196,7 @@ PHP_INI_END()
 static void php_pgsql_init_globals(PGLS_D)
 {
 	PGG(num_persistent) = 0;
+	PGG(ignore_notices) = 0;
 }
 
 PHP_MINIT_FUNCTION(pgsql)
@@ -212,6 +240,14 @@ PHP_RINIT_FUNCTION(pgsql)
 	return SUCCESS;
 }
 
+PHP_RSHUTDOWN_FUNCTION(pgsql)
+{
+	ELS_FETCH();
+	zend_hash_apply(&EG(persistent_list), (apply_func_t) _rollback_transactions);
+	return SUCCESS;
+}
+
+
 
 PHP_MINFO_FUNCTION(pgsql)
 {
@@ -229,6 +265,8 @@ PHP_MINFO_FUNCTION(pgsql)
 	DISPLAY_INI_ENTRIES();
 
 }
+
+
 void php_pgsql_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 {
 	char *host=NULL,*port=NULL,*options=NULL,*tty=NULL,*dbname=NULL,*connstring=NULL;
@@ -344,6 +382,8 @@ void php_pgsql_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 				RETURN_FALSE;
 			}
 
+ 			PQsetNoticeProcessor(pgsql, _notice_handler, NULL);
+
 			/* hash it up */
 			new_le.type = le_plink;
 			new_le.ptr = pgsql;
@@ -372,6 +412,8 @@ void php_pgsql_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 				}
 			}
 			pgsql = (PGconn *) le->ptr;
+
+ 			PQsetNoticeProcessor(pgsql, _notice_handler, NULL);
 		}
 		ZEND_REGISTER_RESOURCE(return_value, pgsql, le_plink);
 	} else {
@@ -393,9 +435,9 @@ void php_pgsql_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 			ptr = zend_list_find(link,&type);   /* check if the link is still there */
 			if (ptr && (type==le_link || type==le_plink)) {
 				return_value->value.lval = link;
+				zend_list_addref(link);
 				php_pgsql_set_default_link(link);
 				return_value->type = IS_RESOURCE;
-				zend_list_addref(link);
 				efree(hashed_details);
 				return;
 			} else {
@@ -417,6 +459,8 @@ void php_pgsql_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 			efree(hashed_details);
 			RETURN_FALSE;
 		}
+
+		PQsetNoticeProcessor(pgsql, _notice_handler, NULL);
 
 		/* add it to the list */
 		ZEND_REGISTER_RESOURCE(return_value, pgsql, le_link);
@@ -489,6 +533,8 @@ PHP_FUNCTION(pg_close)
 	}
 	
 	ZEND_FETCH_RESOURCE2(pgsql, PGconn *, pgsql_link, id, "PostgreSQL link", le_link, le_plink);
+
+	printf("\npg_close %d\n",id);
 
 	if (id==-1) { /* explicit resource number */
 		zend_list_delete(Z_RESVAL_PP(pgsql_link));
@@ -1049,11 +1095,11 @@ static void php_pgsql_fetch_hash(INTERNAL_FUNCTION_PARAMETERS, int result_type)
 	for (i = 0, num_fields = PQnfields(pgsql_result); i<num_fields; i++) {
 		if (PQgetisnull(pgsql_result, Z_LVAL_PP(row), i)) {
 			if (result_type & PGSQL_NUM) {
-				add_index_unset(return_value, i);
+				add_index_null(return_value, i);
 			}
 			if (result_type & PGSQL_ASSOC) {
 				field_name = PQfname(pgsql_result, i);
-				add_assoc_unset(return_value, field_name);
+				add_assoc_null(return_value, field_name);
 			}
 		} else {
 			element = PQgetvalue(pgsql_result, Z_LVAL_PP(row), i);

@@ -51,7 +51,8 @@ if test ! -f $1/lib${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.so -a \
 	echo "* Please correct this by creating the following links and reconfiguring:"
 	echo "* $1/lib${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.a -> $1/lib${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.a"
 	echo "* $1/${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.so -> $1/lib${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.so"
-	echo "*********************************************************************"else
+	echo "*********************************************************************"
+else
 	ODBC_LFLAGS=-L$1
 	ODBC_LIBS=-l${ac_solid_prefix}${ac_solid_os}${ac_solid_version}
 fi
@@ -81,6 +82,7 @@ AC_ARG_WITH(adabas,
 [  --with-adabas[=DIR]     Include Adabas D support.  DIR is the Adabas base
                           install directory, defaults to /usr/local.],
 [
+  PHP_WITH_SHARED
   if test "$withval" = "yes"; then
     withval=/usr/local
   fi
@@ -112,6 +114,7 @@ AC_ARG_WITH(sapdb,
 [  --with-sapdb[=DIR]      Include SAP DB support.  DIR is SAP DB base
                           install directory, defaults to /usr/local.],
 [
+  PHP_WITH_SHARED
   if test "$withval" = "yes"; then
     withval=/usr/local
   fi
@@ -138,6 +141,7 @@ AC_ARG_WITH(solid,
 [  --with-solid[=DIR]      Include Solid support.  DIR is the Solid base
                           install directory, defaults to /usr/local/solid],
 [
+  PHP_WITH_SHARED
   if test "$withval" = "yes"; then
     withval=/usr/local/solid
   fi
@@ -169,6 +173,7 @@ AC_ARG_WITH(ibm-db2,
 [  --with-ibm-db2[=DIR]    Include IBM DB2 support.  DIR is the DB2 base
                           install directory, defaults to /home/db2inst1/sqllib],
 [
+  PHP_WITH_SHARED
   if test "$withval" != "no"; then
     if test "$withval" = "yes"; then
         ODBC_INCDIR=/home/db2inst1/sqllib/include
@@ -198,6 +203,7 @@ AC_ARG_WITH(empress,
 [  --with-empress[=DIR]    Include Empress support.  DIR is the Empress base
                           install directory, defaults to \$EMPRESSPATH],
 [
+  PHP_WITH_SHARED
   if test "$withval" != "no"; then
     if test "$withval" = "yes"; then
       ODBC_INCDIR=$EMPRESSPATH/odbccl/include
@@ -225,6 +231,7 @@ AC_ARG_WITH(velocis,
 [  --with-velocis[=DIR]    Include Velocis support.  DIR is the Velocis base
                           install directory, defaults to /usr/local/velocis.],
 [
+  PHP_WITH_SHARED
   if test "$withval" != "no"; then
     if test "$withval" = "yes"; then
       ODBC_INCDIR=/usr/local/velocis/include
@@ -294,6 +301,7 @@ AC_ARG_WITH(iodbc,
 [  --with-iodbc[=DIR]      Include iODBC support.  DIR is the iODBC base
                           install directory, defaults to /usr/local.],
 [
+  PHP_WITH_SHARED
   if test "$withval" = "yes"; then
     withval=/usr/local
   fi
@@ -318,6 +326,7 @@ AC_ARG_WITH(esoob,
                           install directory,
                           defaults to /usr/local/easysoft/oob/client.],
 [
+  PHP_WITH_SHARED
   if test "$withval" = "yes"; then
     withval=/usr/local/easysoft/oob/client
   fi
@@ -344,6 +353,7 @@ AC_ARG_WITH(unixODBC,
 [  --with-unixODBC[=DIR]   Include unixODBC support.  DIR is the unixODBC base
                           install directory, defaults to /usr/local.],
 [
+  PHP_WITH_SHARED
   if test "$withval" = "yes"; then
     withval=/usr/local
   fi
@@ -371,6 +381,7 @@ AC_ARG_WITH(openlink,
                           OpenLink base install directory, defaults to
                           /usr/local/openlink.],
 [
+  PHP_WITH_SHARED
   if test "$withval" = "yes"; then
     withval=/usr/local/openlink
   fi
@@ -407,8 +418,8 @@ AC_ARG_WITH(dbmaker,
     # check DBMaker version (from 5.0 to 2.0)
     DBMAKER_VERSION=5.0
 
-    while [[ test ! -d $DBMAKER_HOME/$DBMAKER_VERSION -a \
-                 "$DBMAKER_VERSION" != "2.9" ]]; do
+    while test test ! -d $DBMAKER_HOME/$DBMAKER_VERSION -a \
+                 "$DBMAKER_VERSION" != "2.9"; do
         DM_VER=`echo $DBMAKER_VERSION | sed -e 's/\.//' | awk '{ print $1-1;}'`
         MAJOR_V=`echo $DM_VER | awk '{ print $1/10; }' \
                  | awk  -F. '{ print $1; }'`
@@ -416,7 +427,7 @@ AC_ARG_WITH(dbmaker,
         DBMAKER_VERSION=$MAJOR_V.$MINOR_V
     done
 
-    if [[ "$DBMAKER_VERSION" = "2.9" ]]; then
+    if test "$DBMAKER_VERSION" = "2.9"; then
         withval=$DBMAKER_HOME
     else
         DBMAKER_PATH=$DBMAKER_HOME/$DBMAKER_VERSION
@@ -459,7 +470,9 @@ fi
 if test -n "$ODBC_TYPE"; then
   INCLUDES="$INCLUDES $ODBC_INCLUDE"
   if test "$ODBC_TYPE" != "dbmaker"; then
-    EXTRA_LIBS="$EXTRA_LIBS $ODBC_LFLAGS $ODBC_LIBS"
+    if test $shared != "yes"; then
+      EXTRA_LIBS="$EXTRA_LIBS $ODBC_LFLAGS $ODBC_LIBS"
+    fi
   fi
   AC_DEFINE(HAVE_UODBC,1,[ ])
   PHP_SUBST(ODBC_INCDIR)
@@ -467,6 +480,6 @@ if test -n "$ODBC_TYPE"; then
   PHP_SUBST(ODBC_LIBDIR)
   PHP_SUBST(ODBC_LIBS)
   PHP_SUBST(ODBC_LFLAGS)
-  PHP_SUBST(ODBC_TYPE)
+  PHP_SUBST_OLD(ODBC_TYPE)
   PHP_EXTENSION(odbc, $shared)
 fi

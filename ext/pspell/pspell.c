@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: pspell.c,v 1.12 2000/10/25 17:43:59 andrei Exp $ */
+/* $Id: pspell.c,v 1.15 2001/02/26 06:07:13 andi Exp $ */
 
 #define IS_EXT_MODULE
 
@@ -27,6 +27,9 @@
 #include <stdio.h>
 
 #if HAVE_PSPELL
+
+/* this will enforce compatibility in .12 version (broken after .11.2) */
+#define USE_ORIGINAL_MANAGER_FUNCS
 
 #include "php_pspell.h"
 #include <pspell/pspell.h>

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -272,8 +272,18 @@ void plist_entry_destructor(void *ptr)
 	zend_rsrc_list_dtors_entry *ld;
 
 	if (zend_hash_index_find(&list_destructors, le->type,(void **) &ld)==SUCCESS) {
-		if (ld->plist_dtor) {
-			(ld->plist_dtor)(le->ptr);
+		switch (ld->type) {
+			case ZEND_RESOURCE_LIST_TYPE_STD:
+				if (ld->plist_dtor) {
+					(ld->plist_dtor)(le->ptr);
+				}
+				break;
+			case ZEND_RESOURCE_LIST_TYPE_EX:
+				if (ld->plist_dtor_ex) {
+					ld->plist_dtor_ex(le);
+				}
+				break;
+				EMPTY_SWITCH_DEFAULT_CASE()
 		}
 	} else {
 		zend_error(E_WARNING,"Unknown persistent list entry type in module shutdown (%d)",le->type);
@@ -382,13 +392,13 @@ ZEND_API int zend_register_list_destructors_ex(rsrc_dtor_func_t ld, rsrc_dtor_fu
 }
 
 
-int zend_init_rsrc_list_dtors()
+int zend_init_rsrc_list_dtors(void)
 {
 	return zend_hash_init(&list_destructors, 50, NULL, NULL, 1);
 }
 
 
-void zend_destroy_rsrc_list_dtors()
+void zend_destroy_rsrc_list_dtors(void)
 {
 	zend_hash_destroy(&list_destructors);
 }

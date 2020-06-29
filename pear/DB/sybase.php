@@ -3,7 +3,7 @@
 // +----------------------------------------------------------------------+
 // | PHP version 4.0                                                      |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+// | Copyright (c) 1997-2001 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
 // | Authors: Sterling Hughes <sterling@php.net>                          |
 // +----------------------------------------------------------------------+
 //
-// $Id: sybase.php,v 1.8 2000/09/13 11:27:59 ssb Exp $
+// $Id: sybase.php,v 1.15 2001/02/19 12:22:26 ssb Exp $
 //
 // Database independent query interface definition for PHP's Sybase
 // extension.
@@ -24,14 +24,21 @@
 
 require_once 'DB/common.php';
 
-class DB_sybase extends DB_common {
+class DB_sybase extends DB_common
+{
+    // {{{ properties
 
 	var $connection;
 	var $phptype, $dbsyntax;
 	var $prepare_tokens = array();
 	var $prepare_types = array();
 
-	function DB_sybase() {
+    // }}}
+    // {{{ constructor
+
+	function DB_sybase()
+    {
+        $this->DB_common();
 		$this->phptype = 'sybase';
 		$this->dbsyntax = 'sybase';
 		$this->features = array(
@@ -41,8 +48,12 @@ class DB_sybase extends DB_common {
 		);
 	}
 
-	function connect ( $dsn, $persistent=false ) {
-		if(is_array($dsn)) {
+    // }}}
+    // {{{ connect()
+
+	function connect($dsn, $persistent = false)
+    {
+		if (is_array($dsn)) {
 			$dsninfo = &$dsn;
 		} else {
 			$dsninfo = DB::parseDSN($dsn);
@@ -50,6 +61,7 @@ class DB_sybase extends DB_common {
 		if (!$dsninfo || !$dsninfo['phptype']) {
 			return $this->raiseError(); 
 		}
+        $this->dsn = $dsninfo;
 		$dbhost = $dsninfo['hostspec'] ? $dsninfo['hostspec'] : 'localhost';
 		$connect_function = $persistent ? 'sybase_pconnect' : 'sybase_connect';
 		$conn = $dbhost ? $connect_function($dbhost) : false;
@@ -58,49 +70,54 @@ class DB_sybase extends DB_common {
 		return DB_OK;
 	}
 
-	function disconnect() {
+    // }}}
+    // {{{ disconnect()
+
+	function disconnect()
+    {
 		return @sybase_close($this->connection);
 	}
 
-	function &query( $stmt ) {
-		$this->last_query = $stmt;
-		$result = @sybase_query($stmt, $this->connection);
-		if (!$result) {
-			return $this->raiseError();
-		}
-		// Determine which queries that should return data, and which
-		// should return an error code only.
-		if (preg_match('/(SELECT|SHOW|LIST|DESCRIBE)/i', $stmt)) {
-			$resultObj = new DB_result($this, $result);
-			return $resultObj;
-		} else {
-			return DB_OK;
-		}
-	}
+    // }}}
+    // {{{ simpleQuery()
 
-	function simpleQuery($stmt) {
-		$this->last_query = $stmt;
-		$result = @sybase_query($stmt, $this->connection);
-		if (!$result) {
-			return $this->raiseError();
-		}
-		// Determine which queries that should return data, and which
-		// should return an error code only.
-		return preg_match('/(SELECT|SHOW|LIST|DESCRIBE)/i', $stmt) ? $result : DB_OK;
+    function simpleQuery($query)
+    {
+	$this->last_query = $query;
+        $query = $this->modifyQuery($query);
+	$result = @sybase_query($query, $this->connection);
+	if (!$result) {
+	    return $this->raiseError();
 	}
-
-	function &fetchRow($result, $fetchmode=DB_FETCHMODE_DEFAULT) {
-		if ($fetchmode == DB_FETCHMODE_DEFAULT) {
-			$fetchmode = $this->fetchmode;
-		}
-		$row = ($fetchmode & DB_FETCHMODE_ASSOC) ? @sybase_fetch_array($result) : @sybase_fetch_row($result);
-		if (!$row) {
-			return $this->raiseError();
-		}
-		return $row;
+	// Determine which queries that should return data, and which
+	// should return an error code only.
+	return DB::isManip($query) ? DB_OK : $result;
+    }
+    
+    // }}}
+    // {{{ fetchRow()
+    function &fetchRow($result, $fetchmode = DB_FETCHMODE_DEFAULT)
+    {
+	if ($fetchmode == DB_FETCHMODE_DEFAULT) {
+	    $fetchmode = $this->fetchmode;
 	}
+	$row = ($fetchmode & DB_FETCHMODE_ASSOC) ? @sybase_fetch_array($result) : @sybase_fetch_row($result);
+	if (!$row) {
+	    if ($errmsg = sybase_get_last_message()) {
+		return $this->raiseError($errmsg);
+	    } else {
+		return null;
+	    }
+	}
+	
+	return $row;
+    }
+    
+    // }}}
+    // {{{ fetchInto()
 
-	function fetchInto($result, &$ar, $fetchmode=DB_FETCHMODE_DEFAULT) {
+	function fetchInto($result, &$ar, $fetchmode=DB_FETCHMODE_DEFAULT)
+    {
 		if ($fetchmode == DB_FETCHMODE_DEFAULT) {
 			$fetchmode = $this->fetchmode;
 		}
@@ -111,7 +128,11 @@ class DB_sybase extends DB_common {
 		return DB_OK;
 	}
 
-	function freeResult($result) {
+    // }}}
+    // {{{ freeResult()
+
+	function freeResult($result)
+    {
 		if (is_resource($result)) {
 			return @sybase_free_result($result);
 		}
@@ -123,7 +144,11 @@ class DB_sybase extends DB_common {
 		return true; 
 	}
 
-	function numCols($result) {
+    // }}}
+    // {{{ numCols()
+
+	function numCols($result)
+    {
 		$cols = @sybase_num_fields($result);
 		if (!$cols) {
 			return $this->raiseError();
@@ -131,48 +156,7 @@ class DB_sybase extends DB_common {
 		return $cols;
 	}
 
-	function prepare($query) {
-		$tokens = split('[\&\?]', $query);
-		$token = 0;
-		$types = array();
-		for ($i = 0; $i < strlen($query); $i++) {
-			switch ($query[$i]) {
-				case '?':
-					$types[$token++] = DB_PARAM_SCALAR;
-					break;
-				case '&':
-					$types[$token++] = DB_PARAM_OPAQUE;
-					break;
-			}
-		}
-		$this->prepare_tokens[] = &$tokens;
-		end($this->prepare_tokens);
-		$k = key($this->prepare_tokens);
-		$this->prepare_types[$k] = $types;
-		return $k;
-	}
-
-	function execute($stmt, $data = false) {
-		$realquery = $this->execute_emulate_query($stmt, $data);
-		$this->last_query = $realquery;
-		$result = @sybase_query($realquery, $this->connection);
-		if (!$result) {
-			return $this->raiseError();
-		}
-		return preg_match('/(SELECT|SHOW|LIST|DESCRIBE)/i', $realquery) ? $result : DB_OK;
-	}
-
-	function autoCommit($onoff=false) {
-		return $this->raiseError(DB_ERROR_NOT_CAPABLE);
-	}
-
-	function commit() {
-		return $this->raiseError(DB_ERROR_NOT_CAPABLE);
-	}
-
-	function rollback() {
-		return $this->raiseError(DB_ERROR_NOT_CAPABLE);
-	}
+    // }}}
 }
 
 /*

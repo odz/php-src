@@ -445,7 +445,7 @@ char *yytext;
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -486,6 +486,9 @@ char *yytext;
 #else
 #define YY_DECL int ini_lex(zval *ini_lval)
 #endif
+
+#include "zend_istdiostream.h"
+
 
 #ifndef ZTS
 static char *ini_filename;

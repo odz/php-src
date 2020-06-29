@@ -1,6 +1,14 @@
-dnl $Id: config.m4,v 1.22 2000/10/02 22:16:53 rasmus Exp $
+dnl $Id: config.m4,v 1.25 2001/03/01 07:06:54 chagenbu Exp $
 
-AC_DEFUN(IMAP_INC_CHK,[if test -r $i$1/rfc822.h; then IMAP_DIR=$i; IMAP_INC_DIR=$i$1])
+AC_DEFUN(IMAP_INC_CHK,[if test -r "$i$1/c-client.h"; then
+		AC_DEFINE(HAVE_IMAP2000, 1, [ ])
+		IMAP_DIR=$i
+		IMAP_INC_DIR=$i$1
+	elif test -r "$i$1/rfc822.h"; then 
+		IMAP_DIR=$i; 
+		IMAP_INC_DIR=$i$1
+	
+])
 
 AC_DEFUN(IMAP_LIB_CHK,[
 		str="$IMAP_DIR/$1/lib$lib.*"
@@ -41,9 +49,9 @@ PHP_ARG_WITH(imap,for IMAP support,
   if test "$PHP_IMAP" != "no"; then  
     for i in /usr/local /usr $PHP_IMAP; do
       IMAP_INC_CHK()
-      el[]IMAP_INC_CHK(/include)
-      el[]IMAP_INC_CHK(/include/imap)
       el[]IMAP_INC_CHK(/include/c-client)
+      el[]IMAP_INC_CHK(/include/imap)
+      el[]IMAP_INC_CHK(/include)
       el[]IMAP_INC_CHK(/imap)
       el[]IMAP_INC_CHK(/c-client)
       fi
@@ -89,6 +97,7 @@ PHP_ARG_WITH(imap,for IMAP support,
     fi
 
     if test "$PHP_IMAP_SSL" != "no"; then
+      AC_DEFINE(HAVE_IMAP_SSL,1,[ ])
       AC_ADD_LIBPATH($PHP_SSL_LIBDIR, IMAP_SHARED_LIBADD)
       AC_ADD_LIBRARY(ssl,, IMAP_SHARED_LIBADD)
       AC_ADD_LIBRARY(crypto,, IMAP_SHARED_LIBADD)

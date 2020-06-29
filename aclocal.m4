@@ -10,11 +10,58 @@ dnl but WITHOUT ANY WARRANTY, to the extent permitted by law; without
 dnl even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 dnl PARTICULAR PURPOSE.
 
-dnl $Id: acinclude.m4,v 1.114 2000/11/21 08:38:19 hholzgra Exp $
+dnl $Id: acinclude.m4,v 1.121 2001/02/21 07:39:13 sas Exp $
 dnl
 dnl This file contains local autoconf functions.
 
 sinclude(dynlib.m4)
+
+AC_DEFUN(PHP_SETUP_OPENSSL,[
+  if test "$PHP_OPENSSL" = "no"; then
+    PHP_OPENSSL="/usr/local/ssl /usr/local /usr /usr/local/openssl"
+  fi
+
+  for i in $PHP_OPENSSL; do
+    if test -r $i/include/openssl/evp.h; then
+      OPENSSL_DIR=$i
+      OPENSSL_INC=$i/include
+    fi
+  done
+
+  if test -z "$OPENSSL_DIR"; then
+    AC_MSG_ERROR(Cannot find OpenSSL's <evp.h>)
+  fi
+
+  old_CPPFLAGS=$CPPFLAGS
+  CPPFLAGS="-I$OPENSSL_INC"
+  AC_MSG_CHECKING(for OpenSSL version)
+  AC_EGREP_CPP(yes,[
+  #include <openssl/opensslv.h>
+  #if OPENSSL_VERSION_NUMBER >= 0x0090500fL
+  yes
+  #endif
+  ],[
+    AC_MSG_RESULT(>= 0.9.5)
+  ],[
+    AC_MSG_ERROR(OpenSSL version 0.9.5 or greater required.)
+  ])
+  CPPFLAGS=$old_CPPFLAGS
+
+  AC_ADD_LIBPATH($OPENSSL_DIR/lib)
+
+  AC_CHECK_LIB(crypto, CRYPTO_free, [
+    AC_ADD_LIBRARY(crypto)
+  ],[
+    AC_MSG_ERROR(libcrypto not found!)
+  ])
+
+  AC_CHECK_LIB(ssl, SSL_CTX_set_ssl_version, [
+    AC_ADD_LIBRARY(ssl)
+  ],[
+    AC_MSG_ERROR(libssl not found!)
+  ])
+  AC_ADD_INCLUDE($OPENSSL_INC)
+])
 
 dnl PHP_EVAL_LIBLINE(LINE, SHARED-LIBADD)
 dnl
@@ -188,7 +235,7 @@ case "[$]$1" in
 shared,*)
   ext_output="yes, shared"
   ext_shared=yes
-  $1=`echo $ac_n "[$]$1$ac_c"|sed s/^shared,//`
+  $1=`echo "[$]$1"|sed 's/^shared,//'`
   ;;
 shared)
   ext_output="yes, shared"
@@ -296,6 +343,10 @@ fi
 
 AC_DEFUN(PHP_SUBST,[
   PHP_VAR_SUBST="$PHP_VAR_SUBST $1"
+])
+
+AC_DEFUN(PHP_SUBST_OLD,[
+  PHP_SUBST($1)
   AC_SUBST($1)
 ])
 
@@ -348,7 +399,7 @@ AC_DEFUN(PHP_CONFIGURE_PART,[
 ])
 
 AC_DEFUN(PHP_PROG_SENDMAIL,[
-AC_PATH_PROG(PROG_SENDMAIL, sendmail, /usr/lib/sendmail, $PATH:/usr/bin:/usr/sbin:/usr/etc:/etc:/usr/ucblib)
+AC_PATH_PROG(PROG_SENDMAIL, sendmail,[], $PATH:/usr/bin:/usr/sbin:/usr/etc:/etc:/usr/ucblib:/usr/lib)
 if test -n "$PROG_SENDMAIL"; then
   AC_DEFINE(HAVE_SENDMAIL,1,[whether you have sendmail])
 fi
@@ -1172,15 +1223,6 @@ esac
 ])
 
 
-dnl AM_PROG_LEX
-dnl Look for flex, lex or missing, then run AC_PROG_LEX and AC_DECL_YYTEXT
-AC_DEFUN(AM_PROG_LEX,
-[missing_dir=ifelse([$1],,`cd $ac_aux_dir && pwd`,$1)
-AC_CHECK_PROGS(LEX, flex lex, "$missing_dir/missing flex")
-AC_PROG_LEX
-AC_DECL_YYTEXT])
-
-
 # serial 40 AC_PROG_LIBTOOL
 AC_DEFUN(AC_PROG_LIBTOOL,
 [AC_REQUIRE([AC_LIBTOOL_SETUP])dnl
@@ -1232,12 +1274,7 @@ NONE) lt_target="$host" ;;
 esac
 
 # Check for any special flags to pass to ltconfig.
-#
-# the following will cause an existing older ltconfig to fail, so
-# we ignore this at the expense of the cache file... Checking this 
-# will just take longer ... bummer!
-#libtool_flags="--cache-file=$cache_file"
-#
+libtool_flags="--cache-file=$cache_file"
 test "$enable_shared" = no && libtool_flags="$libtool_flags --disable-shared"
 test "$enable_static" = no && libtool_flags="$libtool_flags --disable-static"
 test "$enable_fast_install" = no && libtool_flags="$libtool_flags --disable-fast-install"
@@ -1536,31 +1573,35 @@ esac
 ])
 
 # AC_LIBLTDL_CONVENIENCE[(dir)] - sets LIBLTDL to the link flags for
-# the libltdl convenience library, adds --enable-ltdl-convenience to
-# the configure arguments.  Note that LIBLTDL is not AC_SUBSTed, nor
-# is AC_CONFIG_SUBDIRS called.  If DIR is not provided, it is assumed
-# to be `${top_builddir}/libltdl'.  Make sure you start DIR with
-# '${top_builddir}/' (note the single quotes!) if your package is not
-# flat, and, if you're not using automake, define top_builddir as
-# appropriate in the Makefiles.
+# the libltdl convenience library and INCLTDL to the include flags for
+# the libltdl header and adds --enable-ltdl-convenience to the
+# configure arguments.  Note that LIBLTDL and INCLTDL are not
+# AC_SUBSTed, nor is AC_CONFIG_SUBDIRS called.  If DIR is not
+# provided, it is assumed to be `libltdl'.  LIBLTDL will be prefixed
+# with '${top_builddir}/' and INCLTDL will be prefixed with
+# '${top_srcdir}/' (note the single quotes!).  If your package is not
+# flat and you're not using automake, define top_builddir and
+# top_srcdir appropriately in the Makefiles.
 AC_DEFUN(AC_LIBLTDL_CONVENIENCE, [AC_BEFORE([$0],[AC_LIBTOOL_SETUP])dnl
   case "$enable_ltdl_convenience" in
   no) AC_MSG_ERROR([this package needs a convenience libltdl]) ;;
   "") enable_ltdl_convenience=yes
       ac_configure_args="$ac_configure_args --enable-ltdl-convenience" ;;
   esac
-  LIBLTDL=ifelse($#,1,$1,['${top_builddir}/libltdl'])/libltdlc.la
-  INCLTDL=ifelse($#,1,-I$1,['-I${top_builddir}/libltdl'])
+  LIBLTDL='${top_builddir}/'ifelse($#,1,[$1],['libltdl'])/libltdlc.la
+  INCLTDL='-I${top_srcdir}/'ifelse($#,1,[$1],['libltdl'])
 ])
 
 # AC_LIBLTDL_INSTALLABLE[(dir)] - sets LIBLTDL to the link flags for
-# the libltdl installable library, and adds --enable-ltdl-install to
-# the configure arguments.  Note that LIBLTDL is not AC_SUBSTed, nor
-# is AC_CONFIG_SUBDIRS called.  If DIR is not provided, it is assumed
-# to be `${top_builddir}/libltdl'.  Make sure you start DIR with
-# '${top_builddir}/' (note the single quotes!) if your package is not
-# flat, and, if you're not using automake, define top_builddir as
-# appropriate in the Makefiles.
+# the libltdl installable library and INCLTDL to the include flags for
+# the libltdl header and adds --enable-ltdl-install to the configure
+# arguments.  Note that LIBLTDL and INCLTDL are not AC_SUBSTed, nor is
+# AC_CONFIG_SUBDIRS called.  If DIR is not provided and an installed
+# libltdl is not found, it is assumed to be `libltdl'.  LIBLTDL will
+# be prefixed with '${top_builddir}/' and INCLTDL will be prefixed
+# with '${top_srcdir}/' (note the single quotes!).  If your package is
+# not flat and you're not using automake, define top_builddir and
+# top_srcdir appropriately in the Makefiles.
 # In the future, this macro may have to be called after AC_PROG_LIBTOOL.
 AC_DEFUN(AC_LIBLTDL_INSTALLABLE, [AC_BEFORE([$0],[AC_LIBTOOL_SETUP])dnl
   AC_CHECK_LIB(ltdl, main,
@@ -1573,8 +1614,8 @@ AC_DEFUN(AC_LIBLTDL_INSTALLABLE, [AC_BEFORE([$0],[AC_LIBTOOL_SETUP])dnl
   ])
   if test x"$enable_ltdl_install" = x"yes"; then
     ac_configure_args="$ac_configure_args --enable-ltdl-install"
-    LIBLTDL=ifelse($#,1,$1,['${top_builddir}/libltdl'])/libltdl.la
-    INCLTDL=ifelse($#,1,-I$1,['-I${top_builddir}/libltdl'])
+    LIBLTDL='${top_builddir}/'ifelse($#,1,[$1],['libltdl'])/libltdl.la
+    INCLTDL='-I${top_srcdir}/'ifelse($#,1,[$1],['libltdl'])
   else
     ac_configure_args="$ac_configure_args --enable-ltdl-install=no"
     LIBLTDL="-lltdl"

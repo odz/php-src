@@ -1,8 +1,55 @@
-dnl $Id: acinclude.m4,v 1.114 2000/11/21 08:38:19 hholzgra Exp $
+dnl $Id: acinclude.m4,v 1.121 2001/02/21 07:39:13 sas Exp $
 dnl
 dnl This file contains local autoconf functions.
 
 sinclude(dynlib.m4)
+
+AC_DEFUN(PHP_SETUP_OPENSSL,[
+  if test "$PHP_OPENSSL" = "no"; then
+    PHP_OPENSSL="/usr/local/ssl /usr/local /usr /usr/local/openssl"
+  fi
+
+  for i in $PHP_OPENSSL; do
+    if test -r $i/include/openssl/evp.h; then
+      OPENSSL_DIR=$i
+      OPENSSL_INC=$i/include
+    fi
+  done
+
+  if test -z "$OPENSSL_DIR"; then
+    AC_MSG_ERROR(Cannot find OpenSSL's <evp.h>)
+  fi
+
+  old_CPPFLAGS=$CPPFLAGS
+  CPPFLAGS="-I$OPENSSL_INC"
+  AC_MSG_CHECKING(for OpenSSL version)
+  AC_EGREP_CPP(yes,[
+  #include <openssl/opensslv.h>
+  #if OPENSSL_VERSION_NUMBER >= 0x0090500fL
+  yes
+  #endif
+  ],[
+    AC_MSG_RESULT(>= 0.9.5)
+  ],[
+    AC_MSG_ERROR(OpenSSL version 0.9.5 or greater required.)
+  ])
+  CPPFLAGS=$old_CPPFLAGS
+
+  AC_ADD_LIBPATH($OPENSSL_DIR/lib)
+
+  AC_CHECK_LIB(crypto, CRYPTO_free, [
+    AC_ADD_LIBRARY(crypto)
+  ],[
+    AC_MSG_ERROR(libcrypto not found!)
+  ])
+
+  AC_CHECK_LIB(ssl, SSL_CTX_set_ssl_version, [
+    AC_ADD_LIBRARY(ssl)
+  ],[
+    AC_MSG_ERROR(libssl not found!)
+  ])
+  AC_ADD_INCLUDE($OPENSSL_INC)
+])
 
 dnl PHP_EVAL_LIBLINE(LINE, SHARED-LIBADD)
 dnl
@@ -176,7 +223,7 @@ case "[$]$1" in
 shared,*)
   ext_output="yes, shared"
   ext_shared=yes
-  $1=`echo $ac_n "[$]$1$ac_c"|sed s/^shared,//`
+  $1=`echo "[$]$1"|sed 's/^shared,//'`
   ;;
 shared)
   ext_output="yes, shared"
@@ -284,6 +331,10 @@ fi
 
 AC_DEFUN(PHP_SUBST,[
   PHP_VAR_SUBST="$PHP_VAR_SUBST $1"
+])
+
+AC_DEFUN(PHP_SUBST_OLD,[
+  PHP_SUBST($1)
   AC_SUBST($1)
 ])
 
@@ -336,7 +387,7 @@ AC_DEFUN(PHP_CONFIGURE_PART,[
 ])
 
 AC_DEFUN(PHP_PROG_SENDMAIL,[
-AC_PATH_PROG(PROG_SENDMAIL, sendmail, /usr/lib/sendmail, $PATH:/usr/bin:/usr/sbin:/usr/etc:/etc:/usr/ucblib)
+AC_PATH_PROG(PROG_SENDMAIL, sendmail,[], $PATH:/usr/bin:/usr/sbin:/usr/etc:/etc:/usr/ucblib:/usr/lib)
 if test -n "$PROG_SENDMAIL"; then
   AC_DEFINE(HAVE_SENDMAIL,1,[whether you have sendmail])
 fi

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2000 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 0.92 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -41,9 +41,7 @@ ZEND_API int sub_function(zval *result, zval *op1, zval *op2);
 ZEND_API int mul_function(zval *result, zval *op1, zval *op2);
 ZEND_API int div_function(zval *result, zval *op1, zval *op2);
 ZEND_API int mod_function(zval *result, zval *op1, zval *op2);
-ZEND_API int boolean_or_function(zval *result, zval *op1, zval *op2);
 ZEND_API int boolean_xor_function(zval *result, zval *op1, zval *op2);
-ZEND_API int boolean_and_function(zval *result, zval *op1, zval *op2);
 ZEND_API int boolean_not_function(zval *result, zval *op1);
 ZEND_API int bitwise_not_function(zval *result, zval *op1);
 ZEND_API int bitwise_or_function(zval *result, zval *op1, zval *op2);

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -13,11 +13,11 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Zeev Suraski <zeev@zend.com>                                |
-   |          Jouni Ahto <jah@mork.net>                                   |
+   |          Jouni Ahto <jouni.ahto@exdec.fi>                            |
    +----------------------------------------------------------------------+
  */
  
-/* $Id: php_pgsql.h,v 1.22 2000/09/13 04:13:36 andi Exp $ */
+/* $Id: php_pgsql.h,v 1.28.2.1 2001/04/04 21:51:58 thies Exp $ */
 
 #ifndef PHP_PGSQL_H
 #define PHP_PGSQL_H
@@ -29,7 +29,6 @@ extern zend_module_entry pgsql_module_entry;
 
 #ifdef PHP_PGSQL_PRIVATE
 #undef SOCKET_SIZE_TYPE
-#include <postgres.h>
 #include <libpq-fe.h>
 
 #ifdef PHP_WIN32
@@ -48,6 +47,7 @@ extern zend_module_entry pgsql_module_entry;
 PHP_MINIT_FUNCTION(pgsql);
 PHP_MSHUTDOWN_FUNCTION(pgsql);
 PHP_RINIT_FUNCTION(pgsql);
+PHP_RSHUTDOWN_FUNCTION(pgsql);
 PHP_MINFO_FUNCTION(pgsql);
 PHP_FUNCTION(pg_connect);
 PHP_FUNCTION(pg_pconnect);
@@ -85,6 +85,8 @@ PHP_FUNCTION(pg_lowrite);
 PHP_FUNCTION(pg_loreadall);
 PHP_FUNCTION(pg_loimport);
 PHP_FUNCTION(pg_loexport);
+PHP_FUNCTION(pg_lolseek);
+PHP_FUNCTION(pg_lotell);
 PHP_FUNCTION(pg_put_line);
 PHP_FUNCTION(pg_end_copy);
 #if HAVE_PQCLIENTENCODING
@@ -117,6 +119,7 @@ typedef struct {
 	long max_links,max_persistent;
 	long allow_persistent;
 	int le_lofp,le_string;
+	int ignore_notices;
 } php_pgsql_globals;
 
 
