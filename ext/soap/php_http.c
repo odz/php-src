@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2006 The PHP Group                                |
+  | Copyright (c) 1997-2007 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
   |          Dmitry Stogov <dmitry@zend.com>                             |
   +----------------------------------------------------------------------+
 */
-/* $Id: php_http.c,v 1.77.2.11.2.3 2006/09/06 11:03:45 dmitry Exp $ */
+/* $Id: php_http.c,v 1.77.2.11.2.5 2007/01/01 09:36:06 sebastian Exp $ */
 
 #include "php_soap.h"
 #include "ext/standard/base64.h"
@@ -469,9 +469,10 @@ try_again:
 					char          HA1[33], HA2[33], response[33], cnonce[33], nc[9];
 					PHP_MD5_CTX   md5ctx;
 					unsigned char hash[16];
+					unsigned int ctx;
 
 					PHP_MD5Init(&md5ctx);
-					sprintf(cnonce, "%d", rand());
+					sprintf(cnonce, "%d", php_rand_r(&ctx));
 					PHP_MD5Update(&md5ctx, (unsigned char*)cnonce, strlen(cnonce));
 					PHP_MD5Final(hash, &md5ctx);
 					make_digest(cnonce, hash);

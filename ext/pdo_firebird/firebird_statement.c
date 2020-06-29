@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2006 The PHP Group                                |
+  | Copyright (c) 1997-2007 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: firebird_statement.c,v 1.18.2.1 2006/01/01 12:50:11 sniper Exp $ */
+/* $Id: firebird_statement.c,v 1.18.2.1.2.2 2007/01/05 15:06:55 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -366,11 +366,11 @@ static int firebird_stmt_get_col(pdo_stmt_t *stmt, int colno, char **ptr,  /* {{
 					break;
 				case SQL_FLOAT:
 					*ptr = FETCH_BUF(S->fetch_buf[colno], char, 24, NULL);
-					*len = sprintf(*ptr, "%f", *(float*)var->sqldata);
+					*len = sprintf(*ptr, "%F", *(float*)var->sqldata);
 					break;
 				case SQL_DOUBLE:
 					*ptr = FETCH_BUF(S->fetch_buf[colno], char, 24, NULL);
-					*len = sprintf(*ptr, "%f" , *(double*)var->sqldata);
+					*len = sprintf(*ptr, "%F" , *(double*)var->sqldata);
 					break;
 /* --- cut here --- */
 #if abies_0

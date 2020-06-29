@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sockets.c,v 1.171.2.9.2.4 2006/10/03 19:51:01 iliaa Exp $ */
+/* $Id: sockets.c,v 1.171.2.9.2.7 2007/01/10 15:25:07 bjori Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -138,7 +138,9 @@ zend_function_entry sockets_functions[] = {
 	PHP_FE(socket_sendto,			NULL)
 	PHP_FE(socket_get_option,		NULL)
 	PHP_FE(socket_set_option,		NULL)
+#ifdef HAVE_SHUTDOWN
 	PHP_FE(socket_shutdown,			NULL)
+#endif
 	PHP_FE(socket_last_error,		NULL)
 	PHP_FE(socket_clear_error,		NULL)
 	
@@ -1600,11 +1602,12 @@ PHP_FUNCTION(socket_set_option)
 {
 	zval			*arg1, **arg4;
 	struct linger	lv;
-	struct timeval tv;
 	php_socket		*php_sock;
 	int				ov, optlen, retval; 
 #ifdef PHP_WIN32
 	int				timeout;
+#else 
+	struct timeval tv;
 #endif
 	long				level, optname;
 	void 			*opt_ptr;
@@ -1758,6 +1761,7 @@ PHP_FUNCTION(socket_create_pair)
 /* }}} */
 #endif
 
+#ifdef HAVE_SHUTDOWN
 /* {{{ proto bool socket_shutdown(resource socket[, int how])
    Shuts down a socket for receiving, sending, or both. */
 PHP_FUNCTION(socket_shutdown)
@@ -1779,6 +1783,7 @@ PHP_FUNCTION(socket_shutdown)
 	RETURN_TRUE;
 }
 /* }}} */
+#endif
 
 /* {{{ proto int socket_last_error([resource socket])
    Returns the last socket error (either the last used or the provided socket resource) */

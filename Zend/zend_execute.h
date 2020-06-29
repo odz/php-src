@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2006 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_execute.h,v 1.84.2.4.2.4 2006/10/18 16:35:15 johannes Exp $ */
+/* $Id: zend_execute.h,v 1.84.2.4.2.6 2007/01/10 15:58:07 dmitry Exp $ */
 
 #ifndef ZEND_EXECUTE_H
 #define ZEND_EXECUTE_H
@@ -41,6 +41,12 @@ typedef union _temp_variable {
 		zval *str;
 		zend_uint offset;
 	} str_offset;
+	struct {
+		zval **ptr_ptr;
+		zval *ptr;
+		zend_bool fcall_returned_reference;
+		HashPointer fe_pos;
+	} fe;
 	zend_class_entry *class_entry;
 } temp_variable;
 

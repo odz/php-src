@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: filestat.c,v 1.136.2.8.2.3 2006/07/02 13:51:40 iliaa Exp $ */
+/* $Id: filestat.c,v 1.136.2.8.2.10 2007/01/22 09:31:46 dmitry Exp $ */
 
 #include "php.h"
 #include "safe_mode.h"
@@ -356,7 +356,6 @@ static void php_do_chgrp(INTERNAL_FUNCTION_PARAMETERS, int do_lchgrp)
 {
 	zval **filename, **group;
 	gid_t gid;
-	struct group *gr=NULL;
 	int ret;
 
 	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2, &filename, &group)==FAILURE) {
@@ -364,13 +363,33 @@ static void php_do_chgrp(INTERNAL_FUNCTION_PARAMETERS, int do_lchgrp)
 	}
 	convert_to_string_ex(filename);
 	if (Z_TYPE_PP(group) == IS_STRING) {
-		gr = getgrnam(Z_STRVAL_PP(group));
+#if defined(ZTS) && defined(HAVE_GETGRNAM_R) && defined(_SC_GETGR_R_SIZE_MAX)
+		struct group gr;
+		struct group *retgrptr;
+		long grbuflen = sysconf(_SC_GETGR_R_SIZE_MAX);
+		char *grbuf;
+
+		if (grbuflen < 1) {
+			RETURN_FALSE;
+		}
+
+		grbuf = emalloc(grbuflen);
+		if (getgrnam_r(Z_STRVAL_PP(group), &gr, grbuf, grbuflen, &retgrptr) != 0 || retgrptr == NULL) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to find gid for %s", Z_STRVAL_PP(group));
+			efree(grbuf);
+			RETURN_FALSE;
+		}
+		efree(grbuf);
+		gid = gr.gr_gid;
+#else
+		struct group *gr = getgrnam(Z_STRVAL_PP(group));
+
 		if (!gr) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to find gid for %s",
-					   Z_STRVAL_PP(group));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to find gid for %s", Z_STRVAL_PP(group));
 			RETURN_FALSE;
 		}
 		gid = gr->gr_gid;
+#endif
 	} else {
 		convert_to_long_ex(group);
 		gid = Z_LVAL_PP(group);
@@ -428,25 +447,45 @@ PHP_FUNCTION(lchgrp)
 /* }}} */
 #endif
 
+#if !defined(WINDOWS)
 static void php_do_chown(INTERNAL_FUNCTION_PARAMETERS, int do_lchown)
 {
 	zval **filename, **user;
 	int ret;
 	uid_t uid;
-	struct passwd *pw = NULL;
 
 	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2, &filename, &user)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(filename);
 	if (Z_TYPE_PP(user) == IS_STRING) {
-		pw = getpwnam(Z_STRVAL_PP(user));
+#if defined(ZTS) && defined(_SC_GETPW_R_SIZE_MAX) && defined(HAVE_GETPWNAM_R)
+		struct passwd pw;
+		struct passwd *retpwptr = NULL;
+		long pwbuflen = sysconf(_SC_GETPW_R_SIZE_MAX);
+		char *pwbuf;
+
+		if (pwbuflen < 1) {
+			RETURN_FALSE;
+		}
+
+		pwbuf = emalloc(pwbuflen);
+		if (getpwnam_r(Z_STRVAL_PP(user), &pw, pwbuf, pwbuflen, &retpwptr) != 0 || retpwptr == NULL) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to find uid for %s", Z_STRVAL_PP(user));
+			efree(pwbuf);
+			RETURN_FALSE;
+		}
+		efree(pwbuf);
+		uid = pw.pw_uid;
+#else
+		struct passwd *pw = getpwnam(Z_STRVAL_PP(user));
+
 		if (!pw) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to find uid for %s",
-					   Z_STRVAL_PP(user));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to find uid for %s", Z_STRVAL_PP(user));
 			RETURN_FALSE;
 		}
 		uid = pw->pw_uid;
+#endif
 	} else {
 		convert_to_long_ex(user);
 		uid = Z_LVAL_PP(user);
@@ -473,6 +512,7 @@ static void php_do_chown(INTERNAL_FUNCTION_PARAMETERS, int do_lchown)
 		RETURN_FALSE;
 	}
 }
+#endif
 
 #ifndef NETWARE
 /* {{{ proto bool chown (string filename, mixed user)
@@ -633,6 +673,7 @@ PHP_FUNCTION(clearstatcache)
 		efree(BG(CurrentLStatFile));
 		BG(CurrentLStatFile) = NULL;
 	}
+	realpath_cache_clean(TSRMLS_C);
 }
 /* }}} */
 
@@ -654,14 +695,27 @@ PHPAPI void php_stat(const char *filename, php_stat_len filename_length, int typ
 			      "size", "atime", "mtime", "ctime", "blksize", "blocks"};
 	char *local;
 	php_stream_wrapper *wrapper;
+	char safe_mode_buf[MAXPATHLEN];
 
 	if (!filename_length) {
 		RETURN_FALSE;
 	}
 
 	if ((wrapper = php_stream_locate_url_wrapper(filename, &local, 0 TSRMLS_CC)) == &php_plain_files_wrapper) {
-		if (php_check_open_basedir(local TSRMLS_CC) || (PG(safe_mode) && !php_checkuid_ex(filename, NULL, CHECKUID_ALLOW_FILE_NOT_EXISTS, CHECKUID_NO_ERRORS))) {
+		if (php_check_open_basedir(local TSRMLS_CC)) {
 			RETURN_FALSE;
+		} else if (PG(safe_mode)) {
+			if (type == FS_IS_X) {
+				if (strstr(local, "..")) {
+					RETURN_FALSE;
+				} else {
+					char *b = strrchr(local, PHP_DIR_SEPARATOR);
+					snprintf(safe_mode_buf, MAXPATHLEN, "%s%s%s", PG(safe_mode_exec_dir), (b ? "" : "/"), (b ? b : local));
+					local = (char *)&safe_mode_buf;
+				}
+			} else if (!php_checkuid_ex(local, NULL, CHECKUID_ALLOW_FILE_NOT_EXISTS, CHECKUID_NO_ERRORS)) {
+				RETURN_FALSE;
+			}
 		}
 	}
 

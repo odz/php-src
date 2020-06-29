@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -26,7 +26,7 @@
    | PHP 4.0 updates:  Zeev Suraski <zeev@zend.com>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_imap.c,v 1.208.2.7.2.7 2006/10/05 14:25:41 tony2001 Exp $ */
+/* $Id: php_imap.c,v 1.208.2.7.2.16 2007/01/18 14:03:38 tony2001 Exp $ */
 
 #define IMAP41
 
@@ -62,6 +62,9 @@ MAILSTREAM DEFAULTPROTO;
 #define CRLF_LEN sizeof("\015\012") - 1
 #define PHP_EXPUNGE 32768
 #define PHP_IMAP_ADDRESS_SIZE_BUF 10
+#ifndef SENDBUFLEN
+#define SENDBUFLEN 16385
+#endif
 
 static void _php_make_header_object(zval *myzvalue, ENVELOPE *en TSRMLS_DC);
 static void _php_imap_add_body(zval *arg, BODY *body TSRMLS_DC);
@@ -169,10 +172,18 @@ zend_function_entry imap_functions[] = {
 };
 /* }}} */
 
+/* {{{ imap dependencies */
+static zend_module_dep imap_deps[] = {
+	ZEND_MOD_REQUIRED("standard")
+	{NULL, NULL, NULL}
+};
+/* }}} */
+
 /* {{{ imap_module_entry
  */
 zend_module_entry imap_module_entry = {
-	STANDARD_MODULE_HEADER,
+	STANDARD_MODULE_HEADER_EX, NULL,
+	imap_deps,
 	"imap",
 	imap_functions,
 	PHP_MINIT(imap),
@@ -463,6 +474,7 @@ PHP_MINIT_FUNCTION(imap)
 #if HAVE_IMAP_KRB && defined(HAVE_IMAP_AUTH_GSS)
 	auth_link(&auth_gss);		/* link in the gss authenticator */
 #endif
+	auth_link(&auth_pla);		/* link in the plain authenticator */
 
 #ifdef HAVE_IMAP_SSL
 	ssl_onceonlyinit ();
@@ -736,21 +748,21 @@ PHP_MINFO_FUNCTION(imap)
  */
 static void php_imap_do_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 {
-	zval **mailbox, **user, **passwd, **options;
+	zval **mailbox, **user, **passwd, **options, **retries;
 	MAILSTREAM *imap_stream;
 	pils *imap_le_struct;
 	long flags=NIL;
 	long cl_flags=NIL;
 	int myargc = ZEND_NUM_ARGS();
 	
-	if (myargc < 3 || myargc > 4 || zend_get_parameters_ex(myargc, &mailbox, &user, &passwd, &options) == FAILURE) {
+	if (myargc < 3 || myargc > 5 || zend_get_parameters_ex(myargc, &mailbox, &user, &passwd, &options, &retries) == FAILURE) {
 		ZEND_WRONG_PARAM_COUNT();
 	}
 
 	convert_to_string_ex(mailbox);
 	convert_to_string_ex(user);
 	convert_to_string_ex(passwd);
-	if (myargc ==4) {
+	if (myargc >= 4) {
 		convert_to_long_ex(options);
 		flags = Z_LVAL_PP(options);
 		if (flags & PHP_EXPUNGE) {
@@ -777,6 +789,13 @@ static void php_imap_do_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 	IMAPG(imap_user)     = estrndup(Z_STRVAL_PP(user), Z_STRLEN_PP(user));
 	IMAPG(imap_password) = estrndup(Z_STRVAL_PP(passwd), Z_STRLEN_PP(passwd));
 
+#ifdef SET_MAXLOGINTRIALS
+	if (myargc == 5) {
+		convert_to_long_ex(retries);
+		mail_parameters(NIL, SET_MAXLOGINTRIALS, (void *) Z_LVAL_PP(retries));
+	}
+#endif
+
 	imap_stream = mail_open(NIL, Z_STRVAL_PP(mailbox), flags);
 
 	if (imap_stream == NIL) {
@@ -794,7 +813,7 @@ static void php_imap_do_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 }
 /* }}} */
 
-/* {{{ proto resource imap_open(string mailbox, string user, string password [, int options])
+/* {{{ proto resource imap_open(string mailbox, string user, string password [, int options [, int n_retries]])
    Open an IMAP stream to a mailbox */
 PHP_FUNCTION(imap_open)
 {
@@ -802,18 +821,18 @@ PHP_FUNCTION(imap_open)
 }
 /* }}} */
 
-/* {{{ proto bool imap_reopen(resource stream_id, string mailbox [, int options])
+/* {{{ proto bool imap_reopen(resource stream_id, string mailbox [, int options [, int n_retries]])
    Reopen an IMAP stream to a new mailbox */
 PHP_FUNCTION(imap_reopen)
 {
-	zval **streamind, **mailbox, **options;
+	zval **streamind, **mailbox, **options, **retries;
 	pils *imap_le_struct; 
 	MAILSTREAM *imap_stream;
 	long flags=NIL;
 	long cl_flags=NIL;
 	int myargc=ZEND_NUM_ARGS();
 
-	if (myargc < 2 || myargc > 3 || zend_get_parameters_ex(myargc, &streamind, &mailbox, &options) == FAILURE) {
+	if (myargc < 2 || myargc > 4 || zend_get_parameters_ex(myargc, &streamind, &mailbox, &options, &retries) == FAILURE) {
 		ZEND_WRONG_PARAM_COUNT();
 	}
 
@@ -821,7 +840,7 @@ PHP_FUNCTION(imap_reopen)
 
 	convert_to_string_ex(mailbox);
 
-	if (myargc == 3) {
+	if (myargc >= 3) {
 		convert_to_long_ex(options);
 		flags = Z_LVAL_PP(options);
 		if (flags & PHP_EXPUNGE) {
@@ -830,7 +849,12 @@ PHP_FUNCTION(imap_reopen)
 		}
 		imap_le_struct->flags = cl_flags;	
 	}
-
+#ifdef SET_MAXLOGINTRIALS
+	if (myargc == 4) {
+		convert_to_long_ex(retries);
+		mail_parameters(NIL, SET_MAXLOGINTRIALS, (void *) Z_LVAL_PP(retries));
+	}
+#endif
 	/* local filename, need to perform open_basedir and safe_mode checks */
 	if (Z_STRVAL_PP(mailbox)[0] != '{' && 
 			(php_check_open_basedir(Z_STRVAL_PP(mailbox) TSRMLS_CC) || 
@@ -1158,13 +1182,13 @@ PHP_FUNCTION(imap_headers)
 		if ((i = cache->user_flags)) {
 			strcat(tmp, "{");
 			while (i) {
-				strcat(tmp, imap_le_struct->imap_stream->user_flags[find_rightmost_bit (&i)]);
-				if (i) strcat(tmp, " ");
+				strlcat(tmp, imap_le_struct->imap_stream->user_flags[find_rightmost_bit (&i)], sizeof(tmp));
+				if (i) strlcat(tmp, " ", sizeof(tmp));
 			}
-			strcat(tmp, "} ");
+			strlcat(tmp, "} ", sizeof(tmp));
 		}
 		mail_fetchsubject(t = tmp + strlen(tmp), imap_le_struct->imap_stream, msgno, (long)25);
-		sprintf(t += strlen(t), " (%ld chars)", cache->rfc822_size);
+		snprintf(t += strlen(t), sizeof(tmp) - strlen(tmp),  " (%ld chars)", cache->rfc822_size);
 		add_next_index_string(return_value, tmp, 1);
 	}
 }
@@ -2929,7 +2953,7 @@ PHP_FUNCTION(imap_mail_compose)
 	BODY *bod=NULL, *topbod=NULL;
 	PART *mypart=NULL, *part;
 	PARAMETER *param, *disp_param = NULL, *custom_headers_param = NULL, *tmp_param = NULL;
-	char tmp[8 * MAILTMPLEN], *mystring=NULL, *t=NULL, *tempstring=NULL;
+	char tmp[SENDBUFLEN + 1], *mystring=NULL, *t=NULL, *tempstring=NULL;
 	int toppart = 0;
 
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &envelope, &body) == FAILURE) {
@@ -3230,8 +3254,8 @@ PHP_FUNCTION(imap_mail_compose)
 		goto done;
 	}
 
-	rfc822_encode_body_7bit(env, topbod); 
-	rfc822_header (tmp, env, topbod);
+	rfc822_encode_body_7bit(env, topbod);
+	rfc822_header(tmp, env, topbod);
 
 	/* add custom envelope headers */
 	if (custom_headers_param) {
@@ -3280,43 +3304,42 @@ PHP_FUNCTION(imap_mail_compose)
 		/* yucky default */
 			if (!cookie) {
 				cookie = "-";  
+			} else if (strlen(cookie) > (sizeof(tmp) - 2 - 2)) {  /* validate cookie length -- + CRLF */
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "The boudary should be no longer then 4kb");
+				RETVAL_FALSE;
+				goto done;	
 			}
 
 		/* for each part */
 			do {
 				t=tmp;
 			/* build cookie */
-				sprintf (t, "--%s%s", cookie, CRLF);
+				sprintf(t, "--%s%s", cookie, CRLF);
 
 			/* append mini-header */
 				rfc822_write_body_header(&t, &part->body);
 
 			/* write terminating blank line */
-				strcat (t, CRLF);
+				strcat(t, CRLF);
 
 			/* output cookie, mini-header, and contents */
-				tempstring=emalloc(strlen(mystring)+strlen(tmp)+1);
-				sprintf(tempstring, "%s%s", mystring, tmp);
+				spprintf(&tempstring, 0, "%s%s", mystring, tmp);
 				efree(mystring);
 				mystring=tempstring;
 
 				bod=&part->body;
 
-				tempstring=emalloc(strlen(bod->contents.text.data)+strlen(CRLF)+strlen(mystring)+1);
-				sprintf(tempstring, "%s%s%s", mystring, bod->contents.text.data, CRLF);
+				spprintf(&tempstring, 0, "%s%s%s", mystring, bod->contents.text.data, CRLF);
 				efree(mystring);
 				mystring=tempstring;
 			} while ((part = part->next)); /* until done */
 
 			/* output trailing cookie */
-			sprintf(tmp, "--%s--", cookie);
-			tempstring=emalloc(strlen(tmp)+strlen(CRLF)+strlen(mystring)+1);
-			sprintf(tempstring, "%s%s%s", mystring, tmp, CRLF);
+			spprintf(&tempstring, 0, "%s--%s--%s", mystring, tmp, CRLF);
 			efree(mystring);
 			mystring=tempstring;
 	} else if (bod) {
-			tempstring = emalloc(strlen(bod->contents.text.data)+strlen(CRLF)+strlen(mystring)+1);
-			sprintf(tempstring, "%s%s%s", mystring, bod->contents.text.data, CRLF);
+			spprintf(&tempstring, 0, "%s%s%s", mystring, bod->contents.text.data, CRLF);
 			efree(mystring);
 			mystring=tempstring;
 	} else {
@@ -3364,14 +3387,14 @@ int _php_imap_mail(char *to, char *subject, char *message, char *headers, char *
 #define PHP_IMAP_CLEAN	if (bufferTo) efree(bufferTo); if (bufferCc) efree(bufferCc); if (bufferBcc) efree(bufferBcc); if (bufferHeader) efree(bufferHeader);
 #define PHP_IMAP_BAD_DEST PHP_IMAP_CLEAN; efree(tempMailTo); return (BAD_MSG_DESTINATION);
 
-	bufferHeader = (char *)emalloc(bufferLen);
+	bufferHeader = (char *)emalloc(bufferLen + 1);
 	memset(bufferHeader, 0, bufferLen);
 	if (to && *to) {
-		strcat(bufferHeader, "To: ");
-		strcat(bufferHeader, to);
-		strcat(bufferHeader, "\r\n");
+		strlcat(bufferHeader, "To: ", bufferLen + 1);
+		strlcat(bufferHeader, to, bufferLen + 1);
+		strlcat(bufferHeader, "\r\n", bufferLen + 1);
 		tempMailTo = estrdup(to);
-		bufferTo = (char *)emalloc(strlen(to));
+		bufferTo = (char *)emalloc(strlen(to) + 1);
 		offset = 0;
 		addr = NULL;
 		rfc822_parse_adrlist(&addr, tempMailTo, NULL);
@@ -3390,11 +3413,11 @@ int _php_imap_mail(char *to, char *subject, char *message, char *headers, char *
 	}
 
 	if (cc && *cc) {
-		strcat(bufferHeader, "Cc: ");
-		strcat(bufferHeader, cc);
-		strcat(bufferHeader, "\r\n");
+		strlcat(bufferHeader, "Cc: ", bufferLen + 1);
+		strlcat(bufferHeader, cc, bufferLen + 1);
+		strlcat(bufferHeader, "\r\n", bufferLen + 1);
 		tempMailTo = estrdup(cc);
-		bufferCc = (char *)emalloc(strlen(cc));
+		bufferCc = (char *)emalloc(strlen(cc) + 1);
 		offset = 0;
 		addr = NULL;
 		rfc822_parse_adrlist(&addr, tempMailTo, NULL);
@@ -3414,7 +3437,7 @@ int _php_imap_mail(char *to, char *subject, char *message, char *headers, char *
 
 	if (bcc && *bcc) {
 		tempMailTo = estrdup(bcc);
-		bufferBcc = (char *)emalloc(strlen(bcc));
+		bufferBcc = (char *)emalloc(strlen(bcc) + 1);
 		offset = 0;
 		addr = NULL;
 		rfc822_parse_adrlist(&addr, tempMailTo, NULL);
@@ -3433,7 +3456,7 @@ int _php_imap_mail(char *to, char *subject, char *message, char *headers, char *
 	}
 
 	if (headers && *headers) {
-		strcat(bufferHeader, headers);
+		strlcat(bufferHeader, headers, bufferLen + 1);
 	}
 
 	if (TSendMail(INI_STR("SMTP"), &tsm_err, &tsm_errmsg, bufferHeader, subject, bufferTo, message, bufferCc, bufferBcc, rpath TSRMLS_CC) != SUCCESS) {

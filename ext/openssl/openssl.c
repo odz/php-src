@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: openssl.c,v 1.98.2.5.2.23 2006/10/15 21:09:24 tony2001 Exp $ */
+/* $Id: openssl.c,v 1.98.2.5.2.27 2007/01/20 22:08:29 rrichards Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -1003,7 +1003,8 @@ PHP_FUNCTION(openssl_x509_parse)
 	
 	add_assoc_name_entry(return_value, "issuer", 		X509_get_issuer_name(cert), useshortnames TSRMLS_CC);
 	add_assoc_long(return_value, "version", 			X509_get_version(cert));
-	add_assoc_long(return_value, "serialNumber", 		ASN1_INTEGER_get(X509_get_serialNumber(cert)));
+
+	add_assoc_string(return_value, "serialNumber", i2s_ASN1_INTEGER(NULL, X509_get_serialNumber(cert)), 1); 
 
 	add_assoc_asn1_string(return_value, "validFrom", 	X509_get_notBefore(cert));
 	add_assoc_asn1_string(return_value, "validTo", 		X509_get_notAfter(cert));
@@ -1957,10 +1958,10 @@ static EVP_PKEY * php_openssl_evp_from_zval(zval ** val, int public_key, char * 
 				/* got the key - return it */
 				return (EVP_PKEY*)what;
 			}
+		} else {
+			/* other types could be used here - eg: file pointers and read in the data from them */
+			TMP_CLEAN;
 		}
-
-		/* other types could be used here - eg: file pointers and read in the data from them */
-		TMP_CLEAN;
 	} else {
 		/* force it to be a string and check if it refers to a file */
 		/* passing non string values leaks, object uses toString, it returns NULL 
@@ -2055,7 +2056,7 @@ static EVP_PKEY * php_openssl_generate_private_key(struct php_x509_request * req
 					return_val = req->priv_key;
 				}
 				break;
-#ifndef NO_DSA
+#if !defined(NO_DSA) && defined(HAVE_DSA_DEFAULT_METHOD)
 			case OPENSSL_KEYTYPE_DSA:
 				{
 					DSA *dsapar = DSA_generate_parameters(req->priv_key_bits, NULL, 0, NULL, NULL, NULL, NULL);

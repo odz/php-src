@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -22,7 +22,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: ldap.c,v 1.161.2.3.2.1 2006/06/15 18:33:07 dmitry Exp $ */
+/* $Id: ldap.c,v 1.161.2.3.2.3 2007/01/05 15:06:55 iliaa Exp $ */
 #define IS_EXT_MODULE
 
 #ifdef HAVE_CONFIG_H
@@ -317,7 +317,7 @@ PHP_MINFO_FUNCTION(ldap)
 
 	php_info_print_table_start();
 	php_info_print_table_row(2, "LDAP Support", "enabled");
-	php_info_print_table_row(2, "RCS Version", "$Id: ldap.c,v 1.161.2.3.2.1 2006/06/15 18:33:07 dmitry Exp $");
+	php_info_print_table_row(2, "RCS Version", "$Id: ldap.c,v 1.161.2.3.2.3 2007/01/05 15:06:55 iliaa Exp $");
 
 	if (LDAPG(max_links) == -1) {
 		snprintf(tmp, 31, "%ld/unlimited", LDAPG(num_links));
@@ -342,13 +342,13 @@ PHP_MINFO_FUNCTION(ldap)
 
 #if HAVE_NSLDAP
 	SDKVersion = ldap_version(&ver);
-	snprintf(tmp, 31, "%f", SDKVersion/100.0);
+	snprintf(tmp, 31, "%F", SDKVersion/100.0);
 	php_info_print_table_row(2, "SDK Version", tmp);
 
-	snprintf(tmp, 31, "%f", ver.protocol_version/100.0);
+	snprintf(tmp, 31, "%F", ver.protocol_version/100.0);
 	php_info_print_table_row(2, "Highest LDAP Protocol Supported", tmp);
 
-	snprintf(tmp, 31, "%f", ver.SSL_version/100.0);
+	snprintf(tmp, 31, "%F", ver.SSL_version/100.0);
 	php_info_print_table_row(2, "SSL Level Supported", tmp);
 
 	if (ver.security_level != LDAP_SECURITY_NONE) {

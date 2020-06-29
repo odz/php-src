@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: fastcgi.c,v 1.4.2.13.2.11 2006/10/16 10:46:59 dmitry Exp $ */
+/* $Id: fastcgi.c,v 1.4.2.13.2.14 2007/01/01 09:36:12 sebastian Exp $ */
 
 #include "php.h"
 #include "fastcgi.h"
@@ -347,6 +347,7 @@ static inline ssize_t safe_write(fcgi_request *req, const void *buf, size_t coun
 	size_t n = 0;
 
 	do {
+		errno = 0;
 		ret = write(req->fd, ((char*)buf)+n, count-n);
 		if (ret > 0) {
 			n += ret;
@@ -363,6 +364,7 @@ static inline ssize_t safe_read(fcgi_request *req, const void *buf, size_t count
 	size_t n = 0;
 
 	do {
+		errno = 0;
 		ret = read(req->fd, ((char*)buf)+n, count-n);
 		if (ret > 0) {
 			n += ret;
@@ -616,6 +618,13 @@ static inline void fcgi_close(fcgi_request *req, int force, int destroy)
 	if (destroy) {
 		zend_hash_destroy(&req->env);
 	}
+
+#ifdef _WIN32
+	if (is_impersonate) {
+		RevertToSelf();
+	}
+#endif
+
 	if ((force || !req->keep) && req->fd >= 0) {
 #ifdef _WIN32
 		HANDLE pipe = (HANDLE)_get_osfhandle(req->fd);
@@ -624,9 +633,6 @@ static inline void fcgi_close(fcgi_request *req, int force, int destroy)
 			FlushFileBuffers(pipe);
 		}
 		DisconnectNamedPipe(pipe);
-		if (is_impersonate) {
-			RevertToSelf();
-		}
 #else
 		if (!force) {
 			char buf[8];
@@ -673,12 +679,7 @@ int fcgi_accept_request(fcgi_request *req)
 					}
 				}
 				CloseHandle(ov.hEvent);
-				if (is_impersonate && !ImpersonateNamedPipeClient(pipe)) {
-					DisconnectNamedPipe(pipe);
-					req->fd = -1;
-				} else {
-					req->fd = req->listen_socket;
-				}
+				req->fd = req->listen_socket;
 				FCGI_UNLOCK(req->listen_socket);
 #else
 				{
@@ -718,6 +719,15 @@ try_again:
 			return -1;
 		}
 		if (fcgi_read_request(req)) {
+#ifdef _WIN32
+			if (is_impersonate) {
+				pipe = (HANDLE)_get_osfhandle(req->fd);
+				if (!ImpersonateNamedPipeClient(pipe)) {
+					fcgi_close(req, 1, 1);
+					continue;
+				}
+			}
+#endif
 			return req->fd;
 		} else {
 			fcgi_close(req, 1, 1);

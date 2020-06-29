@@ -1,5 +1,7 @@
 --TEST--
 filter_var()
+--SKIPIF--
+<?php if (!extension_loaded("filter")) die("skip"); ?>
 --FILE--
 <?php
 
@@ -55,6 +57,6 @@ NULL
 string(1) "1"
 string(1) "1"
 string(1) "1"
-string(1) "1"
-string(1) "1"
+bool(false)
+bool(false)
 Done

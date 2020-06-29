@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: com_wrapper.c,v 1.9.2.1 2006/01/01 12:50:00 sniper Exp $ */
+/* $Id: com_wrapper.c,v 1.9.2.1.2.3 2007/02/02 15:27:35 wharmby Exp $ */
 
 /* This module exports a PHP object as a COM object by wrapping it
  * using IDispatchEx */
@@ -298,6 +298,17 @@ static HRESULT STDMETHODCALLTYPE disp_invokeex(
 							&retval, pdp->cArgs, params, 1, NULL TSRMLS_CC)) {
 					ret = S_OK;
 					trace("function called ok\n");
+
+					/* Copy any modified values to callers copy of variant*/
+					for (i = 0; i < pdp->cArgs; i++) {
+						php_com_dotnet_object *obj = CDNO_FETCH(*params[i]);
+						VARIANT *srcvar = &obj->v;
+						VARIANT *dstvar = &pdp->rgvarg[ pdp->cArgs - 1 - i];
+						if ((V_VT(dstvar) & VT_BYREF) && obj->modified ) {
+							trace("percolate modified value for arg %d VT=%08x\n", i, V_VT(dstvar));
+							php_com_copy_variant(dstvar, srcvar TSRMLS_CC);   
+						}
+					}
 				} else {
 					trace("failed to call func\n");
 					ret = DISP_E_EXCEPTION;
@@ -477,6 +488,7 @@ static void generate_dispids(php_dispatchex *disp TSRMLS_DC)
 			/* add the mappings */
 			MAKE_STD_ZVAL(tmp);
 			ZVAL_STRINGL(tmp, name, namelen-1, 1);
+			pid = zend_hash_next_free_element(disp->dispid_to_name);
 			zend_hash_index_update(disp->dispid_to_name, pid, (void*)&tmp, sizeof(zval *), NULL);
 
 			MAKE_STD_ZVAL(tmp);
@@ -508,6 +520,7 @@ static void generate_dispids(php_dispatchex *disp TSRMLS_DC)
 			/* add the mappings */
 			MAKE_STD_ZVAL(tmp);
 			ZVAL_STRINGL(tmp, name, namelen-1, 1);
+			pid = zend_hash_next_free_element(disp->dispid_to_name);
 			zend_hash_index_update(disp->dispid_to_name, pid, (void*)&tmp, sizeof(zval *), NULL);
 
 			MAKE_STD_ZVAL(tmp);

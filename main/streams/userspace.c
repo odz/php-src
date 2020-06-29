@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: userspace.c,v 1.31.2.3.2.1 2006/08/14 15:01:29 tony2001 Exp $ */
+/* $Id: userspace.c,v 1.31.2.3.2.3 2007/01/15 17:07:07 tony2001 Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -455,7 +455,7 @@ PHP_FUNCTION(stream_wrapper_register)
 			RETURN_TRUE;
 		} else {
 			/* We failed.  But why? */
-			if (zend_hash_exists(php_stream_get_url_stream_wrappers_hash(), protocol, protocol_len)) {
+			if (zend_hash_exists(php_stream_get_url_stream_wrappers_hash(), protocol, protocol_len + 1)) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Protocol %s:// is already defined.", protocol);
 			} else {
 				/* Should never happen */
@@ -511,7 +511,7 @@ PHP_FUNCTION(stream_wrapper_restore)
 		RETURN_TRUE;
 	}
 
-	if ((zend_hash_find(global_wrapper_hash, protocol, protocol_len, (void**)&wrapperpp) == FAILURE) || !wrapperpp) {
+	if ((zend_hash_find(global_wrapper_hash, protocol, protocol_len + 1, (void**)&wrapperpp) == FAILURE) || !wrapperpp) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s:// never existed, nothing to restore", protocol);
 		RETURN_FALSE;
 	}

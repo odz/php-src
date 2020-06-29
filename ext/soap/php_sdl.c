@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2006 The PHP Group                                |
+  | Copyright (c) 1997-2007 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
   |          Dmitry Stogov <dmitry@zend.com>                             |
   +----------------------------------------------------------------------+
 */
-/* $Id: php_sdl.c,v 1.88.2.12.2.3 2006/09/20 13:42:50 dmitry Exp $ */
+/* $Id: php_sdl.c,v 1.88.2.12.2.6 2007/01/01 09:36:06 sebastian Exp $ */
 
 #include "php_soap.h"
 #include "ext/libxml/php_libxml.h"
@@ -1862,8 +1862,8 @@ static void sdl_serialize_type(sdlTypePtr type, HashTable *tmp_encoders, HashTab
 	if (i > 0) {
 		sdlTypePtr *tmp;
 
-	  tmp_elements = emalloc(sizeof(HashTable));
-	  zend_hash_init(tmp_elements, 0, NULL, NULL, 0);
+		tmp_elements = emalloc(sizeof(HashTable));
+		zend_hash_init(tmp_elements, i, NULL, NULL, 0);
 
 		zend_hash_internal_pointer_reset(type->elements);
 		while (zend_hash_get_current_data(type->elements, (void**)&tmp) == SUCCESS) {

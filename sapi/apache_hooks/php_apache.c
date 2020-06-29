@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    |          David Sklar <sklar@student.net>                             |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_apache.c,v 1.19.2.3.2.1 2006/09/06 11:54:29 nlopess Exp $ */
+/* $Id: php_apache.c,v 1.19.2.3.2.3 2007/01/01 09:36:12 sebastian Exp $ */
 
 #include "php_apache_http.h"
 
@@ -1637,9 +1637,9 @@ PHP_MINFO_FUNCTION(apache)
 		if ((p = strrchr(name, '.'))) {
 			*p='\0'; /* Cut off ugly .c extensions on module names */
 		}
-		strcat(modulenames, name);
+		strlcat(modulenames, name, sizeof(modulenames));
 		if (modp->next) {
-			strcat(modulenames, ", ");
+			strlcat(modulenames, ", ", sizeof(modulenames));
 		}
 	}
 	php_info_print_table_row(2, "Loaded Modules", modulenames);

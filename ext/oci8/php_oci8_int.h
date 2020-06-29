@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -25,7 +25,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_oci8_int.h,v 1.11.2.6.2.7 2006/08/22 11:09:12 tony2001 Exp $ */
+/* $Id: php_oci8_int.h,v 1.11.2.6.2.14 2007/01/31 13:55:43 tony2001 Exp $ */
 
 #if HAVE_OCI8
 # ifndef PHP_OCI8_INT_H
@@ -180,16 +180,17 @@ typedef struct { /* php_oci_bind {{{ */
 	php_oci_statement *parent_statement;     /* pointer to the parent statement */
 	struct {
 		void *elements;
-/*		ub2 *indicators; */
+		sb2 *indicators;
 		ub2 *element_lengths;
 /*		ub2 *retcodes;		*/
-		long current_length;
-		long old_length;
-		long max_length;
+		ub4 current_length;
+		ub4 old_length;
+		ub4 max_length;
 		long type;
 	} array;
 	sb2 indicator;			/* -1 means NULL */
 	ub2 retcode;			/*  */
+	ub4 dummy_len;          /* a dummy var to store alenpp value in bind OUT callback */
 } php_oci_bind; /* }}} */
 
 typedef struct { /* php_oci_out_column {{{ */
@@ -325,7 +326,7 @@ php_oci_descriptor * php_oci_lob_create (php_oci_connection *, long TSRMLS_DC);
 int php_oci_lob_get_length (php_oci_descriptor *, ub4 * TSRMLS_DC);
 int php_oci_lob_read (php_oci_descriptor *, long, long, char **, ub4 * TSRMLS_DC);
 int php_oci_lob_write (php_oci_descriptor *, ub4, char *, int, ub4 * TSRMLS_DC);
-int php_oci_lob_flush (php_oci_descriptor *, int TSRMLS_DC);
+int php_oci_lob_flush (php_oci_descriptor *, long TSRMLS_DC);
 int php_oci_lob_set_buffering (php_oci_descriptor *, int TSRMLS_DC);
 int php_oci_lob_get_buffering (php_oci_descriptor *);
 int php_oci_lob_copy (php_oci_descriptor *, php_oci_descriptor *, long TSRMLS_DC);
@@ -337,7 +338,7 @@ void php_oci_lob_free(php_oci_descriptor * TSRMLS_DC);
 int php_oci_lob_import(php_oci_descriptor *descriptor, char * TSRMLS_DC);
 int php_oci_lob_append (php_oci_descriptor *, php_oci_descriptor * TSRMLS_DC);
 int php_oci_lob_truncate (php_oci_descriptor *, long TSRMLS_DC);
-int php_oci_lob_erase (php_oci_descriptor *, long, long, ub4 * TSRMLS_DC);
+int php_oci_lob_erase (php_oci_descriptor *, long, ub4, ub4 * TSRMLS_DC);
 int php_oci_lob_is_equal (php_oci_descriptor *, php_oci_descriptor *, boolean * TSRMLS_DC);
 #if defined(HAVE_OCI_LOB_READ2)
 sb4 php_oci_lob_callback (dvoid *ctxp, CONST dvoid *bufxp, oraub8 len, ub1 piece, dvoid **changed_bufpp, oraub8 *changed_lenp);
@@ -373,7 +374,7 @@ int php_oci_collection_append_string(php_oci_collection *, char *, int TSRMLS_DC
 /* statement related prototypes {{{ */
 
 php_oci_statement * php_oci_statement_create (php_oci_connection *, char *, int TSRMLS_DC);
-int php_oci_statement_set_prefetch (php_oci_statement *, ub4 TSRMLS_DC);
+int php_oci_statement_set_prefetch (php_oci_statement *, long TSRMLS_DC);
 int php_oci_statement_fetch (php_oci_statement *, ub4 TSRMLS_DC);
 php_oci_out_column * php_oci_statement_get_column (php_oci_statement *, long, char*, int TSRMLS_DC);
 int php_oci_statement_execute (php_oci_statement *, ub4 TSRMLS_DC);
@@ -411,6 +412,7 @@ ZEND_BEGIN_MODULE_GLOBALS(oci) /* {{{ */
 	long max_persistent;	/* maximum number of persistent connections per process */
 	long num_persistent;	/* number of existing persistent connections */
 	long num_links;			/* non-persistent + persistent connections */
+	long num_statements;	/* number of statements open */
 	long ping_interval;		/* time interval between pings */
 	long persistent_timeout;	/* time period after which idle persistent connection is considered expired */
 	long statement_cache_size;	/* statement cache size. used with 9i+ clients only*/

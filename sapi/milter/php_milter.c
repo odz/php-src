@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -581,11 +581,11 @@ PHP_FUNCTION(smfi_getsymval)
 		php_error(E_WARNING, IS_NONE, get_active_function_name(TSRMLS_C));
 	} else if (zend_parse_parameters(1 TSRMLS_CC, "s", &symname, &len) == SUCCESS) {
 		if ((ret = smfi_getsymval(MG(ctx), symname)) != NULL) {
-			RETVAL_STRING(ret, 1);
+			RETURN_STRING(ret, 1);
 		}
 	}
 
-	RETVAL_NULL();
+	RETURN_NULL();
 }
 /* }}} */
 
@@ -602,11 +602,11 @@ PHP_FUNCTION(smfi_setreply)
 		php_error(E_WARNING, IS_NONE, get_active_function_name(TSRMLS_C));
 	} else if (zend_parse_parameters(3 TSRMLS_CC, "sss", &rcode, &len, &xcode, &len, &message, &len) == SUCCESS) {
 		if (smfi_setreply(MG(ctx), rcode, xcode, message) == MI_SUCCESS) {
-			RETVAL_TRUE;
+			RETURN_TRUE;
 		}
 	}
 	
-	RETVAL_FALSE;
+	RETURN_FALSE;
 }
 /* }}} */
 
@@ -622,11 +622,11 @@ PHP_FUNCTION(smfi_addheader)
 		php_error(E_WARNING, NOT_EOM, get_active_function_name(TSRMLS_C));
 	} else if (zend_parse_parameters(2 TSRMLS_CC, "ss", &f, &len, &v, &len) == SUCCESS) {
 		if (smfi_addheader(MG(ctx), f, v) == MI_SUCCESS) {
-			RETVAL_TRUE;
+			RETURN_TRUE;
 		}
 	}
 	
-	RETVAL_FALSE;
+	RETURN_FALSE;
 }
 /* }}} */
 
@@ -643,11 +643,11 @@ PHP_FUNCTION(smfi_chgheader)
 		php_error(E_WARNING, NOT_EOM, get_active_function_name(TSRMLS_C));
 	} else if (zend_parse_parameters(3 TSRMLS_CC, "sls", &f, &len, &idx, &v, &len) == SUCCESS) {
 		if (smfi_chgheader(MG(ctx), f, idx, v) == MI_SUCCESS) {
-			RETVAL_TRUE;
+			RETURN_TRUE;
 		}
 	}
 	
-	RETVAL_FALSE;
+	RETURN_FALSE;
 }
 /* }}} */
 
@@ -663,11 +663,11 @@ PHP_FUNCTION(smfi_addrcpt)
 		php_error(E_WARNING, NOT_EOM, get_active_function_name(TSRMLS_C));
 	} else if (zend_parse_parameters(1 TSRMLS_CC, "s", &rcpt, &len) == SUCCESS) {
 		if (smfi_addrcpt(MG(ctx), rcpt) == MI_SUCCESS) {
-			RETVAL_TRUE;
+			RETURN_TRUE;
 		}
 	}
 	
-	RETVAL_FALSE;
+	RETURN_FALSE;
 }
 /* }}} */
 
@@ -683,11 +683,11 @@ PHP_FUNCTION(smfi_delrcpt)
 		php_error(E_WARNING, NOT_EOM, get_active_function_name(TSRMLS_C));
 	} else if (zend_parse_parameters(1 TSRMLS_CC, "s", &rcpt, &len) == SUCCESS) {
 		if (smfi_delrcpt(MG(ctx), rcpt) == MI_SUCCESS) {
-			RETVAL_TRUE;
+			RETURN_TRUE;
 		}
 	}
 	
-	RETVAL_FALSE;
+	RETURN_FALSE;
 }
 /* }}} */
 
@@ -704,11 +704,11 @@ PHP_FUNCTION(smfi_replacebody)
 		php_error(E_WARNING, NOT_EOM, get_active_function_name(TSRMLS_C));
 	} else if (zend_parse_parameters(1 TSRMLS_CC, "s", &body, &len) == SUCCESS) {
 		if (smfi_replacebody(MG(ctx), body, len) == MI_SUCCESS) {
-			RETVAL_TRUE;
+			RETURN_TRUE;
 		}
 	}
 	
-	RETVAL_FALSE;
+	RETURN_FALSE;
 }
 /* }}} */
 
@@ -1044,7 +1044,7 @@ int main(int argc, char *argv[])
 				}
 				SG(headers_sent) = 1;
 				SG(request_info).no_headers = 1;
-				php_printf("PHP %s (%s) (built: %s %s)\nCopyright (c) 1997-2006 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__, __TIME__, get_zend_version());
+				php_printf("PHP %s (%s) (built: %s %s)\nCopyright (c) 1997-2007 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__, __TIME__, get_zend_version());
 				php_end_ob_buffers(1 TSRMLS_CC);
 				exit(1);
 				break;

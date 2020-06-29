@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mail.c,v 1.87.2.1 2006/01/01 12:50:15 sniper Exp $ */
+/* $Id: mail.c,v 1.87.2.1.2.2 2007/01/25 00:26:51 iliaa Exp $ */
 
 #include <stdlib.h>
 #include <ctype.h>
@@ -200,10 +200,7 @@ PHPAPI int php_mail(char *to, char *subject, char *message, char *headers, char 
 #endif
 	}
 	if (extra_cmd != NULL) {
-		sendmail_cmd = emalloc (strlen (sendmail_path) + strlen (extra_cmd) + 2);
-		strcpy (sendmail_cmd, sendmail_path);
-		strcat (sendmail_cmd, " ");
-		strcat (sendmail_cmd, extra_cmd);
+		spprintf(&sendmail_cmd, 0, "%s %s", sendmail_path, extra_cmd);
 	} else {
 		sendmail_cmd = sendmail_path;
 	}

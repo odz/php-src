@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: array.c,v 1.308.2.21.2.14 2006/10/03 17:41:47 iliaa Exp $ */
+/* $Id: array.c,v 1.308.2.21.2.23 2007/01/22 08:17:26 tony2001 Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -1138,7 +1138,7 @@ PHP_FUNCTION(array_walk)
 	HashTable *target_hash;
 
 	old_walk_func_name = BG(array_walk_func_name);
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zz|z", &array, &tmp, &userdata) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zz/|z/", &array, &tmp, &userdata) == FAILURE) {
 		return;
 	}
 	target_hash = HASH_OF(array);
@@ -1169,7 +1169,7 @@ PHP_FUNCTION(array_walk_recursive)
 	HashTable *target_hash;
 
 	old_walk_func_name = BG(array_walk_func_name);
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zz|z", &array, &tmp, &userdata) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zz/|z/", &array, &tmp, &userdata) == FAILURE) {
 		return;
 	}
 	target_hash = HASH_OF(array);
@@ -1270,14 +1270,12 @@ PHP_FUNCTION(array_search)
 /* }}} */
 
 
-static int php_valid_var_name(char *var_name)
+static int php_valid_var_name(char *var_name, int len)
 {
-	int len, i;
+	int i;
 	
 	if (!var_name)
 		return 0;
-	
-	len = strlen(var_name);
 	
 	if (!isalpha((int)((unsigned char *)var_name)[0]) && var_name[0] != '_')
 		return 0;
@@ -1409,7 +1407,7 @@ PHP_FUNCTION(extract)
 
 			case EXTR_PREFIX_INVALID:
 				if (final_name.len == 0) {
-					if (!php_valid_var_name(var_name)) {
+					if (!php_valid_var_name(var_name, var_name_len)) {
 						smart_str_appendl(&final_name, Z_STRVAL_PP(prefix), Z_STRLEN_PP(prefix));
 						smart_str_appendc(&final_name, '_');
 						smart_str_appendl(&final_name, var_name, var_name_len);
@@ -1426,7 +1424,7 @@ PHP_FUNCTION(extract)
 
 		if (final_name.len) {
 			smart_str_0(&final_name);
-			if (php_valid_var_name(final_name.c)) {
+			if (php_valid_var_name(final_name.c, final_name.len)) {
 				if (extract_refs) {
 					zval **orig_var;
 
@@ -1438,7 +1436,7 @@ PHP_FUNCTION(extract)
 
 						*orig_var = *entry;
 					} else {
-						if ((*var_array)->refcount > 1) {
+						if ((*var_array)->refcount > 1 || *entry == EG(uninitialized_zval_ptr)) {
 							SEPARATE_ZVAL_TO_MAKE_IS_REF(entry);
 						} else {
 							(*entry)->is_ref = 1;
@@ -1874,7 +1872,7 @@ HashTable* php_splice(HashTable *in_hash, int offset, int length,
 		
 		/* Update output hash depending on key type */
 		if (p->nKeyLength)
-			zend_hash_update(out_hash, p->arKey, p->nKeyLength, &entry, sizeof(zval *), NULL);
+			zend_hash_quick_update(out_hash, p->arKey, p->nKeyLength, p->h, &entry, sizeof(zval *), NULL);
 		else
 			zend_hash_next_index_insert(out_hash, &entry, sizeof(zval *), NULL);
 	}
@@ -1885,7 +1883,7 @@ HashTable* php_splice(HashTable *in_hash, int offset, int length,
 			entry = *((zval **)p->pData);
 			entry->refcount++;
 			if (p->nKeyLength)
-				zend_hash_update(*removed, p->arKey, p->nKeyLength, &entry, sizeof(zval *), NULL);
+				zend_hash_quick_update(*removed, p->arKey, p->nKeyLength, p->h, &entry, sizeof(zval *), NULL);
 			else
 				zend_hash_next_index_insert(*removed, &entry, sizeof(zval *), NULL);
 		}
@@ -1897,17 +1895,7 @@ HashTable* php_splice(HashTable *in_hash, int offset, int length,
 		/* ..for each one, create a new zval, copy entry into it and copy it into the output hash */
 		for (i=0; i<list_count; i++) {
 			entry = *list[i];
-			if (entry->refcount>=1000) {
-				zval *tmp = (zval *) emalloc(sizeof(zval));
-
-				*tmp = *entry;
-				zval_copy_ctor(tmp);
-				tmp->refcount = 1;
-				tmp->is_ref = 0;
-				entry = tmp;
-			} else {
-				entry->refcount++;
-			}
+			entry->refcount++;
 			zend_hash_next_index_insert(out_hash, &entry, sizeof(zval *), NULL);
 		}
 	}
@@ -1917,7 +1905,7 @@ HashTable* php_splice(HashTable *in_hash, int offset, int length,
 		entry = *((zval **)p->pData);
 		entry->refcount++;
 		if (p->nKeyLength)
-			zend_hash_update(out_hash, p->arKey, p->nKeyLength, &entry, sizeof(zval *), NULL);
+			zend_hash_quick_update(out_hash, p->arKey, p->nKeyLength, p->h, &entry, sizeof(zval *), NULL);
 		else
 			zend_hash_next_index_insert(out_hash, &entry, sizeof(zval *), NULL);
 	}
@@ -2033,7 +2021,7 @@ static void _phpi_pop(INTERNAL_FUNCTION_PARAMETERS, int off_the_end)
 		if (should_rehash) {
 			zend_hash_rehash(Z_ARRVAL_PP(stack));
 		}
-	} else if (!key_len) {
+	} else if (!key_len && index >= Z_ARRVAL_PP(stack)->nNextFreeElement-1) {
 		Z_ARRVAL_PP(stack)->nNextFreeElement = Z_ARRVAL_PP(stack)->nNextFreeElement - 1;
 	}
 
@@ -2666,6 +2654,7 @@ PHP_FUNCTION(array_pad)
 	num_pads = pad_size_abs - input_size;
 	if(num_pads > 1048576) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "You may only pad up to 1048576 elements at a time");
+		zval_dtor(return_value);
 		RETURN_FALSE;
 	}
 	pads = (zval ***)safe_emalloc(num_pads, sizeof(zval **), 0);
@@ -2803,7 +2792,7 @@ PHP_FUNCTION(array_change_key_case)
    Removes duplicate values from array */
 PHP_FUNCTION(array_unique)
 {
-	zval **array;
+	zval **array, *tmp;
 	HashTable *target_hash;
 	Bucket *p;
 	struct bucketindex {
@@ -2822,8 +2811,8 @@ PHP_FUNCTION(array_unique)
 		RETURN_FALSE;
 	}
 
-	/* copy the argument array */
-	RETVAL_ZVAL(*array, 1, 0);
+	array_init(return_value);
+	zend_hash_copy(Z_ARRVAL_P(return_value), target_hash, (copy_ctor_func_t) zval_add_ref, (void *)&tmp, sizeof(zval*));
 
 	if (target_hash->nNumOfElements <= 1) {	/* nothing to do */
 		return;

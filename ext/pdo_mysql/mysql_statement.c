@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2006 The PHP Group                                |
+  | Copyright (c) 1997-2007 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: mysql_statement.c,v 1.48.2.14 2006/04/22 16:35:18 wez Exp $ */
+/* $Id: mysql_statement.c,v 1.48.2.14.2.3 2007/01/01 09:36:05 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -68,15 +68,17 @@ static int pdo_mysql_stmt_dtor(pdo_stmt_t *stmt TSRMLS_DC)
 	}
 #endif
 #if HAVE_MYSQL_NEXT_RESULT
-	while (mysql_more_results(S->H->server)) {
-		MYSQL_RES *res;
-		if (mysql_next_result(S->H->server) != 0) {
-			break;
-		}
+	if (S->H->server) {
+		while (mysql_more_results(S->H->server)) {
+			MYSQL_RES *res;
+			if (mysql_next_result(S->H->server) != 0) {
+				break;
+			}
 			
-		res = mysql_store_result(S->H->server);
-		if (res) {
-			mysql_free_result(res);
+			res = mysql_store_result(S->H->server);
+			if (res) {
+				mysql_free_result(res);
+			}
 		}
 	}
 #endif
@@ -271,15 +273,15 @@ static int pdo_mysql_stmt_next_rowset(pdo_stmt_t *stmt TSRMLS_DC)
 		/* No more results */
 		return 0;
 	} else {
-		if ((my_ulonglong)-1 == (row_count = mysql_affected_rows(H->server))) {
-			pdo_mysql_error_stmt(stmt);
-			return 0;
-		}
-		
 		if (!H->buffered) {
 			S->result = mysql_use_result(H->server);
+			row_count = 0;
 		} else {
 			S->result = mysql_store_result(H->server);
+			if ((my_ulonglong)-1 == (row_count = mysql_affected_rows(H->server))) {
+				pdo_mysql_error_stmt(stmt);
+				return 0;
+			}
 		}
 
 		if (NULL == S->result) {
@@ -593,16 +595,24 @@ static int pdo_mysql_stmt_col_meta(pdo_stmt_t *stmt, long colno, zval *return_va
 static int pdo_mysql_stmt_cursor_closer(pdo_stmt_t *stmt TSRMLS_DC)
 {
 	pdo_mysql_stmt *S = (pdo_mysql_stmt*)stmt->driver_data;
-#if HAVE_MYSQL_STMT_PREPARE
-	if (S->stmt) {
-		int retval = mysql_stmt_free_result(S->stmt);
-		return retval ? 0 : 1;
-	}
-#endif
+
 	if (S->result) {
 		mysql_free_result(S->result);
 		S->result = NULL;
 	}
+#if HAVE_MYSQL_STMT_PREPARE
+	if (S->stmt) {
+		int retval;
+		if (!S->H->buffered) {
+			retval = mysql_stmt_close(S->stmt);
+			S->stmt = NULL;
+		} else {
+			retval = mysql_stmt_free_result(S->stmt);
+		}
+		return retval ? 0 : 1;
+	}
+#endif
+
 #if HAVE_MYSQL_NEXT_RESULT
 	while (mysql_more_results(S->H->server)) {
 		MYSQL_RES *res;

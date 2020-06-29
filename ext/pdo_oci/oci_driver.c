@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2006 The PHP Group                                |
+  | Copyright (c) 1997-2007 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: oci_driver.c,v 1.24.2.4 2006/01/01 12:50:12 sniper Exp $ */
+/* $Id: oci_driver.c,v 1.24.2.4.2.2 2007/01/01 19:24:50 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -338,8 +338,6 @@ static long oci_handle_doer(pdo_dbh_t *dbh, const char *sql, long sql_len TSRMLS
 
 static int oci_handle_quoter(pdo_dbh_t *dbh, const char *unquoted, int unquotedlen, char **quoted, int *quotedlen, enum pdo_param_type paramtype  TSRMLS_DC) /* {{{ */
 {
-	pdo_oci_db_handle *H = (pdo_oci_db_handle *)dbh->driver_data;
-
 	return 0;
 }
 /* }}} */

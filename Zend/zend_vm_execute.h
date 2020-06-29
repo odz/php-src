@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2006 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -2186,7 +2186,7 @@ static int ZEND_FE_RESET_SPEC_CONST_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 		}
 	}
 
-	if (ce && ce->get_iterator) {
+	if (IS_CONST != IS_TMP_VAR && ce && ce->get_iterator) {
 		iter = ce->get_iterator(ce, array_ptr, opline->extended_value & ZEND_FE_RESET_REFERENCE TSRMLS_CC);
 
 		if (iter && !EG(exception)) {
@@ -2248,13 +2248,15 @@ static int ZEND_FE_RESET_SPEC_CONST_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 
 				key_type = zend_hash_get_current_key_ex(fe_ht, &str_key, &str_key_len, &int_key, 0, NULL);
 				if (key_type != HASH_KEY_NON_EXISTANT &&
-				    zend_check_property_access(zobj, str_key, str_key_len-1 TSRMLS_CC) == SUCCESS) {
+					(key_type == HASH_KEY_IS_LONG ||
+				     zend_check_property_access(zobj, str_key, str_key_len-1 TSRMLS_CC) == SUCCESS)) {
 					break;
 				}
 				zend_hash_move_forward(fe_ht);
 			}
 		}
 		is_empty = zend_hash_has_more_elements(fe_ht) != SUCCESS;
+		zend_hash_get_pointer(fe_ht, &EX_T(opline->result.u.var).fe.fe_pos);
 	} else {
 		zend_error(E_WARNING, "Invalid argument supplied for foreach()");
 		is_empty = 1;
@@ -4725,7 +4727,7 @@ static int ZEND_FE_RESET_SPEC_TMP_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 		}
 	}
 
-	if (ce && ce->get_iterator) {
+	if (IS_TMP_VAR != IS_TMP_VAR && ce && ce->get_iterator) {
 		iter = ce->get_iterator(ce, array_ptr, opline->extended_value & ZEND_FE_RESET_REFERENCE TSRMLS_CC);
 
 		if (iter && !EG(exception)) {
@@ -4787,13 +4789,15 @@ static int ZEND_FE_RESET_SPEC_TMP_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 
 				key_type = zend_hash_get_current_key_ex(fe_ht, &str_key, &str_key_len, &int_key, 0, NULL);
 				if (key_type != HASH_KEY_NON_EXISTANT &&
-				    zend_check_property_access(zobj, str_key, str_key_len-1 TSRMLS_CC) == SUCCESS) {
+					(key_type == HASH_KEY_IS_LONG ||
+				     zend_check_property_access(zobj, str_key, str_key_len-1 TSRMLS_CC) == SUCCESS)) {
 					break;
 				}
 				zend_hash_move_forward(fe_ht);
 			}
 		}
 		is_empty = zend_hash_has_more_elements(fe_ht) != SUCCESS;
+		zend_hash_get_pointer(fe_ht, &EX_T(opline->result.u.var).fe.fe_pos);
 	} else {
 		zend_error(E_WARNING, "Invalid argument supplied for foreach()");
 		is_empty = 1;
@@ -7412,7 +7416,15 @@ static int ZEND_SEND_VAR_NO_REF_SPEC_VAR_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 		return zend_send_by_var_helper_SPEC_VAR(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU);
 	}
 
-	varptr = _get_zval_ptr_var(&opline->op1, EX(Ts), &free_op1 TSRMLS_CC);
+	if (IS_VAR == IS_VAR &&
+		(opline->extended_value & ZEND_ARG_SEND_FUNCTION) &&
+		EX_T(opline->op1.u.var).var.fcall_returned_reference &&
+		EX_T(opline->op1.u.var).var.ptr) {
+		varptr = EX_T(opline->op1.u.var).var.ptr;
+		PZVAL_UNLOCK_EX(varptr, &free_op1, 0);
+	} else {
+		varptr = _get_zval_ptr_var(&opline->op1, EX(Ts), &free_op1 TSRMLS_CC);
+	}
 	if ((!(opline->extended_value & ZEND_ARG_SEND_FUNCTION) ||
 	     EX_T(opline->op1.u.var).var.fcall_returned_reference) &&
 	    varptr != &EG(uninitialized_zval) &&
@@ -7846,7 +7858,7 @@ static int ZEND_FE_RESET_SPEC_VAR_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 		}
 	}
 
-	if (ce && ce->get_iterator) {
+	if (IS_VAR != IS_TMP_VAR && ce && ce->get_iterator) {
 		iter = ce->get_iterator(ce, array_ptr, opline->extended_value & ZEND_FE_RESET_REFERENCE TSRMLS_CC);
 
 		if (iter && !EG(exception)) {
@@ -7908,13 +7920,15 @@ static int ZEND_FE_RESET_SPEC_VAR_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 
 				key_type = zend_hash_get_current_key_ex(fe_ht, &str_key, &str_key_len, &int_key, 0, NULL);
 				if (key_type != HASH_KEY_NON_EXISTANT &&
-				    zend_check_property_access(zobj, str_key, str_key_len-1 TSRMLS_CC) == SUCCESS) {
+					(key_type == HASH_KEY_IS_LONG ||
+				     zend_check_property_access(zobj, str_key, str_key_len-1 TSRMLS_CC) == SUCCESS)) {
 					break;
 				}
 				zend_hash_move_forward(fe_ht);
 			}
 		}
 		is_empty = zend_hash_has_more_elements(fe_ht) != SUCCESS;
+		zend_hash_get_pointer(fe_ht, &EX_T(opline->result.u.var).fe.fe_pos);
 	} else {
 		zend_error(E_WARNING, "Invalid argument supplied for foreach()");
 		is_empty = 1;
@@ -7959,6 +7973,7 @@ static int ZEND_FE_FETCH_SPEC_VAR_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 			zend_object *zobj = zend_objects_get_address(array TSRMLS_CC);
 
 			fe_ht = HASH_OF(array);
+			zend_hash_set_pointer(fe_ht, &EX_T(opline->op1.u.var).fe.fe_pos);
 			do {
 				if (zend_hash_get_current_data(fe_ht, (void **) &value)==FAILURE) {
 					/* reached end of iteration */
@@ -7967,8 +7982,11 @@ static int ZEND_FE_FETCH_SPEC_VAR_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 				key_type = zend_hash_get_current_key_ex(fe_ht, &str_key, &str_key_len, &int_key, 0, NULL);
 
 				zend_hash_move_forward(fe_ht);
-			} while (key_type == HASH_KEY_NON_EXISTANT || zend_check_property_access(zobj, str_key, str_key_len-1 TSRMLS_CC) != SUCCESS);
-			if (use_key) {
+			} while (key_type == HASH_KEY_NON_EXISTANT ||
+			         (key_type != HASH_KEY_IS_LONG &&
+			          zend_check_property_access(zobj, str_key, str_key_len-1 TSRMLS_CC) != SUCCESS));
+			zend_hash_get_pointer(fe_ht, &EX_T(opline->op1.u.var).fe.fe_pos);
+			if (use_key && key_type != HASH_KEY_IS_LONG) {
 				zend_unmangle_property_name(str_key, str_key_len-1, &class_name, &prop_name);
 				str_key_len = strlen(prop_name);
 				str_key = estrndup(prop_name, str_key_len);
@@ -7979,6 +7997,7 @@ static int ZEND_FE_FETCH_SPEC_VAR_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 
 		case ZEND_ITER_PLAIN_ARRAY:
 			fe_ht = HASH_OF(array);
+			zend_hash_set_pointer(fe_ht, &EX_T(opline->op1.u.var).fe.fe_pos);
 			if (zend_hash_get_current_data(fe_ht, (void **) &value)==FAILURE) {
 				/* reached end of iteration */
 				ZEND_VM_JMP(EX(op_array)->opcodes+opline->op2.u.opline_num);
@@ -7987,6 +8006,7 @@ static int ZEND_FE_FETCH_SPEC_VAR_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 				key_type = zend_hash_get_current_key_ex(fe_ht, &str_key, &str_key_len, &int_key, 1, NULL);
 			}
 			zend_hash_move_forward(fe_ht);
+			zend_hash_get_pointer(fe_ht, &EX_T(opline->op1.u.var).fe.fe_pos);
 			break;
 
 		case ZEND_ITER_OBJECT:
@@ -19465,7 +19485,15 @@ static int ZEND_SEND_VAR_NO_REF_SPEC_CV_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 		return zend_send_by_var_helper_SPEC_CV(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU);
 	}
 
-	varptr = _get_zval_ptr_cv(&opline->op1, EX(Ts), BP_VAR_R TSRMLS_CC);
+	if (IS_CV == IS_VAR &&
+		(opline->extended_value & ZEND_ARG_SEND_FUNCTION) &&
+		EX_T(opline->op1.u.var).var.fcall_returned_reference &&
+		EX_T(opline->op1.u.var).var.ptr) {
+		varptr = EX_T(opline->op1.u.var).var.ptr;
+		PZVAL_UNLOCK_EX(varptr, &free_op1, 0);
+	} else {
+		varptr = _get_zval_ptr_cv(&opline->op1, EX(Ts), BP_VAR_R TSRMLS_CC);
+	}
 	if ((!(opline->extended_value & ZEND_ARG_SEND_FUNCTION) ||
 	     EX_T(opline->op1.u.var).var.fcall_returned_reference) &&
 	    varptr != &EG(uninitialized_zval) &&
@@ -19891,7 +19919,7 @@ static int ZEND_FE_RESET_SPEC_CV_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 		}
 	}
 
-	if (ce && ce->get_iterator) {
+	if (IS_CV != IS_TMP_VAR && ce && ce->get_iterator) {
 		iter = ce->get_iterator(ce, array_ptr, opline->extended_value & ZEND_FE_RESET_REFERENCE TSRMLS_CC);
 
 		if (iter && !EG(exception)) {
@@ -19953,13 +19981,15 @@ static int ZEND_FE_RESET_SPEC_CV_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 
 				key_type = zend_hash_get_current_key_ex(fe_ht, &str_key, &str_key_len, &int_key, 0, NULL);
 				if (key_type != HASH_KEY_NON_EXISTANT &&
-				    zend_check_property_access(zobj, str_key, str_key_len-1 TSRMLS_CC) == SUCCESS) {
+					(key_type == HASH_KEY_IS_LONG ||
+				     zend_check_property_access(zobj, str_key, str_key_len-1 TSRMLS_CC) == SUCCESS)) {
 					break;
 				}
 				zend_hash_move_forward(fe_ht);
 			}
 		}
 		is_empty = zend_hash_has_more_elements(fe_ht) != SUCCESS;
+		zend_hash_get_pointer(fe_ht, &EX_T(opline->result.u.var).fe.fe_pos);
 	} else {
 		zend_error(E_WARNING, "Invalid argument supplied for foreach()");
 		is_empty = 1;

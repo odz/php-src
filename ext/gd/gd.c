@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: gd.c,v 1.312.2.20.2.8 2006/10/18 16:04:37 bjori Exp $ */
+/* $Id: gd.c,v 1.312.2.20.2.14 2007/01/08 22:52:22 nlopess Exp $ */
 
 /* gd 1.2 is copyright 1994, 1995, Quest Protein Database Center,
    Cold Spring Harbor Labs. */
@@ -1147,7 +1147,11 @@ zend_module_entry gd_module_entry = {
 	"gd",
 	gd_functions,
 	PHP_MINIT(gd),
+#if HAVE_LIBT1
 	PHP_MSHUTDOWN(gd),
+#else
+	NULL,
+#endif
 	NULL,
 #if HAVE_LIBGD20 && HAVE_GD_STRINGFT && (HAVE_GD_FONTCACHESHUTDOWN || HAVE_GD_FREEFONTCACHE)
 	PHP_RSHUTDOWN(gd),
@@ -1191,16 +1195,16 @@ static void php_free_gd_font(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 }
 /* }}} */
 
+#if HAVE_LIBT1
 /* {{{ PHP_MSHUTDOWN_FUNCTION
  */
 PHP_MSHUTDOWN_FUNCTION(gd)
 {
-#if HAVE_LIBT1
 	T1_CloseLib();
-#endif
 	return SUCCESS;
 }
 /* }}} */
+#endif
 
 
 /* {{{ PHP_MINIT_FUNCTION
@@ -2249,6 +2253,11 @@ gdImagePtr _php_image_create_from_string(zval **data, char *tn, gdImagePtr (*ioc
 	im = (*ioctx_func_p)(io_ctx);
 	if (!im) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Passed data is not in '%s' format", tn);
+#if HAVE_LIBGD204
+		io_ctx->gd_free(io_ctx);
+#else
+		io_ctx->free(io_ctx);
+#endif
 		return NULL;
 	}
 
@@ -2370,6 +2379,10 @@ static void _php_image_create_from(INTERNAL_FUNCTION_PARAMETERS, int image_type,
 
 	if (argc == 5 && image_type == PHP_GDIMG_TYPE_GD2PART) {
 		multi_convert_to_long_ex(4, srcx, srcy, width, height);
+		if (Z_LVAL_PP(width) < 1 || Z_LVAL_PP(height) < 1) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING,"Zero width or height not allowed");
+			RETURN_FALSE;
+		}
 	}
 
 	fn = Z_STRVAL_PP(file);
@@ -4267,7 +4280,7 @@ PHP_FUNCTION(imagepsextendfont)
 	T1_DeleteAllSizes(*f_ind);
 
 	if (Z_DVAL_PP(ext) <= 0) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Second parameter %f out of range (must be > 0)", Z_DVAL_PP(ext));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Second parameter %F out of range (must be > 0)", Z_DVAL_PP(ext));
 		RETURN_FALSE;
 	}
 
@@ -5057,8 +5070,10 @@ PHP_FUNCTION(imagefilter)
 		php_image_filter_smooth
 	};
 
-	if (ZEND_NUM_ARGS() < 2 || ZEND_NUM_ARGS() > 5 || zend_parse_parameters(2 TSRMLS_CC, "rl", &tmp, &filtertype) == FAILURE) {
-		ZEND_WRONG_PARAM_COUNT();
+	if (ZEND_NUM_ARGS() < 2 || ZEND_NUM_ARGS() > 5) {
+		WRONG_PARAM_COUNT;
+	} else if (zend_parse_parameters(2 TSRMLS_CC, "rl", &tmp, &filtertype) == FAILURE) {
+		return;
 	}
 
 	if (filtertype >= 0 && filtertype <= IMAGE_FILTER_MAX) {

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_cli.c,v 1.129.2.13.2.10 2006/09/22 17:41:09 iliaa Exp $ */
+/* $Id: php_cli.c,v 1.129.2.13.2.12 2007/01/01 09:36:12 sebastian Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -474,6 +474,12 @@ static void cli_register_file_handles(TSRMLS_D)
 	s_err = php_stream_open_wrapper_ex("php://stderr", "wb", 0, NULL, sc_err);
 
 	if (s_in==NULL || s_out==NULL || s_err==NULL) {
+		FREE_ZVAL(zin);
+		FREE_ZVAL(zout);
+		FREE_ZVAL(zerr);
+		if (s_in) php_stream_close(s_in);
+		if (s_out) php_stream_close(s_out);
+		if (s_err) php_stream_close(s_err);
 		return;
 	}
 	
@@ -754,7 +760,7 @@ int main(int argc, char *argv[])
 				}
 
 				request_started = 1;
-				php_printf("PHP %s (%s) (built: %s %s) %s\nCopyright (c) 1997-2006 The PHP Group\n%s",
+				php_printf("PHP %s (%s) (built: %s %s) %s\nCopyright (c) 1997-2007 The PHP Group\n%s",
 					PHP_VERSION, sapi_module.name, __DATE__, __TIME__,
 #if ZEND_DEBUG && defined(HAVE_GCOV)
 					"(DEBUG GCOV)",

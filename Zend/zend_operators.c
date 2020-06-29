@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2006 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_operators.c,v 1.208.2.4.2.10 2006/10/03 17:54:51 tony2001 Exp $ */
+/* $Id: zend_operators.c,v 1.208.2.4.2.19 2007/01/01 09:35:47 sebastian Exp $ */
 
 #include <ctype.h>
 
@@ -31,6 +31,15 @@
 #include "zend_strtod.h"
 
 #define LONG_SIGN_MASK (1L << (8*sizeof(long)-1))
+
+#if ZEND_USE_TOLOWER_L
+#include <locale.h>
+static _locale_t current_locale = NULL;
+/* this is true global! may lead to strange effects on ZTS, but so is setlocale() */
+#define zend_tolower(c) _tolower_l(c, current_locale)
+#else
+#define zend_tolower(c) tolower(c)
+#endif
 
 ZEND_API int zend_atoi(const char *str, int str_len)
 {
@@ -114,14 +123,9 @@ ZEND_API void convert_scalar_to_number(zval *op TSRMLS_DC)
 				char *strval;
 
 				strval = op->value.str.val;
-				switch ((op->type=is_numeric_string(strval, op->value.str.len, &op->value.lval, &op->value.dval, 1))) {
-					case IS_DOUBLE:
-					case IS_LONG:
-						break;
-					default:
-						op->value.lval = strtol(op->value.str.val, NULL, 10);
-						op->type = IS_LONG;
-						break;
+				if ((op->type=is_numeric_string(strval, op->value.str.len, &op->value.lval, &op->value.dval, 1)) == 0) {
+					op->value.lval = 0;
+					op->type = IS_LONG;
 				}
 				STR_FREE(strval);
 				break;
@@ -152,14 +156,9 @@ ZEND_API void convert_scalar_to_number(zval *op TSRMLS_DC)
 		switch ((op)->type) {										\
 			case IS_STRING:											\
 				{													\
-					switch (((holder).type=is_numeric_string((op)->value.str.val, (op)->value.str.len, &(holder).value.lval, &(holder).value.dval, 1))) {	\
-						case IS_DOUBLE:															\
-						case IS_LONG:															\
-							break;																\
-						default:																\
-							(holder).value.lval = strtol((op)->value.str.val, NULL, 10);		\
-							(holder).type = IS_LONG;						\
-							break;											\
+					if (((holder).type=is_numeric_string((op)->value.str.val, (op)->value.str.len, &(holder).value.lval, &(holder).value.dval, 1)) == 0) {	\
+						(holder).value.lval = 0;						\
+						(holder).type = IS_LONG;						\
 					}														\
 					(op) = &(holder);										\
 					break;													\
@@ -295,12 +294,12 @@ ZEND_API void convert_scalar_to_number(zval *op TSRMLS_DC)
 		}																					\
 	}
 
-
 ZEND_API void convert_to_long(zval *op)
 {
-	convert_to_long_base(op, 10);
+	if ((op)->type != IS_LONG) {
+		convert_to_long_base(op, 10);
+	}
 }
-
 
 ZEND_API void convert_to_long_base(zval *op, int base)
 {
@@ -447,6 +446,7 @@ ZEND_API void convert_to_null(zval *op)
 				return;
 			}
 			*op = *org;
+			FREE_ZVAL(org);
 		}
 	}
 
@@ -550,7 +550,7 @@ ZEND_API void _convert_to_string(zval *op ZEND_FILE_LINE_DC)
 			TSRMLS_FETCH();
 
 			zend_list_delete(op->value.lval);
-			op->value.str.val = (char *) emalloc(sizeof("Resource id #")-1 + MAX_LENGTH_OF_LONG);
+			op->value.str.val = (char *) emalloc(sizeof("Resource id #") + MAX_LENGTH_OF_LONG);
 			op->value.str.len = sprintf(op->value.str.val, "Resource id #%ld", tmp);
 			break;
 		}
@@ -651,6 +651,8 @@ ZEND_API void convert_to_array(zval *op)
 					convert_object_to_type(op, IS_ARRAY, convert_to_array);
 
 					if (op->type == IS_ARRAY) {
+						zend_hash_destroy(ht);
+						FREE_HASHTABLE(ht);
 						return;
 					}
 				}
@@ -1165,11 +1167,14 @@ ZEND_API int add_string_to_string(zval *result, zval *op1, zval *op2)
 ZEND_API int concat_function(zval *result, zval *op1, zval *op2 TSRMLS_DC)
 {
 	zval op1_copy, op2_copy;
-	int use_copy1, use_copy2;
+	int use_copy1 = 0, use_copy2 = 0;
 
-
-	zend_make_printable_zval(op1, &op1_copy, &use_copy1);
-	zend_make_printable_zval(op2, &op2_copy, &use_copy2);
+	if (op1->type != IS_STRING) {
+		zend_make_printable_zval(op1, &op1_copy, &use_copy1);
+	}
+	if (op2->type != IS_STRING) {
+		zend_make_printable_zval(op2, &op2_copy, &use_copy2);
+	}
 
 	if (use_copy1) {
 		/* We have created a converted copy of op1. Therefore, op1 won't become the result so
@@ -1212,10 +1217,14 @@ ZEND_API int concat_function(zval *result, zval *op1, zval *op2 TSRMLS_DC)
 ZEND_API int string_compare_function(zval *result, zval *op1, zval *op2 TSRMLS_DC)
 {
 	zval op1_copy, op2_copy;
-	int use_copy1, use_copy2;
+	int use_copy1 = 0, use_copy2 = 0;
 
-	zend_make_printable_zval(op1, &op1_copy, &use_copy1);
-	zend_make_printable_zval(op2, &op2_copy, &use_copy2);
+	if (op1->type != IS_STRING) {
+		zend_make_printable_zval(op1, &op1_copy, &use_copy1);
+	}
+	if (op2->type != IS_STRING) {
+		zend_make_printable_zval(op2, &op2_copy, &use_copy2);
+	}
 
 	if (use_copy1) {
 		op1 = &op1_copy;
@@ -1240,10 +1249,14 @@ ZEND_API int string_compare_function(zval *result, zval *op1, zval *op2 TSRMLS_D
 ZEND_API int string_locale_compare_function(zval *result, zval *op1, zval *op2 TSRMLS_DC)
 {
 	zval op1_copy, op2_copy;
-	int use_copy1, use_copy2;
+	int use_copy1 = 0, use_copy2 = 0;
 
-	zend_make_printable_zval(op1, &op1_copy, &use_copy1);
-	zend_make_printable_zval(op2, &op2_copy, &use_copy2);
+	if (op1->type != IS_STRING) {
+		zend_make_printable_zval(op1, &op1_copy, &use_copy1);
+	}
+	if (op2->type != IS_STRING) {
+		zend_make_printable_zval(op2, &op2_copy, &use_copy2);
+	}
 
 	if (use_copy1) {
 		op1 = &op1_copy;
@@ -1817,6 +1830,13 @@ ZEND_API int zval_is_true(zval *op)
 	return (op->value.lval ? 1 : 0);
 }
 
+#ifdef ZEND_USE_TOLOWER_L
+ZEND_API void zend_update_current_locale()
+{
+	current_locale = _get_current_locale();
+}
+#endif
+
 ZEND_API char *zend_str_tolower_copy(char *dest, const char *source, unsigned int length)
 {
 	register unsigned char *str = (unsigned char*)source;
@@ -1824,7 +1844,7 @@ ZEND_API char *zend_str_tolower_copy(char *dest, const char *source, unsigned in
 	register unsigned char *end = str + length;
 
 	while (str < end) {
-		*result++ = tolower((int)*str++);
+		*result++ = zend_tolower((int)*str++);
 	}
 	*result = '\0';
 
@@ -1837,7 +1857,7 @@ ZEND_API void zend_str_tolower(char *str, unsigned int length)
 	register unsigned char *end = p + length;
 
 	while (p < end) {
-		*p = tolower((int)*p);
+		*p = zend_tolower((int)*p);
 		p++;
 	}
 }
@@ -1875,8 +1895,8 @@ ZEND_API int zend_binary_strcasecmp(char *s1, uint len1, char *s2, uint len2)
 	len = MIN(len1, len2);
 
 	while (len--) {
-		c1 = tolower((int)*(unsigned char *)s1++);
-		c2 = tolower((int)*(unsigned char *)s2++);
+		c1 = zend_tolower((int)*(unsigned char *)s1++);
+		c2 = zend_tolower((int)*(unsigned char *)s2++);
 		if (c1 != c2) {
 			return c1 - c2;
 		}
@@ -1894,8 +1914,8 @@ ZEND_API int zend_binary_strncasecmp(char *s1, uint len1, char *s2, uint len2, u
 	len = MIN(length, MIN(len1, len2));
 
 	while (len--) {
-		c1 = tolower((int)*(unsigned char *)s1++);
-		c2 = tolower((int)*(unsigned char *)s2++);
+		c1 = zend_tolower((int)*(unsigned char *)s1++);
+		c2 = zend_tolower((int)*(unsigned char *)s2++);
 		if (c1 != c2) {
 			return c1 - c2;
 		}
@@ -1938,19 +1958,23 @@ ZEND_API void zendi_smart_strcmp(zval *result, zval *s1, zval *s2)
 		(ret2=is_numeric_string(s2->value.str.val, s2->value.str.len, &lval2, &dval2, 0))) {
 		if ((ret1==IS_DOUBLE) || (ret2==IS_DOUBLE)) {
 			if (ret1!=IS_DOUBLE) {
-				dval1 = zend_strtod(s1->value.str.val, NULL);
+				dval1 = (double) lval1;
 			} else if (ret2!=IS_DOUBLE) {
-				dval2 = zend_strtod(s2->value.str.val, NULL);
+				dval2 = (double) lval2;
+			} else if (dval1 == dval2 && !zend_finite(dval1)) {
+				/* Both values overflowed and have the same sign,
+				 * so a numeric comparison would be inaccurate */
+				goto string_cmp;
 			}
 			result->value.dval = dval1 - dval2;
 			result->value.lval = ZEND_NORMALIZE_BOOL(result->value.dval);
 			result->type = IS_LONG;
 		} else { /* they both have to be long's */
-			result->value.lval = lval1 - lval2;
-			result->value.lval = ZEND_NORMALIZE_BOOL(result->value.lval);
+			result->value.lval = lval1 > lval2 ? 1 : (lval1 < lval2 ? -1 : 0);
 			result->type = IS_LONG;
 		}
 	} else {
+string_cmp:
 		result->value.lval = zend_binary_zval_strcmp(s1, s2);
 		result->value.lval = ZEND_NORMALIZE_BOOL(result->value.lval);
 		result->type = IS_LONG;

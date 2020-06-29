@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dir.c,v 1.147.2.3.2.1 2006/10/04 23:19:25 iliaa Exp $ */
+/* $Id: dir.c,v 1.147.2.3.2.3 2007/01/22 09:31:46 dmitry Exp $ */
 
 /* {{{ includes/startup/misc */
 
@@ -257,12 +257,13 @@ PHP_FUNCTION(chroot)
 	}
 	
 	ret = chroot(str);
-	
 	if (ret != 0) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s (errno %d)", strerror(errno), errno);
 		RETURN_FALSE;
 	}
 
+	realpath_cache_clean(TSRMLS_C);
+	
 	ret = chdir("/");
 	
 	if (ret != 0) {

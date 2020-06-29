@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: spl_directory.c,v 1.45.2.27.2.8 2006/09/29 13:11:28 bjori Exp $ */
+/* $Id: spl_directory.c,v 1.45.2.27.2.13 2007/01/01 09:36:07 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -406,6 +406,8 @@ static spl_filesystem_object * spl_filesystem_object_create_type(int ht, spl_fil
 		} else {
 			intern->file_name = source->file_name;
 			intern->file_name_len = source->file_name_len;
+			intern->path = estrndup(source->path, source->path_len);
+			intern->path_len = source->path_len;
 		
 			intern->u.file.open_mode = "r";
 			intern->u.file.open_mode_len = 1;
@@ -548,7 +550,7 @@ SPL_METHOD(SplFileInfo, getFilename)
 {
 	spl_filesystem_object *intern = (spl_filesystem_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
 
-	if (intern->path_len) {
+	if (intern->path_len && intern->path_len < intern->file_name_len) {
 		RETURN_STRINGL(intern->file_name + intern->path_len + 1, intern->file_name_len - (intern->path_len + 1), 1);
 	} else {
 		RETURN_STRINGL(intern->file_name, intern->file_name_len, 1);
@@ -1325,9 +1327,14 @@ static zend_function_entry spl_DirectoryIterator_functions[] = {
 };
 
 static
-ZEND_BEGIN_ARG_INFO(arginfo_r_dir___construct, 0) 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_r_dir___construct, 0, 0, 1) 
 	ZEND_ARG_INFO(0, path)
 	ZEND_ARG_INFO(0, flags)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_r_dir_hasChildren, 0, 0, 0)
+	ZEND_ARG_INFO(0, allow_links)
 ZEND_END_ARG_INFO()
 
 static zend_function_entry spl_RecursiveDirectoryIterator_functions[] = {
@@ -1336,7 +1343,7 @@ static zend_function_entry spl_RecursiveDirectoryIterator_functions[] = {
 	SPL_ME(RecursiveDirectoryIterator, next,          NULL, ZEND_ACC_PUBLIC)
 	SPL_ME(RecursiveDirectoryIterator, key,           NULL, ZEND_ACC_PUBLIC)
 	SPL_ME(RecursiveDirectoryIterator, current,       NULL, ZEND_ACC_PUBLIC)
-	SPL_ME(RecursiveDirectoryIterator, hasChildren,   NULL, ZEND_ACC_PUBLIC)
+	SPL_ME(RecursiveDirectoryIterator, hasChildren,   arginfo_r_dir_hasChildren, ZEND_ACC_PUBLIC)
 	SPL_ME(RecursiveDirectoryIterator, getChildren,   NULL, ZEND_ACC_PUBLIC)
 	SPL_ME(RecursiveDirectoryIterator, getSubPath,    NULL, ZEND_ACC_PUBLIC)
 	SPL_ME(RecursiveDirectoryIterator, getSubPathname,NULL, ZEND_ACC_PUBLIC)
@@ -1360,7 +1367,7 @@ static int spl_filesystem_file_read(spl_filesystem_object *intern, int silent TS
 	}
 
 	if (intern->u.file.max_line_len > 0) {
-		buf = emalloc((intern->u.file.max_line_len + 1) * sizeof(char));
+		buf = safe_emalloc((intern->u.file.max_line_len + 1), sizeof(char), 0);
 		if (php_stream_get_line(intern->u.file.stream, buf, intern->u.file.max_line_len, &line_len) == NULL) {
 			efree(buf);
 			buf = NULL;
@@ -1649,15 +1656,6 @@ SPL_METHOD(SplFileObject, rewind)
 	spl_filesystem_object *intern = (spl_filesystem_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
 
 	spl_filesystem_file_rewind(getThis(), intern TSRMLS_CC);
-} /* }}} */
-
-/* {{{ proto string SplFileObject::getFilename()
-   Return the filename */
-SPL_METHOD(SplFileObject, getFilename)
-{
-	spl_filesystem_object *intern = (spl_filesystem_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
-
-	RETURN_STRINGL(intern->file_name, intern->file_name_len, 1);	
 } /* }}} */
 
 /* {{{ proto void SplFileObject::eof()
@@ -2146,7 +2144,6 @@ ZEND_END_ARG_INFO()
 
 static zend_function_entry spl_SplFileObject_functions[] = {
 	SPL_ME(SplFileObject, __construct,    arginfo_file_object___construct,   ZEND_ACC_PUBLIC)
-	SPL_ME(SplFileObject, getFilename,    NULL, ZEND_ACC_PUBLIC)
 	SPL_ME(SplFileObject, rewind,         NULL, ZEND_ACC_PUBLIC)
 	SPL_ME(SplFileObject, eof,            NULL, ZEND_ACC_PUBLIC)
 	SPL_ME(SplFileObject, valid,          NULL, ZEND_ACC_PUBLIC)

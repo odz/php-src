@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: snprintf.h,v 1.32.2.3 2006/01/01 12:50:17 sniper Exp $ */
+/* $Id: snprintf.h,v 1.32.2.3.2.3 2007/01/01 09:36:11 sebastian Exp $ */
 
 /*
 
@@ -65,10 +65,21 @@ Example:
 #ifndef SNPRINTF_H
 #define SNPRINTF_H
 
+typedef int bool_int;
+
+typedef enum {
+	NO = 0, YES = 1
+} boolean_e;
+
+
 BEGIN_EXTERN_C()
 PHPAPI int ap_php_snprintf(char *, size_t, const char *, ...) PHP_ATTRIBUTE_FORMAT(printf, 3, 4);
 PHPAPI int ap_php_vsnprintf(char *, size_t, const char *, va_list ap) PHP_ATTRIBUTE_FORMAT(printf, 3, 0);
 PHPAPI int php_sprintf (char* s, const char* format, ...) PHP_ATTRIBUTE_FORMAT(printf, 2, 3);
+PHPAPI char * php_gcvt(double value, int ndigit, char dec_point, char exponent, char *buf);
+PHPAPI char * php_conv_fp(register char format, register double num,
+		 boolean_e add_dp, int precision, char dec_point, bool_int * is_negative, char *buf, int *len);
+
 END_EXTERN_C()
 
 #ifdef snprintf
@@ -87,10 +98,6 @@ END_EXTERN_C()
 #define sprintf php_sprintf
 
 typedef enum {
-	NO = 0, YES = 1
-} boolean_e;
-
-typedef enum {
 	LM_STD = 0,
 #if SIZEOF_INTMAX_T
 	LM_INTMAX_T,
@@ -106,11 +113,6 @@ typedef enum {
 	LM_LONG_DOUBLE
 } length_modifier_e;
 
-extern char * ap_php_cvt(double arg, int ndigits, int *decpt, int *sign, int eflag, char *buf);
-extern char * ap_php_ecvt(double arg, int ndigits, int *decpt, int *sign, char *buf);
-extern char * ap_php_fcvt(double arg, int ndigits, int *decpt, int *sign, char *buf);
-extern char * ap_php_gcvt(double number, int ndigit, char *buf, boolean_e altform);
-
 #ifdef PHP_WIN32
 # define WIDE_INT		__int64
 #elif SIZEOF_LONG_LONG_INT
@@ -123,17 +125,11 @@ extern char * ap_php_gcvt(double number, int ndigit, char *buf, boolean_e altfor
 typedef WIDE_INT wide_int;
 typedef unsigned WIDE_INT u_wide_int;
 
-typedef int bool_int;
-
 extern char * ap_php_conv_10(register wide_int num, register bool_int is_unsigned,
 	   register bool_int * is_negative, char *buf_end, register int *len);
 
-extern char * ap_php_conv_fp(register char format, register double num,
-		 boolean_e add_dp, int precision, bool_int * is_negative, char *buf, int *len);
-
 extern char * ap_php_conv_p2(register u_wide_int num, register int nbits,
 		 char format, char *buf_end, register int *len);
-
 
 #endif /* SNPRINTF_H */
 

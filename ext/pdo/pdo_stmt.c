@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2006 The PHP Group                                |
+  | Copyright (c) 1997-2007 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: pdo_stmt.c,v 1.118.2.38.2.8 2006/08/23 19:15:57 tony2001 Exp $ */
+/* $Id: pdo_stmt.c,v 1.118.2.38.2.14 2007/01/27 21:53:26 tony2001 Exp $ */
 
 /* The PDO Statement Handle Class */
 
@@ -278,6 +278,10 @@ static int really_register_bound_param(struct pdo_bound_param_data *param, pdo_s
 
 	if (PDO_PARAM_TYPE(param->param_type) == PDO_PARAM_STR && param->max_value_len <= 0 && ! ZVAL_IS_NULL(param->parameter)) {
 		convert_to_string(param->parameter);
+	} else if (PDO_PARAM_TYPE(param->param_type) == PDO_PARAM_INT && Z_TYPE_P(param->parameter) == IS_BOOL) {
+		convert_to_long(param->parameter);
+	} else if (PDO_PARAM_TYPE(param->param_type) == PDO_PARAM_BOOL && Z_TYPE_P(param->parameter) == IS_LONG) {
+		convert_to_boolean(param->parameter);
 	}
 
 	param->stmt = stmt;
@@ -366,6 +370,8 @@ static int really_register_bound_param(struct pdo_bound_param_data *param, pdo_s
 			} else {
 				zend_hash_index_del(hash, pparam->paramno);
 			}
+			/* param->parameter is freed by hash dtor */
+			param->parameter = NULL;
 			return 0;
 		}
 	}
@@ -424,7 +430,9 @@ static PHP_METHOD(PDOStatement, execute)
 			INIT_PZVAL(param.parameter);
 
 			if (!really_register_bound_param(&param, stmt, 1 TSRMLS_CC)) {
-				zval_ptr_dtor(&param.parameter);
+				if (param.parameter) {
+					zval_ptr_dtor(&param.parameter);
+				}
 				RETURN_FALSE;
 			}
 
@@ -462,7 +470,7 @@ static PHP_METHOD(PDOStatement, execute)
 		if (!stmt->executed) {
 			/* this is the first execute */
 
-			if (stmt->dbh->alloc_own_columns) {
+			if (stmt->dbh->alloc_own_columns && !stmt->columns) {
 				/* for "big boy" drivers, we need to allocate memory to fetch
 				 * the results into, so lets do that now */
 				ret = pdo_stmt_describe_columns(stmt TSRMLS_CC);
@@ -613,6 +621,10 @@ static inline void fetch_value(pdo_stmt_t *stmt, zval *dest, int colno, int *typ
 static int do_fetch_common(pdo_stmt_t *stmt, enum pdo_fetch_orientation ori,
 	long offset, int do_bind TSRMLS_DC) /* {{{ */
 {
+	if (!stmt->executed) {
+		return 0;
+	}
+
 	if (!dispatch_param_event(stmt, PDO_PARAM_EVT_FETCH_PRE TSRMLS_CC)) {
 		return 0;
 	}
@@ -1859,12 +1871,11 @@ fail_out:
 			
 			stmt->fetch.cls.ce = *cep;
 			stmt->fetch.cls.ctor_args = NULL;
-
+#ifdef ilia_0 /* we'll only need this when we have persistent statements, if ever */
 			if (stmt->dbh->is_persistent) {
-				/* TODO: CRITICAL for final release */
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "PHP might crash if you don't call $stmt->setFetchMode() to reset to defaults on this persistent statement.  This will be fixed in a later release");
 			}
-			
+#endif
 			if (argc == 3) {
 				if (Z_TYPE_PP(args[skip+2]) != IS_NULL && Z_TYPE_PP(args[skip+2]) != IS_ARRAY) {
 					pdo_raise_impl_error(stmt->dbh, stmt, "HY000", "ctor_args must be either NULL or an array" TSRMLS_CC);
@@ -1885,11 +1896,11 @@ fail_out:
 			if (Z_TYPE_PP(args[skip+1]) != IS_OBJECT) {
 				goto fail_out;
 			}
-
+#ifdef ilia_0 /* we'll only need this when we have persistent statements, if ever */
 			if (stmt->dbh->is_persistent) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "PHP might crash if you don't call $stmt->setFetchMode() to reset to defaults on this persistent statement.  This will be fixed in a later release");
 			}
-	
+#endif	
 			MAKE_STD_ZVAL(stmt->fetch.into);
 
 			Z_TYPE_P(stmt->fetch.into) = IS_OBJECT;
@@ -1925,10 +1936,6 @@ static PHP_METHOD(PDOStatement, setFetchMode)
 
 static int pdo_stmt_do_next_rowset(pdo_stmt_t *stmt TSRMLS_DC)
 {
-	if (!stmt->methods->next_rowset(stmt TSRMLS_CC)) {
-		return 0;
-	}
-
 	/* un-describe */
 	if (stmt->columns) {
 		int i;
@@ -1940,6 +1947,10 @@ static int pdo_stmt_do_next_rowset(pdo_stmt_t *stmt TSRMLS_DC)
 		efree(stmt->columns);
 		stmt->columns = NULL;
 		stmt->column_count = 0;
+	}
+
+	if (!stmt->methods->next_rowset(stmt TSRMLS_CC)) {
+		return 0;
 	}
 
 	pdo_stmt_describe_columns(stmt TSRMLS_CC);
@@ -1962,8 +1973,6 @@ static PHP_METHOD(PDOStatement, nextRowset)
 		PDO_HANDLE_STMT_ERR();
 		RETURN_FALSE;
 	}
-	
-	pdo_stmt_describe_columns(stmt TSRMLS_CC);
 
 	RETURN_TRUE;
 }
@@ -1989,6 +1998,7 @@ static PHP_METHOD(PDOStatement, closeCursor)
 			}
 				
 		} while (1);
+		stmt->executed = 0;
 		RETURN_TRUE;
 	}
 
@@ -1998,7 +2008,7 @@ static PHP_METHOD(PDOStatement, closeCursor)
 		PDO_HANDLE_STMT_ERR();
 		RETURN_FALSE;
 	}
-
+	stmt->executed = 0;
 	RETURN_TRUE;
 }
 /* }}} */

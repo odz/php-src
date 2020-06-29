@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2006 The PHP Group                                |
+  | Copyright (c) 1997-2007 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
   +----------------------------------------------------------------------+
 */
  
-/* $Id: bz2.c,v 1.14.2.3.2.8 2006/08/17 20:46:51 tony2001 Exp $ */
+/* $Id: bz2.c,v 1.14.2.3.2.10 2007/01/01 09:35:48 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -330,7 +330,7 @@ static PHP_FUNCTION(bzread)
 	
 	php_stream_from_zval(stream, &bz);
 
-	if (len < 0) {
+	if ((len + 1) < 1) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "length may not be negative");
 		RETURN_FALSE;
 	}

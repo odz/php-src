@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_language_scanner.l,v 1.131.2.11 2006/04/13 13:48:28 dmitry Exp $ */
+/* $Id: zend_language_scanner.l,v 1.131.2.11.2.7 2007/01/18 23:28:08 iliaa Exp $ */
 
 #define yyleng SCNG(yy_leng)
 #define yytext SCNG(yy_text)
@@ -286,6 +286,11 @@ int zend_compare_file_handles(zend_file_handle *fh1, zend_file_handle *fh2)
 ZEND_API void zend_destroy_file_handle(zend_file_handle *file_handle TSRMLS_DC)
 {
 	zend_llist_del_element(&CG(open_files), file_handle, (int (*)(void *, void *)) zend_compare_file_handles);
+	/* zend_file_handle_dtor() operates on the copy, so we have to NULLify the original here */
+	file_handle->opened_path = NULL;
+	if (file_handle->free_filename) {
+		file_handle->filename = NULL;
+	}
 }
 
 
@@ -983,6 +988,10 @@ NEWLINE ("\r"|"\n"|"\r\n")
 	return T_STRING_CAST;
 }
 
+<ST_IN_SCRIPTING>"("{TABS_AND_SPACES}"binary"{TABS_AND_SPACES}")" {
+	return T_STRING_CAST;
+}
+
 <ST_IN_SCRIPTING>"("{TABS_AND_SPACES}"array"{TABS_AND_SPACES}")" {
 	return T_ARRAY_CAST;
 }
@@ -1227,36 +1236,41 @@ NEWLINE ("\r"|"\n"|"\r\n")
 
 
 <ST_IN_SCRIPTING>{LNUM} {
-	errno = 0;
-	zendlval->value.lval = strtol(yytext, NULL, 0);
-	if (errno == ERANGE) { /* overflow */
-		zendlval->value.dval = zend_strtod(yytext, NULL);
-		zendlval->type = IS_DOUBLE;
-		return T_DNUMBER;
+	if (yyleng < MAX_LENGTH_OF_LONG - 1) { /* Won't overflow */
+		zendlval->value.lval = strtol(yytext, NULL, 0);
 	} else {
-		zendlval->type = IS_LONG;
-		return T_LNUMBER;
-	}
-}
-
-<ST_IN_SCRIPTING>{HNUM} {
-	errno = 0;
-	zendlval->value.lval = strtoul(yytext, NULL, 16);
-	if (errno == ERANGE) { /* overflow */
-		/* not trying strtod - it returns trash on 0x-es */
-		zendlval->value.lval = LONG_MAX; /* maximal long */
-		zend_error(E_NOTICE,"Hex number is too big: %s", yytext);
-	} else {
-		if (zendlval->value.lval < 0) {
-			/* maintain consistency with the old way */
-			zendlval->value.dval = (unsigned long) zendlval->value.lval;
+		errno = 0;
+		zendlval->value.lval = strtol(yytext, NULL, 0);
+		if (errno == ERANGE) { /* Overflow */
+			zendlval->value.dval = zend_strtod(yytext, NULL);
 			zendlval->type = IS_DOUBLE;
 			return T_DNUMBER;
 		}
-		zendlval->type = IS_LONG;
 	}
+
 	zendlval->type = IS_LONG;
 	return T_LNUMBER;
+}
+
+<ST_IN_SCRIPTING>{HNUM} {
+	char *hex = yytext + 2; /* Skip "0x" */
+	int len = yyleng - 2;
+
+	/* Skip any leading 0s */
+	while (*hex == '0') {
+		hex++;
+		len--;
+	}
+
+	if (len < SIZEOF_LONG * 2 || (len == SIZEOF_LONG * 2 && *hex <= '7')) {
+		zendlval->value.lval = strtol(hex, NULL, 16);
+		zendlval->type = IS_LONG;
+		return T_LNUMBER;
+	} else {
+		zendlval->value.dval = zend_hex_strtod(hex, NULL);
+		zendlval->type = IS_DOUBLE;
+		return T_DNUMBER;
+	}
 }
 
 <ST_DOUBLE_QUOTES,ST_BACKQUOTE,ST_HEREDOC>{LNUM}|{HNUM} { /* treat numbers (almost) as strings inside encapsulated strings */
@@ -1560,12 +1574,13 @@ NEWLINE ("\r"|"\n"|"\r\n")
 }
 
 
-<ST_IN_SCRIPTING>(["]([^$"\\]|("\\".))*["]) {
+<ST_IN_SCRIPTING>("b"?["]([^$"\\]|("\\".))*["]) {
 	register char *s, *t;
 	char *end;
+	int bprefix = (*yytext == 'b') ? 1 : 0;
 
-	zendlval->value.str.val = estrndup(yytext+1, yyleng-2);
-	zendlval->value.str.len = yyleng-2;
+	zendlval->value.str.val = estrndup(yytext+bprefix+1, yyleng-bprefix-2);
+	zendlval->value.str.len = yyleng-bprefix-2;
 	zendlval->type = IS_STRING;
 	HANDLE_NEWLINES(yytext, yyleng);
 
@@ -1650,12 +1665,13 @@ NEWLINE ("\r"|"\n"|"\r\n")
 }
 
 
-<ST_IN_SCRIPTING>([']([^'\\]|("\\".))*[']) {
+<ST_IN_SCRIPTING>("b"?[']([^'\\]|("\\".))*[']) {
 	register char *s, *t;
 	char *end;
+	int bprefix = (*yytext == 'b') ? 1 : 0;
 
-	zendlval->value.str.val = estrndup(yytext+1, yyleng-2);
-	zendlval->value.str.len = yyleng-2;
+	zendlval->value.str.val = estrndup(yytext+bprefix+1, yyleng-bprefix-2);
+	zendlval->value.str.len = yyleng-bprefix-2;
 	zendlval->type = IS_STRING;
 	HANDLE_NEWLINES(yytext, yyleng);
 
@@ -1698,17 +1714,19 @@ NEWLINE ("\r"|"\n"|"\r\n")
 }
 
 
-<ST_IN_SCRIPTING>["] {
+<ST_IN_SCRIPTING>b?["] {
 	BEGIN(ST_DOUBLE_QUOTES);
 	return '\"';
 }
 
 
-<ST_IN_SCRIPTING>"<<<"{TABS_AND_SPACES}{LABEL}{NEWLINE} {
+<ST_IN_SCRIPTING>"b"?"<<<"{TABS_AND_SPACES}{LABEL}{NEWLINE} {
 	char *s;
+	int bprefix = (*yytext == 'b') ? 1 : 0;
+
 	CG(zend_lineno)++;
-	CG(heredoc_len) = yyleng-3-1-(yytext[yyleng-2]=='\r'?1:0);
-	s = yytext+3;
+	CG(heredoc_len) = yyleng-bprefix-3-1-(yytext[yyleng-2]=='\r'?1:0);
+	s = yytext+bprefix+3;
 	while ((*s == ' ') || (*s == '\t')) {
 		s++;
 		CG(heredoc_len)--;
@@ -1725,7 +1743,7 @@ NEWLINE ("\r"|"\n"|"\r\n")
 }
 
 
-<ST_IN_SCRIPTING>['] {
+<ST_IN_SCRIPTING>b?['] {
 	BEGIN(ST_SINGLE_QUOTE);
 	return '\'';
 }

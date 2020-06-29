@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: SAPI.c,v 1.202.2.7.2.2 2006/09/19 20:33:11 dmitry Exp $ */
+/* $Id: SAPI.c,v 1.202.2.7.2.7 2007/01/01 09:36:10 sebastian Exp $ */
 
 #include <ctype.h>
 #include <sys/stat.h>
@@ -540,32 +540,32 @@ SAPI_API int sapi_header_op(sapi_header_op_enum op, void *arg TSRMLS_DC)
 	}
 
 	switch (op) {
-	case SAPI_HEADER_SET_STATUS:
-		sapi_update_response_code((long) arg TSRMLS_CC);
-		return SUCCESS;
+		case SAPI_HEADER_SET_STATUS:
+			sapi_update_response_code((long) arg TSRMLS_CC);
+			return SUCCESS;
 
-	case SAPI_HEADER_REPLACE:
-	case SAPI_HEADER_ADD: {
-		sapi_header_line *p = arg;
-		
-		if (!p->line || !p->line_len) {
+		case SAPI_HEADER_REPLACE:
+		case SAPI_HEADER_ADD: {
+				sapi_header_line *p = arg;
+
+				if (!p->line || !p->line_len) {
+					return FAILURE;
+				}
+				header_line = p->line;
+				header_line_len = p->line_len;
+				http_response_code = p->response_code;
+				replace = (op == SAPI_HEADER_REPLACE);
+				break;
+			}
+
+		default:
 			return FAILURE;
-		}
-		header_line = p->line;
-		header_line_len = p->line_len;
-		http_response_code = p->response_code;
-		replace = (op == SAPI_HEADER_REPLACE);
-		break;
-		}
-	
-	default:
-		return FAILURE;
 	}
 
 	header_line = estrndup(header_line, header_line_len);
 
 	/* cut of trailing spaces, linefeeds and carriage-returns */
-	while(isspace(header_line[header_line_len-1])) 
+	while(header_line_len && isspace(header_line[header_line_len-1])) 
 		  header_line[--header_line_len]='\0';
 	
 	/* new line safety check */
@@ -631,7 +631,9 @@ SAPI_API int sapi_header_op(sapi_header_op_enum op, void *arg TSRMLS_DC)
 					SG(sapi_headers).http_response_code > 307) &&
 					SG(sapi_headers).http_response_code != 201) {
 					/* Return a Found Redirect if one is not already specified */
-					if(SG(request_info).proto_num > 1000 && 
+					if (http_response_code) { /* user specified redirect code */
+						sapi_update_response_code(http_response_code TSRMLS_CC);
+					} else if (SG(request_info).proto_num > 1000 && 
 					   SG(request_info).request_method && 
 					   strcmp(SG(request_info).request_method, "HEAD") &&
 					   strcmp(SG(request_info).request_method, "GET")) {
@@ -918,13 +920,15 @@ SAPI_API char *sapi_getenv(char *name, size_t name_len TSRMLS_DC)
 {
 	if (sapi_module.getenv) { 
 		char *value, *tmp = sapi_module.getenv(name, name_len TSRMLS_CC);
-		if(tmp) value = estrdup(tmp); 
-		else return NULL;
+		if (tmp) {
+			value = estrdup(tmp);
+		} else {
+			return NULL;
+		}
 		sapi_module.input_filter(PARSE_ENV, name, &value, strlen(value), NULL TSRMLS_CC);
 		return value;
-	} else {
-		return NULL; 
-	}   
+	}
+	return NULL;
 }
 
 SAPI_API int sapi_get_fd(int *fd TSRMLS_DC)

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -324,7 +324,7 @@ zend_module_entry gmp_module_entry = {
 	"gmp",
 	gmp_functions,
 	ZEND_MODULE_STARTUP_N(gmp),
-	ZEND_MODULE_SHUTDOWN_N(gmp),
+	NULL,
 	NULL,
 	ZEND_MODULE_DEACTIVATE_N(gmp),
 	ZEND_MODULE_INFO_N(gmp),
@@ -409,14 +409,6 @@ ZEND_MODULE_DEACTIVATE_D(gmp)
 }
 /* }}} */
 
-/* {{{ ZEND_MSHUTDOWN_FUNCTION
- */
-ZEND_MODULE_SHUTDOWN_D(gmp)
-{
-	return SUCCESS;
-}
-/* }}} */
-
 /* {{{ ZEND_MINFO_FUNCTION
  */
 ZEND_MODULE_INFO_D(gmp)
@@ -424,10 +416,6 @@ ZEND_MODULE_INFO_D(gmp)
 	php_info_print_table_start();
 	php_info_print_table_row(2, "gmp support", "enabled");
 	php_info_print_table_end();
-
-	/* Remove comments if you have entries in php.ini
-	DISPLAY_INI_ENTRIES();
-	*/
 }
 /* }}} */
 

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -25,7 +25,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: oci8_lob.c,v 1.7.2.6.2.6 2006/08/22 11:09:12 tony2001 Exp $ */
+/* $Id: oci8_lob.c,v 1.7.2.6.2.10 2007/01/01 09:36:03 sebastian Exp $ */
 
 
 
@@ -190,7 +190,11 @@ static inline int php_oci_lob_calculate_buffer(php_oci_descriptor *descriptor, l
 {
 	php_oci_connection *connection = descriptor->connection;
 	ub4 chunk_size;
-		
+
+	if (descriptor->type == OCI_DTYPE_FILE) {
+		return read_length;
+	}
+
 	if (!descriptor->chunk_size) {
 		PHP_OCI_CALL_RETURN(connection->errcode, OCILobGetChunkSize, (connection->svc, connection->err, descriptor->descriptor, &chunk_size));
 
@@ -493,7 +497,7 @@ int php_oci_lob_get_buffering (php_oci_descriptor *descriptor)
 int php_oci_lob_copy (php_oci_descriptor *descriptor_dest, php_oci_descriptor *descriptor_from, long length TSRMLS_DC)
 {
 	php_oci_connection *connection = descriptor_dest->connection;
-	int length_dest, length_from, copy_len;
+	ub4 length_dest, length_from, copy_len;
 	
 	if (php_oci_lob_get_length(descriptor_dest, &length_dest TSRMLS_CC)) {
 		return 1;
@@ -573,7 +577,7 @@ int php_oci_lob_close (php_oci_descriptor *descriptor TSRMLS_DC)
 
 /* {{{ php_oci_lob_flush() 
  Flush buffers for the LOB (only if they have been used) */
-int php_oci_lob_flush(php_oci_descriptor *descriptor, int flush_flag TSRMLS_DC)
+int php_oci_lob_flush(php_oci_descriptor *descriptor, long flush_flag TSRMLS_DC)
 {
 	OCILobLocator *lob = descriptor->descriptor;
 	php_oci_connection *connection = descriptor->connection;
@@ -588,7 +592,7 @@ int php_oci_lob_flush(php_oci_descriptor *descriptor, int flush_flag TSRMLS_DC)
 			/* only these two are allowed */
 			break;
 		default:
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid flag value: %d", flush_flag);
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid flag value: %ld", flush_flag);
 			return 1;
 			break;
 	}
@@ -760,7 +764,7 @@ int php_oci_lob_truncate (php_oci_descriptor *descriptor, long new_lob_length TS
 
 /* {{{ php_oci_lob_erase()
  Erase (or fill with whitespaces, depending on LOB type) the LOB (or its part) */
-int php_oci_lob_erase (php_oci_descriptor *descriptor, long offset, long length, ub4 *bytes_erased TSRMLS_DC)
+int php_oci_lob_erase (php_oci_descriptor *descriptor, long offset, ub4 length, ub4 *bytes_erased TSRMLS_DC)
 {
 	php_oci_connection *connection = descriptor->connection;
 	OCILobLocator *lob = descriptor->descriptor;

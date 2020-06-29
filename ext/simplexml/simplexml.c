@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2006 The PHP Group                                |
+  | Copyright (c) 1997-2007 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: simplexml.c,v 1.151.2.22.2.15 2006/09/06 15:31:48 nlopess Exp $ */
+/* $Id: simplexml.c,v 1.151.2.22.2.20 2007/01/01 09:36:06 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -1159,6 +1159,7 @@ SXE_METHOD(xpath)
 
 	xmlXPathFreeObject(retval);
 }
+/* }}} */
 
 /* {{{ proto bool SimpleXMLElement::registerXPathNamespace(string prefix, string ns)
    Creates a prefix/ns context for the next XPath query */
@@ -1211,7 +1212,7 @@ SXE_METHOD(asXML)
 		node = php_sxe_get_first_node(sxe, node TSRMLS_CC);
 
 		if (node) {
-			if (XML_DOCUMENT_NODE == node->parent->type) {
+			if (node->parent && (XML_DOCUMENT_NODE == node->parent->type)) {
 				int bytes;
 				bytes = xmlSaveFile(filename, (xmlDocPtr) sxe->document->ptr);
 				if (bytes == -1) {
@@ -1240,7 +1241,7 @@ SXE_METHOD(asXML)
 	node = php_sxe_get_first_node(sxe, node TSRMLS_CC);
 
 	if (node) {
-		if (XML_DOCUMENT_NODE == node->parent->type) {
+		if (node->parent && (XML_DOCUMENT_NODE == node->parent->type)) {
 			xmlDocDumpMemory((xmlDocPtr) sxe->document->ptr, &strval, &strval_len);
 			RETVAL_STRINGL((char *)strval, strval_len, 1);
 			xmlFree(strval);
@@ -1760,6 +1761,16 @@ sxe_object_clone(void *object, void **clone_ptr TSRMLS_DC)
 		clone->document->refcount++;
 		docp = clone->document->ptr;
 	}
+
+	clone->iter.isprefix = sxe->iter.isprefix;
+	if (sxe->iter.name != NULL) {
+		clone->iter.name = xmlStrdup((xmlChar *)sxe->iter.name);
+	}
+	if (sxe->iter.nsprefix != NULL) {
+		clone->iter.nsprefix = xmlStrdup((xmlChar *)sxe->iter.nsprefix);
+	}
+	clone->iter.type = sxe->iter.type;
+
 	if (sxe->node) {
 		nodep = xmlDocCopyNode(sxe->node->node, docp, 1);
 	}
@@ -2331,7 +2342,7 @@ PHP_MINFO_FUNCTION(simplexml)
 {
 	php_info_print_table_start();
 	php_info_print_table_header(2, "Simplexml support", "enabled");
-	php_info_print_table_row(2, "Revision", "$Revision: 1.151.2.22.2.15 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.151.2.22.2.20 $");
 	php_info_print_table_row(2, "Schema support",
 #ifdef LIBXML_SCHEMAS_ENABLED
 		"enabled");

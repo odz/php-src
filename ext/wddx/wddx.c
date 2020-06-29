@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: wddx.c,v 1.119.2.10.2.6 2006/08/02 22:03:47 tony2001 Exp $ */
+/* $Id: wddx.c,v 1.119.2.10.2.10 2007/01/18 16:21:32 tony2001 Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -284,7 +284,7 @@ PS_SERIALIZER_DECODE_FUNC(wddx)
 
 			switch (hash_type) {
 				case HASH_KEY_IS_LONG:
-					sprintf(tmp, "%ld", idx);
+					key_length = sprintf(tmp, "%ld", idx) + 1;
 					key = tmp;
 					/* fallthru */
 				case HASH_KEY_IS_STRING:
@@ -448,7 +448,7 @@ static void php_wddx_serialize_object(wddx_packet *packet, zval *obj)
 			PHP_SET_CLASS_ATTRIBUTES(obj);
 
 			php_wddx_add_chunk_static(packet, WDDX_STRUCT_S);
-			sprintf(tmp_buf, WDDX_VAR_S, PHP_CLASS_NAME_VAR);
+			snprintf(tmp_buf, WDDX_BUF_LEN, WDDX_VAR_S, PHP_CLASS_NAME_VAR);
 			php_wddx_add_chunk(packet, tmp_buf);
 			php_wddx_add_chunk_static(packet, WDDX_STRING_S);
 			php_wddx_add_chunk_ex(packet, class_name, name_len);
@@ -480,7 +480,7 @@ static void php_wddx_serialize_object(wddx_packet *packet, zval *obj)
 		PHP_SET_CLASS_ATTRIBUTES(obj);
 
 		php_wddx_add_chunk_static(packet, WDDX_STRUCT_S);
-		sprintf(tmp_buf, WDDX_VAR_S, PHP_CLASS_NAME_VAR);
+		snprintf(tmp_buf, WDDX_BUF_LEN, WDDX_VAR_S, PHP_CLASS_NAME_VAR);
 		php_wddx_add_chunk(packet, tmp_buf);
 		php_wddx_add_chunk_static(packet, WDDX_STRING_S);
 		php_wddx_add_chunk_ex(packet, class_name, name_len);
@@ -974,10 +974,11 @@ static void php_wddx_pop_element(void *user_data, const XML_Char *name)
 						add_property_zval(ent2->data, ent1->varname, ent1->data);
 						EG(scope) = old_scope;
 					} else {
-						long l;  
+						long l;
 						double d;
+						int varname_len = strlen(ent1->varname);
 				
-						switch (is_numeric_string(ent1->varname, strlen(ent1->varname), &l, &d, 0)) {
+						switch (is_numeric_string(ent1->varname, varname_len, &l, &d, 0)) {
 							case IS_DOUBLE:
 								if (d > INT_MAX) {
 									goto bigint;
@@ -988,7 +989,7 @@ static void php_wddx_pop_element(void *user_data, const XML_Char *name)
 								break;
 							default:
 bigint:
-								zend_hash_update(target_hash,ent1->varname, strlen(ent1->varname)+1, &ent1->data, sizeof(zval *), NULL);
+								zend_hash_update(target_hash,ent1->varname, varname_len + 1, &ent1->data, sizeof(zval *), NULL);
 						}
 					}
 					efree(ent1->varname);

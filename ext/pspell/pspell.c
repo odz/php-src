@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: pspell.c,v 1.45.2.4.2.2 2006/08/14 20:08:18 nlopess Exp $ */
+/* $Id: pspell.c,v 1.45.2.4.2.5 2007/01/16 11:19:10 tony2001 Exp $ */
 
 #define IS_EXT_MODULE
 
@@ -186,6 +186,7 @@ static PHP_FUNCTION(pspell_new)
 	 * pointing to the location of the dictionaries
 	 */
 	if(0 == RegOpenKey(HKEY_LOCAL_MACHINE, "Software\\Aspell", &hkey)) {
+		dwLen = sizeof(aspell_dir) - 1;
 		RegQueryValueEx(hkey, "", NULL, &dwType, (LPBYTE)&aspell_dir, &dwLen);
 		RegCloseKey(hkey);
 		strcpy(data_dir, aspell_dir);
@@ -247,6 +248,7 @@ static PHP_FUNCTION(pspell_new)
 
 	if(pspell_error_number(ret) != 0){
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "PSPELL couldn't open the dictionary. reason: %s ", pspell_error_message(ret));
+		delete_pspell_manager(ret);
 		RETURN_FALSE;
 	}
 	
@@ -289,6 +291,7 @@ static PHP_FUNCTION(pspell_new_personal)
 	 * pointing to the location of the dictionaries
 	 */
 	if(0 == RegOpenKey(HKEY_LOCAL_MACHINE, "Software\\Aspell", &hkey)) {
+		dwLen = sizeof(aspell_dir) - 1;
 		RegQueryValueEx(hkey, "", NULL, &dwType, (LPBYTE)&aspell_dir, &dwLen);
 		RegCloseKey(hkey);
 		strcpy(data_dir, aspell_dir);
@@ -304,10 +307,12 @@ static PHP_FUNCTION(pspell_new_personal)
 	convert_to_string_ex(personal);
 
 	if (PG(safe_mode) && (!php_checkuid(Z_STRVAL_PP(personal), NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
+		delete_pspell_config(config);
 		RETURN_FALSE;
 	}
 
 	if (php_check_open_basedir(Z_STRVAL_PP(personal) TSRMLS_CC)) {
+		delete_pspell_config(config);
 		RETURN_FALSE;
 	}
 
@@ -363,6 +368,7 @@ static PHP_FUNCTION(pspell_new_personal)
 
 	if(pspell_error_number(ret) != 0){
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "PSPELL couldn't open the dictionary. reason: %s ", pspell_error_message(ret));
+		delete_pspell_manager(ret);
 		RETURN_FALSE;
 	}
 	
@@ -396,6 +402,7 @@ static PHP_FUNCTION(pspell_new_config)
 
 	if(pspell_error_number(ret) != 0){
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "PSPELL couldn't open the dictionary. reason: %s ", pspell_error_message(ret));
+		delete_pspell_manager(ret);
 		RETURN_FALSE;
 	}
 	
@@ -641,17 +648,18 @@ static PHP_FUNCTION(pspell_config_create)
     /* If aspell was installed using installer, we should have a key
      * pointing to the location of the dictionaries
      */
-    if(0 == RegOpenKey(HKEY_LOCAL_MACHINE, "Software\\Aspell", &hkey)) {
-	RegQueryValueEx(hkey, "", NULL, &dwType, (LPBYTE)&aspell_dir, &dwLen);
-	RegCloseKey(hkey);
-	strcpy(data_dir, aspell_dir);
-	strcat(data_dir, "\\data");
-	strcpy(dict_dir, aspell_dir);
-	strcat(dict_dir, "\\dict");
+	if(0 == RegOpenKey(HKEY_LOCAL_MACHINE, "Software\\Aspell", &hkey)) {
+		dwLen = sizeof(aspell_dir) - 1;
+		RegQueryValueEx(hkey, "", NULL, &dwType, (LPBYTE)&aspell_dir, &dwLen);
+		RegCloseKey(hkey);
+		strcpy(data_dir, aspell_dir);
+		strcat(data_dir, "\\data");
+		strcpy(dict_dir, aspell_dir);
+		strcat(dict_dir, "\\dict");
 
-	pspell_config_replace(config, "data-dir", data_dir);
-	pspell_config_replace(config, "dict-dir", dict_dir);
-      }
+		pspell_config_replace(config, "data-dir", data_dir);
+		pspell_config_replace(config, "dict-dir", dict_dir);
+	}
 #endif
 
 	convert_to_string_ex(language);
@@ -751,8 +759,7 @@ static PHP_FUNCTION(pspell_config_ignore)
 	zval **conf, **pignore;
 	int argc;
 
-	int loc = PSPELL_LARGEST_WORD;
-	char ignore_str[PSPELL_LARGEST_WORD + 1];	
+	char ignore_str[MAX_LENGTH_OF_LONG + 1];	
 	long ignore = 0L;
 
 	PspellConfig *config;
@@ -767,23 +774,9 @@ static PHP_FUNCTION(pspell_config_ignore)
 	convert_to_long_ex(pignore);
 	ignore = Z_LVAL_PP(pignore);
 
-	/* The following is a very hackish way to convert a long to a string
-	(actually only the numbers 0-999 will get converted properly, but that should
-	be sufficient). If anyone knows of a better way to convert an integer to a string,
-	please, fix it.*/
-	ignore_str[loc] = '\0';
-	while(ignore > 0){
-		if(loc == 0){
-			break;
-		}
-		ignore_str[--loc] = '0' + (ignore % 10);
-		ignore /= 10;
-	}
-	if(ignore_str[loc] == '\0'){
-		ignore_str[--loc] = '0';
-	}
+	sprintf(ignore_str, "%ld", ignore);
 
-	pspell_config_replace(config, "ignore", &ignore_str[loc]);
+	pspell_config_replace(config, "ignore", ignore_str);
 	RETURN_TRUE;
 }
 /* }}} */

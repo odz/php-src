@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2006 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_object_handlers.c,v 1.135.2.6.2.15 2006/09/12 11:01:16 dmitry Exp $ */
+/* $Id: zend_object_handlers.c,v 1.135.2.6.2.19 2007/01/10 15:58:07 dmitry Exp $ */
 
 #include "zend.h"
 #include "zend_globals.h"
@@ -334,14 +334,17 @@ zval *zend_std_read_property(zval *object, zval *member, int type TSRMLS_DC)
 
 			if (rv) {
 				retval = &rv;
-				if ((type == BP_VAR_W || type == BP_VAR_RW  || type == BP_VAR_UNSET) && rv->refcount > 0) {
-					zval *tmp = rv;
+				if (!rv->is_ref &&
+				    (type == BP_VAR_W || type == BP_VAR_RW  || type == BP_VAR_UNSET)) {
+					if (rv->refcount > 0) {
+						zval *tmp = rv;
 
-					ALLOC_ZVAL(rv);
-					*rv = *tmp;
-					zval_copy_ctor(rv);
-					rv->is_ref = 0;
-					rv->refcount = 0;
+						ALLOC_ZVAL(rv);
+						*rv = *tmp;
+						zval_copy_ctor(rv);
+						rv->is_ref = 0;
+						rv->refcount = 0;
+					}
 					if (Z_TYPE_P(rv) != IS_OBJECT) {
 						zend_error(E_NOTICE, "Indirect modification of overloaded property %s::$%s has no effect", zobj->ce->name, Z_STRVAL_P(member));
 					}

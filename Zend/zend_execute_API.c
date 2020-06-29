@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2006 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_execute_API.c,v 1.331.2.20.2.10 2006/10/18 17:04:49 johannes Exp $ */
+/* $Id: zend_execute_API.c,v 1.331.2.20.2.14 2007/01/01 09:35:46 sebastian Exp $ */
 
 #include <stdio.h>
 #include <signal.h>
@@ -870,6 +870,11 @@ int zend_call_function(zend_fcall_info *fci, zend_fcall_info_cache *fci_cache TS
 						zend_ptr_stack_n_push(&EG(argument_stack), 2, (void *) (long) i, NULL);
 						zend_ptr_stack_clear_multiple(TSRMLS_C);
 					}
+
+					if (call_via_handler) {
+						zval_ptr_dtor(&method_name);
+						zval_ptr_dtor(&params_array);
+					}
 					return FAILURE;
 				}
 				ALLOC_ZVAL(new_zval);
@@ -1113,11 +1118,14 @@ ZEND_API int zend_eval_string(char *str, zval *retval_ptr, char *string_name TSR
 	int retval;
 
 	if (retval_ptr) {
-		pv.value.str.len = strlen(str)+sizeof("return  ;")-1;
-		pv.value.str.val = emalloc(pv.value.str.len+1);
-		strcpy(pv.value.str.val, "return ");
-		strcat(pv.value.str.val, str);
-		strcat(pv.value.str.val, " ;");
+		int l = strlen(str);
+		Z_STRLEN(pv) = l+sizeof("return  ;")-1;
+		Z_STRVAL(pv) = emalloc(Z_STRLEN(pv) + 1);
+		memcpy(Z_STRVAL(pv), "return ", sizeof("return ")-1);
+		memcpy(Z_STRVAL(pv) + sizeof("return ")-1, str, l);
+		Z_STRVAL(pv)[Z_STRLEN(pv)-2] = ' ';
+		Z_STRVAL(pv)[Z_STRLEN(pv)-1] = ';';
+		Z_STRVAL(pv)[Z_STRLEN(pv)] = '\0';
 	} else {
 		pv.value.str.len = strlen(str);
 		pv.value.str.val = estrndup(str, pv.value.str.len);
@@ -1381,6 +1389,9 @@ void zend_set_timeout(long seconds)
 	TSRMLS_FETCH();
 
 	EG(timeout_seconds) = seconds;
+	if(!seconds) {
+		return;
+	}
 #ifdef ZEND_WIN32
 	if (timeout_thread_initialized==0 && InterlockedIncrement(&timeout_thread_initialized)==1) {
 		/* We start up this process-wide thread here and not in zend_startup(), because if Zend
@@ -1419,7 +1430,9 @@ void zend_set_timeout(long seconds)
 void zend_unset_timeout(TSRMLS_D)
 {
 #ifdef ZEND_WIN32
-	PostThreadMessage(timeout_thread_id, WM_UNREGISTER_ZEND_TIMEOUT, (WPARAM) GetCurrentThreadId(), (LPARAM) 0);
+	if(timeout_thread_initialized) {
+		PostThreadMessage(timeout_thread_id, WM_UNREGISTER_ZEND_TIMEOUT, (WPARAM) GetCurrentThreadId(), (LPARAM) 0);
+	}
 #else
 #	ifdef HAVE_SETITIMER
 	{

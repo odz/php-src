@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    |          Derick Rethans <derick@derickrethans.nl>                    |
    +----------------------------------------------------------------------+
  */
-/* $Id: mcrypt.c,v 1.91.2.3.2.5 2006/06/26 16:33:38 bjori Exp $ */
+/* $Id: mcrypt.c,v 1.91.2.3.2.7 2007/01/01 09:36:02 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -1274,9 +1274,10 @@ PHP_FUNCTION(mcrypt_create_iv)
 			RETURN_FALSE;
 		}
 	} else {
+		unsigned int ctx;
 		n = size;
 		while (size) {
-			iv[--size] = 255.0 * rand() / RAND_MAX;
+			iv[--size] = 255.0 * php_rand_r(&ctx) / RAND_MAX;
 		}
 	}
 	RETURN_STRINGL(iv, n, 0);

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_odbc.c,v 1.189.2.4.2.1 2006/06/15 18:33:08 dmitry Exp $ */
+/* $Id: php_odbc.c,v 1.189.2.4.2.4 2007/01/16 18:56:06 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -1984,12 +1984,12 @@ PHP_FUNCTION(odbc_result_all)
 						RETURN_FALSE;
 					}
 					if (rc == SQL_SUCCESS_WITH_INFO)
-						php_printf(buf,result->longreadlen);
+						PHPWRITE(buf, result->longreadlen);
 					else if (result->values[i].vallen == SQL_NULL_DATA) {
 						php_printf("<td>NULL</td>");
 						break;
 					} else {
-						php_printf(buf, result->values[i].vallen);
+						PHPWRITE(buf, result->values[i].vallen);
 					}
 					php_printf("</td>");
 					break;
@@ -2090,23 +2090,23 @@ int odbc_sqlconnect(odbc_connection **conn, char *db, char *uid, char *pwd, int 
 			 if (strstr(db, "pwd") || strstr(db, "PWD")) {
 				 pwd = NULL;
 			 }
-			 strncpy( lpszConnStr, db, CONNSTRSIZE);
+			 strlcpy( lpszConnStr, db, CONNSTRSIZE);
 		 }
 		 else {
 			 strcpy(lpszConnStr, "DSN=");
-			 strcat(lpszConnStr, db);
+			 strlcat(lpszConnStr, db, CONNSTRSIZE);
 		 }
 		 if (uid) {
 			 if (uid[0]) {
-				 strcat(lpszConnStr, ";UID=");
-				 strcat(lpszConnStr, uid);
-				 strcat(lpszConnStr, ";");
+				 strlcat(lpszConnStr, ";UID=", CONNSTRSIZE);
+				 strlcat(lpszConnStr, uid, CONNSTRSIZE);
+				 strlcat(lpszConnStr, ";", CONNSTRSIZE);
 			 }
 			 if (pwd) {
 				 if (pwd[0]) {
-					 strcat(lpszConnStr, "PWD=");
-					 strcat(lpszConnStr, pwd);
-					 strcat(lpszConnStr, ";");
+					 strlcat(lpszConnStr, "PWD=", CONNSTRSIZE);
+					 strlcat(lpszConnStr, pwd, CONNSTRSIZE);
+					 strlcat(lpszConnStr, ";", CONNSTRSIZE);
 				 }
 			 }
 		 }

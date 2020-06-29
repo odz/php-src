@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: fopen_wrappers.c,v 1.175.2.3.2.1 2006/07/01 11:35:34 nlopess Exp $ */
+/* $Id: fopen_wrappers.c,v 1.175.2.3.2.8 2007/01/12 14:31:28 bjori Exp $ */
 
 /* {{{ includes
  */
@@ -46,11 +46,7 @@
 #include "php_network.h"
 
 #if HAVE_PWD_H
-#ifdef PHP_WIN32
-#include "win32/pwd.h"
-#else
 #include <pwd.h>
-#endif
 #endif
 
 #include <sys/types.h>
@@ -259,30 +255,47 @@ static FILE *php_fopen_and_set_opened_path(const char *path, const char *mode, c
 PHPAPI int php_fopen_primary_script(zend_file_handle *file_handle TSRMLS_DC)
 {
 	FILE *fp;
+#ifndef PHP_WIN32
 	struct stat st;
+#endif
 	char *path_info, *filename;
 	int length;
 
 	filename = SG(request_info).path_translated;
 	path_info = SG(request_info).request_uri;
 #if HAVE_PWD_H
-	if (PG(user_dir) && *PG(user_dir)
-		&& path_info && '/' == path_info[0] && '~' == path_info[1]) {
-
-		char user[32];
-		struct passwd *pw;
+	if (PG(user_dir) && *PG(user_dir) && path_info && '/' == path_info[0] && '~' == path_info[1]) {
 		char *s = strchr(path_info + 2, '/');
 
 		filename = NULL;	/* discard the original filename, it must not be used */
 		if (s) {			/* if there is no path name after the file, do not bother */
-							/* to try open the directory */
+			char user[32];			/* to try open the directory */
+			struct passwd *pw;
+#if defined(ZTS) && defined(HAVE_GETPWNAM_R) && defined(_SC_GETPW_R_SIZE_MAX)
+			struct passwd pwstruc;
+			long pwbuflen = sysconf(_SC_GETPW_R_SIZE_MAX);
+			char *pwbuf;
+
+			if (pwbuflen < 1) {
+				return FAILURE;
+			}
+			
+			pwbuf = emalloc(pwbuflen);
+#endif
 			length = s - (path_info + 2);
-			if (length > (int)sizeof(user) - 1)
+			if (length > (int)sizeof(user) - 1) {
 				length = sizeof(user) - 1;
+			}
 			memcpy(user, path_info + 2, length);
 			user[length] = '\0';
-
+#if defined(ZTS) && defined(HAVE_GETPWNAM_R) && defined(_SC_GETPW_R_SIZE_MAX)
+			if (getpwnam_r(user, &pwstruc, pwbuf, pwbuflen, &pw)) {
+				efree(pwbuf);
+				return FAILURE;
+			}
+#else
 			pw = getpwnam(user);
+#endif
 			if (pw && pw->pw_dir) {
 				filename = emalloc(strlen(PG(user_dir)) + strlen(path_info) + strlen(pw->pw_dir) + 4);
 				if (filename) {
@@ -292,6 +305,9 @@ PHPAPI int php_fopen_primary_script(zend_file_handle *file_handle TSRMLS_DC)
 					SG(request_info).path_translated = filename;
 				}
 			}
+#if defined(ZTS) && defined(HAVE_GETPWNAM_R) && defined(_SC_GETPW_R_SIZE_MAX)
+			efree(pwbuf);
+#endif
 		}
 	} else
 #endif
@@ -325,11 +341,14 @@ PHPAPI int php_fopen_primary_script(zend_file_handle *file_handle TSRMLS_DC)
 	}
 	fp = VCWD_FOPEN(filename, "rb");
 
+#ifndef PHP_WIN32
 	/* refuse to open anything that is not a regular file */
 	if (fp && (0 > fstat(fileno(fp), &st) || !S_ISREG(st.st_mode))) {
 		fclose(fp);
 		fp = NULL;
 	}
+#endif
+
 	if (!fp) {
 		STR_FREE(SG(request_info).path_translated);	/* for same reason as above */
 		SG(request_info).path_translated = NULL;
@@ -530,7 +549,7 @@ PHPAPI char *expand_filepath(const char *filepath, char *real_path TSRMLS_DC)
 	new_state.cwd = strdup(cwd);
 	new_state.cwd_length = strlen(cwd);
 
-	if(virtual_file_ex(&new_state, filepath, NULL, 1)) {
+	if(virtual_file_ex(&new_state, filepath, NULL, CWD_FILEPATH)) {
 		free(new_state.cwd);
 		return NULL;
 	}

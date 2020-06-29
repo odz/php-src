@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ibase_query.c,v 1.23.2.1 2006/01/01 12:50:08 sniper Exp $ */
+/* $Id: ibase_query.c,v 1.23.2.1.2.5 2007/01/22 09:08:28 tony2001 Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -669,14 +669,13 @@ static int _php_ibase_bind(XSQLDA *sqlda, zval ***b_vars, BIND_BUF *buf, /* {{{ 
 		var->sqldata = (void*)&buf[i].val;
 
 		switch (var->sqltype & ~1) {
-			struct tm t;
+			struct tm *t, tmbuf;
 
 			case SQL_TIMESTAMP:
 			case SQL_TYPE_DATE:
 			case SQL_TYPE_TIME:
 				if (Z_TYPE_P(b_var) == IS_LONG) {
-					/* insert timestamp directly */
-					t = *gmtime(&Z_LVAL_P(b_var));
+					t = php_gmtime_r(&Z_LVAL_P(b_var), &tmbuf);
 				} else {
 #ifdef HAVE_STRPTIME
 					char *format = INI_STR("ibase.timestampformat");
@@ -690,7 +689,7 @@ static int _php_ibase_bind(XSQLDA *sqlda, zval ***b_vars, BIND_BUF *buf, /* {{{ 
 						case SQL_TYPE_TIME:
 							format = INI_STR("ibase.timeformat");
 					}
-					if (! strptime(Z_STRVAL_P(b_var), format, &t)) {
+					if (!strptime(Z_STRVAL_P(b_var), format, t)) {
 						/* strptime() cannot handle it, so let IB have a try */
 						break;
 					}
@@ -701,13 +700,13 @@ static int _php_ibase_bind(XSQLDA *sqlda, zval ***b_vars, BIND_BUF *buf, /* {{{ 
 
 				switch (var->sqltype & ~1) {
 					default: /* == case SQL_TIMESTAMP */
-						isc_encode_timestamp(&t, &buf[i].val.tsval);
+						isc_encode_timestamp(t, &buf[i].val.tsval);
 						break;
 					case SQL_TYPE_DATE:
-						isc_encode_sql_date(&t, &buf[i].val.dtval);
+						isc_encode_sql_date(t, &buf[i].val.dtval);
 						break;
 					case SQL_TYPE_TIME:
-						isc_encode_sql_time(&t, &buf[i].val.tmval);
+						isc_encode_sql_time(t, &buf[i].val.tmval);
 						break;
 				}
 				continue;
@@ -1118,7 +1117,7 @@ PHP_FUNCTION(ibase_query)
 			}					
 		case 1:
 		case 0:
-			if (SUCCESS == zend_parse_parameters(ZEND_NUM_ARGS() ? 1 : 0 TSRMLS_CC, "s|z", &query, 
+			if (SUCCESS == zend_parse_parameters(ZEND_NUM_ARGS() ? 1 : 0 TSRMLS_CC, "s", &query, 
 					&query_len)) {
 				ZEND_FETCH_RESOURCE2(ib_link, ibase_db_link *, NULL, IBG(default_link), LE_LINK,
 			    	le_link, le_plink);
@@ -1147,7 +1146,7 @@ PHP_FUNCTION(ibase_query)
 				break;
 			}
 		} else if (bind_n > 0) {
-			bind_args = (zval ***) emalloc(sizeof(zval **) * ZEND_NUM_ARGS());
+			bind_args = (zval ***) safe_emalloc(sizeof(zval **), ZEND_NUM_ARGS(), 0);
 
 			if (FAILURE == zend_get_parameters_array_ex(ZEND_NUM_ARGS(), bind_args)) {
 				break;
@@ -1939,7 +1938,7 @@ static void _php_ibase_field_info(zval *return_value, XSQLVAR *var) /* {{{ */
 	add_index_stringl(return_value, 2, var->relname, var->relname_length, 1);
 	add_assoc_stringl(return_value, "relation", var->relname, var->relname_length, 1);
 
-	len = sprintf(buf, "%d", var->sqllen);
+	len = snprintf(buf, 16, "%d", var->sqllen);
 	add_index_stringl(return_value, 3, buf, len, 1);
 	add_assoc_stringl(return_value, "length", buf, len, 1);
 
@@ -1958,7 +1957,7 @@ static void _php_ibase_field_info(zval *return_value, XSQLVAR *var) /* {{{ */
 				precision = 18;
 				break;
 		}
-		len = sprintf(buf, "NUMERIC(%d,%d)", precision, -var->sqlscale);
+		len = snprintf(buf, 16, "NUMERIC(%d,%d)", precision, -var->sqlscale);
 		add_index_stringl(return_value, 4, s, len, 1);
 		add_assoc_stringl(return_value, "type", s, len, 1);
 	} else {

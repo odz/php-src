@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2006 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend.h,v 1.293.2.11.2.6 2006/09/14 10:32:45 dmitry Exp $ */
+/* $Id: zend.h,v 1.293.2.11.2.7 2007/01/01 09:35:45 sebastian Exp $ */
 
 #ifndef ZEND_H
 #define ZEND_H

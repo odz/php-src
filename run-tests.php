@@ -3,7 +3,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -23,7 +23,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: run-tests.php,v 1.226.2.37.2.15 2006/09/14 16:58:52 nlopess Exp $ */
+/* $Id: run-tests.php,v 1.226.2.37.2.21 2007/01/01 19:32:09 iliaa Exp $ */
 
 /* Sanity check to ensure that pcre extension needed by this script is available.
  * In the event it is not, print a nice error message indicating that this script will
@@ -202,6 +202,7 @@ More .INIs  : " . (function_exists(\'php_ini_scanned_files\') ? str_replace("\n"
 	// check for extensions that need special handling and regenerate
 	$info_params_ex = array(
 		'session' => array('session.auto_start=0'),
+		'tidy' => array('tidy.clean_output=0'),
 		'zlib' => array('zlib.output_compression=Off'),
 		'xdebug' => array('xdebug.default_enable=0'),
 	);
@@ -397,7 +398,7 @@ if (isset($argc) && $argc > 1) {
 					$html_output = is_resource($html_file);
 					break;
 				case '--version':
-					echo '$Revision: 1.226.2.37.2.15 $'."\n";
+					echo '$Revision: 1.226.2.37.2.21 $'."\n";
 					exit(1);
 				default:
 					echo "Illegal switch '$switch' specified!\n";
@@ -533,7 +534,7 @@ $exts_skipped = 0;
 $ignored_by_ext = 0;
 sort($exts_to_test);
 $test_dirs = array();
-$optionals = array('tests', 'ext', 'Zend', 'ZendEngine2');
+$optionals = array('tests', 'ext', 'Zend', 'ZendEngine2', 'sapi/cli');
 foreach($optionals as $dir) {
 	if (@filetype($dir) == 'dir') {
 		$test_dirs[] = $dir;
@@ -950,13 +951,14 @@ TEST $file
 		'TEST'   => '',
 		'SKIPIF' => '',
 		'GET'    => '',
+		'COOKIE' => '',
 		'POST_RAW' => '',
 		'POST'   => '',
 		'UPLOAD' => '',
 		'ARGS'   => '',
 	);
 
-	$fp = @fopen($file, "rt") or error("Cannot open test file: $file");
+	$fp = fopen($file, "rt") or error("Cannot open test file: $file");
 
 	$borked = false;
 	$bork_info = '';
@@ -1039,7 +1041,7 @@ TEST $file
 	$tested = trim($section_text['TEST']);
 
 	/* For GET/POST tests, check if cgi sapi is available and if it is, use it. */
-	if (!empty($section_text['GET']) || !empty($section_text['POST']) || !empty($section_text['POST_RAW'])) {
+	if (!empty($section_text['GET']) || !empty($section_text['POST']) || !empty($section_text['POST_RAW']) || !empty($section_text['COOKIE'])) {
 		if (isset($php_cgi)) {
 			$old_php = $php;
 			$php = $php_cgi .' -C ';
@@ -1134,9 +1136,9 @@ TEST $file
 	$env['CONTENT_TYPE']='';
 	$env['CONTENT_LENGTH']='';
 	if (!empty($section_text['ENV'])) {
-		foreach(explode("\n", $section_text['ENV']) as $e) {
-			$e = explode('=',trim($e));
-			if (count($e) == 2) {
+		foreach(explode("\n", trim($section_text['ENV'])) as $e) {
+			$e = explode('=',trim($e),2);
+			if (!empty($e[0]) && isset($e[1])) {
 				$env[$e[0]] = $e[1];
 			}
 		}
@@ -1288,6 +1290,12 @@ TEST $file
 	$env['PATH_TRANSLATED'] = $test_file;
 	$env['SCRIPT_FILENAME'] = $test_file;
 
+	if (array_key_exists('COOKIE', $section_text)) {
+		$env['HTTP_COOKIE'] = trim($section_text['COOKIE']);
+	} else {
+		$env['HTTP_COOKIE'] = '';
+	}
+
 	$args = $section_text['ARGS'] ? ' -- '.$section_text['ARGS'] : '';
 
 	if (array_key_exists('POST_RAW', $section_text) && !empty($section_text['POST_RAW'])) {
@@ -1347,6 +1355,7 @@ QUERY_STRING    = " . $env['QUERY_STRING'] . "
 REDIRECT_STATUS = " . $env['REDIRECT_STATUS'] . "
 REQUEST_METHOD  = " . $env['REQUEST_METHOD'] . "
 SCRIPT_FILENAME = " . $env['SCRIPT_FILENAME'] . "
+HTTP_COOKIE     = " . $env['HTTP_COOKIE'] . "
 COMMAND $cmd
 ";
 

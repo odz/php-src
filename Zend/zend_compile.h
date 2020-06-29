@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2006 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_compile.h,v 1.316.2.8.2.7 2006/09/26 10:30:50 dmitry Exp $ */
+/* $Id: zend_compile.h,v 1.316.2.8.2.9 2007/01/10 15:58:07 dmitry Exp $ */
 
 #ifndef ZEND_COMPILE_H
 #define ZEND_COMPILE_H
@@ -476,9 +476,8 @@ void zend_do_isset_or_isempty(int type, znode *result, znode *variable TSRMLS_DC
 
 void zend_do_instanceof(znode *result, znode *expr, znode *class_znode, int type TSRMLS_DC);
 
-void zend_do_foreach_begin(znode *foreach_token, znode *open_brackets_token, znode *array, int variable TSRMLS_DC);
-void zend_do_foreach_fetch(znode *foreach_token, znode *open_brackets_token, znode *as_token TSRMLS_DC);
-void zend_do_foreach_cont(znode *foreach_token, znode *as_token, znode *value, znode *key TSRMLS_DC);
+void zend_do_foreach_begin(znode *foreach_token, znode *open_brackets_token, znode *array, znode *as_token, int variable TSRMLS_DC);
+void zend_do_foreach_cont(znode *foreach_token, znode *open_brackets_token, znode *as_token, znode *value, znode *key TSRMLS_DC);
 void zend_do_foreach_end(znode *foreach_token, znode *as_token TSRMLS_DC);
 
 void zend_do_declare_begin(TSRMLS_D);

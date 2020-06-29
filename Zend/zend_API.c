@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2006 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_API.c,v 1.296.2.27.2.23 2006/10/03 11:10:32 dmitry Exp $ */
+/* $Id: zend_API.c,v 1.296.2.27.2.25 2007/01/01 09:35:45 sebastian Exp $ */
 
 #include "zend.h"
 #include "zend_execute.h"
@@ -2095,18 +2095,17 @@ static zend_function_entry disabled_class_new[] =  {
 
 ZEND_API int zend_disable_class(char *class_name, uint class_name_length TSRMLS_DC)
 {
-	zend_class_entry *disabled_class;
-	disabled_class = (zend_class_entry *) emalloc(sizeof(zend_class_entry));
+	zend_class_entry disabled_class;
 
 	zend_str_tolower(class_name, class_name_length);
 	if (zend_hash_del(CG(class_table), class_name, class_name_length+1)==FAILURE) {
 		return FAILURE;
 	}
-	INIT_CLASS_ENTRY((*disabled_class), class_name, disabled_class_new);
-	disabled_class->create_object = display_disabled_class;
-	disabled_class->name_length = class_name_length;
-	zend_register_internal_class(disabled_class TSRMLS_CC);
-	return 1;
+	INIT_CLASS_ENTRY(disabled_class, class_name, disabled_class_new);
+	disabled_class.create_object = display_disabled_class;
+	disabled_class.name_length = class_name_length;
+	zend_register_internal_class(&disabled_class TSRMLS_CC);
+	return SUCCESS;
 }
 
 static int zend_is_callable_check_func(int check_flags, zval ***zobj_ptr_ptr, zend_class_entry *ce_org, zval *callable, zend_class_entry **ce_ptr, zend_function **fptr_ptr TSRMLS_DC)

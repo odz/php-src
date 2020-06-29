@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: html.c,v 1.111.2.2.2.3 2006/11/01 01:55:11 iliaa Exp $ */
+/* $Id: html.c,v 1.111.2.2.2.6 2007/01/18 16:21:32 tony2001 Exp $ */
 
 /*
  * HTML entity resources:
@@ -948,7 +948,8 @@ PHPAPI char *php_unescape_html_entities(unsigned char *old, int oldlen, int *new
 
 					default:
 						php_error_docref(NULL TSRMLS_CC, E_WARNING, "cannot yet handle MBCS!");
-						return 0;
+						efree(ret);
+						return NULL;
 				}
 
 				if (php_memnstr(ret, entity, entity_length, ret+retlen)) {
@@ -1308,7 +1309,10 @@ PHP_FUNCTION(html_entity_decode)
 	}
 
 	replaced = php_unescape_html_entities(str, str_len, &len, 1, quote_style, hint_charset TSRMLS_CC);
-	RETVAL_STRINGL(replaced, len, 0);
+	if (replaced) {
+		RETURN_STRINGL(replaced, len, 0);
+	}
+	RETURN_FALSE;
 }
 /* }}} */
 
@@ -1350,7 +1354,7 @@ PHP_FUNCTION(get_html_translation_table)
 						continue;
 					/* what about wide chars here ?? */
 					ind[0] = i + entity_map[j].basechar;
-					sprintf(buffer, "&%s;", entity_map[j].table[i]);
+					snprintf(buffer, sizeof(buffer), "&%s;", entity_map[j].table[i]);
 					add_assoc_string(return_value, ind, buffer, 1);
 
 				}

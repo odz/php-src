@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2006 The PHP Group                                |
+  | Copyright (c) 1997-2007 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -15,7 +15,7 @@
   | Author: Hartmut Holzgraefe  <hholzgra@php.net>                       |
   +----------------------------------------------------------------------+
 
-  $Id: mime_magic.c,v 1.42.2.5.2.1 2006/06/15 18:33:07 dmitry Exp $ 
+  $Id: mime_magic.c,v 1.42.2.5.2.5 2007/01/01 09:36:03 sebastian Exp $ 
 
   This module contains a lot of stuff taken from Apache mod_mime_magic,
   so the license section is a little bit longer than usual:
@@ -730,9 +730,7 @@ static int parse(char *l, int lineno)
 		return -1;
 	}
 	
-	strncpy(m->desc, l, sizeof(m->desc) - 1);
-	m->desc[sizeof(m->desc) - 1] = '\0';
-
+	strlcpy(m->desc, l, sizeof(m->desc));
     return 0;
 }
 
@@ -1388,6 +1386,7 @@ static int ascmagic(unsigned char *buf, int nbytes)
     char *token;
     register struct names *p;
     int small_nbytes;
+    char *strtok_buf = NULL;
 
     /* these are easy, do them first */
 
@@ -1420,8 +1419,7 @@ static int ascmagic(unsigned char *buf, int nbytes)
     s = (unsigned char *) memcpy(nbuf, buf, small_nbytes);
     s[small_nbytes] = '\0';
     has_escapes = (memchr(s, '\033', small_nbytes) != NULL);
-    /* XXX: not multithread safe */
-    while ((token = strtok((char *) s, " \t\n\r\f")) != NULL) {
+    while ((token = php_strtok_r((char *) s, " \t\n\r\f", &strtok_buf)) != NULL) {
 		s = NULL;		/* make strtok() keep on tokin' */
 		for (p = names; p < names + NNAMES; p++) {
 			if (STREQ(p->name, token)) {
@@ -1755,12 +1753,15 @@ static void mprint(union VALUETYPE *p, struct magic *m)
     case DATE:
     case BEDATE:
     case LEDATE:
-		/* XXX: not multithread safe */
-		pp = ctime((time_t *) & p->l);
-		if ((rt = strchr(pp, '\n')) != NULL)
-			*rt = '\0';
-		(void) magic_rsl_printf(m->desc, pp);
-		return;
+		{
+			char ctimebuf[52];
+			pp = php_ctime_r((time_t *) &p->l, ctimebuf);
+			if ((rt = strchr(pp, '\n')) != NULL) {
+				*rt = '\0';
+			}
+			(void) magic_rsl_printf(m->desc, pp);
+			return;
+		}
     default:
     	{
     		TSRMLS_FETCH();

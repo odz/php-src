@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: spl_iterators.c,v 1.73.2.30.2.17 2006/07/21 21:26:11 helly Exp $ */
+/* $Id: spl_iterators.c,v 1.73.2.30.2.22 2007/01/01 09:36:07 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -748,18 +748,19 @@ static zend_object_value spl_RecursiveIteratorIterator_new(zend_class_entry *cla
 /* }}} */
 
 static
-ZEND_BEGIN_ARG_INFO(arginfo_recursive_it___construct, 0) 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_recursive_it___construct, 0, 0, 1) 
 	ZEND_ARG_OBJ_INFO(0, iterator, Traversable, 0)
 	ZEND_ARG_INFO(0, mode)
+	ZEND_ARG_INFO(0, flags)
 ZEND_END_ARG_INFO();
 
 static
-ZEND_BEGIN_ARG_INFO(arginfo_recursive_it_getSubIterator, 0) 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_recursive_it_getSubIterator, 0, 0, 0)
 	ZEND_ARG_INFO(0, level)
 ZEND_END_ARG_INFO();
 
 static
-ZEND_BEGIN_ARG_INFO(arginfo_recursive_it_setMaxDepth, 0) 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_recursive_it_setMaxDepth, 0, 0, 0)
 	ZEND_ARG_INFO(0, max_depth)
 ZEND_END_ARG_INFO();
 
@@ -1012,8 +1013,13 @@ static spl_dual_it_object* spl_dual_it_construct(INTERNAL_FUNCTION_PARAMETERS, z
 			intern->u.regex.mode = mode;
 			intern->u.regex.regex = estrndup(regex, regex_len);
 			intern->u.regex.pce = pcre_get_compiled_regex_cache(regex, regex_len TSRMLS_CC);
+			if (intern->u.regex.pce == NULL) {
+				/* pcre_get_compiled_regex_cache has already sent error */
+				php_set_error_handling(EH_NORMAL, NULL TSRMLS_CC);
+				return NULL;
+			}
 			intern->u.regex.pce->refcount++;
-			break;;
+			break;
 		}
 #endif
 		default:
@@ -1481,7 +1487,7 @@ SPL_METHOD(RegexIterator, setMode)
 
 	if (mode < 0 || mode >= REGIT_MODE_MAX) {
 		zend_throw_exception_ex(spl_ce_InvalidArgumentException, 0 TSRMLS_CC, "Illegal mode %ld", mode);
-		return;// NULL
+		return;/* NULL */
 	}
 
 	intern->u.regex.mode = mode;
@@ -1523,7 +1529,7 @@ SPL_METHOD(RegexIterator, getPregFlags)
 	}
 } /* }}} */
 
-/* {{{ proto bool RegexIterator::setFlags(int new_flags)
+/* {{{ proto bool RegexIterator::setPregFlags(int new_flags)
    Set PREG flags */
 SPL_METHOD(RegexIterator, setPregFlags)
 {
@@ -1857,7 +1863,7 @@ static zend_function_entry spl_funcs_SeekableIterator[] = {
 };
 
 static
-ZEND_BEGIN_ARG_INFO(arginfo_limit_it___construct, 0) 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_limit_it___construct, 0, 0, 1) 
 	ZEND_ARG_OBJ_INFO(0, iterator, Iterator, 0)
 	ZEND_ARG_INFO(0, offset)
 	ZEND_ARG_INFO(0, count)
@@ -2192,7 +2198,7 @@ SPL_METHOD(CachingIterator, getFlags)
 }
 /* }}} */
 
-/* {{{ proto void CachingIterator::setFlags()
+/* {{{ proto void CachingIterator::setFlags(int flags)
    Set the internal flags */
 SPL_METHOD(CachingIterator, setFlags)
 {
@@ -2226,7 +2232,7 @@ SPL_METHOD(CachingIterator, setFlags)
 /* }}} */
 
 static
-ZEND_BEGIN_ARG_INFO(arginfo_caching_it___construct, 0) 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_caching_it___construct, 0, 0, 1) 
 	ZEND_ARG_OBJ_INFO(0, iterator, Iterator, 0)
 	ZEND_ARG_INFO(0, flags)
 ZEND_END_ARG_INFO();
@@ -2237,12 +2243,12 @@ ZEND_BEGIN_ARG_INFO(arginfo_caching_it_setFlags, 0)
 ZEND_END_ARG_INFO();
 
 static
-ZEND_BEGIN_ARG_INFO_EX(arginfo_caching_it_offsetGet, 0, 0, 1)
+ZEND_BEGIN_ARG_INFO(arginfo_caching_it_offsetGet, 0)
 	ZEND_ARG_INFO(0, index)
 ZEND_END_ARG_INFO();
 
 static
-ZEND_BEGIN_ARG_INFO_EX(arginfo_caching_it_offsetSet, 0, 0, 2)
+ZEND_BEGIN_ARG_INFO(arginfo_caching_it_offsetSet, 0)
 	ZEND_ARG_INFO(0, index)
 	ZEND_ARG_INFO(0, newval)
 ZEND_END_ARG_INFO();
@@ -2301,7 +2307,7 @@ SPL_METHOD(RecursiveCachingIterator, getChildren)
 } /* }}} */
 
 static
-ZEND_BEGIN_ARG_INFO_EX(arginfo_caching_rec_it___construct, 0, ZEND_RETURN_VALUE, 2) 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_caching_rec_it___construct, 0, ZEND_RETURN_VALUE, 1) 
 	ZEND_ARG_OBJ_INFO(0, iterator, Iterator, 0)
 	ZEND_ARG_INFO(0, flags)
 ZEND_END_ARG_INFO();
@@ -2728,23 +2734,38 @@ static int spl_iterator_to_array_apply(zend_object_iterator *iter, void *puser T
 }
 /* }}} */
 
-/* {{{ proto array iterator_to_array(Traversable it) 
+static int spl_iterator_to_values_apply(zend_object_iterator *iter, void *puser TSRMLS_DC) /* {{{ */
+{
+	zval **data, *return_value = (zval*)puser;
+
+	iter->funcs->get_current_data(iter, &data TSRMLS_CC);
+	if (EG(exception)) {
+		return ZEND_HASH_APPLY_STOP;
+	}
+	(*data)->refcount++;
+	add_next_index_zval(return_value, *data);
+	return ZEND_HASH_APPLY_KEEP;
+}
+/* }}} */
+
+/* {{{ proto array iterator_to_array(Traversable it [, bool use_keys = true]) 
    Copy the iterator into an array */
 PHP_FUNCTION(iterator_to_array)
 {
 	zval  *obj;
+	zend_bool use_keys = 1;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "O", &obj, zend_ce_traversable) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "O|b", &obj, zend_ce_traversable, &use_keys) == FAILURE) {
 		RETURN_FALSE;
 	}
 
 	array_init(return_value);
-	
-	if (spl_iterator_apply(obj, spl_iterator_to_array_apply, (void*)return_value TSRMLS_CC) != SUCCESS) {
+
+	if (spl_iterator_apply(obj, use_keys ? spl_iterator_to_array_apply : spl_iterator_to_values_apply, (void*)return_value TSRMLS_CC) != SUCCESS) {
 		zval_dtor(return_value);
 		RETURN_NULL();
 	}
-}
+} /* }}} */
 
 static int spl_iterator_count_apply(zend_object_iterator *iter, void *puser TSRMLS_DC) /* {{{ */
 {
