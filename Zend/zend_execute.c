@@ -2381,7 +2381,7 @@ send_by_ref:
 					if (EX(opline)->extended_value) {
 						array_ptr_ptr = get_zval_ptr_ptr(&EX(opline)->op1, EX(Ts), BP_VAR_R);
 						if (array_ptr_ptr == NULL) {
-							MAKE_STD_ZVAL(array_ptr);
+							ALLOC_INIT_ZVAL(array_ptr);
 						} else {
 							SEPARATE_ZVAL_IF_NOT_REF(array_ptr_ptr);
 							array_ptr = *array_ptr_ptr;

@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_API.c,v 1.113.2.6.2.1 2006/01/01 13:46:49 sniper Exp $ */
+/* $Id: zend_API.c,v 1.113.2.6.2.2 2006/07/22 15:48:22 sniper Exp $ */
 
 #include "zend.h"
 #include "zend_execute.h"
@@ -1302,9 +1302,9 @@ ZEND_API int zend_disable_class(char *class_name, uint class_name_length TSRMLS_
 	if (zend_hash_del(CG(class_table), class_name, class_name_length+1)==FAILURE) {
 		return FAILURE;
 	}
-
 	disabled_class_functions[0].fname = class_name;
 	INIT_CLASS_ENTRY(zce, class_name, disabled_class_functions);
+	zce.name_length = class_name_length;
 	zend_register_internal_class(&zce TSRMLS_CC);
 
 	return SUCCESS;
