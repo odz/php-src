@@ -18,7 +18,7 @@
    |          Wez Furlong <wez@thebrainroom.com>                          |
    +----------------------------------------------------------------------+
  */
-/* $Id: http_fopen_wrapper.c,v 1.53.2.20.2.5 2006/01/01 13:46:57 sniper Exp $ */ 
+/* $Id: http_fopen_wrapper.c,v 1.53.2.20.2.9 2006/04/16 17:45:55 iliaa Exp $ */ 
 
 #include "php.h"
 #include "php_globals.h"
@@ -339,7 +339,7 @@ php_stream *php_stream_url_wrap_http_ex(php_stream_wrapper *wrapper, char *path,
 		size_t tmp_line_len;
 		/* get response header */
 
-		if (_php_stream_get_line(stream, tmp_line, sizeof(tmp_line) - 1, &tmp_line_len TSRMLS_CC) != NULL) {
+		if (php_stream_get_line(stream, tmp_line, sizeof(tmp_line) - 1, &tmp_line_len) != NULL) {
 			zval *http_response;
 			int response_code;
 
@@ -353,6 +353,7 @@ php_stream *php_stream_url_wrap_http_ex(php_stream_wrapper *wrapper, char *path,
 			}
 			switch(response_code) {
 				case 200:
+				case 206: /* partial content */
 				case 302:
 				case 301:
 					reqok = 1;
@@ -394,7 +395,7 @@ php_stream *php_stream_url_wrap_http_ex(php_stream_wrapper *wrapper, char *path,
 
 	while (!body && !php_stream_eof(stream)) {
 		size_t http_header_line_length;
-		if (php_stream_get_line(stream, http_header_line, HTTP_HEADER_BLOCK_SIZE, &http_header_line_length TSRMLS_CC) && *http_header_line != '\n' && *http_header_line != '\r') {
+		if (php_stream_get_line(stream, http_header_line, HTTP_HEADER_BLOCK_SIZE, &http_header_line_length) && *http_header_line != '\n' && *http_header_line != '\r') {
 			char *e = http_header_line + http_header_line_length - 1;
 			while (*e == '\n' || *e == '\r') {
 				e--;
@@ -502,9 +503,11 @@ php_stream *php_stream_url_wrap_http_ex(php_stream_wrapper *wrapper, char *path,
 	}	\
 }	\
 			/* check for control characters in login, password & path */
-			CHECK_FOR_CNTRL_CHARS(resource->user)
-			CHECK_FOR_CNTRL_CHARS(resource->pass)
-			CHECK_FOR_CNTRL_CHARS(resource->path)
+			if (strncasecmp(new_path, "http://", sizeof("http://") - 1) || strncasecmp(new_path, "https://", sizeof("https://") - 1)) {
+				CHECK_FOR_CNTRL_CHARS(resource->user)
+				CHECK_FOR_CNTRL_CHARS(resource->pass)
+				CHECK_FOR_CNTRL_CHARS(resource->path)
+			}
 
 			stream = php_stream_url_wrap_http_ex(NULL, new_path, mode, options, opened_path, context, --redirect_max, 0 STREAMS_CC TSRMLS_CC);
 			if (stream && stream->wrapperdata)	{

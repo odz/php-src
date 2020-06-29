@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: basic_functions.c,v 1.543.2.51.2.6 2006/01/01 13:46:57 sniper Exp $ */
+/* $Id: basic_functions.c,v 1.543.2.51.2.10 2006/06/28 22:09:09 iliaa Exp $ */
 
 #include "php.h"
 #include "php_streams.h"
@@ -1596,7 +1596,7 @@ PHP_FUNCTION(getopt)
 	opterr = 0;
 
 	/* Force reinitialization of getopt() (via optind reset) on every call. */
-	optind = 0;
+	optind = 1;
 
 	/* Invoke getopt(3) on the argument array. */
 #ifdef HARTMUT_0
@@ -1662,14 +1662,16 @@ PHP_FUNCTION(flush)
    Delay for a given number of seconds */
 PHP_FUNCTION(sleep)
 {
-	pval **num;
-
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &num) == FAILURE) {
-		WRONG_PARAM_COUNT;
+	long num;
+  
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &num) == FAILURE) {
+		RETURN_FALSE;
 	}
-
-	convert_to_long_ex(num);
-	php_sleep(Z_LVAL_PP(num));
+	if (num < 0) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Number of seconds must be greater than or equal to 0");
+		RETURN_FALSE;
+	}
+	php_sleep(num);
 }
 /* }}} */
 
@@ -1678,13 +1680,16 @@ PHP_FUNCTION(sleep)
 PHP_FUNCTION(usleep)
 {
 #if HAVE_USLEEP
-	pval **num;
-
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &num) == FAILURE) {
-		WRONG_PARAM_COUNT;
+	long num;
+  
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &num) == FAILURE) {
+		RETURN_FALSE;
 	}
-	convert_to_long_ex(num);
-	usleep(Z_LVAL_PP(num));
+	if (num < 0) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Number of microseconds must be greater than or equal to 0");
+		RETURN_FALSE;
+	}
+	usleep(num);
 #endif
 }
 /* }}} */
@@ -1866,7 +1871,7 @@ PHPAPI int _php_error_log(int opt_err, char *message, char *opt, char *headers T
 			break;
 
 		case 3:		/*save to a file */
-			stream = php_stream_open_wrapper(opt, "a", IGNORE_URL | ENFORCE_SAFE_MODE | REPORT_ERRORS, NULL);
+			stream = php_stream_open_wrapper(opt, "a", IGNORE_URL_WIN | ENFORCE_SAFE_MODE | REPORT_ERRORS, NULL);
 			if (!stream)
 				return FAILURE;
 			php_stream_write(stream, message, strlen(message));
@@ -2214,6 +2219,7 @@ PHP_FUNCTION(register_shutdown_function)
 	shutdown_function_entry.arguments = (zval **) safe_emalloc(sizeof(zval *), shutdown_function_entry.arg_count, 0);
 
 	if (zend_get_parameters_array(ht, shutdown_function_entry.arg_count, shutdown_function_entry.arguments) == FAILURE) {
+		efree(shutdown_function_entry.arguments);
 		RETURN_FALSE;
 	}
 	
@@ -2755,6 +2761,7 @@ PHP_FUNCTION(register_tick_function)
 	tick_fe.arguments = (zval **) safe_emalloc(sizeof(zval *), tick_fe.arg_count, 0);
 
 	if (zend_get_parameters_array(ht, tick_fe.arg_count, tick_fe.arguments) == FAILURE) {
+		efree(tick_fe.arguments);
 		RETURN_FALSE;
 	}
 

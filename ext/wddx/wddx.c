@@ -16,7 +16,11 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: wddx.c,v 1.96.2.6.2.3 2006/01/01 13:46:59 sniper Exp $ */
+/* $Id: wddx.c,v 1.96.2.6.2.7 2006/05/26 01:55:26 iliaa Exp $ */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "php.h"
 #include "php_wddx.h"
@@ -400,9 +404,9 @@ static void php_wddx_serialize_string(wddx_packet *packet, zval *var)
 					break;
 
 				default:
-					if (iscntrl((int)*(unsigned char *)p)) {
+					if (iscntrl((int)*(unsigned char *)p) || (int)*(unsigned char *)p >= 127) {
 						FLUSH_BUF();
-						sprintf(control_buf, WDDX_CHAR, *p);
+						sprintf(control_buf, WDDX_CHAR, (int)*(unsigned char *)p);
 						php_wddx_add_chunk(packet, control_buf);
 					} else
 						buf[l++] = *p;
@@ -428,7 +432,7 @@ static void php_wddx_serialize_number(wddx_packet *packet, zval *var)
 	tmp = *var;
 	zval_copy_ctor(&tmp);
 	convert_to_string(&tmp);
-	sprintf(tmp_buf, WDDX_NUMBER, Z_STRVAL(tmp));
+	snprintf(tmp_buf, Z_STRLEN(tmp), WDDX_NUMBER, Z_STRVAL(tmp));
 	zval_dtor(&tmp);
 
 	php_wddx_add_chunk(packet, tmp_buf);	
@@ -620,17 +624,19 @@ static void php_wddx_serialize_array(wddx_packet *packet, zval *arr)
  */
 void php_wddx_serialize_var(wddx_packet *packet, zval *var, char *name, int name_len TSRMLS_DC)
 {
-	char tmp_buf[WDDX_BUF_LEN];
+	char *tmp_buf;
 	char *name_esc;
 	int name_esc_len;
 
 	if (name) {
 		name_esc = php_escape_html_entities(name, name_len, &name_esc_len, 0, ENT_QUOTES, NULL TSRMLS_CC);
-		sprintf(tmp_buf, WDDX_VAR_S, name_esc);
+		tmp_buf = emalloc(name_esc_len + 1);
+		snprintf(tmp_buf, name_esc_len, WDDX_VAR_S, name_esc);
 		php_wddx_add_chunk(packet, tmp_buf);
+		efree(tmp_buf);
 		efree(name_esc);
 	}
-	
+
 	switch(Z_TYPE_P(var)) {
 		case IS_STRING:
 			php_wddx_serialize_string(packet, var);

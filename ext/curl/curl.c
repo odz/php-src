@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: curl.c,v 1.124.2.30.2.7 2006/01/05 18:03:18 iliaa Exp $ */
+/* $Id: curl.c,v 1.124.2.30.2.11 2006/05/21 18:48:50 helly Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -48,13 +48,11 @@
 /* {{{ cruft for thread safe SSL crypto locks */
 #if defined(ZTS) && defined(HAVE_CURL_SSL)
 # ifdef PHP_WIN32
-#  define PHP_CURL_NEED_SSL_TSL
 #  define PHP_CURL_NEED_OPENSSL_TSL
 #  include <openssl/crypto.h>
 # else /* !PHP_WIN32 */
 #  if defined(HAVE_CURL_OPENSSL)
 #   if defined(HAVE_OPENSSL_CRYPTO_H)
-#    define PHP_CURL_NEED_SSL_TSL
 #    define PHP_CURL_NEED_OPENSSL_TSL
 #    include <openssl/crypto.h>
 #   else
@@ -65,7 +63,6 @@
 #   endif
 #  elif defined(HAVE_CURL_GNUTLS)
 #   if defined(HAVE_GCRYPT_H)
-#    define PHP_CURL_NEED_SSL_TSL
 #    define PHP_CURL_NEED_GNUTLS_TSL
 #    include <gcrypt.h>
 #   else
@@ -87,6 +84,7 @@
 #define SMART_STR_PREALLOC 4096
 
 #include "ext/standard/php_smart_str.h"
+#include "ext/standard/php_string.h"
 #include "ext/standard/info.h"
 #include "ext/standard/file.h"
 #include "ext/standard/url.h"
@@ -95,10 +93,61 @@
 static int  le_curl;
 #define le_curl_name "cURL handle"
 
-#ifdef PHP_CURL_NEED_SSL_TSL
-static inline void php_curl_ssl_init(void);
-static inline void php_curl_ssl_cleanup(void);
+#ifdef PHP_CURL_NEED_OPENSSL_TSL /* {{{ */
+static MUTEX_T *php_curl_openssl_tsl = NULL;
+
+static void php_curl_ssl_lock(int mode, int n, const char * file, int line)
+{
+	if (mode & CRYPTO_LOCK) {
+		tsrm_mutex_lock(php_curl_openssl_tsl[n]);
+	} else {
+		tsrm_mutex_unlock(php_curl_openssl_tsl[n]);
+	}
+}
+
+static unsigned long php_curl_ssl_id(void)
+{
+	return (unsigned long) tsrm_thread_id();
+}
 #endif
+/* }}} */
+
+#ifdef PHP_CURL_NEED_GNUTLS_TSL /* {{{ */
+static int php_curl_ssl_mutex_create(void **m)
+{
+	if (*((MUTEX_T *) m) = tsrm_mutex_alloc()) {
+		return SUCCESS;
+	} else {
+		return FAILURE;
+	}
+}
+
+static int php_curl_ssl_mutex_destroy(void **m)
+{
+	tsrm_mutex_free(*((MUTEX_T *) m));
+	return SUCCESS;
+}
+
+static int php_curl_ssl_mutex_lock(void **m)
+{
+	return tsrm_mutex_lock(*((MUTEX_T *) m));
+}
+
+static int php_curl_ssl_mutex_unlock(void **m)
+{
+	return tsrm_mutex_unlock(*((MUTEX_T *) m));
+}
+
+static struct gcry_thread_cbs php_curl_gnutls_tsl = {
+	GCRY_THREAD_OPTION_USER,
+	NULL,
+	php_curl_ssl_mutex_create,
+	php_curl_ssl_mutex_destroy,
+	php_curl_ssl_mutex_lock,
+	php_curl_ssl_mutex_unlock
+};
+#endif
+/* }}} */
 
 static void _php_curl_close(zend_rsrc_list_entry *rsrc TSRMLS_DC);
 
@@ -111,14 +160,19 @@ static void _php_curl_close(zend_rsrc_list_entry *rsrc TSRMLS_DC);
 
 #define PHP_CURL_CHECK_OPEN_BASEDIR(str, len)													\
 	if (((PG(open_basedir) && *PG(open_basedir)) || PG(safe_mode)) &&                                                \
-	    strncasecmp(str, "file://", sizeof("file://") - 1) == 0)								\
+	    strncasecmp(str, "file:", sizeof("file:") - 1) == 0)								\
 	{ 																							\
 		php_url *tmp_url; 																		\
-																								\
+															\
 		if (!(tmp_url = php_url_parse_ex(str, len))) {											\
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid url '%s'", str);				\
 			RETURN_FALSE; 																		\
 		} 																						\
+															\
+		if (php_memnstr(str, tmp_url->path, strlen(tmp_url->path), str + len)) {				\
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Url '%s' contains unencoded control characters.", str);	\
+			RETURN_FALSE;											\
+		}													\
 																								\
 		if (tmp_url->query || tmp_url->fragment || php_check_open_basedir(tmp_url->path TSRMLS_CC) || 									\
 			(PG(safe_mode) && !php_checkuid(tmp_url->path, "rb+", CHECKUID_CHECK_MODE_PARAM))	\
@@ -408,8 +462,22 @@ PHP_MINIT_FUNCTION(curl)
 	REGISTER_CURL_CONSTANT(CURL_HTTP_VERSION_1_0);
 	REGISTER_CURL_CONSTANT(CURL_HTTP_VERSION_1_1);
 	
-#ifdef PHP_CURL_NEED_SSL_TSL
-	php_curl_ssl_init();
+#ifdef PHP_CURL_NEED_OPENSSL_TSL
+	{
+		int i, c = CRYPTO_num_locks();
+			
+		php_curl_openssl_tsl = malloc(c * sizeof(MUTEX_T));
+			
+		for (i = 0; i < c; ++i) {
+			php_curl_openssl_tsl[i] = tsrm_mutex_alloc();
+		}
+			
+		CRYPTO_set_id_callback(php_curl_ssl_id);
+		CRYPTO_set_locking_callback(php_curl_ssl_lock);
+	}
+#endif
+#ifdef PHP_CURL_NEED_GNUTLS_TSL
+	gcry_control(GCRYCTL_SET_THREAD_CBS, &php_curl_gnutls_tsl);
 #endif
 	
 	if (curl_global_init(CURL_GLOBAL_SSL) != CURLE_OK) {
@@ -437,9 +505,26 @@ PHP_MSHUTDOWN_FUNCTION(curl)
 	php_unregister_url_stream_wrapper("ftp" TSRMLS_CC);
 	php_unregister_url_stream_wrapper("ldap" TSRMLS_CC);
 #endif
+#ifdef PHP_CURL_NEED_OPENSSL_TSL
+	/* ensure there are valid callbacks set */
+	CRYPTO_set_id_callback(php_curl_ssl_id);
+	CRYPTO_set_locking_callback(php_curl_ssl_lock);
+#endif
 	curl_global_cleanup();
-#ifdef PHP_CURL_NEED_SSL_TSL
-	php_curl_ssl_cleanup();
+#ifdef PHP_CURL_NEED_OPENSSL_TSL
+	if (php_curl_openssl_tsl) {
+		int i, c = CRYPTO_num_locks();
+			
+		CRYPTO_set_id_callback(NULL);
+		CRYPTO_set_locking_callback(NULL);
+			
+		for (i = 0; i < c; ++i) {
+			tsrm_mutex_free(php_curl_openssl_tsl[i]);
+		}
+			
+		free(php_curl_openssl_tsl);
+		php_curl_openssl_tsl = NULL;
+	}
 #endif
 	return SUCCESS;
 }
@@ -1436,105 +1521,6 @@ static void _php_curl_close(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 	efree(ch->handlers);
 	efree(ch);
 }	
-/* }}} */
-
-#ifdef PHP_CURL_NEED_OPENSSL_TSL
-/* {{{ */
-static MUTEX_T *php_curl_openssl_tsl = NULL;
-
-static void php_curl_ssl_lock(int mode, int n, const char * file, int line)
-{
-	if (mode & CRYPTO_LOCK) {
-		tsrm_mutex_lock(php_curl_openssl_tsl[n]);
-	} else {
-		tsrm_mutex_unlock(php_curl_openssl_tsl[n]);
-	}
-}
-
-static unsigned long php_curl_ssl_id(void)
-{
-	return (unsigned long) tsrm_thread_id();
-}
-
-static inline void php_curl_ssl_init(void)
-{
-	int i, c = CRYPTO_num_locks();
-	
-	php_curl_openssl_tsl = malloc(c * sizeof(MUTEX_T));
-	
-	for (i = 0; i < c; ++i) {
-		php_curl_openssl_tsl[i] = tsrm_mutex_alloc();
-	}
-	
-	CRYPTO_set_id_callback(php_curl_ssl_id);
-	CRYPTO_set_locking_callback(php_curl_ssl_lock);
-}
-
-static inline void php_curl_ssl_cleanup(void)
-{
-	if (php_curl_openssl_tsl) {
-		int i, c = CRYPTO_num_locks();
-		
-		CRYPTO_set_id_callback(NULL);
-		CRYPTO_set_locking_callback(NULL);
-		
-		for (i = 0; i < c; ++i) {
-			tsrm_mutex_free(php_curl_openssl_tsl[i]);
-		}
-		
-		free(php_curl_openssl_tsl);
-		php_curl_openssl_tsl = NULL;
-	}
-}
-#endif /* PHP_CURL_NEED_OPENSSL_TSL */
-/* }}} */
-
-#ifdef PHP_CURL_NEED_GNUTLS_TSL
-/* {{{ */
-static int php_curl_ssl_mutex_create(void **m)
-{
-	if (*((MUTEX_T *) m) = tsrm_mutex_alloc()) {
-		return SUCCESS;
-	} else {
-		return FAILURE;
-	}
-}
-
-static int php_curl_ssl_mutex_destroy(void **m)
-{
-	tsrm_mutex_free(*((MUTEX_T *) m));
-	return SUCCESS;
-}
-
-static int php_curl_ssl_mutex_lock(void **m)
-{
-	return tsrm_mutex_lock(*((MUTEX_T *) m));
-}
-
-static int php_curl_ssl_mutex_unlock(void **m)
-{
-	return tsrm_mutex_unlock(*((MUTEX_T *) m));
-}
-
-static struct gcry_thread_cbs php_curl_gnutls_tsl = {
-	GCRY_THREAD_OPTION_USER,
-	NULL,
-	php_curl_ssl_mutex_create,
-	php_curl_ssl_mutex_destroy,
-	php_curl_ssl_mutex_lock,
-	php_curl_ssl_mutex_unlock
-};
-
-static inline void php_curl_ssl_init(void)
-{
-	gcry_control(GCRYCTL_SET_THREAD_CBS, &php_curl_gnutls_tsl);
-}
-
-static inline void php_curl_ssl_cleanup(void)
-{
-	return;
-}
-#endif /* PHP_CURL_NEED_GNUTLS_TSL */
 /* }}} */
 
 #endif /* HAVE_CURL */

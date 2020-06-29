@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: main.c,v 1.512.2.63.2.8 2006/01/01 13:46:59 sniper Exp $ */
+/* $Id: main.c,v 1.512.2.63.2.11 2006/05/18 22:36:14 tony2001 Exp $ */
 
 /* {{{ includes
  */
@@ -496,12 +496,12 @@ PHPAPI void php_verror(const char *docref, const char *params, int type, const c
 					}
 				}
 			}
-			if (!PG(html_errors) || !strlen(PG(docref_root))) {
+			if (!PG(html_errors) && !strlen(PG(docref_root))) {
 				/* no docref and no html errors -> do not point to any documentation (e.g. production boxes) */
 				php_error(type, "%s(%s): %s", get_active_function_name(TSRMLS_C), params, buffer);
 			} else if (PG(html_errors)) {
 				int len;
-				char *replace = php_escape_html_entities(params, strlen(params), &len, 0, ENT_COMPAT, NULL TSRMLS_CC);
+				char *replace = php_escape_html_entities((unsigned char *)params, strlen(params), &len, 0, ENT_COMPAT, NULL TSRMLS_CC);
 				php_error(type, "%s(%s) [<a href='%s%s%s'>%s</a>]: %s", get_active_function_name(TSRMLS_C), replace, docref_root, docref, docref_target, docref, buffer);
 				efree(replace);
 			} else {
@@ -1108,7 +1108,6 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 	sapi_module = *sf;
 
 	php_output_startup();
-	php_output_activate(TSRMLS_C);
 
 	zuf.error_function = php_error_cb;
 	zuf.printf_function = php_printf;

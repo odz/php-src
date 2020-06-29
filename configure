@@ -1799,7 +1799,7 @@ echo "$ac_t""$host" 1>&6
 
 MAJOR_VERSION=4
 MINOR_VERSION=4
-RELEASE_VERSION=2
+RELEASE_VERSION=3
 EXTRA_VERSION=""
 VERSION="$MAJOR_VERSION.$MINOR_VERSION.$RELEASE_VERSION$EXTRA_VERSION"
 
@@ -18346,7 +18346,7 @@ if test "$PHP_PCRE_REGEX" != "no"; then
   ext_builddir=ext/pcre
   ext_srcdir=$abs_srcdir/ext/pcre
 
-  ac_extra=`echo "-DEXPORT= -DNEWLINE=10 -DSUPPORT_UTF8 -DSUPPORT_UCP -DLINK_SIZE=2 -DPOSIX_MALLOC_THRESHOLD=10 -DMATCH_LIMIT=10000000 -I@ext_srcdir@/pcrelib"|sed s#@ext_srcdir@#$ext_srcdir#g`
+  ac_extra=`echo "-DEXPORT= -DNEWLINE=10 -DSUPPORT_UTF8 -DSUPPORT_UCP -DLINK_SIZE=2 -DPOSIX_MALLOC_THRESHOLD=10 -DMATCH_LIMIT=10000000 -DMATCH_LIMIT_RECURSION=10000000 -I@ext_srcdir@/pcrelib"|sed s#@ext_srcdir@#$ext_srcdir#g`
 
   if test "$ext_shared" != "shared" && test "$ext_shared" != "yes" && test "" != "cli"; then
 
@@ -18370,7 +18370,7 @@ if test "$PHP_PCRE_REGEX" != "no"; then
 
 
   old_IFS=$IFS
-  for ac_src in pcrelib/pcre_chartables.c pcrelib/pcre_compile.c pcrelib/pcre_config.c pcrelib/pcre_dfa_exec.c pcrelib/pcre_exec.c pcrelib/pcre_fullinfo.c pcrelib/pcre_get.c pcrelib/pcre_globals.c pcrelib/pcre_info.c pcrelib/pcre_maketables.c pcrelib/pcre_ord2utf8.c pcrelib/pcre_printint.c pcrelib/pcre_refcount.c pcrelib/pcre_study.c pcrelib/pcre_tables.c pcrelib/pcre_try_flipped.c pcrelib/pcre_ucp_findchar.c pcrelib/pcre_valid_utf8.c pcrelib/pcre_version.c pcrelib/pcre_xclass.c php_pcre.c; do
+  for ac_src in pcrelib/pcre_chartables.c pcrelib/pcre_ucp_searchfuncs.c pcrelib/pcre_compile.c pcrelib/pcre_config.c pcrelib/pcre_dfa_exec.c pcrelib/pcre_exec.c pcrelib/pcre_fullinfo.c pcrelib/pcre_get.c pcrelib/pcre_globals.c pcrelib/pcre_info.c pcrelib/pcre_maketables.c pcrelib/pcre_ord2utf8.c pcrelib/pcre_refcount.c pcrelib/pcre_study.c pcrelib/pcre_tables.c pcrelib/pcre_try_flipped.c pcrelib/pcre_valid_utf8.c pcrelib/pcre_version.c pcrelib/pcre_xclass.c php_pcre.c; do
   
       IFS=.
       set $ac_src
@@ -18416,7 +18416,7 @@ EOF
 
 
   old_IFS=$IFS
-  for ac_src in pcrelib/pcre_chartables.c pcrelib/pcre_compile.c pcrelib/pcre_config.c pcrelib/pcre_dfa_exec.c pcrelib/pcre_exec.c pcrelib/pcre_fullinfo.c pcrelib/pcre_get.c pcrelib/pcre_globals.c pcrelib/pcre_info.c pcrelib/pcre_maketables.c pcrelib/pcre_ord2utf8.c pcrelib/pcre_printint.c pcrelib/pcre_refcount.c pcrelib/pcre_study.c pcrelib/pcre_tables.c pcrelib/pcre_try_flipped.c pcrelib/pcre_ucp_findchar.c pcrelib/pcre_valid_utf8.c pcrelib/pcre_version.c pcrelib/pcre_xclass.c php_pcre.c; do
+  for ac_src in pcrelib/pcre_chartables.c pcrelib/pcre_ucp_searchfuncs.c pcrelib/pcre_compile.c pcrelib/pcre_config.c pcrelib/pcre_dfa_exec.c pcrelib/pcre_exec.c pcrelib/pcre_fullinfo.c pcrelib/pcre_get.c pcrelib/pcre_globals.c pcrelib/pcre_info.c pcrelib/pcre_maketables.c pcrelib/pcre_ord2utf8.c pcrelib/pcre_refcount.c pcrelib/pcre_study.c pcrelib/pcre_tables.c pcrelib/pcre_try_flipped.c pcrelib/pcre_valid_utf8.c pcrelib/pcre_version.c pcrelib/pcre_xclass.c php_pcre.c; do
   
       IFS=.
       set $ac_src
@@ -18533,7 +18533,7 @@ EOF
 
 
   old_IFS=$IFS
-  for ac_src in pcrelib/pcre_chartables.c pcrelib/pcre_compile.c pcrelib/pcre_config.c pcrelib/pcre_dfa_exec.c pcrelib/pcre_exec.c pcrelib/pcre_fullinfo.c pcrelib/pcre_get.c pcrelib/pcre_globals.c pcrelib/pcre_info.c pcrelib/pcre_maketables.c pcrelib/pcre_ord2utf8.c pcrelib/pcre_printint.c pcrelib/pcre_refcount.c pcrelib/pcre_study.c pcrelib/pcre_tables.c pcrelib/pcre_try_flipped.c pcrelib/pcre_ucp_findchar.c pcrelib/pcre_valid_utf8.c pcrelib/pcre_version.c pcrelib/pcre_xclass.c php_pcre.c; do
+  for ac_src in pcrelib/pcre_chartables.c pcrelib/pcre_ucp_searchfuncs.c pcrelib/pcre_compile.c pcrelib/pcre_config.c pcrelib/pcre_dfa_exec.c pcrelib/pcre_exec.c pcrelib/pcre_fullinfo.c pcrelib/pcre_get.c pcrelib/pcre_globals.c pcrelib/pcre_info.c pcrelib/pcre_maketables.c pcrelib/pcre_ord2utf8.c pcrelib/pcre_refcount.c pcrelib/pcre_study.c pcrelib/pcre_tables.c pcrelib/pcre_try_flipped.c pcrelib/pcre_valid_utf8.c pcrelib/pcre_version.c pcrelib/pcre_xclass.c php_pcre.c; do
   
       IFS=.
       set $ac_src
@@ -18576,7 +18576,7 @@ EOF
 
 
   old_IFS=$IFS
-  for ac_src in pcrelib/pcre_chartables.c pcrelib/pcre_compile.c pcrelib/pcre_config.c pcrelib/pcre_dfa_exec.c pcrelib/pcre_exec.c pcrelib/pcre_fullinfo.c pcrelib/pcre_get.c pcrelib/pcre_globals.c pcrelib/pcre_info.c pcrelib/pcre_maketables.c pcrelib/pcre_ord2utf8.c pcrelib/pcre_printint.c pcrelib/pcre_refcount.c pcrelib/pcre_study.c pcrelib/pcre_tables.c pcrelib/pcre_try_flipped.c pcrelib/pcre_ucp_findchar.c pcrelib/pcre_valid_utf8.c pcrelib/pcre_version.c pcrelib/pcre_xclass.c php_pcre.c; do
+  for ac_src in pcrelib/pcre_chartables.c pcrelib/pcre_ucp_searchfuncs.c pcrelib/pcre_compile.c pcrelib/pcre_config.c pcrelib/pcre_dfa_exec.c pcrelib/pcre_exec.c pcrelib/pcre_fullinfo.c pcrelib/pcre_get.c pcrelib/pcre_globals.c pcrelib/pcre_info.c pcrelib/pcre_maketables.c pcrelib/pcre_ord2utf8.c pcrelib/pcre_refcount.c pcrelib/pcre_study.c pcrelib/pcre_tables.c pcrelib/pcre_try_flipped.c pcrelib/pcre_valid_utf8.c pcrelib/pcre_version.c pcrelib/pcre_xclass.c php_pcre.c; do
   
       IFS=.
       set $ac_src
@@ -18777,7 +18777,7 @@ EOF
   ext_builddir=ext/pcre
   ext_srcdir=$abs_srcdir/ext/pcre
 
-  ac_extra=`echo "-DEXPORT= -DNEWLINE=10 -DSUPPORT_UTF8 -DSUPPORT_UCP -DLINK_SIZE=2 -DPOSIX_MALLOC_THRESHOLD=10 -DMATCH_LIMIT=10000000"|sed s#@ext_srcdir@#$ext_srcdir#g`
+  ac_extra=`echo "-DEXPORT= -DNEWLINE=10 -DSUPPORT_UTF8 -DSUPPORT_UCP -DLINK_SIZE=2 -DPOSIX_MALLOC_THRESHOLD=10 -DMATCH_LIMIT=10000000 -DMATCH_LIMIT_RECURSION=10000000"|sed s#@ext_srcdir@#$ext_srcdir#g`
 
   if test "$ext_shared" != "shared" && test "$ext_shared" != "yes" && test "" != "cli"; then
 
@@ -66458,7 +66458,7 @@ echo "configure:66305: checking Oracle Instant Client SDK header directory" >&5
   
   echo $ac_n "checking Oracle Instant Client version""... $ac_c" 1>&6
 echo "configure:66461: checking Oracle Instant Client version" >&5
-  if test -f $PHP_OCI8_INSTANT_CLIENT/libociei.$SHLIB_SUFFIX_NAME; then
+  if test -f $PHP_OCI8_INSTANT_CLIENT/libnnz10.$SHLIB_SUFFIX_NAME; then
     if test -f $PHP_OCI8_INSTANT_CLIENT/libclntsh.$SHLIB_SUFFIX_NAME.10.1; then
       if test ! -f $PHP_OCI8_INSTANT_CLIENT/libclntsh.$SHLIB_SUFFIX_NAME; then
         { echo "configure: error: Link from $PHP_OCI8_INSTANT_CLIENT/libclntsh.$SHLIB_SUFFIX_NAME to libclntsh.$SHLIB_SUFFIX_NAME.10.1 not found" 1>&2; exit 1; }

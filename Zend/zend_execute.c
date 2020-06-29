@@ -2397,7 +2397,22 @@ send_by_ref:
 							INIT_PZVAL(tmp);
 							array_ptr = tmp;
 						} else {
-							array_ptr->refcount++;
+							if (EX(opline)->op1.op_type == IS_VAR &&
+							    !array_ptr->is_ref &&
+							    array_ptr->refcount > 1) {
+								/* non-separated return value from function */
+								zval *tmp;
+
+								ALLOC_ZVAL(tmp);
+								tmp->value = array_ptr->value;
+								tmp->type = array_ptr->type;
+								tmp->is_ref = 0;
+								tmp->refcount = 1;
+								zval_copy_ctor(tmp);
+								array_ptr = tmp;
+							} else {
+								array_ptr->refcount++;
+							}
 						}
 					}
 					PZVAL_LOCK(array_ptr);

@@ -1,5 +1,41 @@
 PHP 4                                                                      NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+03 Aug 2006, Version 4.4.3
+- Added control character checks for cURL extension's open_basedir/safe_mode
+  checks. (Ilia)
+- Added overflow checks to wordwrap() function. (Ilia)
+- Added a check for special characters in the session name. (Ilia)
+- Improved safe_mode check for the error_log() function. (Ilia)
+- Updated PCRE to version 6.6. (Andrei)
+- Fixed handling of extremely long paths inside tempnam() function. (Ilia)
+- Fixed XSS inside phpinfo() with long inputs. (Ilia)
+- Fixed a possible buffer overflow inside create_named_pipe() for Win32 systems
+  in libmysql.c. (Ilia)
+- Fixed bug #37720 (merge_php_config scrambles values). (Mike,
+  pumuckel at metropolis dot de)
+- Fixed bug #37569 (WDDX incorrectly encodes high-ascii characters). (Ilia)
+- Fixed bug #37510 (session_regenerate_id changes session_id() even on failure).
+  (Hannes)
+- Fixed bug #37360 (Memory errors with a corrupt GIF file) (Pierre)
+- Fixed bug #37348 (Make PEAR install ignore open_basedir). (Ilia)
+- Fixed bug #37346 (Crashes when using an invalid colormap format). (Pierre)
+- Fixed bug #37162 (wddx does not build as a shared extension).  
+  (jdolecek at NetBSD dot org, Ilia)
+- Fixed bug #37046 (foreach breaks static scope). (Dmitry)
+- Fixed bug #37045 (Fixed check for special chars for http redirects). (Ilia)
+- Fixed bug #36857 (Added support for partial content fetching to the HTTP
+  streams wrapper). (Ilia)
+- Fixed bug #36776 (node_list_wrapper_dtor segfault). (Rob)
+- Fixed bug #36459 (Incorrect adding PHPSESSID to links, which contains \r\n).
+  (Ilia)
+- Fixed bug #36458 (sleep() accepts negative values). (Ilia)
+- Fixed bug #36242 (Possible memory corruption in stream_select()). (Tony)
+- Fixed bug #36223 (curl bypasses open_basedir restrictions). (Tony)
+- Fixed bug #36205 (Memory leaks on duplicate cookies). (Dmitry)
+- Fixed bug #36148 (unpack("H*hex", $data) is adding an extra character to the 
+  end of the string). (Ilia)
+- Fixed bug #36017 (fopen() crashes PHP when opening a URL). (Tony)
+
 13 Jan 2006, Version 4.4.2
 - Added missing safe_mode/open_basedir checks into cURL extension. (Ilia)
 - Backported missing imap_mailcompose() fixes from PHP 5.x. (Ilia)

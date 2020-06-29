@@ -360,9 +360,9 @@ static yyconst short int yy_accept[1352] =
       105,  105,  105,  105,  105,  105,  105,  105,   85,   84,
        87,  126,  141,  131,  126,   92,   92,  131,  144,  106,
       128,  131,  127,  143,  144,  129,  144,  142,  140,  126,
-      144,  106,   33,   32,   89,   88,  114,  116,  145,  111,
+      144,  106,   33,   32,   89,   88,  114,  116,  110,  110,
 
-      111,  109,  109,  109,   98,    0,   98,  101,   99,   98,
+      110,  109,  109,  109,   98,    0,   98,  101,   99,   98,
       107,   63,    0,  119,    0,  104,   71,  118,   78,   74,
         0,  120,    0,    0,    0,    0,    0,    0,    0,    0,
         0,    0,    0,   68,   58,   66,   59,   67,   31,   93,
@@ -4510,7 +4510,7 @@ YY_RULE_SETUP
 {
     if (CG(asp_tags) || yytext[yyleng-2] != '%') { /* asp comment? */
 		zendlval->value.str.val = yytext; /* no copying - intentional */
-		zendlval->value.str.len = yyleng;
+		zendlval->value.str.len = yyleng-2;
 		zendlval->type = IS_STRING;
 		yyless(yyleng-2);
 		BEGIN(ST_IN_SCRIPTING);
@@ -4755,7 +4755,6 @@ YY_RULE_SETUP
 {
 	int label_len;
 
-	CG(zend_lineno)++;
 	if (yytext[yyleng-2]=='\r') {
 		label_len = yyleng-2;
 	} else {
@@ -4776,6 +4775,7 @@ YY_RULE_SETUP
 		BEGIN(ST_IN_SCRIPTING);
 		return T_END_HEREDOC;
 	} else {
+		CG(zend_lineno)++;
  		zend_copy_value(zendlval, yytext, yyleng);
 		zendlval->type = IS_STRING;
 		return T_STRING;
