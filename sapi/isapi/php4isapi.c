@@ -20,12 +20,10 @@
 #ifdef PHP_WIN32
 # include <windows.h>
 # include <process.h>
-# define SEPARATOR '\\'
 #else
 # define __try
 # define __except(val)
 # define __declspec(foo)
-# define SEPARATOR '/'
 #endif
 
 #include <httpext.h>
@@ -86,6 +84,7 @@ static char *isapi_server_variables[] = {
 	"REMOTE_HOST",
 	"REMOTE_USER",
 	"REQUEST_METHOD",
+	"REQUEST_URI",
 	"SCRIPT_NAME",
 	"SERVER_NAME",
 	"SERVER_PORT",
@@ -232,9 +231,6 @@ static int sapi_isapi_send_headers(sapi_headers_struct *sapi_headers SLS_DC)
 	lpECB->ServerSupportFunction(lpECB->ConnID, HSE_REQ_SEND_RESPONSE_HEADER_EX, &header_info, NULL, NULL);
 
 	efree(combined_headers);
-	if (SG(sapi_headers).http_status_line) {
-		efree(SG(sapi_headers).http_status_line);
-	}
 	return SAPI_HEADER_SENT_SUCCESSFULLY;
 }
 
@@ -376,6 +372,23 @@ static void sapi_isapi_register_server_variables(zval *track_vars_array ELS_DC S
 		}
 		variable = php_strtok_r(NULL, "\r\n", &strtok_buf);
 	}
+
+#ifdef PHP_WIN32
+	{
+		HSE_URL_MAPEX_INFO humi;
+		DWORD path_len = 2;
+		char path[] = "/";
+
+		if (lpECB->ServerSupportFunction(lpECB->ConnID, HSE_REQ_MAP_URL_TO_PATH_EX, path, &path_len, (LPDWORD) &humi)) {
+			/* Remove trailing \  */
+			if (humi.lpszPath[path_len-2] == '\\') {
+				humi.lpszPath[path_len-2] = 0;
+			}
+			php_register_variable("DOCUMENT_ROOT", humi.lpszPath, track_vars_array ELS_CC PLS_CC);
+		}
+	}
+#endif
+	
 	if (variable_buf!=static_variable_buf) {
 		efree(variable_buf);
 	}
@@ -445,8 +458,6 @@ DWORD WINAPI HttpFilterProc(PHTTP_FILTER_CONTEXT pfc, DWORD notificationType, LP
 				if (auth_password && auth_password[0]) {
 					SG(request_info).auth_password = estrdup(auth_password);
 				}
-				auth_user[0] = 0;
-				auth_password[0] = 0;
 				return SF_STATUS_REQ_HANDLED_NOTIFICATION;
 			}
 			break;
@@ -463,14 +474,11 @@ static void init_request_info(sapi_globals_struct *sapi_globals, LPEXTENSION_CON
 	SG(request_info).request_uri = lpECB->lpszPathInfo;
 	SG(request_info).content_type = lpECB->lpszContentType;
 	SG(request_info).content_length = lpECB->cbTotalBytes;
-	{
-		char *path_end = strrchr(SG(request_info).path_translated, SEPARATOR);
-
-		if (path_end) {
-			*path_end = 0;
-			V_CHDIR(SG(request_info).path_translated);
-			*path_end = SEPARATOR;
-		}
+	SG(sapi_headers).http_response_code = 200;  /* I think dwHttpStatusCode is invalid at this stage -RL */
+	if (!strcmp(lpECB->lpszMethod, "HEAD")) {
+		SG(request_info).headers_only = 1;
+	} else {
+		SG(request_info).headers_only = 0;
 	}
 	if (!bFilterLoaded) { /* we don't have valid ISAPI Filter information */
 		SG(request_info).auth_user = SG(request_info).auth_password = NULL;
@@ -501,7 +509,7 @@ BOOL WINAPI GetExtensionVersion(HSE_VERSION_INFO *pVer)
 {
 	pVer->dwExtensionVersion = HSE_VERSION;
 #ifdef WITH_ZEUS
-        strncpy( pVer->lpszExtensionDesc, sapi_module.name, HSE_MAX_EXT_DLL_NAME_LEN);
+	strncpy( pVer->lpszExtensionDesc, sapi_module.name, HSE_MAX_EXT_DLL_NAME_LEN);
 #else
 	lstrcpyn(pVer->lpszExtensionDesc, sapi_module.name, HSE_MAX_EXT_DLL_NAME_LEN);
 #endif
@@ -554,6 +562,7 @@ DWORD WINAPI HttpExtensionProc(LPEXTENSION_CONTROL_BLOCK lpECB)
 		file_handle.filename = sapi_globals->request_info.path_translated;
 		file_handle.free_filename = 0;
 		file_handle.type = ZEND_HANDLE_FILENAME;
+		file_handle.opened_path = NULL;
 
 		php_request_startup(CLS_C ELS_CC PLS_CC SLS_CC);
 		php_execute_script(&file_handle CLS_CC ELS_CC PLS_CC);

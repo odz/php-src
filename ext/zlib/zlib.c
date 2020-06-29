@@ -16,7 +16,7 @@
    |          Stefan Röhrich <sr@linux.de>                                |
    +----------------------------------------------------------------------+
  */
-/* $Id: zlib.c,v 1.50 2000/06/26 18:19:35 andi Exp $ */
+/* $Id: zlib.c,v 1.53 2000/07/13 18:27:10 eschmid Exp $ */
 #define IS_EXT_MODULE
 
 #include "php.h"
@@ -153,8 +153,9 @@ PHP_MINFO_FUNCTION(zlib)
 static gzFile php_gzopen_wrapper(char *path, char *mode, int options)
 {
 	FILE *f;
+	int issock=0, socketd=0;
 
-	f = php_fopen_wrapper(path, mode, options, NULL, NULL, NULL);
+	f = php_fopen_wrapper(path, mode, options, &issock, &socketd, NULL);
 
 	if (!f) {
 		return NULL;
@@ -597,7 +598,6 @@ PHP_FUNCTION(gzpassthru) {
 /* }}} */
 
 /* {{{ proto string gzread(int zp, int length)
-
    Binary-safe file read */
 PHP_FUNCTION(gzread)
 {
@@ -629,8 +629,8 @@ PHP_FUNCTION(gzread)
 /* }}} */
 	
 
-/* {{{ proto string gzcompress(string data [,int level]) 
-   gzip-compress a string */
+/* {{{ proto string gzcompress(string data [, int level]) 
+   Gzip-compress a string */
 PHP_FUNCTION(gzcompress)
 {
 	zval **data, **zlimit = NULL;
@@ -679,8 +679,8 @@ PHP_FUNCTION(gzcompress)
 }
 /* }}} */
 
-/* {{{ proto string gzuncompress(string data ,int length) 
-   unzip a gzip-compressed string */
+/* {{{ proto string gzuncompress(string data, int length) 
+   Unzip a gzip-compressed string */
 PHP_FUNCTION(gzuncompress)
 {
 	zval **data, **zlimit = NULL;

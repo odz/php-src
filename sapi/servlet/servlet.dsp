@@ -41,7 +41,7 @@ RSC=rc.exe
 # PROP Use_MFC 0
 # PROP Use_Debug_Libraries 0
 # PROP Output_Dir "..\..\Release"
-# PROP Intermediate_Dir "..\..\Release"
+# PROP Intermediate_Dir "Release"
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MD /W3 /GX /O2 /D "PHP_WIN32" /D "ZEND_WIN32" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /YX /FD /c
@@ -55,7 +55,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386
-# ADD LINK32 php_java.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386 /out:"..\..\Release/phpsrvlt.dll" /libpath:"$(JAVA_HOME)\lib" /libpath:"..\..\Release"
+# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /version:4.0 /dll /machine:I386 /out:"..\..\Release/phpsrvlt.dll" /libpath:"$(JAVA_HOME)\lib" /libpath:"..\..\Release"
 
 !ELSEIF  "$(CFG)" == "servlet - Win32 Debug"
 
@@ -67,7 +67,7 @@ LINK32=link.exe
 # PROP Use_MFC 0
 # PROP Use_Debug_Libraries 1
 # PROP Output_Dir "..\..\Debug"
-# PROP Intermediate_Dir "..\..\Debug"
+# PROP Intermediate_Dir "Debug"
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /D "PHP_WIN32" /D "ZEND_WIN32" /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /YX /FD /GZ /c
@@ -81,7 +81,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /debug /machine:I386 /pdbtype:sept
-# ADD LINK32 php_java.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /debug /machine:I386 /out:"..\..\Debug/phpsrvlt.dll" /pdbtype:sept /libpath:"$(JAVA_HOME)\lib" /libpath:"..\..\Debug"
+# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /version:4.0 /dll /debug /machine:I386 /out:"..\..\Debug/phpsrvlt.dll" /pdbtype:sept /libpath:"$(JAVA_HOME)\lib" /libpath:"..\..\Debug"
 
 !ELSEIF  "$(CFG)" == "servlet - Win32 Debug_TS"
 
@@ -93,7 +93,7 @@ LINK32=link.exe
 # PROP Use_MFC 0
 # PROP Use_Debug_Libraries 1
 # PROP Output_Dir "..\..\Debug_TS"
-# PROP Intermediate_Dir "..\..\Debug_TS"
+# PROP Intermediate_Dir "Debug_TS"
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "..\.." /I "..\..\..\Zend" /I "..\..\main" /I "$(JAVA_HOME)\include\win32" /I "$(JAVA_HOME)\include" /I "..\..\..\bindlib_w32" /D "_DEBUG" /D "PHP_WIN32" /D "ZEND_WIN32" /D "WIN32" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "COMPILE_DL" /FR /YX /FD /GZ /c
@@ -107,7 +107,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /debug /machine:I386 /pdbtype:sept
-# ADD LINK32 php4ts_debug.lib php_java.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /debug /machine:I386 /out:"..\..\Debug_TS/phpsrvlt.dll" /pdbtype:sept /libpath:"$(JAVA_HOME)\lib" /libpath:"..\..\Debug_TS"
+# ADD LINK32 php4ts_debug.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /version:4.0 /dll /debug /machine:I386 /out:"..\..\Debug_TS/phpsrvlt.dll" /pdbtype:sept /libpath:"$(JAVA_HOME)\lib" /libpath:"..\..\Debug_TS"
 
 !ELSEIF  "$(CFG)" == "servlet - Win32 Release_TS"
 
@@ -119,7 +119,7 @@ LINK32=link.exe
 # PROP Use_MFC 0
 # PROP Use_Debug_Libraries 0
 # PROP Output_Dir "..\..\Release_TS"
-# PROP Intermediate_Dir "..\..\Release_TS"
+# PROP Intermediate_Dir "Release_TS"
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MD /W3 /GX /O2 /I "..\.." /I "..\..\..\Zend" /I "..\..\main" /I "$(JAVA_HOME)\include\win32" /I "$(JAVA_HOME)\include" /I "..\..\..\bindlib_w32" /D "NDEBUG" /D "PHP_WIN32" /D "ZEND_WIN32" /D "WIN32" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "COMPILE_DL" /YX /FD /c
@@ -133,7 +133,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386
-# ADD LINK32 php4ts.lib php_java.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386 /out:"..\..\Release_TS/phpsrvlt.dll" /libpath:"$(JAVA_HOME)\lib" /libpath:"..\..\Release_TS"
+# ADD LINK32 php4ts.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /version:4.0 /dll /machine:I386 /out:"..\..\Release_TS/phpsrvlt.dll" /libpath:"$(JAVA_HOME)\lib" /libpath:"..\..\Release_TS"
 
 !ENDIF 
 
@@ -148,11 +148,15 @@ LINK32=link.exe
 # PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
 # Begin Source File
 
+SOURCE=..\..\ext\java\java.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\servlet.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\..\ext\java\java.c
+SOURCE=.\..\..\win32\winutil.c
 # End Source File
 # End Group
 # Begin Group "Header Files"
@@ -168,7 +172,7 @@ SOURCE=.\servlet.java
 
 !IF  "$(CFG)" == "servlet - Win32 Release"
 
-USERDEP__SERVL="..\..\ext\java\reflect.java"
+USERDEP__SERVL="..\..\ext\java\reflect.java"	
 # Begin Custom Build
 OutDir=.\..\..\Release
 InputPath=.\servlet.java
@@ -177,12 +181,13 @@ InputPath=.\servlet.java
 	if not exist net mkdir net 
 	if not exist net\php mkdir net\php 
 	copy *.java net\php > nul 
-	copy ..\..\ext\java\reflect.java net\php > nul
-	echo library=phpsrvlt>net/php/reflect.properties
-	echo library=phpsrvlt>net/php/servlet.properties
+	copy ..\..\ext\java\reflect.java net\php > nul 
+	echo library=phpsrvlt>net/php/reflect.properties 
+	echo library=phpsrvlt>net/php/servlet.properties 
 	$(JAVA_HOME)\bin\javac net\php\servlet.java 
+	$(JAVA_HOME)\bin\javac net\php\reflect.java 
 	$(JAVA_HOME)\bin\javac net\php\formatter.java 
-	$(JAVA_HOME)\bin\jar c0f $(OutDir)\phpsrvlt.jar net\php\*.class net\php\*.properties
+	$(JAVA_HOME)\bin\jar c0f $(OutDir)\phpsrvlt.jar net\php\*.class net\php\*.properties 
 	erase net\php\servlet.* 
 	erase net\php\formatter.* 
 	erase net\php\reflect.* 
@@ -193,7 +198,7 @@ InputPath=.\servlet.java
 
 !ELSEIF  "$(CFG)" == "servlet - Win32 Debug"
 
-USERDEP__SERVL="..\..\ext\java\reflect.java"
+USERDEP__SERVL="..\..\ext\java\reflect.java"	
 # Begin Custom Build
 OutDir=.\..\..\Debug
 InputPath=.\servlet.java
@@ -202,12 +207,13 @@ InputPath=.\servlet.java
 	if not exist net mkdir net 
 	if not exist net\php mkdir net\php 
 	copy *.java net\php > nul 
-	copy ..\..\ext\java\reflect.java net\php > nul
-	echo library=phpsrvlt>net/php/reflect.properties
-	echo library=phpsrvlt>net/php/servlet.properties
+	copy ..\..\ext\java\reflect.java net\php > nul 
+	echo library=phpsrvlt>net/php/reflect.properties 
+	echo library=phpsrvlt>net/php/servlet.properties 
 	$(JAVA_HOME)\bin\javac -g net\php\servlet.java 
+	$(JAVA_HOME)\bin\javac -g net\php\reflect.java 
 	$(JAVA_HOME)\bin\javac -g net\php\formatter.java 
-	$(JAVA_HOME)\bin\jar c0f $(OutDir)\phpsrvlt.jar net\php\*.class net\php\*.properties
+	$(JAVA_HOME)\bin\jar c0f $(OutDir)\phpsrvlt.jar net\php\*.class net\php\*.properties 
 	erase net\php\servlet.* 
 	erase net\php\formatter.* 
 	erase net\php\reflect.* 
@@ -218,7 +224,7 @@ InputPath=.\servlet.java
 
 !ELSEIF  "$(CFG)" == "servlet - Win32 Debug_TS"
 
-USERDEP__SERVL="..\..\ext\java\reflect.java"
+USERDEP__SERVL="..\..\ext\java\reflect.java"	
 # Begin Custom Build
 OutDir=.\..\..\Debug_TS
 InputPath=.\servlet.java
@@ -227,12 +233,13 @@ InputPath=.\servlet.java
 	if not exist net mkdir net 
 	if not exist net\php mkdir net\php 
 	copy *.java net\php > nul 
-	copy ..\..\ext\java\reflect.java net\php > nul
-	echo library=phpsrvlt>net/php/reflect.properties
-	echo library=phpsrvlt>net/php/servlet.properties
+	copy ..\..\ext\java\reflect.java net\php > nul 
+	echo library=phpsrvlt>net/php/reflect.properties 
+	echo library=phpsrvlt>net/php/servlet.properties 
 	$(JAVA_HOME)\bin\javac -g net\php\servlet.java 
+	$(JAVA_HOME)\bin\javac -g net\php\reflect.java 
 	$(JAVA_HOME)\bin\javac -g net\php\formatter.java 
-	$(JAVA_HOME)\bin\jar c0f $(OutDir)\phpsrvlt.jar net\php\*.class net\php\*.properties
+	$(JAVA_HOME)\bin\jar c0f $(OutDir)\phpsrvlt.jar net\php\*.class net\php\*.properties 
 	erase net\php\servlet.* 
 	erase net\php\formatter.* 
 	erase net\php\reflect.* 
@@ -243,7 +250,7 @@ InputPath=.\servlet.java
 
 !ELSEIF  "$(CFG)" == "servlet - Win32 Release_TS"
 
-USERDEP__SERVL="..\..\ext\java\reflect.java"
+USERDEP__SERVL="..\..\ext\java\reflect.java"	
 # Begin Custom Build
 OutDir=.\..\..\Release_TS
 InputPath=.\servlet.java
@@ -252,12 +259,13 @@ InputPath=.\servlet.java
 	if not exist net mkdir net 
 	if not exist net\php mkdir net\php 
 	copy *.java net\php > nul 
-	copy ..\..\ext\java\reflect.java net\php > nul
-	echo library=phpsrvlt>net/php/reflect.properties
-	echo library=phpsrvlt>net/php/servlet.properties
+	copy ..\..\ext\java\reflect.java net\php > nul 
+	echo library=phpsrvlt>net/php/reflect.properties 
+	echo library=phpsrvlt>net/php/servlet.properties 
 	$(JAVA_HOME)\bin\javac net\php\servlet.java 
+	$(JAVA_HOME)\bin\javac net\php\reflect.java 
 	$(JAVA_HOME)\bin\javac net\php\formatter.java 
-	$(JAVA_HOME)\bin\jar c0f $(OutDir)\phpsrvlt.jar net\php\*.class net\php\*.properties
+	$(JAVA_HOME)\bin\jar c0f $(OutDir)\phpsrvlt.jar net\php\*.class net\php\*.properties 
 	erase net\php\servlet.* 
 	erase net\php\formatter.* 
 	erase net\php\reflect.* 

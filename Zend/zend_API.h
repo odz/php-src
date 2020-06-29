@@ -18,8 +18,8 @@
 */
 
 
-#ifndef _ZEND_API_H
-#define _ZEND_API_H
+#ifndef ZEND_API_H
+#define ZEND_API_H
 
 #include "modules.h"
 #include "zend_list.h"
@@ -227,7 +227,7 @@ ZEND_API int zend_set_hash_symbol(zval *symbol, char *name, int name_length,
 
 #define ZVAL_EMPTY_STRING(z) {	        \
 		(z)->value.str.len = 0;  	    \
-		(z)->value.str.val = empty_string \
+		(z)->value.str.val = empty_string; \
 		(z)->type = IS_STRING;		    \
 	}
 
@@ -268,7 +268,7 @@ ZEND_API int zend_set_hash_symbol(zval *symbol, char *name, int name_length,
 
 #define RETVAL_EMPTY_STRING() {	            \
 		return_value->value.str.len = 0;  	\
-		return_value->value.str.val = empty_string \
+		return_value->value.str.val = empty_string; \
 		return_value->type = IS_STRING;		\
 	}
 
@@ -319,7 +319,7 @@ ZEND_API int zend_set_hash_symbol(zval *symbol, char *name, int name_length,
 
 #define RETURN_EMPTY_STRING() {	            \
 		return_value->value.str.len = 0;  	\
-		return_value->value.str.val = empty_string \
+		return_value->value.str.val = empty_string; \
 		return_value->type = IS_STRING;		\
         return;                             \
 	}
@@ -416,7 +416,7 @@ ZEND_API int zend_set_hash_symbol(zval *symbol, char *name, int name_length,
 #define HASH_OF(p) ((p)->type==IS_ARRAY ? (p)->value.ht : (((p)->type==IS_OBJECT ? (p)->value.obj.properties : NULL)))
 #define ZVAL_IS_NULL(z) ((z)->type==IS_NULL)
 
-#endif /* _ZEND_API_H */
+#endif /* ZEND_API_H */
 
 /*
  * Local variables:

@@ -18,11 +18,11 @@
  */
 
 
-/* $Id: php_main.h,v 1.1 2000/06/05 23:21:57 sas Exp $ */
+/* $Id: php_main.h,v 1.3 2000/07/29 10:48:57 zeev Exp $ */
 
 
-#ifndef _MAIN_H
-#define _MAIN_H
+#ifndef PHP_MAIN_H
+#define PHP_MAIN_H
 
 #include "zend_globals.h"
 #include "php_globals.h"
@@ -41,6 +41,8 @@ PHPAPI int php_global_startup_extensions(zend_module_entry **ptr, int count);
 PHPAPI int php_global_shutdown_extensions(zend_module_entry **ptr, int count);
 
 PHPAPI void php_execute_script(zend_file_handle *primary_file CLS_DC ELS_DC PLS_DC);
+PHPAPI int php_lint_script(zend_file_handle *file CLS_DC ELS_DC PLS_DC);
+
 
 extern void php_call_shutdown_functions(void);
 

@@ -47,7 +47,7 @@
 #include "php_icap.h"
 #include "modules.h"
 #include "ext/standard/info.h"
-#include "ext/standard/php_global.h"
+#include "ext/standard/basic_functions.h"
 #ifdef PHP_WIN32
 #include "winsock.h"
 #endif
@@ -64,7 +64,7 @@ typedef struct php_icap_le_struct {
 
 typedef struct cal_list
 {
-UINT4 uid;
+php_uint32 uid;
 struct cal_list *next;
 } cal_list_t;
 
@@ -311,7 +311,7 @@ PHP_FUNCTION(icap_expunge)
 }
 /* }}} */
 
-/* {{{ proto int icap_fetch_event(int stream_id,int eventid, [int options])
+/* {{{ proto int icap_fetch_event(int stream_id, int eventid [, int options])
    Fetch an event */
 PHP_FUNCTION(icap_fetch_event)
 {
@@ -379,7 +379,7 @@ PHP_FUNCTION(icap_fetch_event)
 }
 /* }}} */
 
-/* {{{ proto array icap_list_events(int stream_id,int begindate, [int enddate])
+/* {{{ proto array icap_list_events(int stream_id, int begindate [, int enddate])
    Returns list of UIDs for that day or range of days */
 PHP_FUNCTION(icap_list_events)
 {
@@ -612,7 +612,7 @@ PHP_FUNCTION(icap_list_alarms)
 
 
 /* {{{ proto string icap_delete_calendar(int stream_id, string calendar)
-   Delete calendar*/
+   Delete calendar */
 PHP_FUNCTION(icap_delete_calendar)
 {
 	pval *streamind, *calendar;
@@ -904,7 +904,7 @@ void cc_searched (unsigned long cal_uid)
 }
 
 
-void cc_appended(UINT4 uid)
+void cc_appended(php_uint32 uid)
 {
 
 }

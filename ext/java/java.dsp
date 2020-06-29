@@ -133,7 +133,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386
-# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib php4ts.lib /nologo /dll /machine:I386 /out:"..\..\Release_TS/php_java.dll" /libpath:"$(JAVA_HOME)\lib" /libpath:"..\..\Release_TS"
+# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib php4ts.lib /nologo /dll /machine:I386 /out:"..\..\Release_TS/php_java.dll" /libpath:"$(JAVA_HOME)\lib" /libpath:"..\..\Release_TS" /libpath:"..\..\Release_TS_Inline"
 
 !ENDIF 
 
@@ -149,6 +149,10 @@ LINK32=link.exe
 # Begin Source File
 
 SOURCE=.\java.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\..\..\win32\winutil.c
 # End Source File
 # End Group
 # Begin Group "Header Files"

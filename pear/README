@@ -1,6 +1,6 @@
-	      PEAR - PHP Extension and Add-on Repository
-	      ==========================================
-	      Dedicated to Malin Bakken, born 1999-11-21
+	   PEAR - PHP Extension and Application Repository
+	   ===============================================
+	     Dedicated to Malin Bakken, born 1999-11-21
 
 WHAT IS PEAR?
 
@@ -29,4 +29,4 @@ CODING RULES AND GUIDELINES
 * All PHP code must use <?php ?>.  This is the only really portable tag.
 
 * Before adding a new top-level directory ("DB" is one), discuss your
-  intentions on php4beta@lists.php.net.
+  intentions on php-pear@lists.php.net.

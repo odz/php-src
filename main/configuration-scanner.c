@@ -466,9 +466,9 @@ goto find_rule; \
 #define YY_MORE_ADJ 0
 #define YY_RESTORE_YY_MORE_OFFSET
 char *yytext;
-#line 1 "/home/php/php4/php-4.0.1/main/configuration-scanner.l"
+#line 1 "/home/php/php4/php-4.0.2/main/configuration-scanner.l"
 #define INITIAL 0
-#line 2 "/home/php/php4/php-4.0.1/main/configuration-scanner.l"
+#line 2 "/home/php/php4/php-4.0.2/main/configuration-scanner.l"
 
 /*
    +----------------------------------------------------------------------+
@@ -655,7 +655,7 @@ YY_DECL
 	register char *yy_cp = NULL, *yy_bp = NULL;
 	register int yy_act;
 
-#line 42 "/home/php/php4/php-4.0.1/main/configuration-scanner.l"
+#line 42 "/home/php/php4/php-4.0.2/main/configuration-scanner.l"
 
 
 #line 662 "configuration-scanner.c"
@@ -751,7 +751,7 @@ do_action:	/* This label is used only to access EOF actions. */
 	{ /* beginning of action switch */
 case 1:
 YY_RULE_SETUP
-#line 44 "/home/php/php4/php-4.0.1/main/configuration-scanner.l"
+#line 44 "/home/php/php4/php-4.0.2/main/configuration-scanner.l"
 {
 #if	0
 	printf("found extension\n");
@@ -761,35 +761,35 @@ YY_RULE_SETUP
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 52 "/home/php/php4/php-4.0.1/main/configuration-scanner.l"
+#line 52 "/home/php/php4/php-4.0.2/main/configuration-scanner.l"
 {
 	return T_ZEND_EXTENSION;
 }
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 57 "/home/php/php4/php-4.0.1/main/configuration-scanner.l"
+#line 57 "/home/php/php4/php-4.0.2/main/configuration-scanner.l"
 {
 	return T_ZEND_EXTENSION_TS;
 }
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 62 "/home/php/php4/php-4.0.1/main/configuration-scanner.l"
+#line 62 "/home/php/php4/php-4.0.2/main/configuration-scanner.l"
 {
 	return T_ZEND_EXTENSION_DEBUG;
 }
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 67 "/home/php/php4/php-4.0.1/main/configuration-scanner.l"
+#line 67 "/home/php/php4/php-4.0.2/main/configuration-scanner.l"
 {
 	return T_ZEND_EXTENSION_DEBUG_TS;
 }
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 72 "/home/php/php4/php-4.0.1/main/configuration-scanner.l"
+#line 72 "/home/php/php4/php-4.0.2/main/configuration-scanner.l"
 {
 	cfglval->value.str.val = zend_strndup("1",1);
 	cfglval->value.str.len = 1;
@@ -799,7 +799,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 80 "/home/php/php4/php-4.0.1/main/configuration-scanner.l"
+#line 80 "/home/php/php4/php-4.0.2/main/configuration-scanner.l"
 {
 	cfglval->value.str.val = zend_strndup("",0);
 	cfglval->value.str.len = 0;
@@ -809,7 +809,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 87 "/home/php/php4/php-4.0.1/main/configuration-scanner.l"
+#line 87 "/home/php/php4/php-4.0.2/main/configuration-scanner.l"
 {
 	/* SECTION */
 
@@ -831,7 +831,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 107 "/home/php/php4/php-4.0.1/main/configuration-scanner.l"
+#line 107 "/home/php/php4/php-4.0.2/main/configuration-scanner.l"
 {
 	/* ENCAPSULATED TC_STRING */
 
@@ -849,14 +849,14 @@ YY_RULE_SETUP
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 122 "/home/php/php4/php-4.0.1/main/configuration-scanner.l"
+#line 122 "/home/php/php4/php-4.0.2/main/configuration-scanner.l"
 {
 	return yytext[0];
 }
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 127 "/home/php/php4/php-4.0.1/main/configuration-scanner.l"
+#line 127 "/home/php/php4/php-4.0.2/main/configuration-scanner.l"
 {
 	/* STRING */
 	register int i;
@@ -891,21 +891,21 @@ YY_RULE_SETUP
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
-#line 161 "/home/php/php4/php-4.0.1/main/configuration-scanner.l"
+#line 161 "/home/php/php4/php-4.0.2/main/configuration-scanner.l"
 {
 	return yytext[0];
 }
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 165 "/home/php/php4/php-4.0.1/main/configuration-scanner.l"
+#line 165 "/home/php/php4/php-4.0.2/main/configuration-scanner.l"
 {
 	return '\n';
 }
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-#line 169 "/home/php/php4/php-4.0.1/main/configuration-scanner.l"
+#line 169 "/home/php/php4/php-4.0.2/main/configuration-scanner.l"
 {
 	/* comment */
 	return '\n';
@@ -913,14 +913,14 @@ YY_RULE_SETUP
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-#line 174 "/home/php/php4/php-4.0.1/main/configuration-scanner.l"
+#line 174 "/home/php/php4/php-4.0.2/main/configuration-scanner.l"
 {
 	/* eat whitespace */
 }
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
-#line 178 "/home/php/php4/php-4.0.1/main/configuration-scanner.l"
+#line 178 "/home/php/php4/php-4.0.2/main/configuration-scanner.l"
 {
 #if DEBUG
 	php_error(E_NOTICE,"Unexpected character on line %d:  '%s' (ASCII %d)\n",yylineno,yytext,yytext[0]);
@@ -929,7 +929,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 17:
 YY_RULE_SETUP
-#line 183 "/home/php/php4/php-4.0.1/main/configuration-scanner.l"
+#line 183 "/home/php/php4/php-4.0.2/main/configuration-scanner.l"
 ECHO;
 	YY_BREAK
 #line 936 "configuration-scanner.c"
@@ -1816,4 +1816,4 @@ int main()
 	return 0;
 	}
 #endif
-#line 183 "/home/php/php4/php-4.0.1/main/configuration-scanner.l"
+#line 183 "/home/php/php4/php-4.0.2/main/configuration-scanner.l"

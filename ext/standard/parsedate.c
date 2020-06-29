@@ -50,6 +50,8 @@
 # include "win32/time.h"
 #endif
 
+#include "php_parsedate.h"
+
 #if HAVE_STDLIB_H
 # include <stdlib.h> /* for `free'; used by Bison 1.27 */
 #endif
@@ -201,7 +203,7 @@ static int	yyRelSeconds;
 static int	yyRelYear;
 
 
-#line 184 "parsedate.y"
+#line 186 "parsedate.y"
 typedef union {
     int			Number;
     enum _MERIDIAN	Meridian;
@@ -284,11 +286,11 @@ static const short yyrhs[] = {    -1,
 
 #if YYDEBUG != 0
 static const short yyrline[] = { 0,
-   200,   201,   204,   207,   210,   213,   216,   219,   222,   228,
-   234,   243,   249,   261,   264,   267,   273,   277,   281,   287,
-   291,   309,   315,   321,   325,   330,   334,   341,   349,   352,
-   355,   358,   361,   364,   367,   370,   373,   376,   379,   382,
-   385,   388,   391,   394,   397,   400,   403,   408,   441,   445
+   202,   203,   206,   209,   212,   215,   218,   221,   224,   230,
+   236,   245,   251,   263,   266,   269,   275,   279,   283,   289,
+   293,   311,   317,   323,   327,   332,   336,   343,   351,   354,
+   357,   360,   363,   366,   369,   372,   375,   378,   381,   384,
+   387,   390,   393,   396,   399,   402,   405,   410,   443,   447
 };
 #endif
 
@@ -912,37 +914,37 @@ yyreduce:
   switch (yyn) {
 
 case 3:
-#line 204 "parsedate.y"
+#line 206 "parsedate.y"
 {
 	    yyHaveTime++;
 	;
     break;}
 case 4:
-#line 207 "parsedate.y"
+#line 209 "parsedate.y"
 {
 	    yyHaveZone++;
 	;
     break;}
 case 5:
-#line 210 "parsedate.y"
+#line 212 "parsedate.y"
 {
 	    yyHaveDate++;
 	;
     break;}
 case 6:
-#line 213 "parsedate.y"
+#line 215 "parsedate.y"
 {
 	    yyHaveDay++;
 	;
     break;}
 case 7:
-#line 216 "parsedate.y"
+#line 218 "parsedate.y"
 {
 	    yyHaveRel++;
 	;
     break;}
 case 9:
-#line 222 "parsedate.y"
+#line 224 "parsedate.y"
 {
 	    yyHour = yyvsp[-1].Number;
 	    yyMinutes = 0;
@@ -951,7 +953,7 @@ case 9:
 	;
     break;}
 case 10:
-#line 228 "parsedate.y"
+#line 230 "parsedate.y"
 {
 	    yyHour = yyvsp[-3].Number;
 	    yyMinutes = yyvsp[-1].Number;
@@ -960,7 +962,7 @@ case 10:
 	;
     break;}
 case 11:
-#line 234 "parsedate.y"
+#line 236 "parsedate.y"
 {
 	    yyHour = yyvsp[-3].Number;
 	    yyMinutes = yyvsp[-1].Number;
@@ -972,7 +974,7 @@ case 11:
 	;
     break;}
 case 12:
-#line 243 "parsedate.y"
+#line 245 "parsedate.y"
 {
 	    yyHour = yyvsp[-5].Number;
 	    yyMinutes = yyvsp[-3].Number;
@@ -981,7 +983,7 @@ case 12:
 	;
     break;}
 case 13:
-#line 249 "parsedate.y"
+#line 251 "parsedate.y"
 {
 	    yyHour = yyvsp[-5].Number;
 	    yyMinutes = yyvsp[-3].Number;
@@ -994,53 +996,53 @@ case 13:
 	;
     break;}
 case 14:
-#line 261 "parsedate.y"
+#line 263 "parsedate.y"
 {
 	    yyTimezone = yyvsp[0].Number;
 	;
     break;}
 case 15:
-#line 264 "parsedate.y"
+#line 266 "parsedate.y"
 {
 	    yyTimezone = yyvsp[0].Number - 60;
 	;
     break;}
 case 16:
-#line 268 "parsedate.y"
+#line 270 "parsedate.y"
 {
 	    yyTimezone = yyvsp[-1].Number - 60;
 	;
     break;}
 case 17:
-#line 273 "parsedate.y"
+#line 275 "parsedate.y"
 {
 	    yyDayOrdinal = 1;
 	    yyDayNumber = yyvsp[0].Number;
 	;
     break;}
 case 18:
-#line 277 "parsedate.y"
+#line 279 "parsedate.y"
 {
 	    yyDayOrdinal = 1;
 	    yyDayNumber = yyvsp[-1].Number;
 	;
     break;}
 case 19:
-#line 281 "parsedate.y"
+#line 283 "parsedate.y"
 {
 	    yyDayOrdinal = yyvsp[-1].Number;
 	    yyDayNumber = yyvsp[0].Number;
 	;
     break;}
 case 20:
-#line 287 "parsedate.y"
+#line 289 "parsedate.y"
 {
 	    yyMonth = yyvsp[-2].Number;
 	    yyDay = yyvsp[0].Number;
 	;
     break;}
 case 21:
-#line 291 "parsedate.y"
+#line 293 "parsedate.y"
 {
 	  /* Interpret as YYYY/MM/DD if $1 >= 1000, otherwise as MM/DD/YY.
 	     The goal in recognizing YYYY/MM/DD is solely to support legacy
@@ -1061,7 +1063,7 @@ case 21:
 	;
     break;}
 case 22:
-#line 309 "parsedate.y"
+#line 311 "parsedate.y"
 {
 	    /* ISO 8601 format.  yyyy-mm-dd.  */
 	    yyYear = yyvsp[-2].Number;
@@ -1070,7 +1072,7 @@ case 22:
 	;
     break;}
 case 23:
-#line 315 "parsedate.y"
+#line 317 "parsedate.y"
 {
 	    /* e.g. 17-JUN-1992.  */
 	    yyDay = yyvsp[-2].Number;
@@ -1079,14 +1081,14 @@ case 23:
 	;
     break;}
 case 24:
-#line 321 "parsedate.y"
+#line 323 "parsedate.y"
 {
 	    yyMonth = yyvsp[-1].Number;
 	    yyDay = yyvsp[0].Number;
 	;
     break;}
 case 25:
-#line 325 "parsedate.y"
+#line 327 "parsedate.y"
 {
 	    yyMonth = yyvsp[-3].Number;
 	    yyDay = yyvsp[-2].Number;
@@ -1094,14 +1096,14 @@ case 25:
 	;
     break;}
 case 26:
-#line 330 "parsedate.y"
+#line 332 "parsedate.y"
 {
 	    yyMonth = yyvsp[0].Number;
 	    yyDay = yyvsp[-1].Number;
 	;
     break;}
 case 27:
-#line 334 "parsedate.y"
+#line 336 "parsedate.y"
 {
 	    yyMonth = yyvsp[-1].Number;
 	    yyDay = yyvsp[-2].Number;
@@ -1109,7 +1111,7 @@ case 27:
 	;
     break;}
 case 28:
-#line 341 "parsedate.y"
+#line 343 "parsedate.y"
 {
 	    yyRelSeconds = -yyRelSeconds;
 	    yyRelMinutes = -yyRelMinutes;
@@ -1120,115 +1122,115 @@ case 28:
 	;
     break;}
 case 30:
-#line 352 "parsedate.y"
+#line 354 "parsedate.y"
 {
 	    yyRelYear += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 31:
-#line 355 "parsedate.y"
+#line 357 "parsedate.y"
 {
 	    yyRelYear += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 32:
-#line 358 "parsedate.y"
+#line 360 "parsedate.y"
 {
 	    yyRelYear += yyvsp[0].Number;
 	;
     break;}
 case 33:
-#line 361 "parsedate.y"
+#line 363 "parsedate.y"
 {
 	    yyRelMonth += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 34:
-#line 364 "parsedate.y"
+#line 366 "parsedate.y"
 {
 	    yyRelMonth += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 35:
-#line 367 "parsedate.y"
+#line 369 "parsedate.y"
 {
 	    yyRelMonth += yyvsp[0].Number;
 	;
     break;}
 case 36:
-#line 370 "parsedate.y"
+#line 372 "parsedate.y"
 {
 	    yyRelDay += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 37:
-#line 373 "parsedate.y"
+#line 375 "parsedate.y"
 {
 	    yyRelDay += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 38:
-#line 376 "parsedate.y"
+#line 378 "parsedate.y"
 {
 	    yyRelDay += yyvsp[0].Number;
 	;
     break;}
 case 39:
-#line 379 "parsedate.y"
+#line 381 "parsedate.y"
 {
 	    yyRelHour += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 40:
-#line 382 "parsedate.y"
+#line 384 "parsedate.y"
 {
 	    yyRelHour += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 41:
-#line 385 "parsedate.y"
+#line 387 "parsedate.y"
 {
 	    yyRelHour += yyvsp[0].Number;
 	;
     break;}
 case 42:
-#line 388 "parsedate.y"
+#line 390 "parsedate.y"
 {
 	    yyRelMinutes += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 43:
-#line 391 "parsedate.y"
+#line 393 "parsedate.y"
 {
 	    yyRelMinutes += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 44:
-#line 394 "parsedate.y"
+#line 396 "parsedate.y"
 {
 	    yyRelMinutes += yyvsp[0].Number;
 	;
     break;}
 case 45:
-#line 397 "parsedate.y"
+#line 399 "parsedate.y"
 {
 	    yyRelSeconds += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 46:
-#line 400 "parsedate.y"
+#line 402 "parsedate.y"
 {
 	    yyRelSeconds += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 47:
-#line 403 "parsedate.y"
+#line 405 "parsedate.y"
 {
 	    yyRelSeconds += yyvsp[0].Number;
 	;
     break;}
 case 48:
-#line 409 "parsedate.y"
+#line 411 "parsedate.y"
 {
 	    if (yyHaveTime && yyHaveDate && !yyHaveRel)
 	      yyYear = yyvsp[0].Number;
@@ -1261,13 +1263,13 @@ case 48:
 	  ;
     break;}
 case 49:
-#line 442 "parsedate.y"
+#line 444 "parsedate.y"
 {
 	    yyval.Meridian = MER24;
 	  ;
     break;}
 case 50:
-#line 446 "parsedate.y"
+#line 448 "parsedate.y"
 {
 	    yyval.Meridian = yyvsp[0].Meridian;
 	  ;
@@ -1494,10 +1496,10 @@ yyerrhandle:
     }
   return 1;
 }
-#line 451 "parsedate.y"
+#line 453 "parsedate.y"
 
 
-time_t get_date (const char *p, const time_t *now);
+time_t get_date (char *p, time_t *now);
 
 #ifndef PHP_WIN32
 extern struct tm	*gmtime();
@@ -1948,8 +1950,7 @@ difftm (struct tm *a, struct tm *b)
 	  + (a->tm_sec - b->tm_sec));
 }
 
-time_t
-parse_date (const char *p, const time_t *now)
+time_t parse_date(char *p, time_t *now)
 {
   struct tm tm, tm0, *tmp;
   time_t Start;

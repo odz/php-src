@@ -1,38 +1,26 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP HTML Embedded Scripting Language Version 3.0                     |
+   | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997,1998 PHP Development Team (See Credits file)      |
+   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
    +----------------------------------------------------------------------+
-   | This program is free software; you can redistribute it and/or modify |
-   | it under the terms of one of the following licenses:                 |
-   |                                                                      |
-   |  A) the GNU General Public License as published by the Free Software |
-   |     Foundation; either version 2 of the License, or (at your option) |
-   |     any later version.                                               |
-   |                                                                      |
-   |  B) the PHP License as published by the PHP Development Team and     |
-   |     included in the distribution in the file: LICENSE                |
-   |                                                                      |
-   | This program is distributed in the hope that it will be useful,      |
-   | but WITHOUT ANY WARRANTY; without even the implied warranty of       |
-   | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the        |
-   | GNU General Public License for more details.                         |
-   |                                                                      |
-   | You should have received a copy of both licenses referred to here.   |
-   | If you did not, or have any questions about PHP licensing, please    |
-   | contact core@php.net.                                                |
+   | This source file is subject to version 2.02 of the PHP license,      |
+   | that is bundled with this package in the file LICENSE, and is        |
+   | available at through the world-wide-web at                           |
+   | http://www.php.net/license/2_02.txt.                                 |
+   | If you did not receive a copy of the PHP license and are unable to   |
+   | obtain it through the world-wide-web, please send a note to          |
+   | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Jim Winstead (jimw@php.net)                                 |
    |          Stig Sæther Bakken <ssb@guardian.no>                        |
    +----------------------------------------------------------------------+
- */
+*/
 
+/* $Id: php_math.h,v 1.5 2000/08/19 22:01:37 jmcastagnetto Exp $ */
 
-/* $Id: php_math.h,v 1.2 2000/06/13 16:35:40 sas Exp $ */
-
-#ifndef _PHPMATH_H
-#define _PHPMATH_H
+#ifndef PHP_MATH_H
+#define PHP_MATH_H
 PHP_FUNCTION(sin);
 PHP_FUNCTION(cos);
 PHP_FUNCTION(tan);
@@ -109,8 +97,20 @@ PHP_FUNCTION(rad2deg);
 #define M_2_PI         0.63661977236758134308  /* 2/pi */
 #endif
 
+#ifndef M_SQRTPI
+#define M_SQRTPI       1.77245385090551602729  /* sqrt(pi) */
+#endif
+
 #ifndef M_2_SQRTPI
 #define M_2_SQRTPI     1.12837916709551257390  /* 2/sqrt(pi) */
+#endif
+
+#ifndef M_LNPI
+#define M_LNPI         1.14472988584940017414  /* ln(pi) */
+#endif
+
+#ifndef M_EULER
+#define M_EULER        0.57721566490153286061 /* Euler constant */
 #endif
 
 #ifndef M_SQRT2
@@ -121,4 +121,8 @@ PHP_FUNCTION(rad2deg);
 #define M_SQRT1_2      0.70710678118654752440  /* 1/sqrt(2) */
 #endif
 
-#endif /* _PHPMATH_H */
+#ifndef M_SQRT3
+#define M_SQRT3	       1.73205080756887729352  /* sqrt(3) */
+#endif
+
+#endif /* PHP_MATH_H */

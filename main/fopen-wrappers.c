@@ -16,7 +16,7 @@
    |          Jim Winstead <jimw@php.net>                                 |
    +----------------------------------------------------------------------+
  */
-/* $Id: fopen-wrappers.c,v 1.70 2000/06/25 17:02:46 zeev Exp $ */
+/* $Id: fopen-wrappers.c,v 1.82 2000/08/21 09:50:52 sas Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -39,7 +39,6 @@
 #endif
 
 #include "safe_mode.h"
-#include "php_realpath.h"
 #include "ext/standard/head.h"
 #include "ext/standard/php_standard.h"
 #include "zend_compile.h"
@@ -81,10 +80,8 @@
  * a joint header file when we move virtual_cwd to TSRM */
 #ifdef ZEND_WIN32
 #define IS_SLASH(c)	((c) == '/' || (c) == '\\')
-#define DEFAULT_SLASH '\\'
 #else
 #define IS_SLASH(c)	((c) == '/')
-#define DEFAULT_SLASH '/'
 #endif
 
 
@@ -101,7 +98,8 @@ int php_get_ftp_result(int socketd);
 
 HashTable fopen_url_wrappers_hash;
 
-PHPAPI int php_register_url_wrapper(char *protocol, FILE * (*wrapper)(const char *path, char *mode, int options, int *issock, int *socketd, char **opened_path)) {
+PHPAPI int php_register_url_wrapper(char *protocol, FILE * (*wrapper)(const char *path, char *mode, int options, int *issock, int *socketd, char **opened_path))
+{
 #if PHP_URL_FOPEN
 	return zend_hash_add(&fopen_url_wrappers_hash, protocol, strlen(protocol)+1, &wrapper, sizeof(wrapper), NULL);
 #else
@@ -109,7 +107,8 @@ PHPAPI int php_register_url_wrapper(char *protocol, FILE * (*wrapper)(const char
 #endif
 }
 
-PHPAPI int php_unregister_url_wrapper(char *protocol) {
+PHPAPI int php_unregister_url_wrapper(char *protocol)
+{
 #if PHP_URL_FOPEN
 	return zend_hash_del(&fopen_url_wrappers_hash, protocol, strlen(protocol)+1);
 #else
@@ -185,7 +184,7 @@ PHPAPI int php_check_specific_open_basedir(char *basedir, char *path PLS_DC)
 	}
 
 	/* Resolve the real path into resolved_name */
-	if ((php_realpath(path, resolved_name) != NULL) && (php_realpath(local_open_basedir, resolved_basedir) != NULL)) {
+	if ((expand_filepath(path, resolved_name) != NULL) && (expand_filepath(local_open_basedir, resolved_basedir) != NULL)) {
 		/* Check the path */
 #ifdef PHP_WIN32
 		if (strncasecmp(resolved_basedir, resolved_name, strlen(resolved_basedir)) == 0) {
@@ -237,11 +236,26 @@ PHPAPI int php_check_open_basedir(char *path)
 		}
 		php_error(E_WARNING, "open_basedir restriction in effect. File is in wrong directory.");
 		efree(pathbuf);
+		errno = EPERM; /* we deny permission to open it */
 		return -1;
 	}
 
 	/* Nothing to check... */
 	return 0;
+}
+
+static FILE *php_fopen_and_set_opened_path(const char *path, char *mode, char **opened_path)
+{
+		FILE *fp;
+
+		if (php_check_open_basedir((char *)path)) {
+			return NULL;
+		}
+		fp = V_FOPEN(path, mode);
+		if (fp && opened_path) {
+			*opened_path = expand_filepath(path,NULL);
+		}
+		return fp;
 }
 
 PHPAPI FILE *php_fopen_wrapper(char *path, char *mode, int options, int *issock, int *socketd, char **opened_path)
@@ -263,19 +277,10 @@ PHPAPI FILE *php_fopen_wrapper(char *path, char *mode, int options, int *issock,
 	if (options & USE_PATH && PG(include_path) != NULL) {
 		return php_fopen_with_path(path, mode, PG(include_path), opened_path);
 	} else {
-		FILE *fp;
-
 		if (options & ENFORCE_SAFE_MODE && PG(safe_mode) && (!php_checkuid(path, mode, 0))) {
 			return NULL;
 		}
-		if (php_check_open_basedir(path)) {
-			return NULL;
-		}
-		fp = V_FOPEN(path, mode);
-		if (fp && opened_path) {
-			*opened_path = expand_filepath(path);
-		}
-		return fp;
+		return php_fopen_and_set_opened_path(path, mode, opened_path);
 	}
 }
 
@@ -312,8 +317,8 @@ PHPAPI FILE *php_fopen_primary_script(void)
 			if (pw && pw->pw_dir) {
 				filename = emalloc(strlen(PG(user_dir)) + strlen(path_info) + strlen(pw->pw_dir) + 4);
 				if (filename) {
-					sprintf(filename, "%s%c%s%c%s", pw->pw_dir, DEFAULT_SLASH,
-								PG(user_dir), DEFAULT_SLASH, s+1); /* Safe */
+					sprintf(filename, "%s%c%s%c%s", pw->pw_dir, PHP_DIR_SEPARATOR,
+								PG(user_dir), PHP_DIR_SEPARATOR, s+1); /* Safe */
 					STR_FREE(SG(request_info).path_translated);
 					SG(request_info).path_translated = filename;
 				}
@@ -333,7 +338,7 @@ PHPAPI FILE *php_fopen_primary_script(void)
 			if (filename) {
 				memcpy(filename, PG(doc_root), length);
 				if (!IS_SLASH(filename[length - 1])) {	/* length is never 0 */
-					filename[length++] = DEFAULT_SLASH;
+					filename[length++] = PHP_DIR_SEPARATOR;
 				}
 				if (IS_SLASH(path_info[0])) {
 					length--;
@@ -400,12 +405,7 @@ PHPAPI FILE *php_fopen_with_path(char *filename, char *mode, char *path, char **
 		if (PG(safe_mode) && (!php_checkuid(filename, mode, 0))) {
 			return NULL;
 		}
-		if (php_check_open_basedir(filename)) return NULL;
-		fp = V_FOPEN(filename, mode);
-		if (fp && opened_path) {
-			*opened_path = expand_filepath(filename);
-		}
-		return fp;
+		return php_fopen_and_set_opened_path(filename, mode, opened_path);
 	}
 	/* Absolute path open - prepend document_root in safe mode */
 #ifdef PHP_WIN32
@@ -422,35 +422,16 @@ PHPAPI FILE *php_fopen_with_path(char *filename, char *mode, char *path, char **
 			if (!php_checkuid(trypath, mode, 0)) {
 				return NULL;
 			}
-			if (php_check_open_basedir(trypath)) return NULL;
-			fp = V_FOPEN(trypath, mode);
-			if (fp && opened_path) {
-				*opened_path = expand_filepath(trypath);
-			}
-			return fp;
+			return php_fopen_and_set_opened_path(filename, mode, opened_path);
 		} else {
-			if (php_check_open_basedir(filename)) {
-				return NULL;
-			}
-			fp = V_FOPEN(filename, mode);
-			if (fp && opened_path) {
-				*opened_path = expand_filepath(filename);
-			}
-			return fp;
+			return php_fopen_and_set_opened_path(filename, mode, opened_path);
 		}
 	}
 	if (!path || (path && !*path)) {
 		if (PG(safe_mode) && (!php_checkuid(filename, mode, 0))) {
 			return NULL;
 		}
-		if (php_check_open_basedir(filename)) {
-			return NULL;
-		}
-		fp = V_FOPEN(filename, mode);
-		if (fp && opened_path) {
-			*opened_path = strdup(filename);
-		}
-		return fp;
+		return php_fopen_and_set_opened_path(filename, mode, opened_path);
 	}
 	pathbuf = estrdup(path);
 
@@ -473,15 +454,8 @@ PHPAPI FILE *php_fopen_with_path(char *filename, char *mode, char *path, char **
 				return NULL;
 			}
 		}
-		if ((fp = V_FOPEN(trypath, mode)) != NULL) {
-			if (php_check_open_basedir(trypath)) {
-				fclose(fp);
-				efree(pathbuf);
-				return NULL;
-			}
-			if (opened_path) {
-				*opened_path = expand_filepath(trypath);
-			}
+		fp = php_fopen_and_set_opened_path(trypath, mode, opened_path);
+		if (fp) {
 			efree(pathbuf);
 			return fp;
 		}
@@ -510,7 +484,7 @@ PHPAPI FILE *php_fopen_with_path(char *filename, char *mode, char *path, char **
 static FILE *php_fopen_url_wrap_http(const char *path, char *mode, int options, int *issock, int *socketd, char **opened_path)
 {
 	FILE *fp=NULL;
-	url *resource=NULL;
+	php_url *resource=NULL;
 	struct sockaddr_in server;
 	char tmp_line[512];
 	char location[512];
@@ -677,7 +651,7 @@ static FILE *php_fopen_url_wrap_http(const char *path, char *mode, int options, 
  static FILE *php_fopen_url_wrap_ftp(const char *path, char *mode, int options, int *issock, int *socketd, char **opened_path)
 {
 	FILE *fp=NULL;
-	url *resource=NULL;
+	php_url *resource=NULL;
 	struct sockaddr_in server;
 	char tmp_line[512];
 	unsigned short portno;
@@ -1001,6 +975,7 @@ static FILE *php_fopen_url_wrapper(const char *path, char *mode, int options, in
 			protocopy[n]='\0';
 			if(FAILURE==zend_hash_find(&fopen_url_wrappers_hash, protocopy, n+1,(void **)&wrapper)) {
 				wrapper=NULL;
+				protocol=NULL;
 			}		
 			efree(protocopy);
 		}
@@ -1029,15 +1004,9 @@ static FILE *php_fopen_url_wrapper(const char *path, char *mode, int options, in
 			if (options & ENFORCE_SAFE_MODE && PG(safe_mode) && (!php_checkuid(path, mode, 0))) {
 				fp = NULL;
 			} else {
-				if (php_check_open_basedir((char *) path)) {
-					fp = NULL;
-				} else {
-					fp = V_FOPEN(path, mode);
-				}
+				fp = php_fopen_and_set_opened_path(path, mode, opened_path);
 			}
 		}
-
-
 		return (fp);
 	}
 			
@@ -1094,9 +1063,7 @@ PHPAPI char *php_strip_url_passwd(char *url)
 }
 
 
-#if 1
-
-PHPAPI char *expand_filepath(char *filepath)
+PHPAPI char *expand_filepath(const char *filepath, char *real_path)
 {
 	cwd_state new_state;
 	char cwd[MAXPATHLEN+1];
@@ -1110,53 +1077,21 @@ PHPAPI char *expand_filepath(char *filepath)
 	new_state.cwd = strdup(cwd);
 	new_state.cwd_length = strlen(cwd);
 
-	virtual_file_ex(&new_state, filepath, NULL);
-	return new_state.cwd;
+	if(virtual_file_ex(&new_state, filepath, NULL)) {
+		return NULL;
+	}
+
+	if(real_path) {
+		int copy_len = new_state.cwd_length>MAXPATHLEN-1?MAXPATHLEN-1:new_state.cwd_length;
+		memcpy(real_path,new_state.cwd,copy_len);
+		real_path[copy_len]='\0';
+	} else {
+		real_path = new_state.cwd;
+	}
+
+	return real_path;
 }
 
-#else
-
-PHPAPI char *expand_filepath(char *filepath)
-{
-	char *retval = NULL;
-
-	if (filepath[0] == '.') {
-		char *cwd = malloc(MAXPATHLEN + 1);
-
-		if (V_GETCWD(cwd, MAXPATHLEN)) {
-			char *cwd_end = cwd + strlen(cwd);
-
-			if (filepath[1] == '.') {	/* parent directory - .. */
-				/* erase the last directory name from the path */
-#ifdef PHP_WIN32
-				while (*cwd_end != '/' || *cwd_end != '\\') {
-#else
-				while (*cwd_end != '/') {
-#endif
-					*cwd_end-- = 0;
-				}
-				filepath++;		/* make filepath appear as a current directory path */
-			}
-#ifdef PHP_WIN32
-			if (cwd_end > cwd && (*cwd_end == '/' || *cwd_end == '\\')) { /* remove trailing slashes */
-#else
-			if (cwd_end > cwd && *cwd_end == '/') {		/* remove trailing slashes */
-#endif
-				*cwd_end-- = 0;
-			}
-			retval = (char *) malloc(strlen(cwd) + strlen(filepath) - 1 + 1);
-			strcpy(retval, cwd);
-			strcat(retval, filepath + 1);
-			free(cwd);
-		}
-	}
-	if (!retval) {
-		retval = strdup(filepath);
-	}
-	return retval;
-}
-
-#endif
 
 /*
  * Local variables:

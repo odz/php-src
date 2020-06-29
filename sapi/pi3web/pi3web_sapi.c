@@ -4,10 +4,10 @@
    +----------------------------------------------------------------------+
    | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.0 of the PHP license,       |
+   | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_0.txt.                                  |
+   | http://www.php.net/license/2_02.txt.                                 |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -20,15 +20,10 @@
    +----------------------------------------------------------------------+
  */
 
-/*
-** $Id: pi3web_sapi.c,v 1.4 2000/06/26 18:05:53 andrei Exp $
-*/
+/* $Id: pi3web_sapi.c,v 1.9 2000/08/22 05:43:31 sas Exp $ */
 
 #if WIN32|WINNT
 #  include <windows.h>
-#  define PATH_DELIMITER '\\'
-#else
-#  define PATH_DELIMITER '/'
 #endif
 
 #include "pi3web_sapi.h"
@@ -85,7 +80,7 @@ static void php_info_pi3web(ZEND_MODULE_INFO_FUNC_ARGS)
 	PUTS("<table border=5 width=600>\n");
 	PUTS("<tr><th colspan=2 bgcolor=\"" PHP_HEADER_COLOR "\">Pi3Web Server Information</th></tr>\n");
 	php_info_print_table_header(2, "Information Field", "Value");
-	php_info_print_table_row(2, "Pi3Web SAPI module version", "$Id: pi3web_sapi.c,v 1.4 2000/06/26 18:05:53 andrei Exp $");
+	php_info_print_table_row(2, "Pi3Web SAPI module version", "$Id: pi3web_sapi.c,v 1.9 2000/08/22 05:43:31 sas Exp $");
 	php_info_print_table_row(2, "Server Name Stamp", HTTPCore_getServerStamp());
 	snprintf(variable_buf, 511, "%d", HTTPCore_debugEnabled());
 	php_info_print_table_row(2, "Debug Enabled", variable_buf);
@@ -311,8 +306,8 @@ static sapi_module_struct sapi_module = {
 
 static void init_request_info(sapi_globals_struct *sapi_globals, LPCONTROL_BLOCK lpCB)
 {
-	char *path_end = strrchr(lpCB->lpszFileName, PATH_DELIMITER);
-	if ( path_end ) *path_end = PATH_DELIMITER;
+	char *path_end = strrchr(lpCB->lpszFileName, PHP_DIR_SEPARATOR);
+	if ( path_end ) *path_end = PHP_DIR_SEPARATOR;
 
 	SG(server_context) = lpCB;
 	SG(request_info).request_method  = lpCB->lpszMethod;
@@ -323,6 +318,12 @@ static void init_request_info(sapi_globals_struct *sapi_globals, LPCONTROL_BLOCK
 	SG(request_info).content_length  = lpCB->cbTotalBytes;
 	SG(request_info).auth_user       = lpCB->lpszUser;
 	SG(request_info).auth_password   = lpCB->lpszPassword;
+	SG(sapi_headers).http_response_code = 200;
+	if (!strcmp(lpCB->lpszMethod, "HEAD")) {
+		SG(request_info).headers_only = 1;
+	} else {
+		SG(request_info).headers_only = 0;
+	}
 }
 
 static void hash_pi3web_variables(ELS_D SLS_DC)
@@ -380,7 +381,6 @@ static void hash_pi3web_variables(ELS_D SLS_DC)
 DWORD fnWrapperProc(LPCONTROL_BLOCK lpCB)
 {
 	zend_file_handle file_handle;
-	char *path_end;
 	SLS_FETCH();
 	CLS_FETCH();
 	ELS_FETCH();
@@ -388,16 +388,10 @@ DWORD fnWrapperProc(LPCONTROL_BLOCK lpCB)
 
 	if (setjmp( EG(bailout)) != 0 ) return PIAPI_ERROR;
 
-	path_end = strrchr( lpCB->lpszFileName, PATH_DELIMITER );
-	if ( path_end )	{
-		*path_end = 0;
-		chdir( lpCB->lpszFileName );
-		*path_end = PATH_DELIMITER;
-	};
-
 	file_handle.filename = lpCB->lpszFileName;
 	file_handle.free_filename = 0;
 	file_handle.type = ZEND_HANDLE_FILENAME;
+	file_handle.opened_path = NULL;
 
 	CG(extended_info) = 0;
 	init_request_info(sapi_globals, lpCB);

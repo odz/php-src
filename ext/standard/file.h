@@ -1,38 +1,27 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP HTML Embedded Scripting Language Version 3.0                     |
+   | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-1999 PHP Development Team (See Credits file)      |
+   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
    +----------------------------------------------------------------------+
-   | This program is free software; you can redistribute it and/or modify |
-   | it under the terms of one of the following licenses:                 |
-   |                                                                      |
-   |  A) the GNU General Public License as published by the Free Software |
-   |     Foundation; either version 2 of the License, or (at your option) |
-   |     any later version.                                               |
-   |                                                                      |
-   |  B) the PHP License as published by the PHP Development Team and     |
-   |     included in the distribution in the file: LICENSE                |
-   |                                                                      |
-   | This program is distributed in the hope that it will be useful,      |
-   | but WITHOUT ANY WARRANTY; without even the implied warranty of       |
-   | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the        |
-   | GNU General Public License for more details.                         |
-   |                                                                      |
-   | You should have received a copy of both licenses referred to here.   |
-   | If you did not, or have any questions about PHP licensing, please    |
-   | contact core@php.net.                                                |
+   | This source file is subject to version 2.02 of the PHP license,      |
+   | that is bundled with this package in the file LICENSE, and is        |
+   | available at through the world-wide-web at                           |
+   | http://www.php.net/license/2_02.txt.                                 |
+   | If you did not receive a copy of the PHP license and are unable to   |
+   | obtain it through the world-wide-web, please send a note to          |
+   | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
    +----------------------------------------------------------------------+
- */
+*/
 
-/* $Id: file.h,v 1.22 2000/06/06 18:58:15 ccollie Exp $ */
+/* $Id: file.h,v 1.25 2000/07/24 01:39:49 david Exp $ */
 
 /* Synced with php 3.0 revision 1.30 1999-06-16 [ssb] */
 
-#ifndef _FILE_H
-#define _FILE_H
+#ifndef FILE_H
+#define FILE_H
 
 extern PHP_MINIT_FUNCTION(file);
 
@@ -60,6 +49,7 @@ PHP_FUNCTION(fpassthru);
 PHP_FUNCTION(readfile);
 PHP_FUNCTION(umask);
 PHP_FUNCTION(rename);
+PHP_FUNCTION(unlink);
 PHP_FUNCTION(copy);
 PHP_FUNCTION(file);
 PHP_FUNCTION(set_socket_blocking); /* deprecated */
@@ -82,4 +72,4 @@ PHPAPI int php_file_le_popen(void);
 PHPAPI int php_file_le_socket(void);
 PHPAPI int php_file_le_uploads(void);
 
-#endif /* _FILE_H */
+#endif /* FILE_H */

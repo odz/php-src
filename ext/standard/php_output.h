@@ -16,18 +16,21 @@
    +----------------------------------------------------------------------+
 */
 
+/* $Id: php_output.h,v 1.14 2000/08/25 03:10:42 ssb Exp $ */
 
-#ifndef _OUTPUT_BUFFER
-#define _OUTPUT_BUFFER
+#ifndef PHP_OUTPUT_H
+#define PHP_OUTPUT_H
 
 #include "php.h"
 
 PHPAPI void php_output_startup(void);
 PHPAPI int  php_body_write(const char *str, uint str_length);
 PHPAPI int  php_header_write(const char *str, uint str_length);
-PHPAPI void php_start_ob_buffering(void);
-PHPAPI void php_end_ob_buffering(int send_buffer);
+PHPAPI void php_start_ob_buffer(void);
+PHPAPI void php_end_ob_buffer(int send_buffer);
+PHPAPI void php_end_ob_buffers(int send_buffer);
 PHPAPI int php_ob_get_buffer(pval *p);
+PHPAPI int php_ob_get_length(pval *p);
 PHPAPI void php_start_implicit_flush(void);
 PHPAPI void php_end_implicit_flush(void);
 PHPAPI char *php_get_output_start_filename(void);
@@ -37,20 +40,27 @@ PHP_FUNCTION(ob_start);
 PHP_FUNCTION(ob_end_flush);
 PHP_FUNCTION(ob_end_clean);
 PHP_FUNCTION(ob_get_contents);
+PHP_FUNCTION(ob_get_length);
 PHP_FUNCTION(ob_implicit_flush);
 
 PHP_GINIT_FUNCTION(output);
 
-typedef struct {
+typedef struct _php_ob_buffer {
+	char *buffer;
+	uint size;
+	uint text_length;
+	int block_size;
+} php_ob_buffer;
+
+typedef struct _php_output_globals {
 	int (*php_body_write)(const char *str, uint str_length);		/* string output */
 	int (*php_header_write)(const char *str, uint str_length);	/* unbuffer string output */
-	char *ob_buffer;
-	uint ob_size;
-	uint ob_block_size;
-	uint ob_text_length;
+	php_ob_buffer active_ob_buffer;
 	unsigned char implicit_flush;
 	char *output_start_filename;
 	int output_start_lineno;
+	zend_stack ob_buffers;
+	int nesting_level;
 } php_output_globals;
 
 
@@ -69,4 +79,4 @@ ZEND_API extern php_output_globals output_globals;
 #endif
 
 
-#endif /* _OUTPUT_BUFFER */
+#endif /* PHP_OUTPUT_H */

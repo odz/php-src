@@ -1,26 +1,44 @@
 
-install_targets = install-data-local install-headers install-build
+install_targets = \
+	install-data-local \
+	install-headers \
+	install-build \
+	install-programs
 
 include $(top_srcdir)/build/rules.mk
 
-peardir=$(prefix)/lib/php
+peardir=$(PEAR_INSTALLDIR)
 
 PEAR_SUBDIRS = \
 	DB \
-	File
+	File \
+	HTML \
+	Net \
+	Payment \
+	PEAR \
+	XML
 
 PEAR_FILES = \
 	DB.php \
 	DB/common.php \
-	DB/odbc.php \
-	DB/mysql.php \
+	DB/ibase.php \
+	DB/msql.php \
 	DB/mssql.php \
+	DB/mysql.php \
+	DB/oci8.php \
+	DB/odbc.php \
 	DB/pgsql.php \
 	DB/storage.php \
+	DB/sybase.php \
+	File/Find.php \
+	HTML/Form.php \
 	HTTP.php \
-	File/Find.php
+	Net/Socket.php \
+	PEAR/Installer.php \
+	Payment/Verisign.php \
+	XML/Parser.php
 
-install-data-local:
+install-data-local: PEAR.php
 	@if $(mkinstalldirs) $(peardir); then \
 		for i in $(PEAR_SUBDIRS); do \
 			$(mkinstalldirs) $(peardir)/$$i; \
@@ -29,45 +47,44 @@ install-data-local:
 			dir=`echo $$i|sed 's%[^/][^/]*$$%%'`; \
 			$(INSTALL_DATA) $(srcdir)/$$i $(peardir)/$$dir; \
 		done; \
+		for i in PEAR.php; do \
+			dir=`echo $$i|sed 's%[^/][^/]*$$%%'`; \
+			$(INSTALL_DATA) $(builddir)/$$i $(peardir)/$$dir; \
+		done; \
 	else \
 		cat $(srcdir)/install-pear.txt; \
 		exit 5; \
 	fi
 
 phpincludedir = $(includedir)/php
-builddir = $(prefix)/lib/php/build
+phpbuilddir = $(prefix)/lib/php/build
 
 BUILD_FILES = \
 	pear/pear.m4 \
 	build/fastgen.sh \
 	build/library.mk \
 	build/ltlib.mk \
+	build/mkdep.awk \
 	build/program.mk \
 	build/rules.mk \
+	build/rules_common.mk \
 	build/rules_pear.mk \
 	build/dynlib.mk \
 	build/shtool \
 	dynlib.m4 \
 	acinclude.m4
 
+bin_PROGRAMS = phpize php-config pear
+
 install-build:
-	-@$(mkinstalldirs) $(builddir) $(bindir) && \
-	(cd $(top_srcdir) && cp $(BUILD_FILES) $(builddir)) && \
-	echo "creating phpize" && \
-	sed \
-		-e 's#@PREFIX@#$(prefix)#' \
-		< $(srcdir)/phpize.in > $(bindir)/phpize.tmp && \
-	chmod +x $(bindir)/phpize.tmp && \
-	mv $(bindir)/phpize.tmp $(bindir)/phpize && \
-	echo "creating php-config" && \
-	sed \
-		-e 's#@PREFIX@#$(prefix)#' \
-		-e 's#@PHPINCLUDEDIR@#$(phpincludedir)#g' \
-		-e 's#@EXTENSION_DIR@#$(EXTENSION_DIR)#g' \
-		< $(srcdir)/php-config.in > $(bindir)/php-config.tmp && \
-	chmod +x $(bindir)/php-config.tmp && \
-	mv $(bindir)/php-config.tmp $(bindir)/php-config && \
-	cp $(srcdir)/phpextdist $(bindir)/phpextdist
+	$(mkinstalldirs) $(phpbuilddir) $(bindir) && \
+	(cd $(top_srcdir) && cp $(BUILD_FILES) $(phpbuilddir))
+
+install-programs:
+	$(INSTALL) -m 755 $(srcdir)/phpextdist $(bindir)/phpextdist
+	for prog in $(bin_PROGRAMS); do \
+		$(INSTALL) -m 755 $$prog $(bindir)/$$prog; \
+	done
 
 HEADER_DIRS = \
 	/ \
@@ -90,3 +107,18 @@ install-headers:
 		(cd $(top_srcdir)/$$i && cp -p *.h $(phpincludedir)/$$i; \
 		cd $(top_builddir)/$$i && cp -p *.h $(phpincludedir)/$$i) 2>/dev/null || true; \
 	done
+
+Makefile: Makefile.in $(top_builddir)/config.status
+	(cd ..;CONFIG_FILES=pear/Makefile CONFIG_HEADERS= $(top_builddir)/config.status)
+
+pear: pear.in $(top_builddir)/config.status
+	(cd ..;CONFIG_FILES=pear/pear CONFIG_HEADERS= $(top_builddir)/config.status)
+
+phpize: phpize.in $(top_builddir)/config.status
+	(cd ..;CONFIG_FILES=pear/phpize CONFIG_HEADERS= $(top_builddir)/config.status)
+
+php-config: php-config.in $(top_builddir)/config.status
+	(cd ..;CONFIG_FILES=pear/php-config CONFIG_HEADERS= $(top_builddir)/config.status)
+
+PEAR.php: PEAR.php.in $(top_builddir)/config.status
+	(cd ..;CONFIG_FILES=pear/PEAR.php CONFIG_HEADERS= $(top_builddir)/config.status)

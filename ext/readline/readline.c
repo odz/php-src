@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: readline.c,v 1.13 2000/06/05 19:47:44 andi Exp $ */
+/* $Id: readline.c,v 1.15 2000/08/24 15:29:50 thies Exp $ */
 
 /* {{{ includes & prototypes */
 
@@ -99,9 +99,12 @@ PHP_FUNCTION(readline)
 	if (ac < 0 || ac > 1 || zend_get_parameters_ex(ac, &arg) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
-	convert_to_string_ex(arg);
 
-	result = readline((*arg)->value.str.val);
+	if (ac == 1) {
+		convert_to_string_ex(arg);
+	}
+
+	result = readline(ac?(*arg)->value.str.val:NULL);
 
 	if (! result) {
 		RETURN_FALSE;

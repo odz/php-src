@@ -17,10 +17,10 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php.h,v 1.106 2000/06/24 16:10:18 andi Exp $ */
+/* $Id: php.h,v 1.122 2000/08/27 18:27:37 andi Exp $ */
 
-#ifndef _PHP_H
-#define _PHP_H
+#ifndef PHP_H
+#define PHP_H
 
 #ifdef HAVE_DMALLOC
 #include <dmalloc.h>
@@ -50,14 +50,6 @@ extern unsigned char first_arg_allow_ref[];
 extern unsigned char second_arg_force_ref[];
 extern unsigned char second_arg_allow_ref[];
 
-
-/* somebody stealing BOOL from windows.  pick something else!
-#ifndef BOOL
-#define BOOL MYBOOL
-#endif
-*/
-
-
 #ifdef PHP_WIN32
 #include "win95nt.h"
 #	ifdef PHP_EXPORTS
@@ -65,9 +57,11 @@ extern unsigned char second_arg_allow_ref[];
 #	else
 #	define PHPAPI __declspec(dllimport) 
 #	endif
+#define PHP_DIR_SEPARATOR '\\'
 #else
 #define PHPAPI
 #define THREAD_LS
+#define PHP_DIR_SEPARATOR '/'
 #endif
 
 #include "php_regex.h"
@@ -94,6 +88,27 @@ extern unsigned char second_arg_allow_ref[];
 #if HAVE_ALLOCA_H
 #include <alloca.h>
 #endif
+
+/*
+ * This is a fast version of strlcpy which should be used, if you
+ * know the size of the destination buffer and if you know
+ * the length of the source string.
+ *
+ * size is the allocated number of bytes of dst
+ * src_size is the number of bytes excluding the NUL of src
+ */
+
+#define PHP_STRLCPY(dst, src, size, src_size)	\
+	{											\
+		size_t php_str_len;						\
+												\
+		if (src_size >= size)					\
+			php_str_len = size - 1;				\
+		else									\
+			php_str_len = src_size;				\
+		memcpy(dst, src, php_str_len);			\
+		dst[php_str_len] = '\0';				\
+	}
 
 #ifndef HAVE_STRLCPY
 PHPAPI size_t strlcpy(char *dst, const char *src, size_t siz);
@@ -140,16 +155,13 @@ typedef unsigned int socklen_t;
 #include "zend_alloc.h"
 #include "zend_stack.h"
 
-typedef zval pval;
-
-#define pval_copy_constructor	zval_copy_ctor
-#define pval_destructor			zval_dtor
-
 #if STDC_HEADERS
 # include <string.h>
 #else
 # ifndef HAVE_MEMCPY
 #  define memcpy(d, s, n)	bcopy((s), (d), (n))
+# endif
+# ifndef HAVE_MEMMOVE
 #  define memmove(d, s, n)	bcopy ((s), (d), (n))
 # endif
 #endif
@@ -157,7 +169,7 @@ typedef zval pval;
 #include "safe_mode.h"
 
 #ifndef HAVE_STRERROR
-extern char *strerror(int);
+char *strerror(int);
 #endif
 
 #include "fopen-wrappers.h"
@@ -194,15 +206,9 @@ extern char *strerror(int);
 
 #define EXEC_INPUT_BUF 4096
 
-
-#define DONT_FREE 0
-#define DO_FREE 1
-
 #define PHP_MIME_TYPE "application/x-httpd-php"
 
 /* macros */
-#undef COPY_STRING
-#define COPY_STRING(yy)   (yy).value.str.val = (char *) estrndup((yy).value.str.val,(yy).value.str.len)
 #define STR_PRINT(str)	((str)?(str):"")
 
 #ifndef MAXPATHLEN
@@ -241,15 +247,14 @@ extern char **environ;
 #define php_sleep sleep
 #endif
 
-extern void phperror(char *error);
-extern PHPAPI int php_write(void *buf, int size);
-extern PHPAPI int php_printf(const char *format, ...);
-extern void php_log_err(char *log_message);
-extern int Debug(char *format, ...);
-extern int cfgparse(void);
+void phperror(char *error);
+PHPAPI int php_write(void *buf, uint size);
+PHPAPI int php_printf(const char *format, ...);
+void php_log_err(char *log_message);
+int Debug(char *format, ...);
+int cfgparse(void);
 
 #define php_error zend_error
-
 
 #define zenderror phperror
 #define zendlex phplex
@@ -264,9 +269,6 @@ int php_global_startup_internal_extensions(void);
 int php_global_shutdown_internal_extensions(void);
 
 int mergesort(void *base, size_t nmemb, register size_t size, int (*cmp) (const void *, const void *));
-
-/*from basic functions*/
-extern PHPAPI int _php_error_log(int opt_err,char *message,char *opt,char *headers);
 
 PHPAPI void php_register_pre_request_shutdown(void (*func)(void *), void *userdata);
 
@@ -299,8 +301,9 @@ PHPAPI int cfg_get_string(char *varname, char **result);
 #define V_OPEN(open_args) virtual_open open_args
 #define V_CREAT(path, mode) virtual_creat(path, mode)
 #define V_CHDIR(path) virtual_chdir(path)
-#define V_CHDIR_FILE(path) virtual_chdir_file(path)
+#define V_CHDIR_FILE(path) virtual_chdir_file(path, virtual_chdir)
 #define V_GETWD(buf)
+#define V_REALPATH(path,real_path) virtual_realpath(path,real_path)
 #define V_STAT(path, buff) virtual_stat(path, buff)
 #ifdef PHP_WIN32
 #define V_LSTAT(path, buff) virtual_stat(path, buff)
@@ -312,15 +315,22 @@ PHPAPI int cfg_get_string(char *varname, char **result);
 #define V_RMDIR(pathname) virtual_rmdir(pathname)
 #define V_OPENDIR(pathname) virtual_opendir(pathname)
 #define V_POPEN(command, type) virtual_popen(command, type)
+#if HAVE_UTIME
+#define V_UTIME(path,time) virtual_utime(path,time)
+#endif
+#define V_CHMOD(path,mode) virtual_chmod(path,mode)
+#ifndef PHP_WIN32
+#define V_CHOWN(path,owner,group) virtual_chown(path,owner,group)
+#endif
 
-#else
+#else /* !defined(VIRTUAL_DIR) */
 
 #define V_GETCWD(buff, size) getcwd(buff,size)
 #define V_FOPEN(path, mode)  fopen(path, mode)
 #define V_OPEN(open_args) open open_args
 #define V_CREAT(path, mode) creat(path, mode)
 #define V_CHDIR(path) chdir(path)
-#define V_CHDIR_FILE(path) chdir_file(path)
+#define V_CHDIR_FILE(path) virtual_chdir_file(path, chdir)
 #define V_GETWD(buf) getwd(buf)
 #define V_STAT(path, buff) stat(path, buff)
 #define V_LSTAT(path, buff) lstat(path, buff)
@@ -329,8 +339,16 @@ PHPAPI int cfg_get_string(char *varname, char **result);
 #define V_RMDIR(pathname) rmdir(pathname)
 #define V_OPENDIR(pathname) opendir(pathname)
 #define V_POPEN(command, type) popen(command, type)
-
+#define V_REALPATH(path,real_path) realpath(path,real_path)
+#if HAVE_UTIME
+#define V_UTIME(path,time) utime(path,time)
 #endif
+#define V_CHMOD(path,mode) chmod(path,mode)
+#ifndef PHP_WIN32
+#define V_CHOWN(path,owner,group) chown(path,owner,group)
+#endif
+
+#endif /* VIRTUAL_DIR */
 
 #include "zend_constants.h"
 
@@ -372,7 +390,7 @@ PHPAPI int cfg_get_string(char *varname, char **result);
 #define XtOffsetOf(s_type,field) XtOffset(s_type*,field)
 #endif
 
-PHP_FUNCTION(warn_not_available);
+PHPAPI PHP_FUNCTION(warn_not_available);
 
 #endif
 

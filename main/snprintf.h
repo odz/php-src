@@ -16,8 +16,8 @@
    +----------------------------------------------------------------------+
  */
 
-#ifndef _PHP_SNPRINTF_H
-#define _PHP_SNPRINTF_H
+#ifndef SNPRINTF_H
+#define SNPRINTF_H
 
 #ifndef HAVE_SNPRINTF
 extern int ap_php_snprintf(char *, size_t, const char *, ...);
@@ -29,12 +29,12 @@ extern int ap_php_vsnprintf(char *, size_t, const char *, va_list ap);
 #define vsnprintf ap_php_vsnprintf
 #endif
 
-#if BROKEN_SPRINTF
+#if PHP_BROKEN_SPRINTF
 int php_sprintf (char* s, const char* format, ...);
 #define sprintf php_sprintf
 #endif
 
-#endif /* _PHP_SNPRINTF_H */
+#endif /* SNPRINTF_H */
 
 /*
  * Local variables:

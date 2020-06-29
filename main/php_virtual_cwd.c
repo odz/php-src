@@ -4,7 +4,7 @@
    +----------------------------------------------------------------------+
    | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.01 of the PHP license,      |
+   | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available at through the world-wide-web at                           |
    | http://www.php.net/license/2_02.txt.                                 |
@@ -13,9 +13,11 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Andi Gutmans <andi@zend.com>                                |
-   |          Sascha Schumann <ss@schumann.cx>                            |
+   |          Sascha Schumann <sascha@schumann.cx>                        |
    +----------------------------------------------------------------------+
 */
+
+/* $Id: php_virtual_cwd.c,v 1.73 2000/08/27 19:36:35 sas Exp $ */
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -24,11 +26,11 @@
 #include <limits.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <ctype.h>
 #include <fcntl.h>
 
 #ifdef ZEND_WIN32
 #include "win95nt.h"
+#include <sys/utime.h>
 #endif
 
 #include "php_virtual_cwd.h"
@@ -41,7 +43,7 @@
 #endif
 
 /* Only need mutex for popen() in Windows because it doesn't chdir() on UNIX */
-#ifdef ZEND_WIN32
+#if defined(ZEND_WIN32) && defined(ZTS)
 MUTEX_T cwd_mutex;
 #endif
 
@@ -65,12 +67,8 @@ cwd_state main_cwd_state; /* True global */
 
 #ifdef ZEND_WIN32
 #define php_strtok_r(a,b,c) strtok((a),(b))
-#define IS_SLASH(c)	((c) == '/' || (c) == '\\')
 #define DEFAULT_SLASH '\\'
 #define TOKENIZER_STRING "/\\"
-
-#define IS_ABSOLUTE_PATH(path, len) \
-	(len >= 2 && isalpha(path[0]) && path[1] == ':')
 
 #define COPY_WHEN_ABSOLUTE 2
 	
@@ -89,18 +87,12 @@ static int php_check_dots(const char *element, int n)
 
 
 #else
-#define IS_SLASH(c)	((c) == '/')
 #define DEFAULT_SLASH '/'
 #define TOKENIZER_STRING "/"
 #endif
 
 
 /* default macros */
-
-#ifndef IS_ABSOLUTE_PATH	
-#define IS_ABSOLUTE_PATH(path, len) \
-	(IS_SLASH(path[0]))
-#endif
 
 #ifndef IS_DIRECTORY_UP
 #define IS_DIRECTORY_UP(element, len) \
@@ -175,19 +167,9 @@ CWD_API void virtual_cwd_startup(void)
 	main_cwd_state.cwd_length = strlen(cwd);
 
 	ZEND_INIT_MODULE_GLOBALS(cwd, cwd_globals_ctor, cwd_globals_dtor);
-#ifdef ZEND_WIN32
+#if defined(ZEND_WIN32) && defined(ZTS)
 	cwd_mutex = tsrm_mutex_alloc();
 #endif
-}
-
-CWD_API void virtual_cwd_activate(char *filename)
-{
-#if VIRTUAL_CWD_DEBUG
-	fprintf(stderr, "Changing dir to %s\n", filename);
-#endif
-	if (filename) {
-		virtual_chdir_file(filename);
-	}
 }
 
 CWD_API void virtual_cwd_shutdown(void)
@@ -195,7 +177,7 @@ CWD_API void virtual_cwd_shutdown(void)
 #ifndef ZTS
 	cwd_globals_dtor(&cwd_globals);
 #endif
-#ifdef ZEND_WIN32
+#if defined(ZEND_WIN32) && defined(ZTS)
 	tsrm_mutex_free(cwd_mutex);
 #endif
 
@@ -279,33 +261,30 @@ CWD_API int virtual_file_ex(cwd_state *state, const char *path, verify_path_func
 		return (0);
 
 #ifndef ZEND_WIN32
-	if (strstr(path, "..")) {
-		/* If .. is found then we need to resolve real path as the .. code doesn't work with symlinks */
-		if (IS_ABSOLUTE_PATH(path, path_length)) {
-			if (realpath(path, resolved_path)) {
-				path = resolved_path;
-				path_length = strlen(path);
-			}
-		} else { /* Concat current directory with relative path and then run realpath() on it */
-			char *tmp;
-			char *ptr;
-
-			ptr = tmp = (char *) malloc(state->cwd_length+path_length+sizeof("/"));
-			if (!tmp) {
-				return 1;
-			}
-			memcpy(ptr, state->cwd, state->cwd_length);
-			ptr += state->cwd_length;
-			*ptr++ = DEFAULT_SLASH;
-			memcpy(ptr, path, path_length);
-			ptr += path_length;
-			*ptr = '\0';
-			if (realpath(tmp, resolved_path)) {
-				path = resolved_path;
-				path_length = strlen(path);
-			}
-			free(tmp);
+	if (IS_ABSOLUTE_PATH(path, path_length)) {
+		if (realpath(path, resolved_path)) {
+			path = resolved_path;
+			path_length = strlen(path);
 		}
+	} else { /* Concat current directory with relative path and then run realpath() on it */
+		char *tmp;
+		char *ptr;
+
+		ptr = tmp = (char *) malloc(state->cwd_length+path_length+sizeof("/"));
+		if (!tmp) {
+			return 1;
+		}
+		memcpy(ptr, state->cwd, state->cwd_length);
+		ptr += state->cwd_length;
+		*ptr++ = DEFAULT_SLASH;
+		memcpy(ptr, path, path_length);
+		ptr += path_length;
+		*ptr = '\0';
+		if (realpath(tmp, resolved_path)) {
+			path = resolved_path;
+			path_length = strlen(path);
+		}
+		free(tmp);
 	}
 #endif
 	free_path = path_copy = estrndup(path, path_length);
@@ -388,6 +367,7 @@ CWD_API int virtual_file_ex(cwd_state *state, const char *path, verify_path_func
 		ret = 1;
 	} else {
 		CWD_STATE_FREE(old_state);
+		ret = 0;
 	}
 	
 	free(old_state);
@@ -399,14 +379,14 @@ CWD_API int virtual_file_ex(cwd_state *state, const char *path, verify_path_func
 	return (ret);
 }
 
-CWD_API int virtual_chdir(char *path)
+CWD_API int virtual_chdir(const char *path)
 {
 	CWDLS_FETCH();
 
 	return virtual_file_ex(&CWDG(cwd), path, php_is_dir_ok)?-1:0;
 }
 
-CWD_API int virtual_chdir_file(char *path)
+CWD_API int virtual_chdir_file(const char *path, int (*p_chdir)(const char *path))
 {
 	int length = strlen(path);
 	char *temp;
@@ -425,19 +405,37 @@ CWD_API int virtual_chdir_file(char *path)
 	if (length == COPY_WHEN_ABSOLUTE && IS_ABSOLUTE_PATH(path, length+1)) { /* Also use trailing slash if this is absolute */
 		length++;
 	}
-	temp = (char *) malloc(length+1);
+	temp = (char *) do_alloca(length+1);
 	memcpy(temp, path, length);
 	temp[length] = 0;
 #if VIRTUAL_CWD_DEBUG
 	fprintf (stderr, "Changing directory to %s\n", temp);
 #endif
-	retval = virtual_chdir(temp);
-	free(temp);
+	retval = p_chdir(temp);
+	free_alloca(temp);
 	return retval;
 }
 
+CWD_API char *virtual_realpath(const char *path, char *real_path)
+{
+	cwd_state new_state;
+	int retval;
+    CWDLS_FETCH();
 
-CWD_API int virtual_filepath(char *path, char **filepath)
+	CWD_STATE_COPY(&new_state, &CWDG(cwd));
+	retval = virtual_file_ex(&new_state, path, NULL);
+	
+	if(retval) {
+		int len = new_state.cwd_length>MAXPATHLEN-1?MAXPATHLEN-1:new_state.cwd_length;
+		memcpy(real_path, new_state.cwd, len);
+		real_path[len] = '\0';
+		return real_path;
+	}
+
+	return NULL;
+}
+
+CWD_API int virtual_filepath(const char *path, char **filepath)
 {
 	cwd_state new_state;
 	int retval;
@@ -469,6 +467,55 @@ CWD_API FILE *virtual_fopen(const char *path, const char *mode)
 	CWD_STATE_FREE(&new_state);
 	return f;
 }
+
+#if HAVE_UTIME
+CWD_API int virtual_utime(const char *filename, struct utimbuf *buf)
+{
+	cwd_state new_state;
+	int ret;
+	CWDLS_FETCH();
+
+	CWD_STATE_COPY(&new_state, &CWDG(cwd));
+	virtual_file_ex(&new_state, filename, NULL);
+
+	ret = utime(new_state.cwd, buf);
+
+	CWD_STATE_FREE(&new_state);
+	return ret;
+}
+#endif
+
+CWD_API int virtual_chmod(const char *filename, mode_t mode)
+{
+	cwd_state new_state;
+	int ret;
+	CWDLS_FETCH();
+
+	CWD_STATE_COPY(&new_state, &CWDG(cwd));
+	virtual_file_ex(&new_state, filename, NULL);
+
+	ret = chmod(new_state.cwd, mode);
+
+	CWD_STATE_FREE(&new_state);
+	return ret;
+}
+
+#ifndef PHP_WIN32
+CWD_API int virtual_chown(const char *filename, uid_t owner, gid_t group)
+{
+	cwd_state new_state;
+	int ret;
+	CWDLS_FETCH();
+
+	CWD_STATE_COPY(&new_state, &CWDG(cwd));
+	virtual_file_ex(&new_state, filename, NULL);
+
+	ret = chown(new_state.cwd, owner, group);
+
+	CWD_STATE_FREE(&new_state);
+	return ret;
+}
+#endif
 
 CWD_API int virtual_open(const char *path, int flags, ...)
 {
@@ -657,16 +704,43 @@ CWD_API FILE *virtual_popen(const char *command, const char *type)
 	if (!getcwd_result) {
 		return NULL;
 	}
-	
+
+#ifdef ZTS
 	tsrm_mutex_lock(cwd_mutex);
+#endif
 
 	chdir(CWDG(cwd).cwd);
 	retval = popen(command, type);
 	chdir(prev_cwd);
 
+#ifdef ZTS
 	tsrm_mutex_unlock(cwd_mutex);
+#endif
 
 	return retval;
+}
+
+#endif
+
+#if 0
+/* taken from Apache 1.3 */
+
+CWD_API void virtual_real_chdir_file(const char *file)
+{
+    const char *x;
+    char buf[4096];
+
+    x = strrchr(file, '/');
+    if (x == NULL) {
+	chdir(file);
+    }
+    else if (x - file < sizeof(buf) - 1) {
+	memcpy(buf, file, x - file);
+	buf[x - file] = '\0';
+	chdir(buf);
+    }
+    /* XXX: well, this is a silly function, no method of reporting an
+     * error... ah well. */
 }
 
 #endif

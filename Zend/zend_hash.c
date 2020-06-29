@@ -108,20 +108,23 @@ static void _zend_is_inconsistent(HashTable *ht, char *file, int line)
 #define SET_INCONSISTENT(n)
 #endif
 
-#define HASH_APPLY_BEGIN(ht)														\
-	if ((ht)->nApplyCount>=3) {														\
-		zend_error(E_WARNING, "Nesting level too deep - recursive dependency?");	\
-		return;																		\
-	}																				\
-	(ht)->nApplyCount++;
+#define HASH_APPLY_BEGIN(ht)															\
+	if ((ht)->bApplyProtection) {														\
+		if ((ht)->nApplyCount>=3) {														\
+			zend_error(E_WARNING, "Nesting level too deep - recursive dependency?");	\
+			return;																		\
+		}																				\
+		(ht)->nApplyCount++;															\
+	}
 
-#define HASH_APPLY_END(ht)															\
+#define HASH_APPLY_END(ht)																\
 	(ht)->nApplyCount--;
 
 
 /* Generated on an Octa-ALPHA 300MHz CPU & 2.5GB RAM monster */
 static uint PrimeNumbers[] =
-{5, 11, 19, 53, 107, 223, 463, 983, 1979, 3907, 7963, 16229, 32531, 65407, 130987, 262237, 524521, 1048793, 2097397, 4194103, 8388857, 16777447, 33554201, 67108961, 134217487, 268435697, 536870683, 1073741621, 2147483399};
+	{5, 11, 19, 53, 107, 223, 463, 983, 1979, 3907, 7963, 16229, 32531, 65407, 130987, 262237, 524521, 1048793, 2097397, 4194103, 8388857, 16777447, 33554201, 67108961, 134217487, 268435697, 536870683, 1073741621, 2147483399};
+static uint nNumPrimeNumbers = sizeof(PrimeNumbers) / sizeof(uint);
 
 #define ZEND_HASH_IF_FULL_DO_RESIZE(ht)				\
 	if ((ht)->nNumOfElements > (ht)->nTableSize) {	\
@@ -130,7 +133,6 @@ static uint PrimeNumbers[] =
 
 static int zend_hash_do_resize(HashTable *ht);
 
-static uint nNumPrimeNumbers = sizeof(PrimeNumbers) / sizeof(ulong);
 
 ZEND_API ulong hashpjw(char *arKey, uint nKeyLength)
 {
@@ -216,8 +218,26 @@ ZEND_API int zend_hash_init(HashTable *ht, uint nSize, hash_func_t pHashFunction
 	ht->pInternalPointer = NULL;
 	ht->persistent = persistent;
 	ht->nApplyCount = 0;
+	ht->bApplyProtection = 1;
 	return SUCCESS;
 }
+
+
+ZEND_API int zend_hash_init_ex(HashTable *ht, uint nSize, hash_func_t pHashFunction, dtor_func_t pDestructor, int persistent, zend_bool bApplyProtection)
+{
+	int retval = zend_hash_init(ht, nSize, pHashFunction, pDestructor, persistent);
+
+	ht->bApplyProtection = bApplyProtection;
+	return retval;
+}
+
+
+ZEND_API void zend_hash_set_apply_protection(HashTable *ht, zend_bool bApplyProtection)
+{
+	ht->bApplyProtection = bApplyProtection;
+}
+
+
 
 ZEND_API int zend_hash_add_or_update(HashTable *ht, char *arKey, uint nKeyLength, void *pData, uint nDataSize, void **pDest, int flag)
 {

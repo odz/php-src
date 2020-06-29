@@ -1,37 +1,26 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP HTML Embedded Scripting Language Version 3.0                     |
+   | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997,1998 PHP Development Team (See Credits file)      |
+   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
    +----------------------------------------------------------------------+
-   | This program is free software; you can redistribute it and/or modify |
-   | it under the terms of one of the following licenses:                 |
-   |                                                                      |
-   |  A) the GNU General Public License as published by the Free Software |
-   |     Foundation; either version 2 of the License, or (at your option) |
-   |     any later version.                                               |
-   |                                                                      |
-   |  B) the PHP License as published by the PHP Development Team and     |
-   |     included in the distribution in the file: LICENSE                |
-   |                                                                      |
-   | This program is distributed in the hope that it will be useful,      |
-   | but WITHOUT ANY WARRANTY; without even the implied warranty of       |
-   | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the        |
-   | GNU General Public License for more details.                         |
-   |                                                                      |
-   | You should have received a copy of both licenses referred to here.   |
-   | If you did not, or have any questions about PHP licensing, please    |
-   | contact core@php.net.                                                |
+   | This source file is subject to version 2.02 of the PHP license,      |
+   | that is bundled with this package in the file LICENSE, and is        |
+   | available at through the world-wide-web at                           |
+   | http://www.php.net/license/2_02.txt.                                 |
+   | If you did not receive a copy of the PHP license and are unable to   |
+   | obtain it through the world-wide-web, please send a note to          |
+   | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Stig Sæther Bakken <ssb@guardian.no>                        |
    |          Andreas Karajannis <Andreas.Karajannis@gmd.de>              |
    +----------------------------------------------------------------------+
- */
+*/
 
-/* $Id: php_odbc.h,v 1.21 2000/05/28 12:48:12 kara Exp $ */
+/* $Id: php_odbc.h,v 1.26 2000/08/22 21:27:49 kalowsky Exp $ */
 
-#ifndef _PHP_ODBC_H
-#define _PHP_ODBC_H
+#ifndef PHP_ODBC_H
+#define PHP_ODBC_H
 
 #if HAVE_UODBC
 #define ODBCVER 0x0250
@@ -45,11 +34,24 @@
 
 /* checking in the same order as in configure.in */
 
-#ifdef HAVE_SOLID /* Solid Server */
+#if defined(HAVE_SOLID) || defined(HAVE_SOLID_35) /* Solid Server */
 
 #define ODBC_TYPE "Solid"
-#include <cli0core.h>
-#include <cli0ext1.h>
+#if defined(HAVE_SOLID)
+ #include <cli0core.h>
+ #include <cli0ext1.h>
+ /*the following help for SOLID 3.0 */
+ #include <cli0cli.h>
+ #include <cli0env.h>
+#elif defined(HAVE_SOLID_35)
+ #if !defined(PHP_WIN32)
+  #include <sqlunix.h>
+ #endif
+ #include <sqltypes.h>
+ #include <sqlucode.h>
+ #include <sqlext.h>
+ #include <sql.h>
+#endif
 #undef HAVE_SQL_EXTENDED_FETCH
 PHP_FUNCTION(solid_fetch_prev);
 #define SQLSMALLINT SWORD
@@ -126,6 +128,8 @@ PHP_FUNCTION(solid_fetch_prev);
 #elif defined(HAVE_DBMAKER) /* DBMaker */
 
 #define ODBC_TYPE "DBMaker"
+#undef ODBCVER
+#define ODBCVER 0x0300
 #define HAVE_SQL_EXTENDED_FETCH 1
 #include <odbc.h>
 
@@ -176,6 +180,10 @@ PHP_FUNCTION(odbc_cursor);
 PHP_FUNCTION(odbc_exec);
 PHP_FUNCTION(odbc_do);
 PHP_FUNCTION(odbc_execute);
+#ifdef HAVE_DBMAKER
+PHP_FUNCTION(odbc_fetch_array);
+PHP_FUNCTION(odbc_fetch_object);
+#endif
 PHP_FUNCTION(odbc_fetch_into);
 PHP_FUNCTION(odbc_fetch_row);
 PHP_FUNCTION(odbc_field_len);
@@ -194,11 +202,11 @@ PHP_FUNCTION(odbc_binmode);
 PHP_FUNCTION(odbc_longreadlen);
 PHP_FUNCTION(odbc_tables);
 PHP_FUNCTION(odbc_columns);
-#if !defined(HAVE_DBMAKER) && !defined(HAVE_SOLID)    /* not supported now */
+#if !defined(HAVE_DBMAKER) && !defined(HAVE_SOLID) && !defined(HAVE_SOLID_35)    /* not supported now */
 PHP_FUNCTION(odbc_columnprivileges);
 PHP_FUNCTION(odbc_tableprivileges);
 #endif
-#if !defined(HAVE_SOLID)    /* not supported */
+#if !defined(HAVE_SOLID) || !defined(HAVE_SOLID_35)    /* not supported */
 PHP_FUNCTION(odbc_foreignkeys);
 PHP_FUNCTION(odbc_procedures);
 PHP_FUNCTION(odbc_procedurecolumns);
@@ -212,6 +220,9 @@ typedef struct odbc_connection {
 #if defined( HAVE_IBMDB2 ) || defined( HAVE_UNIXODBC )
 	SQLHANDLE henv;
 	SQLHANDLE hdbc;
+#elif defined( HAVE_SOLID_35 )
+	SQLHENV	henv;
+	SQLHDBC hdbc;
 #else
 	HENV henv;
 	HDBC hdbc;
@@ -230,6 +241,8 @@ typedef struct odbc_result_value {
 typedef struct odbc_result {
 #if defined( HAVE_IBMDB2 ) || defined( HAVE_UNIXODBC )
 	SQLHANDLE stmt;
+#elif defined( HAVE_SOLID_35 )
+	SQLHSTMT stmt;
 #else
 	HSTMT stmt;
 #endif
@@ -273,6 +286,8 @@ int odbc_bindcols(odbc_result *result);
 
 #if defined( HAVE_IBMDB2 ) || defined( HAVE_UNIXODBC )
 #define ODBC_SQL_ERROR_PARAMS SQLHANDLE henv, SQLHANDLE conn, SQLHANDLE stmt, char *func
+#elif defined( HAVE_SOLID_35 )
+#define ODBC_SQL_ERROR_PARAMS SQLHENV henv, SQLHDBC conn, SQLHSTMT stmt, char *func
 #else
 #define ODBC_SQL_ERROR_PARAMS HENV henv, HDBC conn, HSTMT stmt, char *func
 #endif
@@ -307,7 +322,7 @@ extern ZEND_API php_odbc_globals odbc_globals;
 
 #define phpext_odbc_ptr odbc_module_ptr
 
-#endif /* _PHP_ODBC_H */
+#endif /* PHP_ODBC_H */
 
 /*
  * Local variables:

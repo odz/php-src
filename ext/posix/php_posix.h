@@ -23,15 +23,15 @@
    | If you did not, or have any questions about PHP licensing, please    |
    | contact core@php.net.                                                |
    +----------------------------------------------------------------------+
-   | Authors: Kristian Koehntopp (kris@koehntopp.de)                      |
+   | Authors: Kristian Koehntopp <kris@koehntopp.de>                      |
    +----------------------------------------------------------------------+
  */
 
 
-/* $Id: php_posix.h,v 1.4 2000/06/10 14:16:34 andi Exp $ */
+/* $Id: php_posix.h,v 1.7 2000/07/26 21:25:01 kk Exp $ */
 
-#ifndef _PHP_POSIX_H
-#define _PHP_POSIX_H
+#ifndef PHP_POSIX_H
+#define PHP_POSIX_H
 
 #if HAVE_POSIX
 #ifndef DLEXPORT
@@ -52,6 +52,9 @@ PHP_FUNCTION(posix_geteuid);
 PHP_FUNCTION(posix_getegid);
 PHP_FUNCTION(posix_setuid);
 PHP_FUNCTION(posix_setgid);
+PHP_FUNCTION(posix_seteuid);
+PHP_FUNCTION(posix_setegid);
+
 PHP_FUNCTION(posix_getgroups);
 PHP_FUNCTION(posix_getlogin);
 
@@ -90,4 +93,4 @@ typedef struct {
 
 #define phpext_posix_ptr posix_module_ptr
 
-#endif /* _PHP_POSIX_H */
+#endif /* PHP_POSIX_H */

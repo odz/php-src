@@ -4,17 +4,19 @@
    +----------------------------------------------------------------------+
    | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.0 of the PHP license,       |
+   | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available at through the world-wide-web at                           |
-   | http://www.php.net/license.html.                                     |
+   | http://www.php.net/license/2_02.txt.                                 |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Author: Sam Ruby (rubys@us.ibm.com)                                  |
    +----------------------------------------------------------------------+
- */
+*/
+
+/* $Id: reflect.java,v 1.18 2000/07/24 05:40:59 david Exp $ */
 
 package net.php;
 
@@ -45,7 +47,9 @@ public class reflect {
   private static native void setResultFromObject(long result, Object value);
   private static native void setResultFromArray(long result);
   private static native long nextElement(long array);
-  private static native void setException(long result, String value);
+  private static native long hashUpdate(long array, byte key[]);
+  private static native long hashIndexUpdate(long array, long key);
+  private static native void setException(long result, byte value[]);
   public  static native void setEnv();
 
   //
@@ -81,6 +85,21 @@ public class reflect {
         setResult(nextElement(result), Array.get(value, i));
       }
 
+    } else if (value instanceof java.util.Hashtable) {
+
+      Hashtable ht = (Hashtable) value; 
+      setResultFromArray(result);
+      for (Enumeration e = ht.keys(); e.hasMoreElements(); ) {
+        Object key = e.nextElement();
+        long slot;
+        if (key instanceof Number && 
+            !(key instanceof Double || key instanceof Float))
+          slot = hashIndexUpdate(result, ((Number)key).longValue());
+        else
+          slot = hashUpdate(result, key.toString().getBytes());
+        setResult(slot, ht.get(key));
+      }
+
     } else {
 
       setResultFromObject(result, value);
@@ -88,19 +107,30 @@ public class reflect {
     }
   }
 
-  static void setException(long result, Throwable e) {
+  Throwable lastException = null;
+
+  void lastException(long result) {
+    setResult(result, lastException);
+  }
+
+  void clearException() {
+    lastException = null;
+  }
+
+  void setException(long result, Throwable e) {
     if (e instanceof InvocationTargetException) {
       Throwable t = ((InvocationTargetException)e).getTargetException();
       if (t!=null) e=t;
     }
 
-    setException(result, e.toString());
+    lastException = e;
+    setException(result, e.toString().getBytes());
   }
 
   //
   // Create an new instance of a given class
   //
-  public static void CreateObject(String name, Object args[], long result) {
+  public void CreateObject(String name, Object args[], long result) {
     try {
       Vector matches = new Vector();
 
@@ -125,7 +155,7 @@ public class reflect {
       }
 
       Object coercedArgs[] = coerce(selected.getParameterTypes(), args);
-      setResult(result, selected.newInstance(coercedArgs));
+      setResultFromObject(result, selected.newInstance(coercedArgs));
 
     } catch (Exception e) {
       setException(result, e);
@@ -155,8 +185,13 @@ public class reflect {
             if (!c.isInstance(args[i])) break;
             weight++;
           }
-        } else if (parms[i].isInstance("")) {
-	  if (!(args[i] instanceof byte[]))
+        } else if (parms[i].isAssignableFrom(java.lang.String.class)) {
+	  if (!(args[i] instanceof byte[]) && !(args[i] instanceof String))
+	    weight+=9999;
+        } else if (parms[i].isArray()) {
+	  if (args[i] instanceof java.util.Hashtable)
+	    weight+=256;
+          else
 	    weight+=9999;
         } else if (parms[i].isPrimitive()) {
           Class c=parms[i];
@@ -214,6 +249,42 @@ public class reflect {
         if (c == Float.TYPE)   result[i]=new Float(n.floatValue());
         if (c == Long.TYPE && !(n instanceof Long)) 
           result[i]=new Long(n.longValue());
+      } else if (args[i] instanceof Hashtable && parms[i].isArray()) {
+        try {
+          Hashtable ht = (Hashtable)args[i];
+          int size = ht.size();
+
+          // Verify that the keys are Long, and determine maximum
+          for (Enumeration e = ht.keys(); e.hasMoreElements(); ) {
+            int index = ((Long)e.nextElement()).intValue();
+            if (index >= size) size = index+1;
+          }
+
+          Object tempArray[] = new Object[size];
+          Class tempTarget[] = new Class[size];
+          Class targetType = parms[i].getComponentType();
+
+          // flatten the hash table into an array
+          for (int j=0; j<size; j++) {
+            tempArray[j] = ht.get(new Long(j));
+            if (tempArray[j] == null && targetType.isPrimitive()) 
+              throw new Exception("bail");
+            tempTarget[j] = targetType;
+          }
+
+          // coerce individual elements into the target type
+          Object coercedArray[] = coerce(tempTarget, tempArray);
+        
+          // copy the results into the desired array type
+          Object array = Array.newInstance(targetType,size);
+          for (int j=0; j<size; j++) {
+            Array.set(array, j, coercedArray[j]);
+          }
+
+          result[i]=array;
+        } catch (Exception e) {
+          // leave result[i] alone...
+        }
       }
     }
     return result;
@@ -222,10 +293,9 @@ public class reflect {
   //
   // Invoke a method on a given object
   //
-  public static void Invoke
+  public void Invoke
     (Object object, String method, Object args[], long result)
   {
-
     try {
       Vector matches = new Vector();
 
@@ -270,7 +340,7 @@ public class reflect {
   //
   // Get or Set a property
   //
-  public static void GetSetProp
+  public void GetSetProp
     (Object object, String prop, Object args[], long result)
   {
     try {
@@ -295,6 +365,7 @@ public class reflect {
             Method method;
             if (args!=null && args.length>0) {
               method=props[i].getWriteMethod();
+              args = coerce(method.getParameterTypes(), args);
             } else {
               method=props[i].getReadMethod();
             }
@@ -307,6 +378,7 @@ public class reflect {
         for (int i=0; i<jfields.length; i++) {
           if (jfields[i].getName().equalsIgnoreCase(prop)) {
             if (args!=null && args.length>0) {
+              args = coerce(new Class[] {jfields[i].getType()}, args);
               jfields[i].set(object, args[0]);
             } else {
               setResult(result, jfields[i].get(object));
@@ -327,7 +399,7 @@ public class reflect {
   //
   // Helper routines for the C implementation
   //
-  public static Object MakeArg(boolean b) { return new Boolean(b); }
-  public static Object MakeArg(long l)    { return new Long(l); }
-  public static Object MakeArg(double d)  { return new Double(d); }
+  public Object MakeArg(boolean b) { return new Boolean(b); }
+  public Object MakeArg(long l)    { return new Long(l); }
+  public Object MakeArg(double d)  { return new Double(d); }
 }

@@ -4,7 +4,7 @@
    +----------------------------------------------------------------------+
    | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.01 of the PHP license,      |
+   | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available at through the world-wide-web at                           |
    | http://www.php.net/license/2_02.txt.                                 |
@@ -13,9 +13,11 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Andi Gutmans <andi@zend.com>                                |
-   |          Sascha Schumann <ss@schumann.cx>                            |
+   |          Sascha Schumann <sascha@schumann.cx>                        |
    +----------------------------------------------------------------------+
 */
+
+/* $Id: php_virtual_cwd.h,v 1.38 2000/08/27 19:36:35 sas Exp $ */
 
 #ifndef VIRTUAL_CWD_H
 #define VIRTUAL_CWD_H
@@ -26,16 +28,42 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#ifdef HAVE_UTIME_H
+#include <utime.h>
+#endif
+
 #ifndef ZEND_WIN32
 #include <unistd.h>
 #endif
 
+#include <ctype.h>
+
 #ifdef ZEND_WIN32
 #include "win32/readdir.h"
+
+#define IS_SLASH(c)	((c) == '/' || (c) == '\\')
+
+#define IS_ABSOLUTE_PATH(path, len) \
+	(len >= 2 && isalpha(path[0]) && path[1] == ':')
+
 #else
 #ifdef HAVE_DIRENT_H
 #include <dirent.h>
 #endif
+
+#define IS_SLASH(c)	((c) == '/')
+
+#endif
+
+#ifndef IS_ABSOLUTE_PATH	
+#define IS_ABSOLUTE_PATH(path, len) \
+	(IS_SLASH(path[0]))
+#endif
+
+#if HAVE_UTIME
+# ifdef PHP_WIN32
+#  include <sys/utime.h>
+# endif
 #endif
 
 #ifdef PHP_EXPORTS
@@ -61,12 +89,13 @@ typedef int (*verify_path_func)(const cwd_state *);
 
 CWD_API void virtual_cwd_startup(void);
 CWD_API void virtual_cwd_shutdown(void);
-CWD_API void virtual_cwd_activate(char *filename);
 CWD_API char *virtual_getcwd_ex(int *length);
 CWD_API char *virtual_getcwd(char *buf, size_t size);
-CWD_API int virtual_chdir(char *path);
-CWD_API int virtual_chdir_file(char *path);
-CWD_API int virtual_filepath(char *path, char **filepath);
+CWD_API int virtual_chdir(const char *path);
+CWD_API int virtual_chdir_file(const char *path, int (*p_chdir)(const char *path));
+/* CWD_API void virtual_real_chdir_file(const char *path); */
+CWD_API int virtual_filepath(const char *path, char **filepath);
+CWD_API char *virtual_realpath(const char *path, char *real_path);
 CWD_API FILE *virtual_fopen(const char *path, const char *mode);
 CWD_API int virtual_open(const char *path, int flags, ...);
 CWD_API int virtual_creat(const char *path, mode_t mode);
@@ -79,6 +108,13 @@ CWD_API int virtual_mkdir(const char *pathname, mode_t mode);
 CWD_API int virtual_rmdir(const char *pathname);
 CWD_API DIR *virtual_opendir(const char *pathname);
 CWD_API FILE *virtual_popen(const char *command, const char *type);
+#if HAVE_UTIME
+CWD_API int virtual_utime(const char *filename, struct utimbuf *buf);
+#endif
+CWD_API int virtual_chmod(const char *filename, mode_t mode);
+#ifndef PHP_WIN32
+CWD_API int virtual_chown(const char *filename, uid_t owner, gid_t group);
+#endif
 
 CWD_API int virtual_file_ex(cwd_state *state, const char *path, verify_path_func verify_path);
 

@@ -5,10 +5,10 @@
 // +----------------------------------------------------------------------+
 // | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
 // +----------------------------------------------------------------------+
-// | This source file is subject to version 2.0 of the PHP license,       |
+// | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
 // | available at through the world-wide-web at                           |
-// | http://www.php.net/license/2_0.txt.                                  |
+// | http://www.php.net/license/2_02.txt.                                 |
 // | If you did not receive a copy of the PHP license and are unable to   |
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
@@ -42,8 +42,26 @@ class DB_common {
 	var $features;		// assoc of capabilities for this DB implementation
 	var $errorcode_map;	// assoc mapping native error codes to DB ones
 	var $type;			// DB type (mysql, oci8, odbc etc.)
+	var $prepare_tokens;
+	var $prepare_types;
+	var $prepare_maxstmt;
 
     // }}}
+	// {{{ __string_value()
+
+	function __string_value() {
+		$info = get_class($this);
+		$info .=
+			": (phptype=" . $this->phptype .
+			", dbsyntax=" . $this->dbsyntax .
+			")";
+		if ($this->connection) {
+			$info .= " [connected]";
+		}
+		return $info;
+	}
+
+	// }}}
     // {{{ constructor
 
 	function DB_common() {
@@ -102,7 +120,7 @@ class DB_common {
 		//php_error(E_WARNING, get_class($this)."::errorCode: no mapping for $nativecode");
 		// Fall back to DB_ERROR if there was no mapping.  Ideally,
 		// this should never happen.
-		return DB_ERROR;
+		return new DB_Error();
 	}
 
 	// }}}
@@ -159,18 +177,18 @@ class DB_common {
 	 */
 	function execute_emulate_query($stmt, $data = false) {
 		$p = &$this->prepare_tokens;
-		$stmt = 0; // XXX HORRIBLE HACK
+		$stmt = (int)$this->prepare_maxstmt++;
 		if (!isset($this->prepare_tokens[$stmt]) ||
 			!is_array($this->prepare_tokens[$stmt]) ||
 			!sizeof($this->prepare_tokens[$stmt])) {
-			return DB_ERROR_INVALID;
+			return new DB_Error(DB_ERROR_INVALID);
 		}
 		$qq = &$this->prepare_tokens[$stmt];
 		$qp = sizeof($qq) - 1;
 		if ((!$data && $qp > 0) ||
 			(!is_array($data) && $qp > 1) ||
 			(is_array($data) && $qp > sizeof($data))) {
-			return DB_ERROR_NEED_MORE_DATA;
+			return new DB_Error(DB_ERROR_NEED_MORE_DATA);
 		}
 		$realquery = $qq[0];
 		for ($i = 0; $i < $qp; $i++) {
@@ -213,7 +231,7 @@ class DB_common {
 	 */
 	function executeMultiple($stmt, &$data) {
 		for ($i = 0; $i < sizeof($data); $i++) {
-			$res = $this->execute($stmt, &$data[$i]);
+			$res = $this->execute($stmt, $data[$i]);
 			if (DB::isError($res)) {
 				return $res;
 			}
@@ -239,7 +257,7 @@ class DB_common {
 			if (DB::isError($sth)) {
 				return $sth;
 			}
-			$res = $this->execute($sth, &$params);
+			$res = $this->execute($sth, $params);
 		} else {
 			$res = $this->simpleQuery($query);
 		}
@@ -252,6 +270,9 @@ class DB_common {
 		}
 		$ret = &$row[0];
 		$this->freeResult($res);
+		if (isset($sth)) {
+			$this->freeResult($sth);
+		}
 		return $ret;
 	}
 
@@ -267,7 +288,15 @@ class DB_common {
 	 * 0, or a DB error code.
 	 */
 	function &getRow($query, $getmode = DB_GETMODE_DEFAULT, $params = array()) {
-		$res = $this->simpleQuery($query);
+		if (sizeof($params) > 0) {
+			$sth = $this->prepare($query);
+			if (DB::isError($sth)) {
+				return $sth;
+			}
+			$res = $this->execute($sth, $params);
+		} else {
+			$res = $this->simpleQuery($query);
+		}
 		if (DB::isError($res)) {
 			return $res;
 		}
@@ -277,6 +306,47 @@ class DB_common {
 		}
 		$this->freeResult($res);
 		return $row;
+	}
+
+    // }}}
+    // {{{ getCol()
+
+	/**
+	 * Fetch a single column from a result set and return it as an
+	 * indexed array.
+	 *
+	 * @param $query the SQL query
+	 *
+	 * @param $col which column to return (integer [column number,
+	 * starting at 0] or string [column name])
+	 *
+	 * @return array an indexed array with the data from the first
+	 * row at index 0, or a DB error code.
+	 */
+	function &getCol($query, $col = 0, $params = array()) {
+		if (sizeof($params) > 0) {
+			$sth = $this->prepare($query);
+			if (DB::isError($sth)) {
+				return $sth;
+			}
+			$res = $this->execute($sth, $params);
+		} else {
+			$res = $this->simpleQuery($query);
+		}
+		if (DB::isError($res)) {
+			return $res;
+		}
+		$getmode = is_int($col) ? DB_GETMODE_ORDERED : DB_GETMODE_ASSOC;
+		$ret = array();
+		while ($row = $this->fetchRow($res, $getmode)) {
+			if (DB::isError($row)) {
+				$ret = $row;
+				break;
+			}
+			$ret[] = $row[$col];
+		}
+		$this->freeResult($res);
+		return $ret;
 	}
 
     // }}}
@@ -299,7 +369,7 @@ class DB_common {
 	 * scalar with the value of the second column (unless forced to an
 	 * array with the $force_array parameter).  A DB error code is
 	 * returned on errors.  If the result set contains fewer than two
-	 * columns, DB_ERROR_TRUNCATED is returned.
+	 * columns, a DB_ERROR_TRUNCATED error is returned.
 	 *
 	 * For example, if the table "mytable" contains:
 	 *
@@ -333,23 +403,21 @@ class DB_common {
 		}
 		$cols = $this->numCols($res);
 		if ($cols < 2) {
-			return DB_ERROR_TRUNCATED;
+			return new DB_Error(DB_ERROR_TRUNCATED);
 		}
 		$results = array();
 		if ($cols > 2 || $force_array) {
 			// return array values
 			// XXX this part can be optimized
-			while (!DB::isError($row = $this->fetchRow($res))) {
+			while ($row = $this->fetchRow($res) && !DB::isError($row)) {
 				reset($row);
 				// we copy the row of data into a new array
 				// to get indices running from 0 again
-				for ($i = 1; $i < $cols; $i++) {
-					$results[$row[0]][$i-1] = $row[$i];
-				}
+				$results[$row[0]] = array_slice($row, 1);
 			}
 		} else {
 			// return scalar values
-			while (!DB::isError($row = $this->fetchRow($res))) {
+			while (($row = $this->fetchRow($res)) && !DB::isError($row)) {
 				$results[$row[0]] = $row[1];
 			}
 		}

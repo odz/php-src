@@ -15,11 +15,37 @@
    | Author: Sascha Schumann <sascha@schumann.cx>                         |
    +----------------------------------------------------------------------+
  */
-/* $Id: url_scanner.h,v 1.5 2000/05/18 15:34:36 zeev Exp $ */
+/* $Id: url_scanner.h,v 1.7 2000/08/04 15:23:19 hholzgra Exp $ */
 
 #ifndef URI_SCANNER_H
 #define URI_SCANNER_H
 
 char *url_adapt(const char *src, size_t srclen, const char *data, size_t *newlen);
+
+enum url_state { 
+	STATE_NORMAL, 
+	STATE_TAG_START, 
+	STATE_TAG, 
+	STATE_IN_TAG, 
+	STATE_TAG_ATTR, 
+	STATE_TAG_IS, 
+	STATE_TAG_IS2, 
+	STATE_TAG_VAL, 
+	STATE_TAG_VAL2, 
+	STATE_TAG_QVAL1,
+	STATE_TAG_QVAL2, 
+	STATE_TAG_QVAL2b 
+};
+
+typedef struct url_adapt_struct {
+ 	enum url_state state;
+	char *tag;
+	char *attr;
+	char *val;
+	char delim;
+	char *p;
+	int l,ml;
+	int attr_done;
+} url_adapt_state_t;
 
 #endif

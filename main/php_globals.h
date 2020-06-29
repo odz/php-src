@@ -17,8 +17,8 @@
 */
 
 
-#ifndef _PHP_GLOBALS_H
-#define _PHP_GLOBALS_H
+#ifndef PHP_GLOBALS_H
+#define PHP_GLOBALS_H
 
 #include "zend_globals.h"
 
@@ -111,11 +111,13 @@ struct _php_core_globals {
 
 	zend_bool y2k_compliance;
 
+	zend_bool html_errors;
+
 	zend_bool modules_activated;
 };
 
 
-#endif /* _PHP_GLOBALS_H */
+#endif /* PHP_GLOBALS_H */
 
 /*
  * Local variables:

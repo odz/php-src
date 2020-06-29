@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: oci8.c,v 1.88 2000/06/09 08:40:27 andi Exp $ */
+/* $Id: oci8.c,v 1.96 2000/08/16 15:23:05 thies Exp $ */
 
 /* TODO list:
  *
@@ -80,6 +80,9 @@ static zend_class_entry *oci_lob_class_entry_ptr;
 
 #include <fcntl.h>
 
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
 
 /* }}} */
 /* {{{ thread safety stuff */
@@ -129,7 +132,7 @@ static int _oci_make_zval(zval *, oci_statement *, oci_out_column *, char *, int
 static oci_statement *oci_parse(oci_connection *, char *, int);
 static int oci_execute(oci_statement *, char *, ub4 mode);
 static int oci_fetch(oci_statement *, ub4, char *);
-static ub4 oci_loadlob(oci_connection *, oci_descriptor *, char **);
+static int oci_loadlob(oci_connection *, oci_descriptor *, char **, ub4 *length);
 static int oci_setprefetch(oci_statement *statement, int size);
 
 static void oci_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent,int exclusive);
@@ -317,8 +320,7 @@ CONST void ocifree(dvoid *ctx, dvoid *ptr)
 
 static void php_oci_init_globals(OCILS_D)
 { 
-   	OCI(user_num)   = 1000;
-	OCI(server_num) = 2000;
+	OCI(shutdown)	= 0;
 
 	OCI(user) = malloc(sizeof(HashTable));
 	zend_hash_init(OCI(user), 13, NULL, NULL, 1);
@@ -468,8 +470,6 @@ PHP_MSHUTDOWN_FUNCTION(oci)
 
 PHP_RSHUTDOWN_FUNCTION(oci)
 {
-	OCILS_FETCH();
-
     oci_debug("START php_rshutdown_oci");
 
 #if 0 
@@ -490,6 +490,7 @@ PHP_MINFO_FUNCTION(oci)
 
 	php_info_print_table_start();
 	php_info_print_table_row(2, "OCI8 Support", "enabled");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.96 $");
 #ifndef PHP_WIN32
 	php_info_print_table_row(2, "Oracle Version", PHP_OCI8_VERSION );
 	php_info_print_table_row(2, "Compile-time ORACLE_HOME", PHP_OCI8_DIR );
@@ -647,12 +648,6 @@ _oci_conn_list_dtor(oci_connection *connection)
 
 	oci_debug("START _oci_conn_list_dtor: id=%d",connection->id);
 
-	if (connection->session && connection->session->exclusive) {
-		/* exclusive connection created via OCINLogon() close their 
-		   associated session when destructed */
-		zend_list_delete(connection->session->num);
-	}
-
 	if (connection->pServiceContext) {
 		connection->error =
 			OCITransRollback(connection->pServiceContext,
@@ -664,6 +659,12 @@ _oci_conn_list_dtor(oci_connection *connection)
 		}
 
 		OCIHandleFree((dvoid *) connection->pServiceContext, (ub4) OCI_HTYPE_SVCCTX);
+	}
+
+	if (connection->session && connection->session->exclusive) {
+		/* exclusive connection created via OCINLogon() close their 
+		   associated session when destructed */
+		zend_list_delete(connection->session->num);
 	}
 
 	if (connection->pError) {
@@ -700,8 +701,6 @@ _oci_descriptor_list_dtor(oci_descriptor *descr)
 static void 
 _oci_server_list_dtor(oci_server *server)
 {
-	ELS_FETCH();
-
 	if (server->persistent)
 		return;
 
@@ -997,12 +996,12 @@ _oci_make_zval(zval *value,oci_statement *statement,oci_out_column *column, char
             	return -1;
         	}
 			
-			loblen = oci_loadlob(statement->conn,descr,&buffer);
+			oci_loadlob(statement->conn,descr,&buffer,&loblen);
 			
 			if (loblen >= 0)	{
 				ZVAL_STRINGL(value,buffer,loblen,0);
 			} else {
-				/*ÜXXX is this an error? */
+				/* XXX is this an error? */
 				ZVAL_BOOL(value,0); 
 			}
 		} else { 
@@ -1549,33 +1548,18 @@ oci_fetch(oci_statement *statement, ub4 nrows, char *func)
 
 /* }}} */
 /* {{{ oci_loadlob() */
-static ub4
-oci_loadlob(oci_connection *connection, oci_descriptor *mydescr, char **buffer)
+
+#define LOBREADSIZE 1048576l /* 1MB */
+
+static int
+oci_loadlob(oci_connection *connection, oci_descriptor *mydescr, char **buffer,ub4 *loblen)
 {
-	ub4 loblen;
+	ub4 siz = 0;
+	ub4 readlen;
+	char *buf;
 
-	connection->error = 
-		OCILobGetLength(connection->pServiceContext,
-						connection->pError,
-						mydescr->ocidescr,
-						&loblen);
-
-	if (connection->error) {
-		oci_error(connection->pError, "OCILobGetLength", connection->error);
-		return -1;
-	}
-		
-	*buffer = emalloc(loblen + 1);
-
-	if (! buffer) {
-		return -1;
-	}
-
-	if (loblen == 0) {
-		(*buffer)[ 0 ] = 0;
-		return 0;
-	}
-
+	*loblen = 0;
+	
 	if (mydescr->type == OCI_DTYPE_FILE) {
 		connection->error = 
 			OCILobFileOpen(connection->pServiceContext,
@@ -1584,27 +1568,52 @@ oci_loadlob(oci_connection *connection, oci_descriptor *mydescr, char **buffer)
 						   OCI_FILE_READONLY);
 		if (connection->error) {
 			oci_error(connection->pError, "OCILobFileOpen",connection->error);
-			efree(buffer);
 			return -1;
 		}
 	}
-		
-	connection->error = 
-		OCILobRead(connection->pServiceContext, 
-				   connection->pError,
-				   mydescr->ocidescr,
-				   &loblen,				/* IN/OUT bytes toread/read */
-				   1,					/* offset (starts with 1) */ 
-				   (dvoid *) *buffer,	
-				   loblen, 				/* size of buffer */
-				   (dvoid *)0,
-				   (OCICallbackLobRead) 0, /* callback... */
-				   (ub2) 0, 			/* The character set ID of the buffer data. */
-				   (ub1) SQLCS_IMPLICIT); /* The character set form of the buffer data. */
-	
+
+
+	connection->error =
+		OCILobGetLength(connection->pServiceContext,
+						connection->pError,
+						mydescr->ocidescr,
+						&readlen);
+
+	if (connection->error) {
+		oci_error(connection->pError, "OCILobFileOpen",connection->error);
+		return -1;
+	}
+
+	buf = emalloc(readlen + 1);
+
+	do {
+		connection->error = 
+			OCILobRead(connection->pServiceContext, 
+					   connection->pError,
+					   mydescr->ocidescr,
+					   &readlen,				/* IN/OUT bytes toread/read */
+					   siz + 1,					/* offset (starts with 1) */ 
+					   (dvoid *) ((char *) buf + siz),	
+					   readlen,		 			/* size of buffer */
+					   (dvoid *)0,
+					   (OCICallbackLobRead) 0, 	/* callback... */
+					   (ub2) 0, 				/* The character set ID of the buffer data. */
+					   (ub1) SQLCS_IMPLICIT); 	/* The character set form of the buffer data. */
+
+		siz += readlen;
+		readlen = LOBREADSIZE;
+
+		if (connection->error == OCI_NEED_DATA) {
+			buf = erealloc(buf,siz + LOBREADSIZE + 1);	
+			continue;
+		} else {
+			break;
+		}
+	} while (1);
+
 	if (connection->error) {
 		oci_error(connection->pError, "OCILobRead", connection->error);
-		efree(buffer);
+		efree(buf);
 		return -1;
 	}
 
@@ -1615,18 +1624,21 @@ oci_loadlob(oci_connection *connection, oci_descriptor *mydescr, char **buffer)
 							mydescr->ocidescr);
 		if (connection->error) {
 			oci_error(connection->pError, "OCILobFileClose", connection->error);
-			efree(buffer);
+			efree(buf);
 			return -1;
 		}
 	}
-		
-	(*buffer)[ loblen ] = 0;
 
-	oci_debug("OCIloadlob: size=%d",loblen);
+	buf = erealloc(buf,siz+1);
+	buf[ siz ] = 0;
 
-	return loblen;
+	*buffer = buf;
+	*loblen = siz;
+
+	oci_debug("OCIloadlob: size=%d",siz);
+
+	return 0;
 }
-
 /* }}} */
 /* {{{ oci_failover_callback() */
 #if 0 /* not needed yet ! */
@@ -1933,7 +1945,6 @@ static oci_session *_oci_open_session(oci_server* server,char *username,char *pa
 	/* Free Temporary Service Context */
 	OCIHandleFree((dvoid *) svchp, (ub4) OCI_HTYPE_SVCCTX);
 
-
 	if (exclusive) {
 		psession = session;
 	} else {
@@ -1977,7 +1988,7 @@ _oci_close_session(oci_session *session)
 		return;
 	}
 
-	oci_debug("_oci_close_session: logging-off sess=%d",session->num);
+	oci_debug("START _oci_close_session: logging-off sess=%d",session->num);
 
 	if (session->open) {
 		/* Temporary Service Context */
@@ -2024,11 +2035,12 @@ _oci_close_session(oci_session *session)
 		if (OCI(error) != OCI_SUCCESS) {
 			oci_error(OCI(pError), "_oci_close_session: OCISessionEnd", OCI(error));
 		}
+
+		OCIHandleFree((dvoid *) svchp, (ub4) OCI_HTYPE_SVCCTX);
+
 	} else {
 		oci_debug("_oci_close_session: logging-off DEAD session");
 	}
-
-	OCIHandleFree((dvoid *) svchp, (ub4) OCI_HTYPE_SVCCTX);
 
 	if (session->pSession) {
 		OCIHandleFree((dvoid *) session->pSession, (ub4) OCI_HTYPE_SESSION);
@@ -2168,14 +2180,16 @@ static void
 _oci_close_server(oci_server *server)
 {
 	char *dbname;
+	int oldopen;
 	OCILS_FETCH();
 	ELS_FETCH();
 
+	oldopen = server->open;
 	server->open = 2;
-
 	if (! OCI(shutdown)) {
 		zend_hash_apply(&EG(regular_list),_oci_session_cleanup);
 	}
+	server->open = oldopen;
 
 	oci_debug("START _oci_close_server: detaching conn=%d dbname=%s",server->num,server->dbname);
 
@@ -2183,19 +2197,11 @@ _oci_close_server(oci_server *server)
 
 	if (server->open) {
 		if (server->pServer && OCI(pError)) {
-#if 0 && APACHE
-			void (*handler) (int);
-			handler = signal(SIGCHLD, SIG_DFL);
-#endif
 			OCI(error) = 
 				OCIServerDetach(server->pServer,
 								OCI(pError),
 								OCI_DEFAULT);
 
-#if 0 && APACHE
-			signal(SIGCHLD,handler);
-#endif
-			
 			if (OCI(error)) {
 				oci_error(OCI(pError), "oci_close_server OCIServerDetach", OCI(error));
 			}
@@ -2695,7 +2701,7 @@ PHP_FUNCTION(ocisavelobfile)
 
 		filename = (*arg)->value.str.val;
 
-		if ((fp = V_OPEN((filename, O_RDONLY))) == -1) {
+		if ((fp = V_OPEN((filename, O_RDONLY|O_BINARY))) == -1) {
 			php_error(E_WARNING, "Can't open file %s", filename);
 			RETURN_FALSE;
         } 
@@ -2754,7 +2760,7 @@ PHP_FUNCTION(ociloadlob)
 
 		connection = descr->conn;
 
-		loblen = oci_loadlob(connection,descr,&buffer);
+		oci_loadlob(connection,descr,&buffer,&loblen);
 
 		if (loblen >= 0) {
 	 		RETURN_STRINGL(buffer,loblen,0);
@@ -2817,7 +2823,7 @@ PHP_FUNCTION(ociwritelobtofile)
 				goto bail;
 			}
 
-			if ((fp = V_OPEN((filename,O_CREAT|O_TRUNC|O_WRONLY))) == -1) {
+			if ((fp = V_OPEN((filename,O_CREAT | O_RDWR | O_BINARY | O_TRUNC, 0600))) == -1) {
 				php_error(E_WARNING, "Can't create file %s", filename);
 				goto bail;
 			} 
@@ -2955,8 +2961,6 @@ PHP_FUNCTION(ocinewdescriptor)
 	oci_connection *connection;
 	oci_descriptor *descr;
 	int dtype;
-
-	OCILS_FETCH();
 
     dtype = OCI_DTYPE_LOB;
 
@@ -3591,7 +3595,7 @@ PHP_FUNCTION(ociplogon)
 
 /* }}} */
 
-/* {{{ proto int ocierror([int stmt|conn|global])
+/* {{{ proto array ocierror([int stmt|conn|global])
    Return the last error of stmt|conn|global. If no error happened returns false. */
 
 PHP_FUNCTION(ocierror)

@@ -1,9 +1,9 @@
-/* $Id: php_oracle.h,v 1.5 2000/04/21 15:04:40 thies Exp $ */
+/* $Id: php_oracle.h,v 1.7 2000/07/15 14:15:07 thies Exp $ */
 
 /* synced with oracle.h,v 1.40 1999/06/01 08:11:04 thies Exp $ */
 
-#ifndef _PHP_ORACLE_H
-#define _PHP_ORACLE_H
+#ifndef PHP_ORACLE_H
+#define PHP_ORACLE_H
 
 #if HAVE_ORACLE
 
@@ -124,6 +124,7 @@ typedef struct {
 	long num_persistent;
 	long num_links;
 	HashTable *conns;
+	oraConnection db_err_conn; 
 } php_ora_globals;
 
 #else
@@ -132,7 +133,7 @@ typedef struct {
 
 #endif /* HAVE_ORACLE */
 
-#endif /* _PHP_ORACLE_H */
+#endif /* PHP_ORACLE_H */
 
 /*
  * Local Variables:

@@ -137,6 +137,9 @@
 /* Define if you have the crypt function.  */
 #undef HAVE_CRYPT
 
+/* Define if you have the ctermid function.  */
+#undef HAVE_CTERMID
+
 /* Define if you have the ctime_r function.  */
 #undef HAVE_CTIME_R
 
@@ -215,6 +218,9 @@
 /* Define if you have the getrusage function.  */
 #undef HAVE_GETRUSAGE
 
+/* Define if you have the getsid function.  */
+#undef HAVE_GETSID
+
 /* Define if you have the gettimeofday function.  */
 #undef HAVE_GETTIMEOFDAY
 
@@ -271,6 +277,9 @@
 
 /* Define if you have the memmove function.  */
 #undef HAVE_MEMMOVE
+
+/* Define if you have the mkfifo function.  */
+#undef HAVE_MKFIFO
 
 /* Define if you have the mmap function.  */
 #undef HAVE_MMAP
@@ -335,11 +344,23 @@
 /* Define if you have the rwlock_init function.  */
 #undef HAVE_RWLOCK_INIT
 
+/* Define if you have the setegid function.  */
+#undef HAVE_SETEGID
+
+/* Define if you have the seteuid function.  */
+#undef HAVE_SETEUID
+
 /* Define if you have the setitimer function.  */
 #undef HAVE_SETITIMER
 
 /* Define if you have the setlocale function.  */
 #undef HAVE_SETLOCALE
+
+/* Define if you have the setpgid function.  */
+#undef HAVE_SETPGID
+
+/* Define if you have the setsid function.  */
+#undef HAVE_SETSID
 
 /* Define if you have the setsockopt function.  */
 #undef HAVE_SETSOCKOPT
@@ -479,6 +500,9 @@
 /* Define if you have the <dlfcn.h> header file.  */
 #undef HAVE_DLFCN_H
 
+/* Define if you have the <errno.h> header file.  */
+#undef HAVE_ERRNO_H
+
 /* Define if you have the <fcntl.h> header file.  */
 #undef HAVE_FCNTL_H
 
@@ -509,8 +533,14 @@
 /* Define if you have the <ndir.h> header file.  */
 #undef HAVE_NDIR_H
 
+/* Define if you have the <netdb.h> header file.  */
+#undef HAVE_NETDB_H
+
 /* Define if you have the <netinet/in.h> header file.  */
 #undef HAVE_NETINET_IN_H
+
+/* Define if you have the <netinet/tcp.h> header file.  */
+#undef HAVE_NETINET_TCP_H
 
 /* Define if you have the <pwd.h> header file.  */
 #undef HAVE_PWD_H
@@ -643,6 +673,9 @@
 
 /* Define if you have the m library (-lm).  */
 #undef HAVE_LIBM
+
+/* Define if you have the mcrypt library (-lmcrypt).  */
+#undef HAVE_LIBMCRYPT
 
 /* Define if you have the png library (-lpng).  */
 #undef HAVE_LIBPNG
@@ -905,17 +938,26 @@
 /* Whether to build calendar as dynamic module */
 #undef COMPILE_DL_CALENDAR
 
-/* Whether to build cpdf as dynamic module */
-#undef COMPILE_DL_CPDF
-
-/* Whether you have cpdflib */
-#undef HAVE_CPDFLIB
+/* Whether to build ccvs as dynamic module */
+#undef COMPILE_DL_CCVS
 
 /* Whether to build cpdf as dynamic module */
 #undef COMPILE_DL_CPDF
 
 /* Whether you have cpdflib */
 #undef HAVE_CPDFLIB
+
+/* Whether to build cpdf as dynamic module */
+#undef COMPILE_DL_CPDF
+
+/* Whether you have cpdflib */
+#undef HAVE_CPDFLIB
+
+/*   */
+#undef HAVE_CURL
+
+/* Whether to build curl as dynamic module */
+#undef COMPILE_DL_CURL
 
 /* Whether to build cybercash as dynamic module */
 #undef COMPILE_DL_CYBERCASH
@@ -1166,6 +1208,12 @@
 /* Whether to build informix as dynamic module */
 #undef COMPILE_DL_INFORMIX
 
+/* Whether you have Ingres II */
+#undef HAVE_II
+
+/* Whether to build ingres_ii as dynamic module */
+#undef COMPILE_DL_INGRES_II
+
 /*   */
 #undef HAVE_IBASE
 
@@ -1178,8 +1226,8 @@
 /* Whether to build java as dynamic module */
 #undef COMPILE_DL_JAVA
 
-/*   */
-#undef HAVE_NSLDAP
+/* Whether to build ldap as dynamic module */
+#undef COMPILE_DL_LDAP
 
 /*   */
 #undef HAVE_NSLDAP
@@ -1189,18 +1237,27 @@
 
 /*   */
 #undef HAVE_NSLDAP
+
+/*   */
+#undef HAVE_NSLDAP
+
+/*   */
+#undef HAVE_ORALDAP
 
 /*   */
 #undef HAVE_LDAP
-
-/* Whether to build ldap as dynamic module */
-#undef COMPILE_DL_LDAP
 
 /*   */
 #undef HAVE_MCAL
 
 /* Whether to build mcal as dynamic module */
 #undef COMPILE_DL_MCAL
+
+/*   */
+#undef HAVE_LIBMCRYPT22
+
+/*   */
+#undef HAVE_LIBMCRYPT24
 
 /*   */
 #undef HAVE_LIBMCRYPT
@@ -1278,7 +1335,22 @@
 #undef HAVE_ADABAS
 
 /*   */
+#undef HAVE_SOLID_35
+
+/*   */
 #undef HAVE_SOLID
+
+/* Needed in sqlunix.h  */
+#undef SS_LINUX
+
+/* Needed in sqlunix.h  */
+#undef SS_LINUX
+
+/* Needed in sqlunix.h for wchar defs  */
+#undef SS_FBX
+
+/* Needed in sqlunix.h for wchar defs  */
+#undef SS_FBX
 
 /*   */
 #undef HAVE_IBMDB2
@@ -1304,7 +1376,7 @@
 /*   */
 #undef HAVE_OPENLINK
 
-/*   */
+/* Whether you want DBMaker */
 #undef HAVE_DBMAKER
 
 /*   */
@@ -1344,10 +1416,22 @@
 #undef HAVE_PDFLIB
 
 /*   */
+#undef HAVE_PFPRO
+
+/* Whether to build pfpro as dynamic module */
+#undef COMPILE_DL_PFPRO
+
+/*   */
 #undef HAVE_PQCMDTUPLES
 
 /*   */
 #undef HAVE_PQOIDVALUE
+
+/*   */
+#undef HAVE_PQCLIENTENCODING
+
+/*   */
+#undef HAVE_PGSQL_WITH_MULTIBYTE_SUPPORT
 
 /*   */
 #undef HAVE_PGSQL
@@ -1360,6 +1444,12 @@
 
 /* Whether to build posix as dynamic module */
 #undef COMPILE_DL_POSIX
+
+/* Whether to build pspell as dynamic module */
+#undef COMPILE_DL_PSPELL
+
+/*   */
+#undef HAVE_PSPELL
 
 /*   */
 #undef HAVE_LIBREADLINE
@@ -1390,6 +1480,12 @@
 
 /*   */
 #undef UCD_SNMP_HACK
+
+/*   */
+#undef HAVE_SOCKETS
+
+/* Whether to build sockets as dynamic module */
+#undef COMPILE_DL_SOCKETS
 
 /*   */
 #undef HAVE_LIBDL
@@ -1428,7 +1524,7 @@
 #undef HAVE_SYBASE
 
 /* Whether to build sybase_ct as dynamic module */
-#undef COMPILE_DL_SYBASE_CT
+#undef COMPILE_DL_SYBASECT
 
 /*   */
 #undef HAVE_SYBASE_CT
@@ -1565,18 +1661,33 @@ int zend_sprintf(char *buffer, const char *format, ...);
 # define zend_sprintf sprintf
 #endif
 
+#include <math.h>
+
+#ifdef HAVE_ISNAN
+#define zend_isnan(a) isnan(a)
+#elif defined(NAN)
+#define zend_isnan(a) (((a)==NAN)?1:0)
+#else
+#define zend_isnan(a) 0
+#endif
+
+#ifdef HAVE_ISINF
+#define zend_isinf(a) isinf(a)
+#elif defined(INFINITY)
+/* Might not work, but is required by ISO C99 */
+#define zend_isinf(a) (((a)==INFINITY)?1:0)
+#else
+#define zend_isinf(a) 0
+#endif
+
 #ifdef HAVE_FINITE
 #define zend_finite(a) finite(a)
-#elif defined(HAVE_ISFINITE)
+#elif defined(HAVE_ISFINITE) || defined(isfinite)
 #define zend_finite(a) isfinite(a)
-#elif defined(HAVE_ISNAN) && defined(HAVE_ISINF)
-#define zend_finite(a) (isnan(a) ? 0 : isinf(a) ? 0 : 1)
-#elif defined(HAVE_ISNAN)
-#define zend_finite(a) (isnan(a) ? 0 : 1)
-#elif defined(HAVE_ISINF)
-#define zend_finite(a) (isinf(a) ? 0 : 1)
+#elif defined(fpclassify)
+#define zend_finite(a) ((fpclassify((a))!=FP_INFINITE&&fpclassify((a))!=FP_NAN)?1:0)
 #else
-#define zend_finite(a) (1)
+#define zend_finite(a) (zend_isnan(a) ? 0 : zend_isinf(a) ? 0 : 1)
 #endif
 
 /*

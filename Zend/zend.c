@@ -36,7 +36,7 @@
 #	define GLOBAL_CONSTANTS_TABLE	CG(zend_constants)
 #endif
 
-#ifdef ZEND_WIN32
+#if defined(ZEND_WIN32) && ZEND_DEBUG
 BOOL WINAPI IsDebuggerPresent(VOID);
 #endif
 
@@ -233,8 +233,8 @@ static void register_standard_class(void)
 	zend_standard_class_def.name_length = sizeof("stdClass") - 1;
 	zend_standard_class_def.name = zend_strndup("stdClass", zend_standard_class_def.name_length);
 	zend_standard_class_def.parent = NULL;
-	zend_hash_init(&zend_standard_class_def.default_properties, 0, NULL, ZVAL_PTR_DTOR, 1);
-	zend_hash_init(&zend_standard_class_def.function_table, 0, NULL, ZEND_FUNCTION_DTOR, 1);
+	zend_hash_init_ex(&zend_standard_class_def.default_properties, 0, NULL, ZVAL_PTR_DTOR, 1, 0);
+	zend_hash_init_ex(&zend_standard_class_def.function_table, 0, NULL, ZEND_FUNCTION_DTOR, 1, 0);
 	zend_standard_class_def.handle_function_call = NULL;
 	zend_standard_class_def.handle_property_get = NULL;
 	zend_standard_class_def.handle_property_set = NULL;
@@ -260,12 +260,14 @@ static void compiler_globals_ctor(zend_compiler_globals *compiler_globals)
 	zend_function tmp_func;
 	zend_class_entry tmp_class;
 
+	compiler_globals->compiled_filename = NULL;
+
 	compiler_globals->function_table = (HashTable *) malloc(sizeof(HashTable));
-	zend_hash_init(compiler_globals->function_table, 100, NULL, ZEND_FUNCTION_DTOR, 1);
+	zend_hash_init_ex(compiler_globals->function_table, 100, NULL, ZEND_FUNCTION_DTOR, 1, 0);
 	zend_hash_copy(compiler_globals->function_table, global_function_table, NULL, &tmp_func, sizeof(zend_function));
 
 	compiler_globals->class_table = (HashTable *) malloc(sizeof(HashTable));
-	zend_hash_init(compiler_globals->class_table, 10, NULL, ZEND_CLASS_DTOR, 1);
+	zend_hash_init_ex(compiler_globals->class_table, 10, NULL, ZEND_CLASS_DTOR, 1, 0);
 	zend_hash_copy(compiler_globals->class_table, global_class_table, (copy_ctor_func_t) zend_class_add_ref, &tmp_class, sizeof(zend_class_entry));
 
 	zend_set_default_compile_time_values(CLS_C);
@@ -355,7 +357,7 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 	zend_get_ini_entry_p = utility_functions->get_ini_entry;
 	zend_ticks_function = utility_functions->ticks_function;
 
-	zend_v_compile_files = v_compile_files;
+	zend_compile_file = compile_file;
 	zend_execute = execute;
 
 	zend_startup_extensions();
@@ -366,10 +368,10 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 
 	GLOBAL_FUNCTION_TABLE = (HashTable *) malloc(sizeof(HashTable));
 	GLOBAL_CLASS_TABLE = (HashTable *) malloc(sizeof(HashTable));
-	zend_hash_init(GLOBAL_FUNCTION_TABLE, 100, NULL, ZEND_FUNCTION_DTOR, 1);
-	zend_hash_init(GLOBAL_CLASS_TABLE, 10, NULL, ZEND_CLASS_DTOR, 1);
+	zend_hash_init_ex(GLOBAL_FUNCTION_TABLE, 100, NULL, ZEND_FUNCTION_DTOR, 1, 0);
+	zend_hash_init_ex(GLOBAL_CLASS_TABLE, 10, NULL, ZEND_CLASS_DTOR, 1, 0);
 	register_standard_class();
-	zend_hash_init(&module_registry, 50, NULL, ZEND_MODULE_DTOR, 1);
+	zend_hash_init_ex(&module_registry, 50, NULL, ZEND_MODULE_DTOR, 1, 0);
 	zend_init_rsrc_list_dtors();
 
 	/* This zval can be used to initialize allocate zval's to an uninit'ed value */
@@ -505,7 +507,9 @@ void zend_deactivate_modules()
 
 void zend_deactivate(CLS_D ELS_DC)
 {
-	EG(opline_ptr) = NULL; /* we're no longer executing anything */
+	/* we're no longer executing anything */
+	EG(opline_ptr) = NULL; 
+	EG(active_symbol_table) = NULL;
 
 	shutdown_scanner(CLS_C);
 	shutdown_executor(ELS_C);
@@ -540,9 +544,10 @@ ZEND_API void zend_error(int type, const char *format, ...)
 	va_list args;
 	zval ***params;
 	zval *retval;
-	zval *error_type, *error_message;
+	zval *z_error_type, *z_error_message, *z_error_filename, *z_error_lineno, *z_context;
 	char *error_filename;
 	uint error_lineno;
+	zval *orig_user_error_handler;
 	ELS_FETCH();
 	CLS_FETCH();
 
@@ -600,34 +605,62 @@ ZEND_API void zend_error(int type, const char *format, ...)
 			break;
 		default:
 			/* Handle the error in user space */
-			ALLOC_INIT_ZVAL(error_message);
-			ALLOC_INIT_ZVAL(error_type);
-			error_message->value.str.val = (char *) emalloc(ZEND_ERROR_BUFFER_SIZE);
+			ALLOC_INIT_ZVAL(z_error_message);
+			ALLOC_INIT_ZVAL(z_error_type);
+			ALLOC_INIT_ZVAL(z_error_filename);
+			ALLOC_INIT_ZVAL(z_error_lineno);
+			ALLOC_INIT_ZVAL(z_context);
+			z_error_message->value.str.val = (char *) emalloc(ZEND_ERROR_BUFFER_SIZE);
 
 #ifdef HAVE_VSNPRINTF
-			error_message->value.str.len = vsnprintf(error_message->value.str.val, ZEND_ERROR_BUFFER_SIZE, format, args);
+			z_error_message->value.str.len = vsnprintf(z_error_message->value.str.val, ZEND_ERROR_BUFFER_SIZE, format, args);
 #else
 			/* This is risky... */
-			error_message->value.str.len = vsprintf(error_message->value.str.val, format, args);
+			z_error_message->value.str.len = vsprintf(z_error_message->value.str.val, format, args);
 #endif
-			error_message->type = IS_STRING;
+			z_error_message->type = IS_STRING;
 
-			error_type->value.lval = type;
-			error_type->type = IS_LONG;
+			z_error_type->value.lval = type;
+			z_error_type->type = IS_LONG;
 
-			params = (zval ***) emalloc(sizeof(zval **)*2);
-			params[0] = &error_type;
-			params[1] = &error_message;
+			if (error_filename) {
+				z_error_filename->value.str.len = strlen(error_filename);
+				z_error_filename->value.str.val = estrndup(error_filename, z_error_filename->value.str.len);
+				z_error_filename->type = IS_STRING;
+			}
+				
+			z_error_lineno->value.lval = error_lineno;
+			z_error_lineno->type = IS_LONG;
 
-			if (call_user_function_ex(CG(function_table), NULL, EG(user_error_handler), &retval, 2, params, 1, NULL)==SUCCESS) {
+			z_context->value.ht = EG(active_symbol_table);
+			z_context->type = IS_ARRAY;
+			ZVAL_ADDREF(z_context);  /* we don't want this one to be freed */
+
+			params = (zval ***) emalloc(sizeof(zval **)*5);
+			params[0] = &z_error_type;
+			params[1] = &z_error_message;
+			params[2] = &z_error_filename;
+			params[3] = &z_error_lineno;
+			params[4] = &z_context;
+
+			orig_user_error_handler = EG(user_error_handler);
+			EG(user_error_handler) = NULL;
+			if (call_user_function_ex(CG(function_table), NULL, orig_user_error_handler, &retval, 5, params, 1, NULL)==SUCCESS) {
 				zval_ptr_dtor(&retval);
 			} else {
 				/* The user error handler failed, use built-in error handler */
 				zend_error_cb(type, error_filename, error_lineno, format, args);
 			}
+			EG(user_error_handler) = orig_user_error_handler;
+
 			efree(params);
-			zval_ptr_dtor(&error_message);
-			zval_ptr_dtor(&error_type);
+			zval_ptr_dtor(&z_error_message);
+			zval_ptr_dtor(&z_error_type);
+			zval_ptr_dtor(&z_error_filename);
+			zval_ptr_dtor(&z_error_lineno);
+			if (ZVAL_REFCOUNT(z_context)==2) {
+				FREE_ZVAL(z_context);
+			}
 			break;
 	}
 
@@ -659,3 +692,36 @@ ZEND_API void zend_output_debug_string(zend_bool trigger_break, char *format, ..
 	va_end(args);
 #endif
 }
+
+
+ZEND_API int zend_execute_scripts(int type CLS_DC ELS_DC, int file_count, ...)
+{
+	va_list files;
+	int i;
+	zend_file_handle *file_handle;
+
+	va_start(files, file_count);
+	for (i=0; i<file_count; i++) {
+		file_handle = va_arg(files, zend_file_handle *);
+		if (!file_handle) {
+			continue;
+		}
+		EG(active_op_array) = zend_compile_file(file_handle, ZEND_INCLUDE CLS_CC);
+		zend_destroy_file_handle(file_handle CLS_CC);
+		if (EG(active_op_array)) {
+			zend_execute(EG(active_op_array) ELS_CC);
+			zval_ptr_dtor(EG(return_value_ptr_ptr));
+			EG(return_value_ptr_ptr) = &EG(global_return_value_ptr);
+			EG(global_return_value_ptr) = NULL;
+			destroy_op_array(EG(active_op_array));
+			efree(EG(active_op_array));
+		} else if (type==ZEND_REQUIRE) {
+			va_end(files);
+			return FAILURE;
+		}
+	}
+	va_end(files);
+
+	return SUCCESS;
+}
+

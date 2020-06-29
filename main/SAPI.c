@@ -28,6 +28,9 @@
 #endif
 
 #include "rfc1867.h"
+#if HAVE_FDFLIB
+#include "fdfdata.h"
+#endif
 
 #ifdef PHP_WIN32
 #define STRCASECMP stricmp
@@ -35,12 +38,14 @@
 #define STRCASECMP strcasecmp
 #endif
 
+#include "php_content_types.h"
 
 SAPI_POST_READER_FUNC(sapi_read_standard_form_data);
+SAPI_POST_READER_FUNC(php_default_post_reader);
 
 static sapi_post_entry supported_post_entries[] = {
 #if HAVE_FDFLIB
-	{ "application/vnd.fdf",	sizeof("application/vnd.fdf")-1,	sapi_read_standard_form_data },
+	{ "application/vnd.fdf",	sizeof("application/vnd.fdf")-1,	php_default_post_reader, fdf_post_handler},
 #endif
 	{ NULL, 0, NULL }
 };
@@ -70,7 +75,7 @@ SAPI_API void (*sapi_error)(int error_type, const char *message, ...);
 SAPI_API void sapi_startup(sapi_module_struct *sf)
 {
 	sapi_module = *sf;
-	zend_hash_init(&known_post_content_types, 5, NULL, NULL, 1);
+	zend_hash_init_ex(&known_post_content_types, 5, NULL, NULL, 1, 0);
 
 	sapi_register_post_entries(supported_post_entries);
 
@@ -242,8 +247,8 @@ SAPI_API size_t sapi_apply_default_charset(char **mimetype, size_t len SLS_DC)
 	if (*charset && strncmp(*mimetype, "text/", 5) == 0 && strstr(*mimetype, "charset=") == NULL) {
 		newlen = len + (sizeof(";charset=")-1) + strlen(charset);
 		newtype = emalloc(newlen + 1);
-		strlcpy(newtype, *mimetype, len);
-		strlcat(newtype, ";charset=", len);
+		PHP_STRLCPY(newtype, *mimetype, newlen + 1, len);
+		strlcat(newtype, ";charset=", newlen + 1);
 		if (*mimetype != NULL) {
 			efree(*mimetype);
 		}
@@ -262,7 +267,9 @@ SAPI_API void sapi_activate(SLS_D)
 	zend_llist_init(&SG(sapi_headers).headers, sizeof(sapi_header_struct), (void (*)(void *)) sapi_free_header, 0);
 	SG(sapi_headers).send_default_content_type = 1;
 
+	/*
 	SG(sapi_headers).http_response_code = 200;
+	*/
 	SG(sapi_headers).http_status_line = NULL;
 	SG(headers_sent) = 0;
 	SG(read_post_bytes) = 0;
@@ -270,11 +277,17 @@ SAPI_API void sapi_activate(SLS_D)
 	SG(request_info).current_user = NULL;
 	SG(request_info).current_user_length = 0;
 
+#if 0
+	/* This can't be done here.  We need to do that in the individual SAPI
+	 * modules because you can actually have a GET request that is only
+	 * allowed to send back headers. 
+	 */
 	if (SG(request_info).request_method && !strcmp(SG(request_info).request_method, "HEAD")) {
 		SG(request_info).headers_only = 1;
 	} else {
 		SG(request_info).headers_only = 0;
 	}
+#endif
 
 	if (SG(server_context)) {
 		if (SG(request_info).request_method 
@@ -382,7 +395,7 @@ SAPI_API int sapi_add_header(char *header_line, uint header_line_len, zend_bool 
 
 	/* Check the header for a few cases that we have special support for in SAPI */
 	if (header_line_len>=5 
-		&& !memcmp(header_line, "HTTP/", 5)) {
+		&& !strncasecmp(header_line, "HTTP/", 5)) {
 		/* filter out the response code */
 		SG(sapi_headers).http_response_code = sapi_extract_response_code(header_line);
 		SG(sapi_headers).http_status_line = header_line;
@@ -402,8 +415,8 @@ SAPI_API int sapi_add_header(char *header_line, uint header_line_len, zend_bool 
 				if (newlen != 0) {
 					newlen += sizeof("Content-type: ");
 					newheader = emalloc(newlen);
-					strlcpy(newheader, "Content-type: ", newlen);
-					strlcpy(newheader, mimetype, newlen);
+					PHP_STRLCPY(newheader, "Content-type: ", newlen, sizeof("Content-type: ")-1);
+					strlcat(newheader, mimetype, newlen);
 					sapi_header.header = newheader;
 					sapi_header.header_len = newlen - 1;
 					colon_offset = strchr(newheader, ':');
@@ -449,6 +462,11 @@ SAPI_API int sapi_send_headers()
 		return SUCCESS;
 	}
 
+	/* Success-oriented.  We set headers_sent to 1 here to avoid an infinite loop
+	 * in case of an error situation.
+	 */
+	SG(headers_sent) = 1;
+
 	if (sapi_module.send_headers) {
 		retval = sapi_module.send_headers(&SG(sapi_headers) SLS_CC);
 	} else {
@@ -457,7 +475,6 @@ SAPI_API int sapi_send_headers()
 
 	switch (retval) {
 		case SAPI_HEADER_SENT_SUCCESSFULLY:
-			SG(headers_sent) = 1;
 			ret = SUCCESS;
 			break;
 		case SAPI_HEADER_DO_SEND:
@@ -477,10 +494,10 @@ SAPI_API int sapi_send_headers()
 				sapi_free_header(&default_header);
 			}
 			sapi_module.send_header(NULL, SG(server_context));
-			SG(headers_sent) = 1;
 			ret = SUCCESS;
 			break;
 		case SAPI_HEADER_SEND_FAILED:
+			SG(headers_sent) = 0;
 			ret = FAILURE;
 			break;
 	}
@@ -553,7 +570,7 @@ SAPI_API struct stat *sapi_get_stat()
 }
 
 
-SAPI_API char *sapi_getenv(char *name, int name_len)
+SAPI_API char *sapi_getenv(char *name, size_t name_len)
 {
 	if (sapi_module.getenv) {
 		SLS_FETCH();

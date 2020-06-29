@@ -16,10 +16,10 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_swf.h,v 1.7 2000/06/10 08:47:58 andi Exp $ */
+/* $Id: php_swf.h,v 1.9 2000/08/15 17:30:41 sterling Exp $ */
 
-#ifndef _PHP_SWF_H
-#define _PHP_SWF_H
+#ifndef PHP_SWF_H
+#define PHP_SWF_H
 
 #if HAVE_SWF
 
@@ -28,6 +28,7 @@ extern zend_module_entry swf_module_entry;
 
 PHP_MINIT_FUNCTION(swf);
 PHP_MINFO_FUNCTION(swf);
+PHP_RINIT_FUNCTION(swf);
 extern void php_swf_define(INTERNAL_FUNCTION_PARAMETERS, int opt);
 extern void php_swf_fill_bitmap(INTERNAL_FUNCTION_PARAMETERS, int opt);
 extern void php_swf_geo_same(INTERNAL_FUNCTION_PARAMETERS, int opt);
@@ -98,6 +99,19 @@ PHP_FUNCTION(swf_scale);
 PHP_FUNCTION(swf_translate);
 PHP_FUNCTION(swf_rotate);
 PHP_FUNCTION(swf_posround);
+
+typedef struct {
+	int use_file;
+	char *tmpfile_name;
+} php_swf_globals;
+
+#ifdef ZTS
+#define SWFG(v) (swf_globals->v)
+#define SWFLS_FETCH() php_swf_globals *swf_globals = ts_resource(gd_swf_id)
+#else
+#define SWFG(v) (swf_globals.v)
+#define SWFLS_FETCH()
+#endif
 
 #else
 #define swf_module_ptr NULL

@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: gd.c,v 1.81 2000/06/26 15:23:52 jah Exp $ */
+/* $Id: gd.c,v 1.85 2000/08/22 04:11:57 andi Exp $ */
 
 /* gd 1.2 is copyright 1994, 1995, Quest Protein Database Center, 
    Cold Spring Harbor Labs. */
@@ -155,6 +155,7 @@ function_entry gd_functions[] = {
 	PHP_FE(imagepsslantfont,						NULL)
 	PHP_FE(imagepstext,								NULL)
 	PHP_FE(imagepsbbox,								NULL)
+	PHP_FE(imagetypes,								NULL)
 	{NULL, NULL, NULL}
 };
 
@@ -214,6 +215,11 @@ PHP_MINIT_FUNCTION(gd)
 	GDG(le_ps_font) = register_list_destructors(php_free_ps_font, NULL);
 	GDG(le_ps_enc) = register_list_destructors(php_free_ps_enc, NULL);
 #endif
+	REGISTER_LONG_CONSTANT("IMG_GIF", 1, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("IMG_JPG", 2, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("IMG_JPEG", 2, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("IMG_PNG", 4, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("IMG_WBMP", 8, CONST_CS | CONST_PERSISTENT);
 	return SUCCESS;
 }
 
@@ -257,6 +263,9 @@ PHP_MINFO_FUNCTION(gd)
 #endif
 #ifdef HAVE_GD_JPG
 	php_info_print_table_row(2, "JPG Support", "enabled");
+#endif
+#ifdef HAVE_GD_WBMP
+	php_info_print_table_row(2, "WBMP Support", "enabled");
 #endif
 	php_info_print_table_end();
 }
@@ -426,6 +435,25 @@ PHP_FUNCTION(imagecreate)
 }
 /* }}} */
 
+/* {{{ proto int imagetypes(void)
+   Return the types of images supported in a bitfield - 1=gif, 2=jpeg, 4=png, 8=wbmp */
+PHP_FUNCTION(imagetypes)
+{
+	int ret=0;	
+#ifdef HAVE_GD_GIF
+	ret = 1;
+#endif
+#ifdef HAVE_GD_JPG
+	ret |= 2;
+#endif
+#ifdef HAVE_GD_PNG
+	ret |= 4;
+#endif
+#ifdef HAVE_GD_WBMP
+	ret |= 8;
+#endif
+	RETURN_LONG(ret);
+}
 
 static void _php_image_create_from(INTERNAL_FUNCTION_PARAMETERS, int image_type, char *tn, gdImagePtr (*func_p)()) {
 	zval **file;
@@ -1363,7 +1391,7 @@ PHP_FUNCTION(imagecolorstotal)
    Define a color as transparent */
 PHP_FUNCTION(imagecolortransparent)
 {
-	zval **IM, **COL = NULL;
+	zval **IM, **COL;
 	gdImagePtr im;
 	int col;
 	GDLS_FETCH();
@@ -1386,9 +1414,8 @@ PHP_FUNCTION(imagecolortransparent)
 
 	ZEND_FETCH_RESOURCE(im, gdImagePtr, IM, -1, "Image", GDG(le_gd));
 
-	if ((*COL) != NULL) {
-		col = (*COL)->value.lval;
-		gdImageColorTransparent(im,col);
+	if (ZEND_NUM_ARGS() > 1) {
+		gdImageColorTransparent(im, Z_LVAL_PP(COL));
 	}
 	col = gdImageGetTransparent(im);
 	RETURN_LONG(col);

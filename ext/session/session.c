@@ -12,7 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sascha Schumann <ss@schumann.cx>                            |
+   | Authors: Sascha Schumann <sascha@schumann.cx>                        |
    |          Andrei Zmievski <andrei@ispi.net>                           |
    +----------------------------------------------------------------------+
  */
@@ -75,6 +75,9 @@ static PHP_INI_MH(OnUpdateSaveHandler)
 	PSLS_FETCH();
 	
 	PS(mod) = _php_find_ps_module(new_value PSLS_CC);
+	if(!PS(mod)) {
+	  php_error(E_ERROR,"Cannot find save handler %s",new_value);
+	}
 	return SUCCESS;
 }
 
@@ -84,6 +87,9 @@ static PHP_INI_MH(OnUpdateSerializer)
 	PSLS_FETCH();
 
 	PS(serializer) = _php_find_ps_serializer(new_value PSLS_CC);
+	if(!PS(serializer)) {
+	  php_error(E_ERROR,"Cannot find serialization handler %s",new_value);
+	}	  
 	return SUCCESS;
 }
 
@@ -132,7 +138,7 @@ PHP_MINFO_FUNCTION(session);
 
 static void php_rinit_session_globals(PSLS_D);
 static void php_rshutdown_session_globals(PSLS_D);
-static void _php_session_destroy(PSLS_D);
+static zend_bool _php_session_destroy(PSLS_D);
 
 zend_module_entry session_module_entry = {
 	"session",
@@ -375,16 +381,21 @@ PS_SERIALIZER_DECODE_FUNC(wddx)
 
 static void php_session_track_init(void)
 {
+	zval **old_vars = NULL;
 	PSLS_FETCH();
 	ELS_FETCH();
 
-	if (zend_hash_find(&EG(symbol_table), "HTTP_SESSION_VARS", sizeof("HTTP_SESSION_VARS"),
-					   (void **)&PS(http_session_vars)) == FAILURE || PS(http_session_vars)->type != IS_ARRAY) {
-		MAKE_STD_ZVAL(PS(http_session_vars));
-		array_init(PS(http_session_vars));
-		ZEND_SET_GLOBAL_VAR_WITH_LENGTH("HTTP_SESSION_VARS", sizeof("HTTP_SESSION_VARS"), PS(http_session_vars), 1, 0);
-	} else
-		zend_hash_clean(PS(http_session_vars)->value.ht);
+	if (zend_hash_find(&EG(symbol_table), "HTTP_SESSION_VARS", sizeof("HTTP_SESSION_VARS"), (void **)&old_vars) == SUCCESS && (*old_vars)->type == IS_ARRAY) {
+	  PS(http_session_vars) = *old_vars;
+	  zend_hash_clean(PS(http_session_vars)->value.ht);
+	} else {
+	  if(old_vars) {
+		zend_hash_del(&EG(symbol_table), "HTTP_SESSION_VARS", sizeof("HTTP_SESSION_VARS"));
+	  }
+	  MAKE_STD_ZVAL(PS(http_session_vars));
+	  array_init(PS(http_session_vars));
+	  ZEND_SET_GLOBAL_VAR_WITH_LENGTH("HTTP_SESSION_VARS", sizeof("HTTP_SESSION_VARS"), PS(http_session_vars), 1, 0);
+	}
 }
 
 static char *_php_session_encode(int *newlen PSLS_DC)
@@ -405,7 +416,7 @@ static void _php_session_decode(const char *val, int vallen PSLS_DC)
 		php_session_track_init();
 	if (PS(serializer)->decode(val, vallen PSLS_CC) == FAILURE) {
 		_php_session_destroy(PSLS_C);
-		php_error(E_WARNING, "Failed to decode session object. Session has been destroyed now.");
+		php_error(E_WARNING, "Failed to decode session object. Session has been destroyed.");
 	}
 }
 
@@ -477,11 +488,15 @@ static void _php_session_save_current_state(PSLS_D)
 	PLS_FETCH();
 	
 	if (!PG(register_globals)) {
-		for (zend_hash_internal_pointer_reset(PS(http_session_vars)->value.ht);
-			 zend_hash_get_current_key(PS(http_session_vars)->value.ht, &variable, &num_key) == HASH_KEY_IS_STRING;
-			 zend_hash_move_forward(PS(http_session_vars)->value.ht)) {
-			PS_ADD_VAR(variable);
-		}
+	  if(!PS(http_session_vars)) {
+		return;
+	  }
+
+	  for (zend_hash_internal_pointer_reset(PS(http_session_vars)->value.ht);
+		   zend_hash_get_current_key(PS(http_session_vars)->value.ht, &variable, &num_key) == HASH_KEY_IS_STRING;
+		   zend_hash_move_forward(PS(http_session_vars)->value.ht)) {
+		PS_ADD_VAR(variable);
+	  }
 	}
 
 	val = _php_session_encode(&vallen PSLS_CC);
@@ -492,9 +507,12 @@ static void _php_session_save_current_state(PSLS_D)
 		ret = PS(mod)->write(&PS(mod_data), PS(id), "", 0);
 	
 	if (ret == FAILURE)
-		php_error(E_WARNING, "Failed to write session data. Please check that "
-				"the current setting of session.save_path is correct (%s)",
+		php_error(E_WARNING, "Failed to write session data (%s). Please "
+				"verify that the current setting of session.save_path "
+				"is correct (%s)",
+				PS(mod)->name,
 				PS(save_path));
+	
 	
 	PS(mod)->close(&PS(mod_data));
 }
@@ -593,7 +611,7 @@ static void _php_session_cache_limiter(PSLS_D)
 		int output_start_lineno = php_get_output_start_lineno();
 
 		if (output_start_filename) {
-			php_error(E_WARNING, "Cannot send session cache limiter - headers already sent by (output started at %s:%d)",
+			php_error(E_WARNING, "Cannot send session cache limiter - headers already sent (output started at %s:%d)",
 				output_start_filename, output_start_lineno);
 		} else {
 			php_error(E_WARNING, "Cannot send session cache limiter - headers already sent");
@@ -729,12 +747,12 @@ static void _php_session_start(PSLS_D)
 	track_vars = INI_BOOL("track_vars");
 
 	if (!register_globals && !track_vars) {
-		php_error(E_ERROR, "The session module will not work, if you have disabled track_vars and register_globals. Enable at least one of them.");
+		php_error(E_ERROR, "The session module will not work if you have disabled track_vars and register_globals. At least one of them must be enabled.");
 		return;
 	}
 
 	if (!track_vars && PS(use_cookies))
-		php_error(E_NOTICE, "Because track_vars are disabled, the session module will not be able to determine whether the user has sent a cookie. SID will always be defined.");
+		php_error(E_NOTICE, "Because track_vars is disabled, the session module will not be able to determine whether the user has sent a cookie. SID will always be defined.");
 	
 	/*
 	 * If our only resource is the global symbol_table, then check it.
@@ -859,18 +877,24 @@ static void _php_session_start(PSLS_D)
 	}
 }
 
-static void _php_session_destroy(PSLS_D)
+static zend_bool _php_session_destroy(PSLS_D)
 {
+	zend_bool retval = SUCCESS;
+
 	if (PS(nr_open_sessions) == 0) {
 		php_error(E_WARNING, "Trying to destroy uninitialized session");
-		return;
+		return FAILURE;
 	}
 
 	if (PS(mod)->destroy(&PS(mod_data), PS(id)) == FAILURE) {
-		php_error(E_WARNING, "Destroying the session object failed");
+		retval = FAILURE;
+		php_error(E_WARNING, "Session object destruction failed");
 	}
+	
 	php_rshutdown_session_globals(PSLS_C);
 	php_rinit_session_globals(PSLS_C);
+
+	return retval;
 }
 
 
@@ -974,7 +998,8 @@ PHP_FUNCTION(session_module_name)
 		if (tempmod) {
 			if (PS(mod_data))
 				PS(mod)->close(&PS(mod_data));
-			PS(mod_data) = tempmod;
+			PS(mod) = tempmod;
+			PS(mod_data) = NULL;
 		} else {
 			efree(old);
 			php_error(E_ERROR, "Cannot find named PHP session module (%s)",
@@ -1208,13 +1233,17 @@ PHP_FUNCTION(session_start)
 }
 /* }}} */
 
-/* {{{ proto void session_destroy(void)
+/* {{{ proto bool session_destroy(void)
    Destroy the current session and all data associated with it */
 PHP_FUNCTION(session_destroy)
 {
 	PSLS_FETCH();
-		
-	_php_session_destroy(PSLS_C);
+
+	if (_php_session_destroy(PSLS_C) == SUCCESS) {
+		RETURN_TRUE;
+	} else {
+		RETURN_FALSE;
+	}
 }
 /* }}} */
 

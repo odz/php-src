@@ -1,3 +1,21 @@
+#  +----------------------------------------------------------------------+
+#  | PHP version 4.0                                                      |
+#  +----------------------------------------------------------------------+
+#  | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+#  +----------------------------------------------------------------------+
+#  | This source file is subject to version 2.02 of the PHP license,      |
+#  | that is bundled with this package in the file LICENSE, and is        |
+#  | available at through the world-wide-web at                           |
+#  | http://www.php.net/license/2_02.txt.                                 |
+#  | If you did not receive a copy of the PHP license and are unable to   |
+#  | obtain it through the world-wide-web, please send a note to          |
+#  | license@php.net so we can mail you a copy immediately.               |
+#  +----------------------------------------------------------------------+
+#  | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+#  +----------------------------------------------------------------------+
+#
+# $Id: dynlib.m4,v 1.4 2000/08/20 05:36:06 sas Exp $ 
+#
 
 
 
@@ -5,7 +23,7 @@ AC_DEFUN(LIB_SHARED_CONVENIENCE,[
   lib_target="\$(LTLIBRARY_NAME)"
   cat >>$1<<EOF
 \$(LTLIBRARY_NAME): \$(LTLIBRARY_SHARED_OBJECTS) \$(LTLIBRARY_DEPENDENCIES)
-	\$(SHARED_LIBTOOL) --mode=link \$(CCLD) \$(CFLAGS) \$(EXTRA_CFLAGS) \$(LDFLAGS) -o \[$]@ \$(LTLIBRARY_LDFLAGS) \$(LTLIBRARY_OBJECTS) \$(LTLIBRARY_SHARED_LIBADD)
+	\$(SHARED_LIBTOOL) --mode=link \$(COMPILE) \$(LDFLAGS) -o \[$]@ \$(LTLIBRARY_LDFLAGS) \$(LTLIBRARY_OBJECTS) \$(LTLIBRARY_SHARED_LIBADD)
 
 EOF
 ])
@@ -14,7 +32,7 @@ AC_DEFUN(LIB_SHARED_MODULE,[
   lib_target="\$(LTLIBRARY_SHARED_NAME)"
   cat >>$1<<EOF
 \$(LTLIBRARY_SHARED_NAME): \$(LTLIBRARY_SHARED_OBJECTS) \$(LTLIBRARY_DEPENDENCIES)
-	\$(SHARED_LIBTOOL) --mode=link \$(CCLD) \$(CFLAGS) \$(EXTRA_CFLAGS) \$(LDFLAGS) -o \[$]@ -avoid-version -module -rpath \$(phplibdir) \$(LTLIBRARY_LDFLAGS) \$(LTLIBRARY_OBJECTS) \$(LTLIBRARY_SHARED_LIBADD)
+	\$(SHARED_LIBTOOL) --mode=link \$(COMPILE) \$(LDFLAGS) -o \[$]@ -avoid-version -module -rpath \$(phplibdir) \$(LTLIBRARY_LDFLAGS) \$(LTLIBRARY_OBJECTS) \$(LTLIBRARY_SHARED_LIBADD)
 	\$(SHARED_LIBTOOL) --mode=install cp \[$]@ \$(phplibdir)
 
 EOF
@@ -37,7 +55,7 @@ AC_DEFUN(LIB_BUILD,[
   
   $php_shtool mkdir -p $1
   cat >$lib_makefile<<EOF
-LTLIBRARY_OBJECTS = \$(LTLIBRARY_SOURCES:.c=.lo)
+LTLIBRARY_OBJECTS = \$(LTLIBRARY_SOURCES:.c=.lo) \$(LTLIBRARY_OBJECTS_X)
 LTLIBRARY_SHARED_OBJECTS = \$(LTLIBRARY_OBJECTS:.lo=.slo)
 EOF
 

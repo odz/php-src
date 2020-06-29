@@ -1,4 +1,4 @@
-// $Header: /repository/Zend/FlexLexer.h,v 1.3 1999/12/19 21:01:44 zeev Exp $
+// $Header: /repository/Zend/FlexLexer.h,v 1.4 2000/07/03 00:55:36 sascha Exp $
 
 // FlexLexer.h -- define interfaces for lexical analyzer classes generated
 //		  by flex
@@ -41,9 +41,9 @@
 //	#include <FlexLexer.h>
 //	...
 
-#ifndef __FLEX_LEXER_H
+#ifndef FLEXLEXER_H
 // Never included before - need to define base class.
-#define __FLEX_LEXER_H
+#define FLEXLEXER_H
 #include <iostream.h>
 
 extern "C++" {

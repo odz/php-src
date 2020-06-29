@@ -2,35 +2,66 @@ dnl
 dnl Figure out which library file to link with for the Solid support.
 dnl
 AC_DEFUN(AC_FIND_SOLID_LIBS,[
-  AC_MSG_CHECKING([Solid library file])
+  AC_MSG_CHECKING([Solid library file])  
+  ac_solid_uname_r=`uname -r 2>/dev/null`
   ac_solid_uname_s=`uname -s 2>/dev/null`
   case $ac_solid_uname_s in
-    AIX) ac_solid_os=a3x;;
-    HP-UX) ac_solid_os=h9x;;
+    AIX) ac_solid_os=a3x;;   # a4x for AIX4
+    HP-UX) ac_solid_os=h9x;; # h1x for hpux11, h0x for hpux10
     IRIX) ac_solid_os=irx;;
-    Linux) ac_solid_os=lux;;
+    Linux) if ldd -v /bin/sh | grep GLIBC > /dev/null; then
+		AC_DEFINE(SS_LINUX,1,[Needed in sqlunix.h ])
+		ac_solid_os=l2x
+	else
+		AC_DEFINE(SS_LINUX,1,[Needed in sqlunix.h ])
+		ac_solid_os=lux
+	fi;; 
     SunOS) ac_solid_os=ssx;; # should we deal with SunOS 4?
-    FreeBSD) ac_solid_os=fbx;;
+    FreeBSD) if test `expr $ac_solid_uname_r : '\(.\)'` -gt "2"; then
+        AC_DEFINE(SS_FBX,1,[Needed in sqlunix.h for wchar defs ])
+	ac_solid_os=fex
+       else 
+        AC_DEFINE(SS_FBX,1,[Needed in sqlunix.h for wchar defs ])
+	ac_solid_os=fbx
+       fi	
     # "uname -s" on SCO makes no sense.
   esac
-  ODBC_LIBS=`echo $1/scl${ac_solid_os}*.so | cut -d' ' -f1`
-  if test ! -f $ODBC_LIBS; then
-    ODBC_LIBS=`echo $1/scl${ac_solid_os}*.a | cut -d' ' -f1`
+
+  if test -f $1/scl${ac_solid_os}30.a; then
+    ac_solid_verion=30
+    ac_solid_prefix=scl
+  elif test -f $1/scl${ac_solid_os}23.a; then
+    ac_solid_version=23
+    ac_solid_prefix=scl
+  elif test -f $1/soc${ac_solid_os}35.a; then
+    ac_solid_version=35
+    ac_solid_prefix=soc
   fi
-  if test ! -f $ODBC_LIBS; then
-    ODBC_LIBS=`echo $1/scl2x${ac_solid_os}*.a | cut -d' ' -f1`
-  fi
-  if test ! -f $ODBC_LIBS; then
-    ODBC_LIBS=`echo $1/scl2x${ac_solid_os}*.a | cut -d' ' -f1`
-  fi
-  if test ! -f $ODBC_LIBS; then
-    ODBC_LIBS=`echo $1/bcl${ac_solid_os}*.so | cut -d' ' -f1`
-  fi
-  if test ! -f $ODBC_LIBS; then
-    ODBC_LIBS=`echo $1/bcl${ac_solid_os}*.a | cut -d' ' -f1`
-  fi
+
+  ODBC_LIBS=`echo $1/${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.so | cut -d' ' -f1`
+ if test ! -f $ODBC_LIBS; then
+   echo $ODBC_LIBS
+   ODBC_LIBS=`echo $1/${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.a | cut -d' ' -f1`
+ fi
+ if test ! -f $ODBC_LIBS; then
+     echo $ODBC_LIBS
+     ODBC_LIBS=`echo $1/${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.so| cut -d' ' -f1`
+ fi
+ if test ! -f $ODBC_LIBS; then
+    $ODBC_LIBS
+     ODBC_LIBS=`echo $1/${ac_solid_prefix}${ac_solid_os}${ac_solid_version}.a | cut -d' ' -f1`
+ fi
+if test ! -f $ODBC_LIBS; then
+     ODBC_LIBS=`echo $1/bcl${ac_solid_os}*.so | cut -d' ' -f1`
+ fi
+ if test ! -f $ODBC_LIBS; then
+     ODBC_LIBS=`echo $1/bcl${ac_solid_os}*.a | cut -d' ' -f1`
+ fi
   AC_MSG_RESULT(`echo $ODBC_LIBS | sed -e 's!.*/!!'`)
 ])
+
+
+
 
 dnl
 dnl Figure out which library file to link with for the Empress support.
@@ -42,27 +73,6 @@ AC_DEFUN(AC_FIND_EMPRESS_LIBS,[
     ODBC_LIBS=`echo $1/empodbc.a | cut -d' ' -f1`
   fi
   AC_MSG_RESULT(`echo $ODBC_LIBS | sed -e 's!.*/!!'`)
-])
-
-dnl
-dnl Figure out the path where the newest DBMaker is installed.
-dnl
-AC_DEFUN(AC_FIND_DBMAKER_PATH,[
-  AC_MSG_CHECKING([DBMaker version])
-  if [ test -d "$1/4.0" ]; then
-    DBMAKER_PATH=$1/4.0
-  elif [ test -d "$1/3.6" ]; then
-    DBMAKER_PATH=$1/3.6
-  elif [ test -d "$1/3.5" ]; then
-    DBMAKER_PATH=$1/3.5
-  elif [ test -d "$1/3.01" ]; then
-    DBMAKER_PATH=$1/3.01
-  elif [ test -d "$1/3.0" ]; then
-    DBMAKER_PATH=$1/3.0
-  else
-    DBMAKER_PATH=$1
-  fi
-  AC_MSG_RESULT(`echo $DBMAKER_PATH | sed -e 's!.*/!!'`)
 ])
 
 if test -z "$ODBC_TYPE"; then
@@ -110,7 +120,11 @@ AC_ARG_WITH(solid,
     ODBC_LIBDIR=$withval/lib
     ODBC_INCLUDE=-I$ODBC_INCDIR
     ODBC_TYPE=solid
-    AC_DEFINE(HAVE_SOLID,1,[ ])
+    if test -f $ODBC_LIBDIR/libsolodbc.a; then
+      AC_DEFINE(HAVE_SOLID_35,1,[ ])
+    else
+      AC_DEFINE(HAVE_SOLID,1,[ ])
+    fi
     AC_MSG_RESULT(yes)
     AC_FIND_SOLID_LIBS($ODBC_LIBDIR)
   else
@@ -356,12 +370,32 @@ AC_ARG_WITH(dbmaker,
                           version of DBMaker is installed (such as
                           /home/dbmaker/3.6).],
 [
+  PHP_WITH_SHARED
   if test "$withval" = "yes"; then
     # find dbmaker's home directory
     DBMAKER_HOME=`grep "^dbmaker:" /etc/passwd | awk -F: '{print $6}'`
-    AC_FIND_DBMAKER_PATH($DBMAKER_HOME)
+
+    # check DBMaker version (from 5.0 to 2.0)
+    DBMAKER_VERSION=5.0
+
+    while [ test ! -d $DBMAKER_HOME/$DBMAKER_VERSION -a \
+                 "$DBMAKER_VERSION" != "2.9" ]; do
+        DM_VER=`echo $DBMAKER_VERSION | sed -e 's/\.//' | awk '{ print $1-1;}'`
+        MAJOR_V=`echo $DM_VER | awk '{ print $1/10; }' \
+                 | awk  -F. '{ print $1; }'`
+        MINOR_V=`echo $DM_VER | awk '{ print $1%10; }'`
+        DBMAKER_VERSION=$MAJOR_V.$MINOR_V
+    done
+
+    if [ "$DBMAKER_VERSION" = "2.9" ]; then
+        withval=$DBMAKER_HOME
+    else
+        DBMAKER_PATH=$DBMAKER_HOME/$DBMAKER_VERSION
+    fi
+
     withval=$DBMAKER_PATH
   fi
+
   if test "$withval" != "no"; then
     ODBC_INCDIR=$withval/include
     ODBC_LIBDIR=$withval/lib
@@ -370,7 +404,21 @@ AC_ARG_WITH(dbmaker,
     ODBC_INCLUDE=-I$ODBC_INCDIR
     ODBC_LIBS="-ldmapic -lc"
     ODBC_TYPE=dbmaker
-    AC_DEFINE(HAVE_DBMAKER,1,[ ])
+
+    AC_DEFINE(HAVE_DBMAKER,1,[Whether you want DBMaker])
+
+    if test "$shared" = "yes"; then
+        AC_MSG_RESULT(yes (shared))
+        ODBC_LFLAGS="-L$withval/driver/JDBC"
+        ODBC_LIBS="-ldmjdbc -lc -lm"
+        ODBC_SHARED="odbc.la"
+    else
+        AC_MSG_RESULT(yes (static))
+        AC_ADD_LIBRARY_WITH_PATH(dmapic, $ODBC_LIBDIR)
+        AC_ADD_INCLUDE($ODBC_INCDIR)
+        ODBC_STATIC="libphpext_odbc.la"
+    fi
+
     AC_MSG_RESULT(yes)
   else
     AC_MSG_RESULT(no)
@@ -382,7 +430,9 @@ fi
 
 if test -n "$ODBC_TYPE"; then
   INCLUDES="$INCLUDES $ODBC_INCLUDE"
-  EXTRA_LIBS="$EXTRA_LIBS $ODBC_LFLAGS $ODBC_LIBS"
+  if test "$ODBC_TYPE" != "dbmaker"; then
+    EXTRA_LIBS="$EXTRA_LIBS $ODBC_LFLAGS $ODBC_LIBS"
+  fi
   AC_DEFINE(HAVE_UODBC,1,[ ])
   PHP_SUBST(ODBC_INCDIR)
   PHP_SUBST(ODBC_INCLUDE)
@@ -390,5 +440,5 @@ if test -n "$ODBC_TYPE"; then
   PHP_SUBST(ODBC_LIBS)
   PHP_SUBST(ODBC_LFLAGS)
   PHP_SUBST(ODBC_TYPE)
-  PHP_EXTENSION(odbc)
+  PHP_EXTENSION(odbc, $shared)
 fi

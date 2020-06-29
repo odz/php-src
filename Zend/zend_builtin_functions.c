@@ -33,6 +33,7 @@ static ZEND_FUNCTION(strlen);
 static ZEND_FUNCTION(strcmp);
 static ZEND_FUNCTION(strncmp);
 static ZEND_FUNCTION(strcasecmp);
+static ZEND_FUNCTION(strncasecmp);
 static ZEND_FUNCTION(each);
 static ZEND_FUNCTION(error_reporting);
 static ZEND_FUNCTION(define);
@@ -46,7 +47,6 @@ static ZEND_FUNCTION(leak);
 #ifdef ZEND_TEST_EXCEPTIONS
 static ZEND_FUNCTION(crash);
 #endif
-static ZEND_FUNCTION(get_required_files);
 static ZEND_FUNCTION(get_included_files);
 static ZEND_FUNCTION(is_subclass_of);
 static ZEND_FUNCTION(get_class_vars);
@@ -57,6 +57,7 @@ static ZEND_FUNCTION(set_error_handler);
 static ZEND_FUNCTION(restore_error_handler);
 static ZEND_FUNCTION(get_declared_classes);
 static ZEND_FUNCTION(create_function);
+static ZEND_FUNCTION(get_resource_type);
 #if ZEND_DEBUG
 static ZEND_FUNCTION(zend_test_func);
 #endif
@@ -75,6 +76,7 @@ static zend_function_entry builtin_functions[] = {
 	ZEND_FE(strcmp,				NULL)
 	ZEND_FE(strncmp,			NULL)
 	ZEND_FE(strcasecmp,			NULL)
+	ZEND_FE(strncasecmp,		NULL)
 	ZEND_FE(each,				first_arg_force_ref)
 	ZEND_FE(error_reporting,	NULL)
 	ZEND_FE(define,				NULL)
@@ -88,8 +90,8 @@ static zend_function_entry builtin_functions[] = {
 #ifdef ZEND_TEST_EXCEPTIONS
 	ZEND_FE(crash,				NULL)
 #endif
-	ZEND_FE(get_required_files,	NULL)
 	ZEND_FE(get_included_files,	NULL)
+	ZEND_FALIAS(get_required_files,	get_included_files,		NULL)
 	ZEND_FE(is_subclass_of,		NULL)
 	ZEND_FE(get_class_vars,		NULL)
 	ZEND_FE(get_object_vars,	NULL)
@@ -100,6 +102,7 @@ static zend_function_entry builtin_functions[] = {
 	ZEND_FE(restore_error_handler,	NULL)
 	ZEND_FE(get_declared_classes, NULL)
 	ZEND_FE(create_function,	NULL)
+	ZEND_FE(get_resource_type,	NULL)
 #if ZEND_DEBUG
 	ZEND_FE(zend_test_func,		NULL)
 #endif
@@ -219,7 +222,7 @@ ZEND_FUNCTION(strlen)
 	zval **str;
 	
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &str) == FAILURE) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
 	convert_to_string_ex(str);
 	RETVAL_LONG((*str)->value.str.len);
@@ -233,7 +236,7 @@ ZEND_FUNCTION(strcmp)
 	zval **s1, **s2;
 	
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &s1, &s2) == FAILURE) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
 	convert_to_string_ex(s1);
 	convert_to_string_ex(s2);
@@ -248,7 +251,7 @@ ZEND_FUNCTION(strncmp)
 	zval **s1, **s2, **s3;
 	
 	if (ZEND_NUM_ARGS() != 3 || zend_get_parameters_ex(3, &s1, &s2, &s3) == FAILURE) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
 	convert_to_string_ex(s1);
 	convert_to_string_ex(s2);
@@ -264,11 +267,27 @@ ZEND_FUNCTION(strcasecmp)
 	zval **s1, **s2;
 	
 	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2, &s1, &s2) == FAILURE) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
 	convert_to_string_ex(s1);
 	convert_to_string_ex(s2);
 	RETURN_LONG(zend_binary_zval_strcasecmp(*s1, *s2));
+}
+/* }}} */
+
+/* {{{ proto int strncasecmp(string str1, string str2, int len)
+   Binary safe string comparison */
+ZEND_FUNCTION(strncasecmp)
+{
+	zval **s1, **s2, **s3;
+	
+	if (ZEND_NUM_ARGS() != 3 || zend_get_parameters_ex(3, &s1, &s2, &s3) == FAILURE) {
+		ZEND_WRONG_PARAM_COUNT();
+	}
+	convert_to_string_ex(s1);
+	convert_to_string_ex(s2);
+	convert_to_long_ex(s3);
+	RETURN_LONG(zend_binary_zval_strncasecmp(*s1,*s2,*s3));
 }
 /* }}} */
 
@@ -281,7 +300,7 @@ ZEND_FUNCTION(each)
 	HashTable *target_hash;
 	
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &array) == FAILURE) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
 	target_hash = HASH_OF(*array);
 	if (!target_hash) {
@@ -339,10 +358,10 @@ ZEND_FUNCTION(error_reporting)
 			EG(error_reporting)=(*arg)->value.lval;
 			break;
 		default:
-			WRONG_PARAM_COUNT;
+			ZEND_WRONG_PARAM_COUNT();
 			break;
 	}
-	
+
 	RETVAL_LONG(old_error_reporting);
 }
 
@@ -371,9 +390,10 @@ ZEND_FUNCTION(define)
 			}
 			break;
 		default:
-			WRONG_PARAM_COUNT;
+			ZEND_WRONG_PARAM_COUNT();
 			break;
 	}
+
 	switch((*val)->type) {
 		case IS_LONG:
 		case IS_DOUBLE:
@@ -394,8 +414,11 @@ ZEND_FUNCTION(define)
 	c.flags = case_sensitive; /* non persistent */
 	c.name = zend_strndup((*var)->value.str.val, (*var)->value.str.len);
 	c.name_len = (*var)->value.str.len+1;
-	zend_register_constant(&c ELS_CC);
-	RETURN_TRUE;
+	if(zend_register_constant(&c ELS_CC) == SUCCESS) {
+	  RETURN_TRUE;
+	} else {
+	  RETURN_FALSE;
+	}
 }
 
 
@@ -405,7 +428,7 @@ ZEND_FUNCTION(defined)
 	zval c;
 		
 	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &var)==FAILURE) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
 	
 	convert_to_string_ex(var);
@@ -424,7 +447,7 @@ ZEND_FUNCTION(get_class)
 	zval **arg;
 	
 	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &arg)==FAILURE) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
 	if ((*arg)->type != IS_OBJECT) {
 		RETURN_FALSE;
@@ -440,7 +463,7 @@ ZEND_FUNCTION(get_parent_class)
 	zval **arg;
 	
 	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &arg)==FAILURE) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
 	if (((*arg)->type != IS_OBJECT) || !(*arg)->value.obj.ce->parent) {
 		RETURN_FALSE;
@@ -458,7 +481,7 @@ ZEND_FUNCTION(is_subclass_of)
 	zend_class_entry *parent_ce = NULL;
 
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &obj, &class_name)==FAILURE) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
 
 	if ((*obj)->type != IS_OBJECT) {
@@ -491,7 +514,7 @@ ZEND_FUNCTION(get_class_vars)
 	CLS_FETCH();
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &class_name)==FAILURE) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
 
 	convert_to_string_ex(class_name);
@@ -517,7 +540,7 @@ ZEND_FUNCTION(get_object_vars)
 	zval *tmp;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &obj) == FAILURE) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
 
 	if ((*obj)->type != IS_OBJECT) {
@@ -544,7 +567,7 @@ ZEND_FUNCTION(get_class_methods)
 	CLS_FETCH();
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &class_name)==FAILURE) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
 
 	convert_to_string_ex(class_name);
@@ -578,7 +601,7 @@ ZEND_FUNCTION(method_exists)
 	char *lcname;
 	
 	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2, &klass, &method_name)==FAILURE) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
 	if ((*klass)->type != IS_OBJECT) {
 		RETURN_FALSE;
@@ -605,7 +628,7 @@ ZEND_FUNCTION(class_exists)
 	CLS_FETCH();
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &class_name)==FAILURE) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
 	convert_to_string_ex(class_name);
 	lcname = estrndup((*class_name)->value.str.val, (*class_name)->value.str.len);
@@ -629,7 +652,7 @@ ZEND_FUNCTION(function_exists)
 	int retval;
 	
 	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &function_name)==FAILURE) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
 	convert_to_string_ex(function_name);
 	lcname = estrndup((*function_name)->value.str.val, (*function_name)->value.str.len);
@@ -689,28 +712,12 @@ static int copy_import_use_file(zend_file_handle *fh, zval *array)
 }
 
 
-/* {{{ proto array get_required_files(void)
-   Returns an array with the file names that were require_once()'d */
-ZEND_FUNCTION(get_required_files)
-{
-	CLS_FETCH();
-
-	if (ZEND_NUM_ARGS() != 0) {
-		WRONG_PARAM_COUNT;
-	}
-
-	array_init(return_value);
-	zend_hash_apply_with_argument(&CG(used_files), (apply_func_arg_t) copy_import_use_file, return_value);
-}
-/* }}} */
-
-
 /* {{{ proto array get_included_files(void)
    Returns an array with the file names that were include_once()'d */
 ZEND_FUNCTION(get_included_files)
 {
 	if (ZEND_NUM_ARGS() != 0) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
 
 	array_init(return_value);
@@ -827,7 +834,7 @@ ZEND_FUNCTION(get_declared_classes)
 	CLS_FETCH();
 
 	if (ZEND_NUM_ARGS() != 0) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
 
 	array_init(return_value);
@@ -849,7 +856,7 @@ ZEND_FUNCTION(create_function)
 	CLS_FETCH();
 
 	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2, &z_function_args, &z_function_code)==FAILURE) {
-		WRONG_PARAM_COUNT;
+		ZEND_WRONG_PARAM_COUNT();
 	}
 
 	convert_to_string_ex(z_function_args);
@@ -890,10 +897,34 @@ ZEND_FUNCTION(create_function)
 /* }}} */
 
 
-
+#if ZEND_DEBUG
 ZEND_FUNCTION(zend_test_func)
 {
 	zval *arg1, *arg2;
 
 	zend_get_parameters(ht, 2, &arg1, &arg2);
+}
+#endif
+
+
+ZEND_FUNCTION(get_resource_type)
+{
+	char *resource_type;
+	zval **z_resource_type;
+
+	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &z_resource_type)==FAILURE) {
+		ZEND_WRONG_PARAM_COUNT();
+	}
+
+	if (Z_TYPE_PP(z_resource_type) != IS_RESOURCE) {
+		zend_error(E_WARNING, "Supplied argument is not a valid resource handle");
+		RETURN_FALSE;
+	}
+
+	resource_type = zend_rsrc_list_get_rsrc_type(Z_LVAL_PP(z_resource_type));
+	if (resource_type) {
+		RETURN_STRING(resource_type, 1);
+	} else {
+		RETURN_STRING("Unknown", 1);
+	}
 }

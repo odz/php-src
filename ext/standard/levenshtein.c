@@ -15,7 +15,7 @@
    | Author: Hartmut Holzgraefe <hartmut@six.de>                          |
    +----------------------------------------------------------------------+
  */
-/* $Id: levenshtein.c,v 1.10 2000/06/16 18:46:57 hholzgra Exp $ */
+/* $Id: levenshtein.c,v 1.12 2000/08/21 09:50:52 sas Exp $ */
 
 #include "php.h"
 #include <stdlib.h>
@@ -179,7 +179,7 @@ static int weighted_levdist( const char *s1
 	return n-=cost_del;
 }
 
-int custom_levdist(char *str1,char *str2,char *callback_name) 
+static int custom_levdist(char *str1,char *str2,char *callback_name) 
 {
 		php_error(E_WARNING,"the general Levenshtein support is not there yet");
 		/* not there yet */

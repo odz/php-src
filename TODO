@@ -6,6 +6,7 @@ Zend
     * allow foreach ($array as $k => &$val) syntax. right now we cannot 
       traverse an array without copying each element.
     * look at replacing c-lib call tolower().
+    * make hash API functions work with HASH_OF() to save time.
 
 global
 ------
@@ -15,6 +16,7 @@ global
     * make sure all source files have the "right" copyright.
     * the following modules still use PHP3_TLS_*() macros (and thereby don't 
       work in ZTS mode): ext/dav/dav.c, ext/db/db.c, ext/gd/gd.c, ext/ldap/ldap.c
+    * INI system causes segfaults in ZTS mode (operates on static HashTable)
     * make sure that all ZTS globals get destructed. Most ts_allocate_id()
       calls should have a dtor entry.
     * activate all extensions by default that don't rely on external
@@ -36,6 +38,8 @@ global
       available in ZTS mode.
     * add aliases to functions to conform to new naming conventions, e.g.
       str_to_upper().
+    * see what functions might need to be changed to use HashPosition, so
+      that the internal array pointer is not affected.
 
 documentation
 -------------
@@ -58,7 +62,6 @@ ext/oci8
 
 ext/pcre
 --------
-    * have a non-greedy option for preg_replace().
     * have an option for preg_grep() to return keys as well.
     * update the online docs from version 3.1 man page
 
@@ -68,6 +71,8 @@ ext/session
       the need to serialize frame-loads.
     * maybe implement finer-grained session variables that could be 
       locked individually.
+    * write a network-transparent storage back-end with fallover
+      facilities
 
 ext/standard
 ------------
@@ -102,7 +107,6 @@ ext/standard
 
 ext/wddx
 --------
-    * implement __sleep() and __wakeup() the way serialize()/unserialize() do.
     * See if we can support the remaining datatypes:
         dateTime
         binary

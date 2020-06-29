@@ -2,7 +2,7 @@ What is PHP4 ext/java?
 
    PHP4 ext/java provides a simple and effective means for creating and
    invoking methods on Java objects from PHP.  The JVM is created using JNI,
-   and everthing runs in-process.
+   and everything runs in-process.
 
    Two examples are provided, jver and jawt, to illustrate usage of this
    extension.  A few things to note:
@@ -20,7 +20,13 @@ What is PHP4 ext/java?
         the same syntax.  Furthermore, if the java object is of type
         "java.lang.Class", then static members
 
-     4) Exceptions raised result in PHP warnings, and null results.
+     4) Exceptions raised result in PHP warnings, and null results.  The
+        warnings may be eliminated by prefixing the method call with an
+        "@" sign.  The following APIs may be used to retrieve and reset
+        the last error:
+
+          java_last_exception_get()
+          java_last_exception_clear()
 
      5) Overload resolution is in general a hard problem given the
         differences in types between the two languages.  The PHP Java
@@ -34,6 +40,12 @@ What is PHP4 ext/java?
 	possibly with a loss of data (example: double precision floating point
 	numbers will be converted to boolean).
 
+     6) In the tradition of PHP, arrays and hashtables may pretty much
+        be used interchangably.  Note that hashtables in PHP may only be
+        indexed by integers or strings; and that arrays of primitive types
+        in Java can not be sparse.  Also note that these constructs are
+        passed by value, so may be expensive in terms of memory and time.
+
 Build and execution instructions:
 
    Given the number of platforms and providers of JVMs, no single set of
@@ -43,6 +55,11 @@ Build and execution instructions:
    suit your installation.  Also, if you happen to get this to work on
    another JVM/platform combination, please let me know, particularly if
    a unique build or execution setup was required.
+
+   Note for Windows users: semi-colons (";") mark the beginning of 
+   comments in php.ini files, so if you wish to add to the classpath,
+   make sure that the entire string is in quotes.  See the JDK 1.1.8
+   instructions below for an example.
 
    This function has been tested in both CGI and Apache (apxs) modes.  As
    the current design requires shared libraries, this support can not be
@@ -59,6 +76,10 @@ Build and execution instructions:
    to utilize the existing JVM and threads from the servlet engine, and 
    provides direct access to the servlet request and response objects.
 
+   Finally, the bottom of this readme contains some guidance for how to
+   approach situations in which these instructions don't work on your
+   machine.
+   
 ========================================================================
 ===   JVM=Kaffe 1.0.4 (as delivered with OS), OS=Redhat Linux 6.1    ===
 ========================================================================
@@ -160,3 +181,56 @@ php.ini:
    [java]
    java.class.path=F:\PHP4\Debug_TS\php_java.jar
    extension=php_java.dll
+
+=========================================================================
+
+Guidance for when these instructions don't work.
+
+   JDK vendors don't typically document their internal workings, and are 
+   typically very reliant on code inside of the JAVA main program and the 
+   installation directory structure.  For this reason, running PHP as a 
+   servlet is typically much easier to get working.  But if for some reason 
+   this is not appropriate for you, and the instructions above don't work, 
+   then read on.
+
+   The first thing to realize is that the directory structure of the JDK is 
+   very important.  Some users (particularly on Windows) get a message about 
+   a DLL or shared library not being available and proceed to find that file 
+   and copy it into a system directory.  This typically just gets you to the 
+   next problem - for example, it appears that many JDKs attempt to locate 
+   the runtime Java classes (rt.jar) in a directory relative to these system 
+   libraries.  So unless you are inclined to copy your entire Java 
+   installation, you are much better adjusting your PATHs.
+
+   Not documented above, but useful for many JDK's is ability to specify the 
+   library path via java.library.path in the php.ini.  On many Unix machines, 
+   determining the initial value for this can be done by changing directory 
+   to where you find a shared library that can't be loaded (example: 
+   libjava.so), and executing "ld libjava.so".  If you see some modules 
+   listed as "not found", add the necessary directories to LD_LIBRARY_PATH 
+   and repeat until successful.  On my system, I require the following
+   two directories.
+
+     /home/jdk1.2.2/jre/lib/i386/native_threads
+     /home/jdk1.2.2/jre/lib/i386/classic
+
+   Note: this only determines the statically loaded libraries.  Additional
+   libraries (such as libzip.so) may be loaded dynamically.  On my system,
+   libzip.so is located in 
+
+     /home/jdk1.2.2/jre/lib/i386
+
+   Another php.ini variable which may be helpful is java.home.
+
+   If java.library.path doesn't work for you (it won't on any JDK 1.1
+   implementations, for example), then try setting the system PATH or the
+   LD_LIBRARY_PATH before starting your web server.  For Apache on Linux
+   systems, this can be accomplished by editing the Root's .bashrc and
+   adding the necessary export LD_LIBRARY_PATH statement.
+
+   If that doesn't work, try dividing an (hopefully) conquering by temporarily 
+   eliminating items such as Apache from the process by adjusting the
+   arguments passed to the ./configure command (i.e., removing --with-apxs).
+
+   If all else fails, "man dlopen" on Unix systems will give more insight on 
+   what the system is trying to do internally.

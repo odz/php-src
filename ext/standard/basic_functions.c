@@ -17,6 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
+/* $Id: basic_functions.c,v 1.243 2000/08/27 22:46:40 rasmus Exp $ */
 
 #include "php.h"
 #include "php_main.h"
@@ -53,7 +54,6 @@
 #include "php_globals.h"
 #include "SAPI.h"
 
-
 #ifdef ZTS
 int basic_globals_id;
 #else
@@ -61,8 +61,10 @@ php_basic_globals basic_globals;
 #endif
 
 static unsigned char second_and_third_args_force_ref[] = { 3, BYREF_NONE, BYREF_FORCE, BYREF_FORCE };
+static unsigned char second_args_force_ref[] = { 2, BYREF_NONE, BYREF_FORCE };
 static unsigned char third_argument_force_ref[] = { 3, BYREF_NONE, BYREF_NONE, BYREF_FORCE };
 static unsigned char third_and_fourth_args_force_ref[] = { 4, BYREF_NONE, BYREF_NONE, BYREF_FORCE, BYREF_FORCE };
+static unsigned char third_and_rest_force_ref[] = { 3, BYREF_NONE, BYREF_NONE, BYREF_FORCE_REST };
 
 typedef struct _php_shutdown_function_entry {
 	zval **arguments;
@@ -105,8 +107,9 @@ function_entry basic_functions[] = {
 	PHP_FE(gettype,									NULL)
 	PHP_FE(settype,									first_arg_force_ref)
 	
-	PHP_FE(getimagesize,							NULL)
+	PHP_FE(getimagesize,							second_args_force_ref)
 	
+	PHP_FE(wordwrap,								NULL)
 	PHP_FE(htmlspecialchars,						NULL)
 	PHP_FE(htmlentities,							NULL)
 	PHP_FE(get_html_translation_table,				NULL)
@@ -123,6 +126,7 @@ function_entry basic_functions[] = {
 	PHP_FE(php_logo_guid,							NULL)
 	PHP_FE(zend_logo_guid,							NULL)
 	PHP_FE(php_sapi_name,							NULL)
+	PHP_FE(php_uname,								NULL)
 	
 	PHP_FE(strnatcmp,								NULL)
 	PHP_FE(strnatcasecmp,							NULL)
@@ -175,8 +179,8 @@ function_entry basic_functions[] = {
 	PHP_FALIAS(strchr,			strstr,				NULL)
 	PHP_NAMED_FE(sprintf,		PHP_FN(user_sprintf),	NULL)
 	PHP_NAMED_FE(printf,		PHP_FN(user_printf),	NULL)
-    PHP_FE(sscanf,                                  NULL)
-    PHP_FE(fscanf,                                  NULL)
+    PHP_FE(sscanf,                                  third_and_rest_force_ref)
+    PHP_FE(fscanf,                                  third_and_rest_force_ref)
 
 	PHP_FE(parse_url,								NULL)
 	PHP_FE(urlencode,								NULL)
@@ -189,14 +193,13 @@ function_entry basic_functions[] = {
 	PHP_FE(linkinfo,								NULL)
 	PHP_FE(symlink,									NULL)
 	PHP_FE(link,									NULL)
-	PHP_FE(unlink,									NULL)
 #else
 	PHP_FALIAS(readlink, warn_not_available,		NULL)
 	PHP_FALIAS(linkinfo, warn_not_available,		NULL)
 	PHP_FALIAS(symlink, warn_not_available,			NULL)
 	PHP_FALIAS(link, warn_not_available,			NULL)
-	PHP_FALIAS(unlink, warn_not_available,			NULL)
 #endif
+	PHP_FE(unlink,									NULL)
 	
 	PHP_FE(exec, 									second_and_third_args_force_ref)
 	PHP_FE(system, 									second_arg_force_ref)
@@ -394,10 +397,14 @@ function_entry basic_functions[] = {
 #if HAVE_SYS_TIME_H
 	PHP_FE(socket_set_timeout,	NULL)
 #else
-	PHP_FALIAS(socket_set_timeout  , warn_not_available,      NULL)                             
+	PHP_FALIAS(socket_set_timeout, warn_not_available,      NULL)                             
 #endif
 	PHP_FE(socket_get_status,	NULL)
+#if !PHP_WIN32 || defined(ZTS)
 	PHP_FE(realpath,			NULL)
+#else
+	PHP_FALIAS(realpath,		warn_not_available,		NULL)
+#endif
 
 	/* functions from fsock.c */
 	PHP_FE(fsockopen, 			third_and_fourth_args_force_ref)
@@ -455,6 +462,7 @@ function_entry basic_functions[] = {
 
 	/* functions from mail.c */
 	PHP_FE(mail,					NULL)
+	PHP_FE(ezmlm_hash,				NULL)
 
 	/* functions from syslog.c */
 	PHP_FE(openlog,					NULL)
@@ -472,6 +480,7 @@ function_entry basic_functions[] = {
 	PHP_FE(ob_start,					NULL)
 	PHP_FE(ob_end_flush,				NULL)
 	PHP_FE(ob_end_clean,				NULL)
+	PHP_FE(ob_get_length,				NULL)
 	PHP_FE(ob_get_contents,				NULL)
 	PHP_FE(ob_implicit_flush,			NULL)
 
@@ -618,6 +627,9 @@ static void basic_globals_ctor(BLS_D)
 	BG(left) = -1;
 	zend_hash_init(&BG(sm_protected_env_vars), 5, NULL, NULL, 1);
 	BG(sm_allowed_env_vars) = NULL;
+#ifdef PHP_WIN32
+	CoInitialize(NULL);
+#endif
 }
 
 static void basic_globals_dtor(BLS_D)
@@ -626,6 +638,9 @@ static void basic_globals_dtor(BLS_D)
 	if (BG(sm_allowed_env_vars)) {
 		free(BG(sm_allowed_env_vars));
 	}
+#ifdef PHP_WIN32
+	CoUninitialize();
+#endif
 }
 
 
@@ -658,6 +673,7 @@ PHP_MINIT_FUNCTION(basic)
 
 	register_phpinfo_constants(INIT_FUNC_ARGS_PASSTHRU);
 	register_html_constants(INIT_FUNC_ARGS_PASSTHRU);
+	register_string_constants(INIT_FUNC_ARGS_PASSTHRU);
 
 	PHP_MINIT(regex)(INIT_FUNC_ARGS_PASSTHRU);
 	PHP_MINIT(file)(INIT_FUNC_ARGS_PASSTHRU);
@@ -724,7 +740,12 @@ PHP_RINIT_FUNCTION(basic)
 	PHP_RINIT(filestat)(INIT_FUNC_ARGS_PASSTHRU);
 	PHP_RINIT(syslog)(INIT_FUNC_ARGS_PASSTHRU);
 	PHP_RINIT(assert)(INIT_FUNC_ARGS_PASSTHRU);
+	PHP_RINIT(dir)(INIT_FUNC_ARGS_PASSTHRU);
 
+#ifdef TRANS_SID
+	PHP_RINIT(url_scanner)(INIT_FUNC_ARGS_PASSTHRU);
+#endif
+	
 	return SUCCESS;
 }
 
@@ -750,6 +771,10 @@ PHP_RSHUTDOWN_FUNCTION(basic)
 	PHP_RSHUTDOWN(syslog)(SHUTDOWN_FUNC_ARGS_PASSTHRU);
 	PHP_RSHUTDOWN(assert)(SHUTDOWN_FUNC_ARGS_PASSTHRU);
 
+#ifdef TRANS_SID
+	PHP_RSHUTDOWN(url_scanner)(SHUTDOWN_FUNC_ARGS_PASSTHRU);
+#endif
+
 	return SUCCESS;
 }
 
@@ -768,12 +793,12 @@ PHP_MINFO_FUNCTION(basic)
 	PHP_MINFO(regex)(ZEND_MODULE_INFO_FUNC_ARGS_PASSTHRU);
 	PHP_MINFO(dl)(ZEND_MODULE_INFO_FUNC_ARGS_PASSTHRU);
 	PHP_MINFO(mail)(ZEND_MODULE_INFO_FUNC_ARGS_PASSTHRU);
-	PHP_MINFO(assert)(ZEND_MODULE_INFO_FUNC_ARGS_PASSTHRU);
 	php_info_print_table_end();
+	PHP_MINFO(assert)(ZEND_MODULE_INFO_FUNC_ARGS_PASSTHRU);
 }
 
 /* {{{ proto int ip2long(string ip_address)
-   Converts a string containing an (Ipv4) Internet Protocol dotted address into a proper address.  */
+   Converts a string containing an (IPv4) Internet Protocol dotted address into a proper address */
 PHP_FUNCTION(ip2long)
 {
 	zval **str;
@@ -784,12 +809,12 @@ PHP_FUNCTION(ip2long)
 
 	convert_to_string_ex(str);
 
-	RETURN_LONG(inet_addr((*str)->value.str.val));
+	RETURN_LONG(ntohl(inet_addr((*str)->value.str.val)));
 }
 /* }}} */
 
 /* {{{ proto string long2ip(int proper_address)
-   Converts an (Ipv4) Internet network address into a string in Internet standard dotted format. */
+   Converts an (IPv4) Internet network address into a string in Internet standard dotted format */
 PHP_FUNCTION(long2ip)
 {
 	zval **num;
@@ -800,7 +825,7 @@ PHP_FUNCTION(long2ip)
 	}
 	
 	convert_to_long_ex(num);
-	myaddr.s_addr = (unsigned long)(*num)->value.lval;
+	myaddr.s_addr = htonl((unsigned long)(*num)->value.lval);
 
 	RETURN_STRING (inet_ntoa(myaddr), 1);
 }
@@ -1747,7 +1772,7 @@ PHP_FUNCTION(ini_get)
 /* }}} */
 
 /* {{{ proto string ini_set(string varname, string newvalue)
-   Set a configuration option, returns false on error and the old value of the configuration option on failure */
+   Set a configuration option, returns false on error and the old value of the configuration option on success */
 PHP_FUNCTION(ini_set)
 {
 	pval **varname, **new_value;
@@ -2031,7 +2056,7 @@ PHP_FUNCTION(get_extension_funcs)
 
 
 /* This function is not directly accessible to end users */
-PHP_FUNCTION(warn_not_available)
+PHPAPI PHP_FUNCTION(warn_not_available)
 {
 	php_error(E_WARNING, "%s() is  not supported in this PHP build", get_active_function_name());
     RETURN_FALSE;

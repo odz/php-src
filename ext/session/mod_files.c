@@ -12,7 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sascha Schumann <ss@2ns.de>                                 |
+   | Authors: Sascha Schumann <sascha@schumann.cx>                        |
    +----------------------------------------------------------------------+
  */
 
@@ -55,12 +55,6 @@ ps_module ps_mod_files = {
 	PS_MOD(files)
 };
 
-#ifdef PHP_WIN32
-#define DIR_DELIMITER '\\'
-#else
-#define DIR_DELIMITER '/'
-#endif
-
 static int _ps_files_valid_key(const char *key)
 {
 	size_t len;
@@ -98,10 +92,10 @@ static char *_ps_files_path_create(char *buf, size_t buflen, ps_files *data, con
 			(strlen(data->basedir) + 2 * data->dirdepth + keylen + 5 + sizeof(FILE_PREFIX))) 
 		return NULL;
 	p = key;
-	n = sprintf(buf, "%s/", data->basedir);
+	n = sprintf(buf, "%s%c", data->basedir, PHP_DIR_SEPARATOR);
 	for (i = 0; i < data->dirdepth; i++) {
 		buf[n++] = *p++;
-		buf[n++] = DIR_DELIMITER;
+		buf[n++] = PHP_DIR_SEPARATOR;
 	}
 	buf[n] = '\0';
 	strcat(buf, FILE_PREFIX);
@@ -109,6 +103,10 @@ static char *_ps_files_path_create(char *buf, size_t buflen, ps_files *data, con
 	
 	return buf;
 }
+
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif 
 
 static void _ps_files_open(ps_files *data, const char *key)
 {
@@ -131,16 +129,16 @@ static void _ps_files_open(ps_files *data, const char *key)
 		data->lastkey = estrdup(key);
 		
 #ifdef O_EXCL
-		data->fd = V_OPEN((buf, O_RDWR));
+		data->fd = V_OPEN((buf, O_RDWR | O_BINARY));
 		if (data->fd == -1) {
 			if (errno == ENOENT) {
-				data->fd = V_OPEN((buf, O_EXCL | O_RDWR | O_CREAT, 0600));
+				data->fd = V_OPEN((buf, O_EXCL | O_RDWR | O_CREAT | O_BINARY, 0600));
 			}
 		} else {
 			flock(data->fd, LOCK_EX);
 		}
 #else
-		data->fd = V_OPEN((buf, O_CREAT | O_RDWR, 0600));
+		data->fd = V_OPEN((buf, O_CREAT | O_RDWR | O_BINARY, 0600));
 		if (data->fd != -1)
 			flock(data->fd, LOCK_EX);
 #endif
@@ -171,7 +169,7 @@ static int _ps_files_cleanup_dir(const char *dirname, int maxlifetime)
 		/* does the file start with our prefix? */
 		if (!strncmp(entry->d_name, FILE_PREFIX, sizeof(FILE_PREFIX) - 1) &&
 				/* create full path */
-				snprintf(buf, MAXPATHLEN, "%s%c%s", dirname, DIR_DELIMITER,
+				snprintf(buf, MAXPATHLEN, "%s%c%s", dirname, PHP_DIR_SEPARATOR,
 					entry->d_name) > 0 &&
 				/* stat the directory entry */
 				V_STAT(buf, &sbuf) == 0 &&
@@ -275,7 +273,9 @@ PS_DESTROY_FUNC(files)
 	if (!_ps_files_path_create(buf, sizeof(buf), data, key))
 		return FAILURE;
 	
-	V_UNLINK(buf);
+	if (V_UNLINK(buf) == -1) {
+		return FAILURE;
+	}
 
 	return SUCCESS;
 }

@@ -13,13 +13,14 @@
    | license@zend.com so we can mail you a copy immediately.              |
    +----------------------------------------------------------------------+
    | Authors: Andi Gutmans <andi@zend.com>                                |
-   |          Zeev Suraski <zeev@zend.com>                                |
+   |          Z
+   eev Suraski <zeev@zend.com>                                |
    +----------------------------------------------------------------------+
 */
 
 
-#ifndef _ZEND_CONFIG_W32_H
-#define _ZEND_CONFIG_W32_H
+#ifndef ZEND_CONFIG_W32_H
+#define ZEND_CONFIG_W32_H
 
 
 #include <string.h>
@@ -47,6 +48,7 @@ typedef unsigned int uint;
 #define HAVE_VSNPRINTF	1
 
 #define vsnprintf _vsnprintf
+#define zend_isinf(a)	0
 
 #ifdef inline
 #undef inline
@@ -64,6 +66,7 @@ typedef unsigned int uint;
 #endif
 
 #define zend_finite(A) _finite(A)
+#define zend_isnan(A) _isnan(A)
 
 #ifdef LIBZEND_EXPORTS
 #	define ZEND_API __declspec(dllexport)
@@ -73,4 +76,15 @@ typedef unsigned int uint;
 
 #define ZEND_DLEXPORT		__declspec(dllexport)
 
-#endif /* _ZEND_CONFIG_W32_H */
+/* 0x00200000L is MB_SERVICE_NOTIFICATION, which is only supported under Windows NT 
+ * (and requires _WIN32_WINNT to be defined, which prevents the resulting executable
+ * from running under Windows 9x
+ * Windows 9x should silently ignore it, so it's being used here directly
+ */
+#ifndef MB_SERVICE_NOTIFICATION
+#define	MB_SERVICE_NOTIFICATION		0x00200000L
+#endif
+
+#define ZEND_SERVICE_MB_STYLE		(MB_TOPMOST|MB_SERVICE_NOTIFICATION)
+
+#endif /* ZEND_CONFIG_W32_H */

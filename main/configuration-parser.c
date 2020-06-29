@@ -1,5 +1,5 @@
 
-/*  A Bison parser, made from /home/php/php4/php-4.0.1/main/configuration-parser.y
+/*  A Bison parser, made from /home/php/php4/php-4.0.2/main/configuration-parser.y
     by GNU Bison version 1.28  */
 
 #define YYBISON 1  /* Identify Bison output.  */
@@ -22,7 +22,7 @@
 #define	T_ZEND_EXTENSION_DEBUG	265
 #define	T_ZEND_EXTENSION_DEBUG_TS	266
 
-#line 1 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 1 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 
 /*
    +----------------------------------------------------------------------+
@@ -44,7 +44,7 @@
 
 
 
-/* $Id: configuration-parser.y,v 1.49 2000/06/26 18:15:49 zeev Exp $ */
+/* $Id: configuration-parser.y,v 1.53 2000/07/25 18:50:50 stas Exp $ */
 
 #define DEBUG_CFG_PARSER 0
 #include "php.h"
@@ -152,7 +152,7 @@ static void yyerror(char *str)
 	
 	sprintf(error_buf, "Error parsing %s on line %d\n", currently_parsed_filename, cfglineno);
 #ifdef PHP_WIN32
-	MessageBox(NULL, error_buf, "PHP Error", MB_OK);
+	MessageBox(NULL, error_buf, "PHP Error", MB_OK|MB_TOPMOST|0x00200000L);
 #else
 	fprintf(stderr, "PHP:  %s", error_buf);
 #endif
@@ -349,13 +349,14 @@ static void convert_browscap_pattern(zval *pattern)
 	char *t;
 
 	for (i=0; i<pattern->value.str.len; i++) {
-		if (pattern->value.str.val[i]=='*' || pattern->value.str.val[i]=='?') {
+		if (pattern->value.str.val[i]=='*' || pattern->value.str.val[i]=='?' || pattern->value.str.val[i]=='.') {
 			break;
 		}
 	}
 
 	if (i==pattern->value.str.len) { /* no wildcards */
 		pattern->value.str.val = zend_strndup(pattern->value.str.val, pattern->value.str.len);
+		return;
 	}
 
 	t = (char *) malloc(pattern->value.str.len*2);
@@ -514,9 +515,9 @@ static const short yyrhs[] = {    22,
 
 #if YYDEBUG != 0
 static const short yyrline[] = { 0,
-   439,   441,   444,   484,   485,   495,   503,   511,   519,   527,
-   551,   555,   557,   560,   562,   563,   564,   565,   566,   569,
-   571,   572,   573,   574,   575,   578
+   440,   442,   445,   489,   490,   500,   508,   516,   524,   532,
+   556,   560,   562,   565,   567,   568,   569,   570,   571,   574,
+   576,   577,   578,   579,   580,   583
 };
 #endif
 
@@ -1132,7 +1133,7 @@ yyreduce:
   switch (yyn) {
 
 case 3:
-#line 445 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 446 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 {
 #if DEBUG_CFG_PARSER
 			printf("'%s' = '%s'\n",yyvsp[-2].value.str.val,yyvsp[0].value.str.val);
@@ -1148,14 +1149,18 @@ case 3:
 				case PARSING_MODE_BROWSCAP:
 					if (current_section) {
 						zval *new_property;
+						char *new_key;
 
 						new_property = (zval *) malloc(sizeof(zval));
 						INIT_PZVAL(new_property);
 						new_property->value.str.val = yyvsp[0].value.str.val;
 						new_property->value.str.len = yyvsp[0].value.str.len;
 						new_property->type = IS_STRING;
-						zend_str_tolower(new_property->value.str.val, new_property->value.str.len);
-						zend_hash_update(current_section->value.obj.properties, yyvsp[-2].value.str.val, yyvsp[-2].value.str.len+1, &new_property, sizeof(zval *), NULL);
+						
+						new_key = zend_strndup(yyvsp[-2].value.str.val, yyvsp[-2].value.str.len);
+						zend_str_tolower(new_key,yyvsp[-2].value.str.len);
+						zend_hash_update(current_section->value.obj.properties, new_key, yyvsp[-2].value.str.len+1, &new_property, sizeof(zval *), NULL);
+						free(new_key);
 					}
 					break;
 				case PARSING_MODE_STANDALONE: {
@@ -1174,11 +1179,11 @@ case 3:
 		;
     break;}
 case 4:
-#line 484 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 489 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { free(yyvsp[0].value.str.val); ;
     break;}
 case 5:
-#line 485 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 490 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 {
 			if (parsing_mode==PARSING_MODE_CFG) {
 				zval dummy;
@@ -1191,7 +1196,7 @@ case 5:
 		;
     break;}
 case 6:
-#line 495 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 500 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 {
 			if (parsing_mode==PARSING_MODE_CFG) {
 #if !defined(ZTS) && !ZEND_DEBUG
@@ -1202,7 +1207,7 @@ case 6:
 		;
     break;}
 case 7:
-#line 503 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 508 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { 
 			if (parsing_mode==PARSING_MODE_CFG) {
 #if defined(ZTS) && !ZEND_DEBUG
@@ -1213,7 +1218,7 @@ case 7:
 		;
     break;}
 case 8:
-#line 511 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 516 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { 
 			if (parsing_mode==PARSING_MODE_CFG) {
 #if !defined(ZTS) && ZEND_DEBUG
@@ -1224,7 +1229,7 @@ case 8:
 		;
     break;}
 case 9:
-#line 519 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 524 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { 
 			if (parsing_mode==PARSING_MODE_CFG) {
 #if defined(ZTS) && ZEND_DEBUG
@@ -1235,7 +1240,7 @@ case 9:
 		;
     break;}
 case 10:
-#line 527 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 532 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { 
 			if (parsing_mode==PARSING_MODE_BROWSCAP) {
 				zval *processed;
@@ -1262,63 +1267,63 @@ case 10:
 		;
     break;}
 case 12:
-#line 556 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 561 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { yyval = yyvsp[0]; ;
     break;}
 case 13:
-#line 557 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 562 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { yyval = yyvsp[0]; ;
     break;}
 case 14:
-#line 561 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 566 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { yyval = yyvsp[0]; ;
     break;}
 case 15:
-#line 562 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 567 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { yyval = yyvsp[0]; ;
     break;}
 case 16:
-#line 563 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 568 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { yyval = yyvsp[0]; ;
     break;}
 case 17:
-#line 564 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 569 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { yyval = yyvsp[0]; ;
     break;}
 case 18:
-#line 565 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 570 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { yyval.value.str.val = strdup(""); yyval.value.str.len=0; yyval.type = IS_STRING; ;
     break;}
 case 19:
-#line 566 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 571 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { yyval.value.str.val = strdup(""); yyval.value.str.len=0; yyval.type = IS_STRING; ;
     break;}
 case 20:
-#line 570 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 575 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { yyval = yyvsp[0]; ;
     break;}
 case 21:
-#line 571 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 576 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { do_cfg_op('|', &yyval, &yyvsp[-2], &yyvsp[0]); ;
     break;}
 case 22:
-#line 572 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 577 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { do_cfg_op('&', &yyval, &yyvsp[-2], &yyvsp[0]); ;
     break;}
 case 23:
-#line 573 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 578 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { do_cfg_op('~', &yyval, &yyvsp[0], NULL); ;
     break;}
 case 24:
-#line 574 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 579 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { do_cfg_op('!', &yyval, &yyvsp[0], NULL); ;
     break;}
 case 25:
-#line 575 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 580 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { yyval = yyvsp[-1]; ;
     break;}
 case 26:
-#line 579 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 584 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { do_cfg_get_constant(&yyval, &yyvsp[0]); ;
     break;}
 }
@@ -1543,4 +1548,4 @@ yyerrhandle:
     }
   return 1;
 }
-#line 587 "/home/php/php4/php-4.0.1/main/configuration-parser.y"
+#line 592 "/home/php/php4/php-4.0.2/main/configuration-parser.y"

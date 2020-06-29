@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: string.c,v 1.132 2000/06/18 10:37:01 thies Exp $ */
+/* $Id: string.c,v 1.146 2000/08/18 13:43:22 sterling Exp $ */
 
 /* Synced with php 3.0 revision 1.193 1999-06-16 [ssb] */
 
@@ -35,6 +35,17 @@
 #include "zend_execute.h"
 #include "php_globals.h"
 #include "basic_functions.h"
+
+#define STR_PAD_LEFT	0
+#define STR_PAD_RIGHT	1
+#define STR_PAD_BOTH	2
+
+void register_string_constants(INIT_FUNC_ARGS)
+{
+	REGISTER_LONG_CONSTANT("STR_PAD_LEFT", STR_PAD_LEFT, CONST_PERSISTENT|CONST_CS);
+	REGISTER_LONG_CONSTANT("STR_PAD_RIGHT", STR_PAD_RIGHT, CONST_PERSISTENT|CONST_CS);
+	REGISTER_LONG_CONSTANT("STR_PAD_BOTH", STR_PAD_BOTH, CONST_PERSISTENT|CONST_CS);
+}
 
 int php_tag_find(char *tag, int len, char *set);
 
@@ -215,6 +226,144 @@ PHP_FUNCTION(ltrim)
 }
 /* }}} */
 
+
+/* {{{ proto string wordwrap(string str [, int width [, string break]])
+   Wrap buffer to selected number of characters using string break char */
+PHP_FUNCTION(wordwrap)
+{
+	pval **ptext, **plinelength, **pbreakchar;
+	long i=0, l=0, pgr=0, linelength=0, last=0, breakcharlen;
+	char *text, *breakchar, *newtext;
+
+	if (ZEND_NUM_ARGS() < 1 || ZEND_NUM_ARGS() > 3 || zend_get_parameters_ex(ZEND_NUM_ARGS(), &ptext, &plinelength, &pbreakchar) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	convert_to_string_ex(ptext);
+	text = (*ptext)->value.str.val;
+
+	if (ZEND_NUM_ARGS() > 1) {
+		convert_to_long_ex(plinelength);
+		linelength = (*plinelength)->value.lval;
+	}
+	else {
+		linelength = 75;
+	}
+
+	if (ZEND_NUM_ARGS() > 2) {
+		convert_to_string_ex(pbreakchar);
+		breakchar = (*pbreakchar)->value.str.val;
+		breakcharlen = (*pbreakchar)->value.str.len;
+	}
+	else {
+		breakchar = "\n";
+		breakcharlen = 1;
+	}
+
+	/* Special case for a single-character break as it needs no
+	   additional storage space */
+
+	if (breakcharlen == 1) {
+
+		while (text[i] != '\0') {
+			/* prescan line to see if it is greater than linelength */
+			l = 0;
+			while (text[i+l] != breakchar[0]) {
+				if (text[i+l] == '\0') {
+					l --;
+					break;
+				}
+				l++;
+			}
+			if (l > linelength) {
+				pgr = l;
+				l = linelength;
+				/* needs breaking; work backwards to find previous word */
+				while (l >= 0) {
+					if (text[i+l] == ' ') {
+						text[i+l] = breakchar[0];
+						break;
+					}
+					l --;
+				}
+				if (l == -1) {
+					/* couldn't break is backwards, try looking forwards */
+					l = linelength;
+					while (l <= pgr) {
+						if(text[i+l] == ' ') {
+							text[i+l] = breakchar[0];
+							break;
+						}
+						l ++;
+					}
+				}
+			}
+			i += l+1;
+		}
+		RETVAL_STRINGL(text, strlen(text), 1);
+	}
+	else {
+		/* Multiple character line break */
+
+		newtext = emalloc((*ptext)->value.str.len * (breakcharlen+1));
+		newtext[0] = '\0';
+
+		i = 0;
+		while (text[i] != '\0') {
+			/* prescan line to see if it is greater than linelength */
+			l = 0;
+			while (text[i+l] != '\0') {
+				if (text[i+l] == breakchar[0]) {
+					if (breakcharlen == 1 || strncmp(text+i+l, breakchar, breakcharlen)==0)
+						break;
+				}
+				l ++;
+			}
+			if (l > linelength) {
+				pgr = l;
+				l = linelength;
+
+				/* needs breaking; work backwards to find previous word */
+				while (l >= 0) {
+					if (text[i+l] == ' ') {
+						strncat(newtext, text+last, i+l-last);
+						strcat(newtext, breakchar);
+						last = i + l + 1;
+						break;
+					}
+					l --;
+				}
+				if (l == -1) {
+					/* couldn't break it backwards, try looking forwards */
+					l = linelength;
+					while (l <= pgr) {
+						if (text[i+l] == ' ') {
+							strncat(newtext, text+last, i+l-last);
+							strcat(newtext, breakchar);
+							last = i + l + 1;
+							break;
+						}
+						l ++;
+					}
+				}
+				i += l+1;
+			}
+			else {
+				i += (l ? l : 1);
+			}
+		}
+
+		if (i+l > last) {
+			strcat(newtext, text+last);
+		}
+
+		RETVAL_STRINGL(newtext, strlen(newtext), 1);
+		efree(newtext);
+	}
+}
+/* }}} */
+
+
 PHPAPI void php_explode(zval *delim, zval *str, zval *return_value, int limit) 
 {
 	char *p1, *p2, *endp;
@@ -335,9 +484,10 @@ PHP_FUNCTION(implode)
 		WRONG_PARAM_COUNT;
 	}
 
-	if ((*arg1)->type == IS_ARRAY && (*arg2)->type == IS_STRING) {
+	if ((*arg1)->type == IS_ARRAY) {
 		SEPARATE_ZVAL(arg1);
 		arr = *arg1;
+		convert_to_string_ex(arg2);
 		delim = *arg2;
 	} else if ((*arg2)->type == IS_ARRAY) {
 		SEPARATE_ZVAL(arg2)
@@ -541,6 +691,8 @@ PHPAPI void php_dirname(char *str, int len) {
 #endif
 		)
 		*c='\0';
+	else
+		*str='\0';
 }
 
 /* {{{ proto string dirname(string path)
@@ -556,7 +708,11 @@ PHP_FUNCTION(dirname)
 	convert_to_string_ex(str);
 	ret = estrdup((*str)->value.str.val);
 	php_dirname(ret,(*str)->value.str.len);
-	RETVAL_STRING(ret,1);
+	if(*ret) {
+		RETVAL_STRING(ret,1);
+	} else { 
+		RETVAL_FALSE;
+	}
 	efree(ret);
 }
 /* }}} */
@@ -762,7 +918,7 @@ PHP_FUNCTION(strpos)
 /* }}} */
 
 /* {{{ proto int strrpos(string haystack, string needle)
-   Find the last occurrence of a character in a string within another */
+   Find position of last occurrence of a character in a string within another */
 PHP_FUNCTION(strrpos)
 {
 	zval **haystack, **needle;
@@ -885,11 +1041,15 @@ PHP_FUNCTION(chunk_split)
 			convert_to_string_ex(p_str);
 	}
 			
-	if(chunklen == 0) {
-		php_error(E_WARNING, "chunk length is 0");
+	if(chunklen <= 0) {
+		php_error(E_WARNING, "Chunk length should be greater than zero");
 		RETURN_FALSE;
 	}
-	
+
+	if((*p_str)->value.str.len == 0) {
+		RETURN_EMPTY_STRING();
+	}
+
 	result = php_chunk_split((*p_str)->value.str.val, (*p_str)->value.str.len,
 						     end, endlen, chunklen, &result_len);
 	
@@ -1479,7 +1639,7 @@ PHPAPI void php_stripslashes(char *str, int *len)
 }
 
 /* {{{ proto string addcslashes(string str, string charlist)
-   Escape all chars mentioned in charlist with backslash. It creates octal representations if asked to backslash characters with 8th bit set or with ASCII<32 (except '\n', '\r', '\t' etc...). */
+   Escape all chars mentioned in charlist with backslash. It creates octal representations if asked to backslash characters with 8th bit set or with ASCII<32 (except '\n', '\r', '\t' etc...) */
 PHP_FUNCTION(addcslashes)
 {
 	zval **str, **what;
@@ -1606,7 +1766,10 @@ PHPAPI void php_stripcslashes(char *str, int *len)
 			*target++=*source;
 		}
 	}
-	*target='\0';
+
+	if(nlen != 0) {
+		*target='\0';
+	}
 
 	*len = nlen;
 }
@@ -1686,7 +1849,8 @@ PHPAPI char *php_addslashes(char *str, int length, int *new_length, int should_f
 		return str;
 	}
 	new_str = (char *) emalloc((length?length:(length=strlen(str)))*2+1);
-	for (source=str,end=source+length,target=new_str; (c = *source) || source<end; source++) {
+	for (source=str,end=source+length,target=new_str; source<end; source++) {
+		c = *source;
 		switch(c) {
 			case '\0':
 				*target++ = '\\';
@@ -2163,7 +2327,7 @@ PHP_FUNCTION(setlocale)
 /* }}} */
 
 /* {{{ proto void parse_str(string encoded_string)
-   Parses GET/POST/COOKIE data and sets global variables. */
+   Parses GET/POST/COOKIE data and sets global variables */
 PHP_FUNCTION(parse_str)
 {
 	zval **arg;
@@ -2325,6 +2489,7 @@ PHPAPI void php_strip_tags(char *rbuf, int len, int state, char *allow, int allo
 				} else if (state == 2) {
 					if (!br && lc != '\"' && *(p-1)=='?') {
 						state = 0;
+						tp = tbuf;
 					}
 				}
 				break;
@@ -2527,7 +2692,7 @@ PHP_FUNCTION(strnatcasecmp)
 
 
 /* {{{ proto int substr_count(string haystack, string needle)
-   Returns the number of times a substring occurs in the string. */
+   Returns the number of times a substring occurs in the string */
 PHP_FUNCTION(substr_count)
 {
 	zval **haystack, **needle;	
@@ -2571,22 +2736,28 @@ PHP_FUNCTION(substr_count)
 /* }}} */	
 
 
-/* {{{ proto string str_pad(string input, int pad_length [, string pad_string])
+/* {{{ proto string str_pad(string input, int pad_length [, string pad_string [, int pad_type]])
    Returns input string padded on the left or right to specified length with pad_string */
 PHP_FUNCTION(str_pad)
 {
+	/* Input arguments */
 	zval **input,				/* Input string */
-		 **pad_length,			/* Length to pad to (positive/negative) */
-		 **pad_string;			/* Padding string */
-	int	   pad_length_abs;		/* Absolute padding length */
+		 **pad_length,			/* Length to pad to */
+		 **pad_string,			/* Padding string */
+		 **pad_type;			/* Padding type (left/right/both) */
+	
+	/* Helper variables */
+	int	   num_pad_chars;		/* Number of padding characters (total - input size) */
 	char  *result = NULL;		/* Resulting string */
 	int	   result_len = 0;		/* Length of the resulting string */
 	char  *pad_str_val = " ";	/* Pointer to padding string */
 	int    pad_str_len = 1;		/* Length of the padding string */
-	int	   i;
+	int	   pad_type_val = STR_PAD_RIGHT; /* The padding type value */
+	int	   i, left_pad=0, right_pad=0;
 
-	if (ZEND_NUM_ARGS() < 2 || ZEND_NUM_ARGS() > 3 ||
-		zend_get_parameters_ex(ZEND_NUM_ARGS(), &input, &pad_length, &pad_string) == FAILURE) {
+
+	if (ZEND_NUM_ARGS() < 2 || ZEND_NUM_ARGS() > 4 ||
+		zend_get_parameters_ex(ZEND_NUM_ARGS(), &input, &pad_length, &pad_string, &pad_type) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -2594,11 +2765,11 @@ PHP_FUNCTION(str_pad)
 	convert_to_string_ex(input);
 	convert_to_long_ex(pad_length);
 
-	pad_length_abs = abs(Z_LVAL_PP(pad_length));
+	num_pad_chars = Z_LVAL_PP(pad_length) - Z_STRLEN_PP(input);
 
 	/* If resulting string turns out to be shorter than input string,
 	   we simply copy the input and return. */
-	if (pad_length_abs <= Z_STRLEN_PP(input)) {
+	if (num_pad_chars < 0) {
 		*return_value = **input;
 		zval_copy_ctor(return_value);
 		return;
@@ -2614,26 +2785,49 @@ PHP_FUNCTION(str_pad)
 		}
 		pad_str_val = Z_STRVAL_PP(pad_string);
 		pad_str_len = Z_STRLEN_PP(pad_string);
+
+		if (ZEND_NUM_ARGS() > 3) {
+			convert_to_long_ex(pad_type);
+			pad_type_val = Z_LVAL_PP(pad_type);
+			if (pad_type_val < STR_PAD_LEFT || pad_type_val > STR_PAD_BOTH) {
+				php_error(E_WARNING, "Padding type has to be STR_PAD_LEFT, STR_PAD_RIGHT, or STR_PAD_BOTH in %s()", get_active_function_name());
+				return;
+			}
+		}
 	}
 
-	result = (char *)emalloc(pad_length_abs+1);
+	result = (char *)emalloc(Z_STRLEN_PP(input) + num_pad_chars + 1);
 
-	/* If positive, we pad on the right and copy the input now. */
-	if (Z_LVAL_PP(pad_length) > 0) {
-		memcpy(result, Z_STRVAL_PP(input), Z_STRLEN_PP(input));
-		result_len = Z_STRLEN_PP(input);
+	/* We need to figure out the left/right padding lengths. */
+	switch (pad_type_val) {
+		case STR_PAD_RIGHT:
+			left_pad = 0;
+			right_pad = num_pad_chars;
+			break;
+
+		case STR_PAD_LEFT:
+			left_pad = num_pad_chars;
+			right_pad = 0;
+			break;
+
+		case STR_PAD_BOTH:
+			left_pad = num_pad_chars / 2;
+			right_pad = num_pad_chars - left_pad;
+			break;
 	}
 
-	/* Loop through pad string, copying it into result. */
-	for (i = 0; i < pad_length_abs - Z_STRLEN_PP(input); i++) {
+	/* First we pad on the left. */
+	for (i = 0; i < left_pad; i++)
 		result[result_len++] = pad_str_val[i % pad_str_len];
-	}
 
-	/* If negative, we've padded on the left, and copy the input now. */
-	if (Z_LVAL_PP(pad_length) < 0) {
-		memcpy(result + result_len, Z_STRVAL_PP(input), Z_STRLEN_PP(input));
-		result_len += Z_STRLEN_PP(input);
-	}
+	/* Then we copy the input string. */
+	memcpy(result + result_len, Z_STRVAL_PP(input), Z_STRLEN_PP(input));
+	result_len += Z_STRLEN_PP(input);
+
+	/* Finally, we pad on the right. */
+	for (i = 0; i < right_pad; i++)
+		result[result_len++] = pad_str_val[i % pad_str_len];
+
 	result[result_len] = '\0';
 
 	RETURN_STRINGL(result, result_len, 0);
@@ -2641,8 +2835,8 @@ PHP_FUNCTION(str_pad)
 /* }}} */
 
    
-/* {{{ proto  mixed sscanf(string str,string format, ...)
-    implements an ANSI compatible sscanf. */
+/* {{{ proto mixed sscanf(string str, string format [, string ...])
+   Implements an ANSI C compatible sscanf */
 PHP_FUNCTION(sscanf)
 {
     zval **format;

@@ -478,6 +478,13 @@ nsapi_request_ctor(NSLS_D SLS_DC)
 	SG(request_info).path_translated = nsapi_strdup(path_translated);
 	SG(request_info).content_type = nsapi_strdup(content_type);
 	SG(request_info).content_length = (content_length == NULL) ? 0 : strtoul(content_length, 0, 0);
+	SG(sapi_headers).http_response_code = 200;
+	if (!strcmp(request_method, "HEAD")) {
+		SG(request_info).headers_only = 1;
+	} else {
+		SG(request_info).headers_only = 0;
+	}
+
 }
 
 static void
@@ -507,6 +514,7 @@ nsapi_module_main(NSLS_D SLS_DC)
 	file_handle.type = ZEND_HANDLE_FILENAME;
 	file_handle.filename = SG(request_info).path_translated;
 	file_handle.free_filename = 0;
+	file_handle.opened_path = NULL;
 
 #if defined(NSAPI_DEBUG)
 	log_error(LOG_INFORM, "nsapi_module_main", NSG(sn), NSG(rq),

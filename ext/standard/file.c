@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: file.c,v 1.96 2000/06/27 09:55:52 thies Exp $ */
+/* $Id: file.c,v 1.108 2000/08/21 19:24:44 torben Exp $ */
 
 /* Synced with php 3.0 revision 1.218 1999-06-16 [ssb] */
 
@@ -27,6 +27,7 @@
 #include "php_globals.h"
 #include "ext/standard/flock_compat.h"
 #include "ext/standard/exec.h"
+#include "ext/standard/php_filestat.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,6 +44,9 @@
 #else
 #include <sys/param.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <arpa/inet.h>
 #endif
 #include "ext/standard/head.h"
 #include "safe_mode.h"
@@ -58,13 +62,6 @@
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
 #endif
-#ifdef PHP_WIN32
-#include <winsock.h>
-#else
-#include <netinet/in.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#endif
 #include "fsock.h"
 #include "fopen-wrappers.h"
 #include "php_globals.h"
@@ -74,7 +71,7 @@
 #endif
 
 #if MISSING_FCLOSE_DECL
-extern int fclose();
+extern int fclose(FILE *);
 #endif
 
 #ifdef HAVE_SYS_MMAN_H
@@ -85,7 +82,6 @@ extern int fclose();
 #define MAP_FAILED ((void *) -1)
 #endif
 
-#include "php_realpath.h"
 #include "scanf.h"
 #include "zend_API.h"
 
@@ -826,7 +822,7 @@ PHPAPI int php_set_sock_blocking(int socketd, int block)
       
 #ifdef PHP_WIN32
       /* with ioctlsocket, a non-zero sets nonblocking, a zero sets blocking */
-	  flags = block;
+	  flags = !block;
 	  if (ioctlsocket(socketd,FIONBIO,&flags)==SOCKET_ERROR){
 		  php_error(E_WARNING,"%s",WSAGetLastError());
 		  ret = FALSE;
@@ -973,6 +969,10 @@ PHP_FUNCTION(fgets)
 
 	convert_to_long_ex(arg2);
 	len = (*arg2)->value.lval;
+    if (len < 0) {
+		php_error(E_WARNING, "length parameter to fgets() may not be negative");
+		RETURN_FALSE;
+    }
 
 	if (type == le_socket) {
 		issock=1;
@@ -990,6 +990,10 @@ PHP_FUNCTION(fgets)
 		} else {
 			return_value->value.str.val = buf;
 			return_value->value.str.len = strlen(return_value->value.str.val);
+			/* resize buffer if it's much larger than the result */
+			if(return_value->value.str.len < len/2) {
+				return_value->value.str.val = erealloc(buf,return_value->value.str.len+1);
+			}
 		}
 		return_value->type = IS_STRING;
 	}
@@ -1019,8 +1023,8 @@ PHP_FUNCTION(fgetc) {
 		socketd=*(int*)what;
 	}
 
-	buf = emalloc(sizeof(char) * 2);
-	if (!(*buf = FP_FGETC(socketd, (FILE*)what, issock))) {
+	buf = emalloc(sizeof(int));
+	if ((*buf = FP_FGETC(socketd, (FILE*)what, issock)) == EOF) {
 		efree(buf);
 		RETVAL_FALSE;
 	} else {
@@ -1078,6 +1082,10 @@ PHP_FUNCTION(fgetss)
 
 	convert_to_long_ex(bytes);
 	len = (*bytes)->value.lval;
+    if (len < 0) {
+		php_error(E_WARNING, "length parameter to fgetss() may not be negative");
+		RETURN_FALSE;
+    }
 
 	buf = emalloc(sizeof(char) * (len + 1));
 	/*needed because recv doesnt set null char at end*/
@@ -1320,6 +1328,7 @@ PHP_FUNCTION(ftell)
 {
 	pval **arg1;
 	void *what;
+	long ret;
 	
 	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &arg1) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -1327,8 +1336,13 @@ PHP_FUNCTION(ftell)
 	
 	what = zend_fetch_resource(arg1,-1,"File-Handle",NULL,2,le_fopen,le_popen);
 	ZEND_VERIFY_RESOURCE(what);
+
+	ret = ftell((FILE*) what);
+	if(ret == -1) {
+		RETURN_FALSE;
+	} 
 	
-	RETURN_LONG(ftell((FILE*) what));
+	RETURN_LONG(ret);
 }
 
 /* }}} */
@@ -1571,11 +1585,10 @@ PHP_FUNCTION(fpassthru)
 	zend_list_delete((*arg1)->value.lval);
 	RETURN_LONG(size);
 }
-
 /* }}} */
+
 /* {{{ proto int rename(string old_name, string new_name)
    Rename a file */
-
 PHP_FUNCTION(rename)
 {
 	pval **old_arg, **new_arg;
@@ -1605,8 +1618,38 @@ PHP_FUNCTION(rename)
 
 	RETVAL_TRUE;
 }
-
 /* }}} */
+
+
+/* {{{ proto int unlink(string filename)
+   Delete a file */
+PHP_FUNCTION(unlink)
+{
+	pval **filename;
+	int ret;
+	PLS_FETCH();
+	
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &filename) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+	convert_to_string_ex(filename);
+
+	if (PG(safe_mode) && !php_checkuid((*filename)->value.str.val, NULL, 2)) {
+		RETURN_FALSE;
+	}
+
+	ret = V_UNLINK((*filename)->value.str.val);
+	if (ret == -1) {
+		php_error(E_WARNING, "Unlink failed (%s)", strerror(errno));
+		RETURN_FALSE;
+	}
+	/* Clear stat cache */
+	PHP_FN(clearstatcache)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
+	RETURN_TRUE;
+}
+/* }}} */
+
+
 /* {{{ proto int ftruncate (int fp, int size)
    Truncate file to 'size' length */
 PHP_FUNCTION(ftruncate)
@@ -1763,6 +1806,10 @@ PHP_FUNCTION(fread)
 
 	convert_to_long_ex(arg2);
 	len = (*arg2)->value.lval;
+    if (len < 0) {
+		php_error(E_WARNING, "length parameter to fread() may not be negative");
+		RETURN_FALSE;
+    }
 
 	return_value->value.str.val = emalloc(sizeof(char) * (len + 1));
 	/* needed because recv doesnt put a null at the end*/
@@ -1832,6 +1879,10 @@ PHP_FUNCTION(fgetcsv) {
 
 	convert_to_long_ex(bytes);
 	len = (*bytes)->value.lval;
+    if (len < 0) {
+		php_error(E_WARNING, "length parameter to fgetcsv() may not be negative");
+		RETURN_FALSE;
+    }
 
 	buf = emalloc(sizeof(char) * (len + 1));
 	/*needed because recv doesnt set null char at end*/
@@ -1940,26 +1991,28 @@ PHP_FUNCTION(fgetcsv) {
 
 /* }}} */
 
+#if !PHP_WIN32 || defined(ZTS)
 /* {{{ proto string realpath(string path)
    Return the resolved path */
 PHP_FUNCTION(realpath)
 {
 	zval **path;
-	char resolved_path[MAXPATHLEN];
+	char resolved_path_buff[MAXPATHLEN];
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(ZEND_NUM_ARGS(), &path) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
 	convert_to_string_ex(path);
-	if (php_realpath((*path)->value.str.val, resolved_path)) {
-		RETURN_STRING(resolved_path, 1);
+	
+	if (V_REALPATH((*path)->value.str.val, resolved_path_buff)) {
+		RETURN_STRING(resolved_path_buff, 1);
 	} else {
 		RETURN_FALSE;
 	}
 }
 /* }}} */
-
+#endif
 
 
 #if 0

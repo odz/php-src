@@ -19,7 +19,7 @@
    | Stig Bakken <ssb@fast.no>                                            |
    +----------------------------------------------------------------------+
  */
-/* $Id: sapi_apache.c,v 1.17 2000/06/05 23:21:57 sas Exp $ */
+/* $Id: sapi_apache.c,v 1.20 2000/08/13 18:08:01 stas Exp $ */
 
 #define NO_REGEX_EXTRA_H
 #ifdef WIN32
@@ -59,24 +59,20 @@
 /*#include "mod_php4.h"*/
 
 
-int apache_php_module_main(request_rec *r, int fd, int display_source_mode CLS_DC ELS_DC PLS_DC SLS_DC)
+int apache_php_module_main(request_rec *r, int display_source_mode CLS_DC ELS_DC PLS_DC SLS_DC)
 {
 	zend_file_handle file_handle;
 
 	if (php_request_startup(CLS_C ELS_CC PLS_CC SLS_CC) == FAILURE) {
 		return FAILURE;
 	}
-#ifdef PHP_WIN32
 	/* sending a file handle to another dll is not working
 	// so let zend open it. 
 	*/
 	file_handle.type = ZEND_HANDLE_FILENAME;
 	file_handle.handle.fd = 0;
-#else
-	file_handle.type = ZEND_HANDLE_FD;
-	file_handle.handle.fd = fd;
-#endif
 	file_handle.filename = SG(request_info).path_translated;
+	file_handle.opened_path = NULL;
 	file_handle.free_filename = 0;
 
 	if (display_source_mode) {
@@ -94,7 +90,7 @@ int apache_php_module_main(request_rec *r, int fd, int display_source_mode CLS_D
 	}
 	
 	php_header();			/* Make sure headers have been sent */
-	php_end_ob_buffering(1);
+	php_end_ob_buffers(1);
 	return (OK);
 }
 

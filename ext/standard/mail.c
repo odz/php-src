@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mail.c,v 1.26 2000/06/05 19:47:44 andi Exp $ */
+/* $Id: mail.c,v 1.28 2000/08/03 19:26:19 hholzgra Exp $ */
 
 #include <stdlib.h>
 #include <ctype.h>
@@ -25,6 +25,7 @@
 #include "ext/standard/info.h"
 #if !defined(PHP_WIN32)
 #include "build-defs.h"
+#include <sysexits.h>
 #endif
 #include "php_mail.h"
 #include "php_ini.h"
@@ -37,6 +38,37 @@
 #ifdef COMPILE_DL_STANDARD
 ZEND_GET_MODULE(odbc)
 #endif
+
+/* {{{ proto int ezmlm_hash(string addr)
+   Calculate EZMLM list hash value. */
+PHP_FUNCTION(ezmlm_hash)
+{
+	pval **pstr = NULL;
+	char *str=NULL;
+	unsigned long h = 5381L;
+	int j, l;
+	
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &pstr) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	convert_to_string_ex(pstr);
+	if ((*pstr)->value.str.val) {
+		str = (*pstr)->value.str.val;
+	} else {
+		php_error(E_WARNING, "Must give string parameter to ezmlm_hash()");
+		RETURN_FALSE;
+	}
+	
+	l = strlen(str);
+	for (j=0; j<l; j++) {
+		h = (h + (h<<5)) ^ (unsigned long) (unsigned char) tolower(str[j]);
+	}
+	
+	h = (h%53);
+	
+	RETURN_LONG((int) h);
+}
 
 /* {{{ proto int mail(string to, string subject, string message [, string additional_headers])
    Send an email message */
@@ -120,7 +152,7 @@ int php_mail(char *to, char *subject, char *message, char *headers)
 		}
 		fprintf(sendmail, "\n%s\n", message);
 		ret = pclose(sendmail);
-		if (ret == -1) {
+		if ((ret != EX_OK)&&(ret != EX_TEMPFAIL)) {
 			return 0;
 		} else {
 			return 1;

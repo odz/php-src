@@ -17,12 +17,12 @@
    |          Rasmus Lerdorf <rasmus@php.net>                             |
    |          Andrei Zmievski <andrei@ispi.net>                           |
    +----------------------------------------------------------------------+
- */
+*/
 
-/* $Id: php_array.h,v 1.13 2000/06/10 19:09:56 venaas Exp $ */
+/* $Id: php_array.h,v 1.16 2000/07/24 01:39:49 david Exp $ */
 
-#ifndef _PHP_ARRAY_H
-#define _PHP_ARRAY_H
+#ifndef PHP_ARRAY_H
+#define PHP_ARRAY_H
 
 PHP_MINIT_FUNCTION(array);
 PHP_MSHUTDOWN_FUNCTION(array);
@@ -77,7 +77,7 @@ HashTable* php_splice(HashTable *, int, int, zval ***, int, HashTable **);
 int multisort_compare(const void *a, const void *b);
 
 typedef struct {
-	int *multisort_flags;
+	int *multisort_flags[2];
 	int (*compare_func)(zval *result, zval *op1, zval *op2);
 } php_array_globals;
 
@@ -99,4 +99,4 @@ extern int array_globals_id;
 extern php_array_globals array_globals;
 #endif
 
-#endif /* _PHP_ARRAY_H */
+#endif /* PHP_ARRAY_H */

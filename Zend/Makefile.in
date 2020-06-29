@@ -62,6 +62,7 @@ POST_UNINSTALL = :
 host_alias = @host_alias@
 host_triplet = @host@
 AS = @AS@
+AWK = @AWK@
 CC = @CC@
 CXX = @CXX@
 CXXCPP = @CXXCPP@

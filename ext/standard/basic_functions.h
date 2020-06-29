@@ -1,42 +1,34 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP HTML Embedded Scripting Language Version 3.0                     |
+   | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997,1998 PHP Development Team (See Credits file)      |
+   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
    +----------------------------------------------------------------------+
-   | This program is free software; you can redistribute it and/or modify |
-   | it under the terms of one of the following licenses:                 |
-   |                                                                      |
-   |  A) the GNU General Public License as published by the Free Software |
-   |     Foundation; either version 2 of the License, or (at your option) |
-   |     any later version.                                               |
-   |                                                                      |
-   |  B) the PHP License as published by the PHP Development Team and     |
-   |     included in the distribution in the file: LICENSE                |
-   |                                                                      |
-   | This program is distributed in the hope that it will be useful,      |
-   | but WITHOUT ANY WARRANTY; without even the implied warranty of       |
-   | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the        |
-   | GNU General Public License for more details.                         |
-   |                                                                      |
-   | You should have received a copy of both licenses referred to here.   |
-   | If you did not, or have any questions about PHP licensing, please    |
-   | contact core@php.net.                                                |
+   | This source file is subject to version 2.02 of the PHP license,      |
+   | that is bundled with this package in the file LICENSE, and is        |
+   | available at through the world-wide-web at                           |
+   | http://www.php.net/license/2_02.txt.                                 |
+   | If you did not receive a copy of the PHP license and are unable to   |
+   | obtain it through the world-wide-web, please send a note to          |
+   | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Andi Gutmans <andi@zend.com>                                |
    |          Zeev Suraski <zeev@zend.com>                                |
    +----------------------------------------------------------------------+
- */
+*/
 
+/* $Id: basic_functions.h,v 1.60 2000/08/24 18:49:48 zeev Exp $ */
 
-/* $Id: basic_functions.h,v 1.55 2000/06/23 16:21:31 sas Exp $ */
-
-#ifndef _BASIC_FUNCTIONS_H
-#define _BASIC_FUNCTIONS_H
+#ifndef BASIC_FUNCTIONS_H
+#define BASIC_FUNCTIONS_H
 
 #include <sys/stat.h>
 
 #include "zend_highlight.h"
+
+#ifdef TRANS_SID
+#  include "url_scanner.h"
+#endif
 
 extern zend_module_entry basic_functions_module;
 #define basic_functions_module_ptr &basic_functions_module
@@ -114,7 +106,6 @@ PHP_FUNCTION(get_loaded_extensions);
 PHP_FUNCTION(extension_loaded);
 PHP_FUNCTION(get_extension_funcs);
 
-PHP_FUNCTION(warn_not_available);
 
 /* From the INI parser */
 PHP_FUNCTION(parse_ini_file);
@@ -124,6 +115,8 @@ typedef unsigned int php_stat_len;
 #else
 typedef int php_stat_len;
 #endif
+
+PHPAPI int _php_error_log(int opt_err,char *message,char *opt,char *headers);
 
 #if SIZEOF_INT == 4
 /* Most 32-bit and 64-bit systems have 32-bit ints */
@@ -173,6 +166,11 @@ typedef struct {
 
 	/* var.c */
 	zend_class_entry *incomplete_class;
+
+#ifdef TRANS_SID
+	/* url_scanner.c */
+	url_adapt_state_t url_adapt_state; 
+#endif
 } php_basic_globals;
 
 #ifdef ZTS
@@ -207,4 +205,4 @@ typedef struct {
 #define SAFE_MODE_PROTECTED_ENV_VARS	"LD_LIBRARY_PATH"
 #define SAFE_MODE_ALLOWED_ENV_VARS		"PHP_"
 
-#endif /* _BASIC_FUNCTIONS_H */
+#endif /* BASIC_FUNCTIONS_H */

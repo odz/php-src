@@ -26,6 +26,8 @@
 # include "win32/time.h"
 #endif
 
+#include "php_parsedate.h"
+
 #if HAVE_STDLIB_H
 # include <stdlib.h> /* for `free'; used by Bison 1.27 */
 #endif
@@ -450,7 +452,7 @@ o_merid	: /* NULL */
 
 %%
 
-time_t get_date (const char *p, const time_t *now);
+time_t get_date (char *p, time_t *now);
 
 #ifndef PHP_WIN32
 extern struct tm	*gmtime();
@@ -901,8 +903,7 @@ difftm (struct tm *a, struct tm *b)
 	  + (a->tm_sec - b->tm_sec));
 }
 
-time_t
-parse_date (const char *p, const time_t *now)
+time_t parse_date(char *p, time_t *now)
 {
   struct tm tm, tm0, *tmp;
   time_t Start;

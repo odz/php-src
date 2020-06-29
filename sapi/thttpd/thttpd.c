@@ -21,6 +21,7 @@
 #include "SAPI.h"
 #include "php_main.h"
 #include "php_thttpd.h"
+#include "php_variables.h"
 #include "version.h"
 
 typedef struct {
@@ -101,6 +102,60 @@ static char *sapi_thttpd_read_cookies(SLS_D)
 	return TG(hc)->cookie;
 }
 
+#define BUF_SIZE 512
+#define ADD_STRING(name)										\
+	php_register_variable(name, buf, track_vars_array ELS_CC PLS_CC)
+
+static void sapi_thttpd_register_variables(zval *track_vars_array ELS_DC SLS_DC PLS_DC)
+{
+	char buf[BUF_SIZE + 1];
+	TLS_FETCH();
+
+	php_register_variable("PHP_SELF", SG(request_info).request_uri, track_vars_array ELS_CC PLS_CC);
+	php_register_variable("SERVER_SOFTWARE", SERVER_SOFTWARE, track_vars_array ELS_CC PLS_CC);
+	php_register_variable("GATEWAY_INTERFACE", "CGI/1.1", track_vars_array ELS_CC PLS_CC);
+	php_register_variable("REQUEST_METHOD", SG(request_info).request_method, track_vars_array ELS_CC PLS_CC);
+	php_register_variable("REQUEST_URI", SG(request_info).request_uri, track_vars_array ELS_CC PLS_CC);
+	php_register_variable("PATH_TRANSLATED", SG(request_info).path_translated, track_vars_array ELS_CC PLS_CC);
+
+	buf[BUF_SIZE] = '\0';
+	
+	strncpy(buf, inet_ntoa(TG(hc)->client_addr.sa_in.sin_addr), BUF_SIZE);
+	ADD_STRING("REMOTE_ADDR");
+	ADD_STRING("REMOTE_HOST");
+
+	snprintf(buf, BUF_SIZE, "%d", TG(hc)->hs->port);
+	ADD_STRING("SERVER_PORT");
+
+	snprintf(buf, BUF_SIZE, "/%s", TG(hc)->pathinfo);
+	ADD_STRING("PATH_INFO");
+
+	snprintf(buf, BUF_SIZE, "/%s", TG(hc)->origfilename);
+	ADD_STRING("SCRIPT_NAME");
+
+#define CONDADD(name, field) 							\
+	if (TG(hc)->field[0]) {								\
+		php_register_variable(#name, TG(hc)->field, track_vars_array ELS_CC PLS_C); \
+	}
+
+	CONDADD(HTTP_REFERER, referer);
+	CONDADD(HTTP_USER_AGENT, useragent);
+	CONDADD(HTTP_ACCEPT, accept);
+	CONDADD(HTTP_ACCEPT_ENCODING, accepte);
+	CONDADD(HTTP_COOKIE, cookie);
+	CONDADD(CONTENT_TYPE, contenttype);
+	CONDADD(REMOTE_USER, remoteuser);
+	CONDADD(SERVER_PROTOCOL, protocol);
+
+	if (TG(hc)->contentlength != -1) {
+		sprintf(buf, "%ld", (long) TG(hc)->contentlength);
+		ADD_STRING("CONTENT_LENGTH");
+	}
+
+	if (TG(hc)->authorization[0])
+		php_register_variable("AUTH_TYPE", "Basic", track_vars_array ELS_CC PLS_C);
+}
+
 static sapi_module_struct sapi_module = {
 	"thttpd",
 	"thttpd",
@@ -124,7 +179,7 @@ static sapi_module_struct sapi_module = {
 	sapi_thttpd_read_post,
 	sapi_thttpd_read_cookies,
 
-	NULL,									/* register server variables */
+	sapi_thttpd_register_variables,
 	NULL,									/* Log message */
 
 	NULL,									/* Block interruptions */
@@ -132,76 +187,6 @@ static sapi_module_struct sapi_module = {
 
 	STANDARD_SAPI_MODULE_PROPERTIES
 };
-
-#define BUF_SIZE 512
-#define ADD_STRING(name)										\
-	MAKE_STD_ZVAL(pval);										\
-	pval->type = IS_STRING;										\
-	pval->value.str.len = strlen(buf);							\
-	pval->value.str.val = estrndup(buf, pval->value.str.len);	\
-	zend_hash_update(&EG(symbol_table), name, sizeof(name), 	\
-			&pval, sizeof(zval *), NULL)
-
-static void thttpd_hash_environment(void)
-{
-	char buf[BUF_SIZE + 1];
-	zval *pval;
-
-	buf[BUF_SIZE] = '\0';
-	
-	strncpy(buf, SERVER_SOFTWARE, BUF_SIZE);
-	ADD_STRING("SERVER_SOFTWARE");
-
-	strncpy(buf, "CGI/1.1", BUF_SIZE);
-	ADD_STRING("GATEWAY_INTERFACE");
-
-	snprintf(buf, BUF_SIZE, "%d", TG(hc)->hs->port);
-	ADD_STRING("SERVER_PORT");
-
-	strncpy(buf, SG(request_info).request_method, BUF_SIZE);
-	ADD_STRING("REQUEST_METHOD");
-
-	strncpy(buf, SG(request_info).request_uri, BUF_SIZE);
-	ADD_STRING("REQUEST_URI");
-
-	snprintf(buf, BUF_SIZE, "/%s", TG(hc)->pathinfo);
-	ADD_STRING("PATH_INFO");
-	
-	strncpy(buf, SG(request_info).path_translated, BUF_SIZE);
-	ADD_STRING("PATH_TRANSLATED");
-
-	snprintf(buf, BUF_SIZE, "/%s", TG(hc)->origfilename);
-	ADD_STRING("SCRIPT_NAME");
-
-	strncpy(buf, inet_ntoa(TG(hc)->client_addr.sa_in.sin_addr), BUF_SIZE);
-	ADD_STRING("REMOTE_ADDR");
-	ADD_STRING("REMOTE_HOST");
-
-#define CONDADD(name, field) 							\
-	if (TG(hc)->field[0]) {								\
-		strncpy(buf, TG(hc)->field, BUF_SIZE);			\
-		ADD_STRING(#name);								\
-	}
-
-	CONDADD(HTTP_REFERER, referer);
-	CONDADD(HTTP_USER_AGENT, useragent);
-	CONDADD(HTTP_ACCEPT, accept);
-	CONDADD(HTTP_ACCEPT_ENCODING, accepte);
-	CONDADD(HTTP_COOKIE, cookie);
-	CONDADD(CONTENT_TYPE, contenttype);
-	CONDADD(REMOTE_USER, remoteuser);
-	CONDADD(SERVER_PROTOCOL, protocol);
-
-	if (TG(hc)->contentlength != -1) {
-		sprintf(buf, "%ld", (long) TG(hc)->contentlength);
-		ADD_STRING("CONTENT_LENGTH");
-	}
-
-	if (TG(hc)->authorization[0]) {
-		strcpy(buf, "Basic");
-		ADD_STRING("AUTH_TYPE");
-	}
-}
 
 static void thttpd_module_main(TLS_D SLS_DC)
 {
@@ -211,41 +196,50 @@ static void thttpd_module_main(TLS_D SLS_DC)
 	PLS_FETCH();
 
 	file_handle.type = ZEND_HANDLE_FILENAME;
-	file_handle.filename = TG(hc)->expnfilename;
+	file_handle.filename = SG(request_info).path_translated;
 	file_handle.free_filename = 0;
+	file_handle.opened_path = NULL;
 
 	if (php_request_startup(CLS_C ELS_CC PLS_CC SLS_CC) == FAILURE) {
 		return;
 	}
 	
-	thttpd_hash_environment();
 	php_execute_script(&file_handle CLS_CC ELS_CC PLS_CC);
 	php_request_shutdown(NULL);
 }
 
 static void thttpd_request_ctor(TLS_D SLS_DC)
 {
-	char *cp2;
-	int l;
+	char *cp;
+	size_t cp_len;
 	char buf[1024];
 	int offset;
-	size_t pathinfo_len;
+	size_t filename_len;
 	size_t cwd_len;
-	
-	pathinfo_len = strlen(TG(hc)->pathinfo);
-	cwd_len = strlen(TG(hc)->hs->cwd);
 
 	SG(request_info).query_string = TG(hc)->query;
+
+	filename_len = strlen(TG(hc)->expnfilename);
+	cwd_len = strlen(TG(hc)->hs->cwd);
+
+	cp_len = cwd_len + filename_len;
+	cp = (char *) malloc(cp_len + 1);
+	/* cwd always ends in "/", so this is safe */
+	memcpy(cp, TG(hc)->hs->cwd, cwd_len);
+	memcpy(cp + cwd_len, TG(hc)->expnfilename, filename_len);
+	cp[cp_len] = '\0';
 	
-	l = cwd_len + pathinfo_len + 1;
-	cp2 = (char *) malloc(l);
-	sprintf(cp2, "%s%s", TG(hc)->hs->cwd, TG(hc)->pathinfo);
-	SG(request_info).path_translated = cp2;
+	SG(request_info).path_translated = cp;
 	
 	snprintf(buf, 1023, "/%s", TG(hc)->origfilename);
 	SG(request_info).request_uri = strdup(buf);
 	SG(request_info).request_method = httpd_method_str(TG(hc)->method);
-
+	if (!strcmp(SG(request_info).request_method, "HEAD")) {
+		SG(request_info).headers_only = 1;
+	} else {
+		SG(request_info).headers_only = 0;
+	}
+	SG(sapi_headers).http_response_code = 200;
 	SG(request_info).content_type = TG(hc)->contenttype;
 	SG(request_info).content_length = TG(hc)->contentlength;
 	

@@ -1,6 +1,168 @@
 PHP 4.0                                                                    NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
+29 Aug 2000, Version 4.0.2 
+- PHP 3 regression testing framework re-born (Stig)
+- Added php_uname() function (Stig)
+- Made a minor change to allow building with OpenLDAP 2.0 (Stig Venaas)
+- Fixed a bug in preg_replace() that would truncate subject string if the
+  first argument was en empty array. (Andrei)
+- Added ob_get_length function (Stig)
+- Fixed a bug that did not respect limit parameter in preg_replace() when
+  using /e modifier. (Andrei)
+- Added ability for each xml_set_*_handler() function to take the
+  array($obj, 'method') syntax for the handler argument as well
+  as the normal function name. (Andrei)
+- Updated array_walk() to be able to accept array($obj, 'method')
+  syntax for the walk function. (Andrei)
+- Fixed segfault with fgets(), fgetcsv(), fgetss(), and fread() when
+  called with negative length argument. (Torben)
+- Fix by-reference parameters passing for xml_ functions and for scanf functions (Stas)
+- Added experimental Oracle LDAP SDK support. 8.1.6 or later needed. Configure
+  with something like --with-ldap=/usr/local/oracle/product/8.1.6 (Stig Venaas)
+- Fixed memory leaks in eval();  A script that used eval() extensively, could
+  end up consuming very large amounts of memory during execution (Zeev, Zend
+  Engine)
+- Fixed memory_limit feature, which did not work properly in previous versions
+  (Zeev, Zend Engine)
+- Fixed stdout support with the swf extension. (Sterling)
+- Fixed byte order for ip2long and long2ip (Stas)
+- Fixed dbase_add_record. (Sterling)
+- Added support for libmcrypt 2.4.4 (Derick)
+- Added strncasecmp function (Andi, Zend Engine)
+- Fixed FTP module to accept multiline server replies (Jani)
+- Fixed switch which only has a single default rule. (Andi, Zend Engine)
+- Fixed problem with nested foreach()'s. (Andi, Zend Engine)
+- The CCVS module is now stable and compiling. It compiles as a CGI and into
+  Apache cleanly without warnings. (Brendan W. McAdams)
+- Fixed mSQL_close(). (nick@loman.net)
+- Made return() in a require()'d file work like return() in an include()'d
+  file (Andi & Zeev, Zend Engine)
+- Changed require_once() to work using the same table as include_once()
+  (Andi & Zeev, Zend Engine)
+- Fixed PostgreSQL module to work when the link handle is omitted (Zeev)
+- Fixed the Sybase modules to work properly with PHP 4.0 (Zeev)
+- Fixed CLOB handling in OCI8 driver when using variable-width
+  character sets. (Thies)
+- Added 4th optional parameter to sybase_[p]connect to specify the charset
+  for the connection (alf@alpha.ulatina.ac.cr)
+- Fixed support for current thttpd releases. (Sascha)
+- Added support for kerberized IMAP library using --with-kerberos 
+  (Rasmus, Sascha)
+- Virtualize realpath, chmod, chown and utime (Stas)
+- Support content-encoding headers in file upload MIME parts
+  (Ragnar Kjørstad)
+- Fixed warning when shutting down OCINLogon() connections. (Thies)
+- Fixed \n in session variables bug on Win32 (Stas)
+- OCIError() would sometimes not report failed connections. (Thies)
+- Fixed HEAD request bug on an Apache ErrorDocument redirect and preserve
+  the status code across the redirect as well.  (Rasmus)
+- Added Olympus-specific tags to read_exif_data() (Rasmus)
+- Fixed bug in imap_fetchheader() where using FT_PREFETCHTEXT didn't return
+  the body. Bug #4447. (Jani)
+- Fixed exec() returning "\0" when output is empty
+- Added XML_Parser class in PEAR (Stig)
+- Added "make test" target in pear/ and added some regression tests (Stig)
+- Fixed bug in strip_tags function as per bug #5857 (Rasmus)
+- Fixed reading of IPTC via GetImageInfo() for certain JPEG files. (Thies)
+- Improved the output-buffering functions to be re-entrant (Zeev)
+- Made ldap_add(), ldap_modify(), ldap_mod_add(), ldap_mod_replace()
+  binary-safe. Original patch: Terrence Miao <terrence_miao@email.com> (Jani)
+- CGI aka. command line version has now an option '-l' for syntax check
+  without execution (Hartmut)
+- Fixed bug in ldap_get_values_len() which makes it NULL-safe. (Jani)
+- Bug-report and fix submitted by Michel Alexeline <alexel@dr15.cnrs.fr>
+- Make ext_skel create a Makefile.in set up to handle shared extension
+  support automatically (Rasmus)
+- Fixed php_realpath not to die on non-existing files (needed for touch())
+  (Stas and china@thewrittenword.com)
+- Fixed get_browser() function (Stas)
+- Fixed symbol clash which caused a DSO problem on OpenBSD (Rob Black and
+  anil@recoil.org)
+- Added new function: ldap_compare(). (Jani)
+- Fixed a bug in ldap_get_entries() and ldap_get_attributes(). (Jani)
+- Ported DB to new error reporting scheme in PEAR. (Stig)
+- Added sybase and ibase DB backends in PEAR. (Sterling)
+- New PEAR package Payment_Verisign for use with the Payflow Pro
+  (pfpro) extension. (David Croft)
+- Added CURL support. (Sterling)
+- Catch users trying to set "compatibility" parameter in PDF, which is not
+  supported from user-land. (Joey)
+- Fixed dbase_add_record. (Sterling)
+- Added new function wordwrap() to wordwrap long strings from Chris
+  Russel <russel@yorku.ca> (David Croft)
+- Added four additional arguments: attrsonly, sizelimit, timelimit, deref which
+  were missing in ldap_search(), ldap_list() and ldap_read() functions (Jani)
+- Fixed a bug in ldap_search/list/read() which prevented returning the partial
+  results when 'Sizelimit exceeded' error occurred. (Jani Taskinen)
+- Fixed preg_replace() to automatically escape quotes in matched
+  strings when using /e modifier. (Andrei)
+- Itanium patch (Steve Robb)
+- Set default include_path so PEAR files can be reached (Stig)
+- Added "pear" executable, requires CGI version installed (Stig)
+- Added extension ii for Ingres II native support. See README in ext/ingres_ii
+  directory. (David H)
+- Added Win32 project for the Interbase module (Zeev)
+- Added ability to perform calls to the parent class without explicitly
+  specifying its name, using parent::func_name(...) (Zeev, Zend Engine)
+- You can now call Ora_Error() without prameters to get the reason
+  for a failed connection attempt. (Kirill Maximov)
+- New extension "pfpro" for interface with Verisign Payflow Pro (David Croft)
+- Added IMG_GIF, IMG_JPG, IMG_JPEG, IMG_PNG and IMG_WBMP constants for
+  imagetypes() function (Rasmus)
+- Added ImageTypes() function which returns a bitfield with the supported
+  image formats.  1=gif, 2=jpeg, 4=png and 8=wbmp (Rasmus)
+- Make it possible to specify an empty string as a thousands-seperator
+  in number_format() (Rasmus)
+- Shared module support for LDAP extension (Troels Arvin)
+- Fixed a bug with imap_mail where apache would segfault if the rpath
+  parameter was specified.
+- Use dashes and short day name in cookies since some browsers seem picky
+  about this (Rasmus)
+- Added pspell module. (Vlad)
+- Added 3 additional arguments to the user-defined error handler - the file
+  name and line number in which the error occured, and the context (local
+  variables) of the code in which the error occured (Zeev, Zend Engine)
+- Improved the error handling code to handle an error in a user-defined error
+  handling function (Zeev, Zend Engine)
+- Fixed leak when using string offsets in the array() construct.
+  (Andi, Zend Engine)
+- Fixed corruption problem when changing deeply nested values in objects.
+  (Andi & Zeev, Zend Engine)
+- Improved array_multisort() to be able to specify sort type as well sort
+  order. Incidentally, it can be used to sort multi-dimensional arrays
+  as well. (Andrei)
+- Fixed a possible data corruption in case of a huge amount of aborted requests
+  (Zeev)
+- Apache module would sometimes close a wrong file-descriptor. (Sascha)
+- Fixed use of alternative storage handlers in the session module. (Sascha)
+- Updated str_pad() to be able to pad on left/right/both sides. (Andrei)
+- Fixed crash in gzopen(). (Thies)
+- Multiple character set support in gdttf.c (Rob Goodwin)
+- When using HTTP auth from PHP, fill in the %u custom log field so the
+  authenticated used id will get logged in the Apache access_log (Rasmus)
+- Support for pdflib 3.01. (Uwe)
+- FDF Data is handled properly and can be accessed by reading
+  HTTP_RAW_POST_DATA. (Uwe)
+- Added new 'O' format modifier that will output the GMT offset as "[+-]HHMM"
+  (eg: Pacific time is -0700).  This is useful for things such as Date: mail
+  headers. (Mike W)
+- Fixed crash on OCI?Logon() failure. (Thies)
+- Make the special Header("http/...") response be case insensitive like 3.0
+  (Rasmus)
+- Allow cybercash to compile as a DL module. (Sterling)
+- Fixed the dbase_create function. (Sterling)
+- Fixed a problem under some versions of Windows that could cause PHP to hang
+  on startup if errors occured, e.g. in the php.ini file (Zeev)
+- Fixed opendir() again.  It should actually work well continuously now (Zeev)
+- Added three additional arguments to be sent to a user-defined error handler -
+  the filename and line number in which the error occured, and the context
+  (the local variables) of the error (Zeev, Zend Engine)
+- Improved the error handling code to handle an error in a user-defined error
+  handling function (Zeev, Zend Engine)
+- Added an optional parameter to preg_replace() that can be used to
+  specify how many replacements to make. (Andrei)
+
 28 Jun 2000, Version 4.0.1
 - Fixed a possible crash in the LDAP modify code. (Eric Kilfoil)
 - Fixed a bug in opendir(), which prevented readdir() from working properly if
@@ -95,7 +257,7 @@ PHP 4.0                                                                    NEWS
 - Added fflush() function. (Eric Huss)
 - Fixed a problem with static variables, default function arguments and class
   member variables, that contained array values. (Andi & Zeev, Zend Engine)
-- Fix virtual() when used with output buffering (Marc Pohl)
+- Fixed virtual() when used with output buffering (Marc Pohl)
 - Clean up constants in flock() function and add optional 3rd arg which
   is set to true on EWOULDBLOCK (Rasmus)
 - Added functions pg_loimport(), pg_loexport(). (Jouni)
@@ -115,7 +277,7 @@ PHP 4.0                                                                    NEWS
   instead of the built-in error handling code (Zeev, Zend Engine)
 - Renamed user_error() to trigger_error();  user_error() remains
   defined for compatibility (Zeev, Zend Engine)
-- Fix the global/static statements to require a trailing terminating
+- Fixed the global/static statements to require a trailing terminating
   semi-colon ';'. (Andi, Zend Engine)
 - Cleaned up PCRE extension and made it binary-safe. (Andrei)
 - Added third argument to in_array(). If it's true, then in_array()
@@ -190,7 +352,7 @@ PHP 4.0                                                                    NEWS
   (Marc Pohl)
 - Added configure time checking for bcmath package. (Joey, Sascha)
 - Added get_declared_classes(). (Andrei, Zend Engine)
-- Add initial NSAPI module from Jayakumar Muthukumarasamy. (Rasmus)
+- Added initial NSAPI module from Jayakumar Muthukumarasamy. (Rasmus)
 - Added the SWF module which allows you to create Macromedia Flash files via 
   libswf. (Sterling)
 - Improved UNIX build system to support more vendor make tools (Sascha)
@@ -199,7 +361,7 @@ PHP 4.0                                                                    NEWS
 - Fixed a crash in array_multisort() that happened when empty arrays
   were passed to it. (Andrei)
 - Added substr_count() from Peter Kovacs. (Andrei)
-- Add an optional third argument to fseek to indicate where to seek from.
+- Added an optional third argument to fseek to indicate where to seek from.
   (Andrei)
 - OCIBindByName() will no longer complain about bindlength beeing zero. (Thies)
 - Converted the IMAP module to the high performance API (Zeev)

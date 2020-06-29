@@ -39,12 +39,12 @@ RSC=rc.exe
 # PROP BASE Target_Dir ""
 # PROP Use_MFC 0
 # PROP Use_Debug_Libraries 0
-# PROP Output_Dir "Release_TS"
+# PROP Output_Dir "..\..\Release_TS"
 # PROP Intermediate_Dir "Release_TS"
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MT /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "php4nsapi_EXPORTS" /YX /FD /c
-# ADD CPP /nologo /MT /W3 /GX /O2 /I "." /I "..\..\..\php_build\nsapi30\include\\" /I "..\..\include" /I "..\..\win32" /I "..\..\Zend" /I "..\.." /I "..\..\..\bindlib_w32" /I "..\..\main" /D "XP_WIN32" /D ZEND_DEBUG=0 /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_USRDLL" /D "php4nsapi_EXPORTS" /D "WIN32" /D "_MBCS" /YX /FD /c
+# ADD CPP /nologo /MD /W3 /GX /O2 /I "." /I "..\..\..\php_build\nsapi30\include\\" /I "..\..\include" /I "..\..\win32" /I "..\..\Zend" /I "..\.." /I "..\..\..\bindlib_w32" /I "..\..\main" /I "..\..\tsrm" /D "XP_WIN32" /D ZEND_DEBUG=0 /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_USRDLL" /D "php4nsapi_EXPORTS" /D "WIN32" /D "_MBCS" /YX /FD /c
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
@@ -54,7 +54,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386
-# ADD LINK32 ns-httpd30.lib ZendTS.lib TSRM.lib php4ts.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /base:"0x62000000" /dll /machine:I386 /libpath:"..\..\..\php_build\nsapi30\lib\\" /libpath:"..\..\Release_TS" /libpath:"..\..\TSRM\Release_TS" /libpath:"..\..\Zend\Release_TS"
+# ADD LINK32 ns-httpd30.lib php4ts.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /base:"0x62000000" /version:4.0 /dll /machine:I386 /libpath:"..\..\..\php_build\nsapi30\lib\\" /libpath:"..\..\Release_TS" /libpath:"..\..\TSRM\Release_TS" /libpath:"..\..\Zend\Release_TS"
 
 !ELSEIF  "$(CFG)" == "php4nsapi - Win32 Release_TS_inline"
 
@@ -65,12 +65,12 @@ LINK32=link.exe
 # PROP BASE Target_Dir ""
 # PROP Use_MFC 0
 # PROP Use_Debug_Libraries 0
-# PROP Output_Dir "Release_TS_inline"
+# PROP Output_Dir "..\..\Release_TS_inline"
 # PROP Intermediate_Dir "Release_TS_inline"
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MT /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "php4nsapi_EXPORTS" /YX /FD /c
-# ADD CPP /nologo /MT /W3 /GX /O2 /I "." /I "..\..\..\php_build\nsapi30\include\\" /I "..\..\include" /I "..\..\win32" /I "..\..\Zend" /I "..\.." /I "..\..\..\bindlib_w32" /I "..\..\main" /D "XP_WIN32" /D ZEND_DEBUG=0 /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "ZEND_WIN32_FORCE_INLINE" /D "NDEBUG" /D "_WINDOWS" /D "_USRDLL" /D "php4nsapi_EXPORTS" /D "WIN32" /D "_MBCS" /YX /FD /c
+# ADD CPP /nologo /MD /W3 /GX /O2 /I "." /I "..\..\..\php_build\nsapi30\include\\" /I "..\..\include" /I "..\..\win32" /I "..\..\Zend" /I "..\.." /I "..\..\..\bindlib_w32" /I "..\..\main" /I "..\..\tsrm" /D "XP_WIN32" /D ZEND_DEBUG=0 /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "ZEND_WIN32_FORCE_INLINE" /D "NDEBUG" /D "_WINDOWS" /D "_USRDLL" /D "php4nsapi_EXPORTS" /D "WIN32" /D "_MBCS" /YX /FD /c
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
@@ -80,7 +80,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386
-# ADD LINK32 ns-httpd30.lib ZendTS.lib TSRM.lib php4ts.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /base:"0x62000000" /dll /machine:I386 /libpath:"..\..\..\php_build\nsapi30\lib\\" /libpath:"..\..\Release_TS_inline" /libpath:"..\..\TSRM\Release_TS_inline" /libpath:"..\..\Zend\Release_TS_inline"
+# ADD LINK32 ns-httpd30.lib php4ts.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /base:"0x62000000" /version:4.0 /dll /machine:I386 /libpath:"..\..\..\php_build\nsapi30\lib\\" /libpath:"..\..\Release_TS_inline" /libpath:"..\..\TSRM\Release_TS_inline" /libpath:"..\..\Zend\Release_TS_inline"
 
 !ELSEIF  "$(CFG)" == "php4nsapi - Win32 Debug_TS"
 
@@ -91,12 +91,12 @@ LINK32=link.exe
 # PROP BASE Target_Dir ""
 # PROP Use_MFC 0
 # PROP Use_Debug_Libraries 1
-# PROP Output_Dir "Debug_TS"
+# PROP Output_Dir "..\..\Debug_TS"
 # PROP Intermediate_Dir "Debug_TS"
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MTd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "php4nsapi_EXPORTS" /YX /FD /GZ /c
-# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "." /I "..\..\..\php_build\nsapi30\include\\" /I "..\..\include" /I "..\..\win32" /I "..\..\Zend" /I "..\.." /I "..\..\..\bindlib_w32" /I "..\..\main" /D "XP_WIN32" /D "_Debug_TS" /D ZEND_DEBUG=1 /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_USRDLL" /D "php4nsapi_EXPORTS" /D "WIN32" /D "_MBCS" /FR /YX /FD /GZ /c
+# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "." /I "..\..\..\php_build\nsapi30\include\\" /I "..\..\include" /I "..\..\win32" /I "..\..\Zend" /I "..\.." /I "..\..\..\bindlib_w32" /I "..\..\main" /I "..\..\tsrm" /D "XP_WIN32" /D "_Debug_TS" /D ZEND_DEBUG=1 /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_USRDLL" /D "php4nsapi_EXPORTS" /D "WIN32" /D "_MBCS" /FR /YX /FD /GZ /c
 # ADD BASE MTL /nologo /D "_DEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "_DEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
@@ -106,7 +106,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /debug /machine:I386 /pdbtype:sept
-# ADD LINK32 ns-httpd30.lib php4ts_debug.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /base:"0x62000000" /dll /debug /machine:I386 /pdbtype:sept /libpath:"..\..\..\php_build\nsapi30\lib\\" /libpath:"..\..\Debug_TS" /libpath:"..\..\TSRM\Debug_TS" /libpath:"..\..\Zend\Debug_TS"
+# ADD LINK32 ns-httpd30.lib php4ts_debug.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /base:"0x62000000" /version:4.0 /dll /debug /machine:I386 /pdbtype:sept /libpath:"..\..\..\php_build\nsapi30\lib\\" /libpath:"..\..\Debug_TS" /libpath:"..\..\TSRM\Debug_TS" /libpath:"..\..\Zend\Debug_TS"
 
 !ENDIF 
 

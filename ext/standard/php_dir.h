@@ -17,13 +17,14 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_dir.h,v 1.7 2000/05/18 15:34:35 zeev Exp $ */
+/* $Id: php_dir.h,v 1.9 2000/07/02 23:46:47 sas Exp $ */
 
-#ifndef _PHP_DIR_H
-#define _PHP_DIR_H
+#ifndef PHP_DIR_H
+#define PHP_DIR_H
 
 /* directory functions */
-extern PHP_MINIT_FUNCTION(dir);
+PHP_MINIT_FUNCTION(dir);
+PHP_RINIT_FUNCTION(dir);
 PHP_FUNCTION(opendir);
 PHP_FUNCTION(closedir);
 PHP_FUNCTION(chdir);
@@ -32,4 +33,4 @@ PHP_FUNCTION(rewinddir);
 PHP_FUNCTION(readdir);
 PHP_FUNCTION(getdir);
 
-#endif /* _PHP_DIR_H */
+#endif /* PHP_DIR_H */

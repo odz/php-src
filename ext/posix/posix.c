@@ -23,11 +23,11 @@
    | If you did not, or have any questions about PHP licensing, please    |
    | contact core@php.net.                                                |
    +----------------------------------------------------------------------+
-   | Authors: Kristian Koehntopp (kris@koehntopp.de)                      |
+   | Authors: Kristian Koehntopp <kris@koehntopp.de>                      |
    +----------------------------------------------------------------------+
  */
  
-/* $Id: posix.c,v 1.17 2000/06/25 17:02:45 zeev Exp $ */
+/* $Id: posix.c,v 1.22 2000/08/04 18:14:38 thies Exp $ */
 
 
 #include "php.h"
@@ -74,9 +74,11 @@ function_entry posix_functions[] = {
 	PHP_FE(posix_getuid,	NULL)
 	PHP_FE(posix_setuid,	NULL)
 	PHP_FE(posix_geteuid,	NULL)
+	PHP_FE(posix_seteuid,	NULL)
 	PHP_FE(posix_getgid,	NULL)
 	PHP_FE(posix_setgid,	NULL)
 	PHP_FE(posix_getegid,	NULL)
+	PHP_FE(posix_setegid,	NULL)
 	PHP_FE(posix_getgroups,	NULL)
 	PHP_FE(posix_getlogin,	NULL)
 
@@ -136,7 +138,7 @@ ZEND_GET_MODULE(posix)
 static PHP_MINFO_FUNCTION(posix)
 {
 	php_info_print_table_start();
-	php_info_print_table_row(2, "Revision", "$Revision: 1.17 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.22 $");
 	php_info_print_table_end();
 }
 
@@ -284,6 +286,65 @@ PHP_FUNCTION(posix_setgid)
 	RETURN_TRUE;                                  
 }
 /* }}} */
+
+/* {{{ proto long posix_seteuid(long uid)
+   Set effective user id */
+PHP_FUNCTION(posix_seteuid)
+{
+#ifdef HAVE_SETEUID
+	pval *uid;
+	int   result;
+
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(ht, 1, &uid)==FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	convert_to_long(uid);
+  
+	result = seteuid(uid->value.lval);
+	if (result < 0) {
+		php_error(E_WARNING, "posix_setuid(%d) failed with '%s'.",
+			uid->value.lval,
+			strerror(errno));
+			RETURN_FALSE;
+	}
+	
+	RETURN_TRUE;
+#else
+	RETURN_FALSE;
+#endif
+}
+/* }}} */
+
+/* {{{ proto long posix_setegid(long uid)
+   Set effective group id */
+PHP_FUNCTION(posix_setegid)
+{
+#ifdef HAVE_SETEGID
+	pval *gid;
+	int   result;
+
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(ht, 1, &gid)==FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	convert_to_long(gid);
+  
+	result = setegid(gid->value.lval);
+	if (result < 0) {
+		php_error(E_WARNING, "posix_setgid(%d) failed with '%s'.",
+	    	gid->value.lval,
+			strerror(errno));
+			RETURN_FALSE;
+	}
+	
+	RETURN_TRUE;
+#else
+	RETURN_FALSE;
+#endif
+}
+/* }}} */
+
 
 /* {{{ proto long posix_getgroups(void) 
    Get supplementary group id's (POSIX.1, 4.2.3) */
@@ -449,11 +510,11 @@ PHP_FUNCTION(posix_uname)
 	if (array_init(return_value) == FAILURE) {
 		RETURN_FALSE;
 	}
-	add_assoc_string(return_value, "sysname",  u.sysname,  strlen(u.sysname));
-	add_assoc_string(return_value, "nodename", u.nodename, strlen(u.nodename));
-    add_assoc_string(return_value, "release",  u.release,  strlen(u.release));
-    add_assoc_string(return_value, "version",  u.version,  strlen(u.version));
-    add_assoc_string(return_value, "machine",  u.machine,  strlen(u.machine));
+	add_assoc_string(return_value, "sysname",  u.sysname,  1);
+	add_assoc_string(return_value, "nodename", u.nodename, 1);
+    add_assoc_string(return_value, "release",  u.release, 1);
+    add_assoc_string(return_value, "version",  u.version, 1);
+    add_assoc_string(return_value, "machine",  u.machine, 1);
 }
 /* }}} */
 
@@ -564,7 +625,7 @@ PHP_FUNCTION(posix_isatty)
 				already supported by PHP
  */
 
-/* {{{ proto string posix_getcwd() 
+/* {{{ proto string posix_getcwd(void) 
    Get working directory pathname (POSIX.1, 5.2.2) */
 PHP_FUNCTION(posix_getcwd)
 {
@@ -588,7 +649,7 @@ PHP_FUNCTION(posix_getcwd)
 		already supported by PHP.
  */
 
-/* {{{ proto string posix_mkfifo()
+/* {{{ proto string posix_mkfifo(void)
    Make a FIFO special file (POSIX.1, 5.4.2) */
 PHP_FUNCTION(posix_mkfifo)
 {
@@ -596,6 +657,7 @@ PHP_FUNCTION(posix_mkfifo)
 	pval   *path;
 	pval   *mode;
 	int     result;
+	PLS_FETCH();
 	
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters(ht, 2, &path, &mode) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -603,7 +665,7 @@ PHP_FUNCTION(posix_mkfifo)
 	convert_to_string(path);
 	convert_to_long(mode);
 
-	if (php3_ini.safe_mode && (!php_checkuid(path->value.str.val, NULL, 3))) {
+	if (PG(safe_mode) && (!php_checkuid(path->value.str.val, NULL, 3))) {
 		RETURN_FALSE;
 	}
 	result = mkfifo(path->value.str.val, mode->value.lval);
@@ -659,11 +721,11 @@ PHP_FUNCTION(posix_getgrnam)
 	if (array_init(return_value) == FAILURE) {
 		RETURN_FALSE;
 	}
-	add_assoc_string(return_value, "name",		g->gr_name,  strlen(g->gr_name));
+	add_assoc_string(return_value, "name",		g->gr_name,  1);
 	add_assoc_long  (return_value, "gid",		g->gr_gid);
 	for (count=0, p=g->gr_mem; p[count] != NULL; count++) {
 		snprintf(buffer, 10, "%d", count);
-		add_assoc_string(return_value, buffer, p[count], strlen(p[count]));
+		add_assoc_string(return_value, buffer, p[count], 1);
 	}
 	add_assoc_long(return_value, "members", count);
 }
@@ -695,11 +757,11 @@ PHP_FUNCTION(posix_getgrgid)
 	if (array_init(return_value) == FAILURE) {
 		RETURN_FALSE;
 	}
-	add_assoc_string(return_value, "name",		g->gr_name,  strlen(g->gr_name));
+	add_assoc_string(return_value, "name",		g->gr_name, 1);
 	add_assoc_long  (return_value, "gid",		g->gr_gid);
 	for (count=0, p=g->gr_mem; p[count] != NULL; count++) {
 		snprintf(buffer, 10, "%d", count);
-		add_assoc_string(return_value, buffer, p[count], strlen(p[count]));
+		add_assoc_string(return_value, buffer, p[count], 1);
 	}
 	add_assoc_long(return_value, "members", count);
 }
@@ -727,13 +789,13 @@ PHP_FUNCTION(posix_getpwnam)
 	if (array_init(return_value) == FAILURE) {
 		RETURN_FALSE;
 	}
-	add_assoc_string(return_value, "name",      pw->pw_name, strlen(pw->pw_name));
-	add_assoc_string(return_value, "passwd",    pw->pw_passwd, strlen(pw->pw_passwd));
+	add_assoc_string(return_value, "name",      pw->pw_name, 1);
+	add_assoc_string(return_value, "passwd",    pw->pw_passwd, 1);
 	add_assoc_long  (return_value, "uid",       pw->pw_uid);
 	add_assoc_long  (return_value, "gid",		pw->pw_gid);
-	add_assoc_string(return_value, "gecos",     pw->pw_gecos, strlen(pw->pw_gecos));
-	add_assoc_string(return_value, "dir",       pw->pw_dir, strlen(pw->pw_dir));
-	add_assoc_string(return_value, "shell",     pw->pw_shell, strlen(pw->pw_shell));
+	add_assoc_string(return_value, "gecos",     pw->pw_gecos, 1);
+	add_assoc_string(return_value, "dir",       pw->pw_dir, 1);
+	add_assoc_string(return_value, "shell",     pw->pw_shell, 1);
 }
 /* }}} */
 
@@ -759,13 +821,13 @@ PHP_FUNCTION(posix_getpwuid)
 	if (array_init(return_value) == FAILURE) {
 		RETURN_FALSE;
 	}
-	add_assoc_string(return_value, "name",      pw->pw_name, strlen(pw->pw_name));
-	add_assoc_string(return_value, "passwd",    pw->pw_passwd, strlen(pw->pw_passwd));
+	add_assoc_string(return_value, "name",      pw->pw_name, 1);
+	add_assoc_string(return_value, "passwd",    pw->pw_passwd, 1);
 	add_assoc_long  (return_value, "uid",       pw->pw_uid);
 	add_assoc_long  (return_value, "gid",		pw->pw_gid);
-	add_assoc_string(return_value, "gecos",     pw->pw_gecos, strlen(pw->pw_gecos));
-	add_assoc_string(return_value, "dir",       pw->pw_dir, strlen(pw->pw_dir));
-	add_assoc_string(return_value, "shell",     pw->pw_shell, strlen(pw->pw_shell));
+	add_assoc_string(return_value, "gecos",     pw->pw_gecos, 1);
+	add_assoc_string(return_value, "dir",       pw->pw_dir, 1);
+	add_assoc_string(return_value, "shell",     pw->pw_shell, 1);
 }
 /* }}} */
 
@@ -787,12 +849,12 @@ static int posix_addlimit(int limit, char *name, pval *return_value) {
 	}
 
 	if (rl.rlim_cur == RLIM_INFINITY)
-		add_assoc_string(return_value,soft,"unlimited", 9);
+		add_assoc_stringl(return_value,soft,"unlimited", 9, 0);
 	else
 		add_assoc_long(return_value,soft,rl.rlim_cur);
 
 	if (rl.rlim_max == RLIM_INFINITY)
-		add_assoc_string(return_value,hard,"unlimited", 9);
+		add_assoc_stringl(return_value,hard,"unlimited", 9, 0);
 	else
 		add_assoc_long(return_value,hard,rl.rlim_max);
 

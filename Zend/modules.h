@@ -18,8 +18,8 @@
 */
 
 
-#ifndef _MODULES_H
-#define _MODULES_H
+#ifndef MODULES_H
+#define MODULES_H
 
 #define INIT_FUNC_ARGS		int type, int module_number ELS_DC
 #define INIT_FUNC_ARGS_PASSTHRU	type, module_number ELS_CC
@@ -37,7 +37,7 @@ extern unsigned char second_arg_allow_ref[];
 
 #include "zend.h"
 
-#define ZEND_MODULE_API_NO 20000609
+#define ZEND_MODULE_API_NO 20000809
 #ifdef ZTS
 #define USING_ZTS 1
 #else

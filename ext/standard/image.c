@@ -15,7 +15,7 @@
    | Authors: Rasmus Lerdorf                                              |
    +----------------------------------------------------------------------+
  */
-/* $Id: image.c,v 1.21 2000/06/18 20:09:17 andi Exp $ */
+/* $Id: image.c,v 1.24 2000/08/11 23:24:54 derick Exp $ */
 /* 
  * Based on Daniel Schmitt's imageinfo.c which carried the following
  * Copyright notice.
@@ -94,7 +94,7 @@ static unsigned long php_read4(FILE *fp)
 
 }
 
-static unsigned long int php_swf_get_bits (unsigned char* buffer, int pos, int count)
+static unsigned long int php_swf_get_bits (unsigned char* buffer, unsigned int pos, unsigned int count)
 {
 	unsigned int loop;
 	unsigned long int result = 0;
@@ -223,6 +223,7 @@ static void php_read_APP(FILE *fp,unsigned int marker,pval *info)
 	unsigned short length;
 	unsigned char *buffer;
 	unsigned char markername[ 16 ];
+	zval *tmp;
 
 	length = php_read2(fp);
 	length -= 2;				/* length includes itself */
@@ -235,7 +236,10 @@ static void php_read_APP(FILE *fp,unsigned int marker,pval *info)
 
 	sprintf(markername,"APP%d",marker - M_APP0);
 
-	add_assoc_stringl(info,markername,buffer,length,1);
+	if (zend_hash_find(info->value.ht, markername, strlen(markername)+1, (void **) &tmp) == FAILURE) {
+		/* XXX we onyl catch the 1st tag of it's kind! */
+		add_assoc_stringl(info,markername,buffer,length,1);
+	}
 
 	efree(buffer);
 }
@@ -405,7 +409,7 @@ PHP_FUNCTION(getimagesize)
 	if (result) {
 		if (array_init(return_value) == FAILURE) {
 			php_error(E_ERROR, "Unable to initialize array");
-			if (result) efree(result);
+			efree(result);
 			return;
 		}
 		add_index_long(return_value, 0, result->width);
@@ -420,7 +424,6 @@ PHP_FUNCTION(getimagesize)
 		if (result->channels != 0) {
 			add_assoc_long(return_value,"channels",result->channels);
 		} 
-		
 		efree(result);
 	}
 }

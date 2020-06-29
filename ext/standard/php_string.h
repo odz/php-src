@@ -1,40 +1,28 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP HTML Embedded Scripting Language Version 3.0                     |
+   | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-1999 PHP Development Team (See Credits file)      |
+   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
    +----------------------------------------------------------------------+
-   | This program is free software; you can redistribute it and/or modify |
-   | it under the terms of one of the following licenses:                 |
-   |                                                                      |
-   |  A) the GNU General Public License as published by the Free Software |
-   |     Foundation; either version 2 of the License, or (at your option) |
-   |     any later version.                                               |
-   |                                                                      |
-   |  B) the PHP License as published by the PHP Development Team and     |
-   |     included in the distribution in the file: LICENSE                |
-   |                                                                      |
-   | This program is distributed in the hope that it will be useful,      |
-   | but WITHOUT ANY WARRANTY; without even the implied warranty of       |
-   | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the        |
-   | GNU General Public License for more details.                         |
-   |                                                                      |
-   | You should have received a copy of both licenses referred to here.   |
-   | If you did not, or have any questions about PHP licensing, please    |
-   | contact core@php.net.                                                |
+   | This source file is subject to version 2.02 of the PHP license,      |
+   | that is bundled with this package in the file LICENSE, and is        |
+   | available at through the world-wide-web at                           |
+   | http://www.php.net/license/2_02.txt.                                 |
+   | If you did not receive a copy of the PHP license and are unable to   |
+   | obtain it through the world-wide-web, please send a note to          |
+   | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
    |          Stig Sæther Bakken <ssb@guardian.no>                        |
    +----------------------------------------------------------------------+
- */
+*/
 
-
-/* $Id: php_string.h,v 1.21 2000/06/06 20:42:33 andrei Exp $ */
+/* $Id: php_string.h,v 1.25 2000/07/24 01:39:49 david Exp $ */
 
 /* Synced with php 3.0 revision 1.43 1999-06-16 [ssb] */
 
-#ifndef _PHPSTRING_H
-#define _PHPSTRING_H
+#ifndef PHP_STRING_H
+#define PHP_STRING_H
 
 PHP_FUNCTION(strspn);
 PHP_FUNCTION(strcspn);
@@ -46,6 +34,7 @@ PHP_FUNCTION(soundex);
 PHP_FUNCTION(levenshtein);
 
 PHP_FUNCTION(count_chars);
+PHP_FUNCTION(wordwrap);
 PHP_FUNCTION(explode);
 PHP_FUNCTION(implode);
 PHP_FUNCTION(strtok);
@@ -123,4 +112,6 @@ PHPAPI char *php_strerror(int errnum);
 #define strerror php_strerror
 #endif
 
-#endif /* _PHPSTRING_H */
+void register_string_constants(INIT_FUNC_ARGS);
+
+#endif /* PHP_STRING_H */

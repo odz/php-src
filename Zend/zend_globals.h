@@ -18,8 +18,8 @@
 */
 
 
-#ifndef _T_GLOBALS_H
-#define _T_GLOBALS_H
+#ifndef ZEND_GLOBALS_H
+#define ZEND_GLOBALS_H
 
 
 #include <setjmp.h>
@@ -91,9 +91,7 @@ struct _zend_compiler_globals {
 	HashTable *function_table;	/* function symbol table */
 	HashTable *class_table;		/* class table */
 
-	HashTable used_files;		/* files already included using 'use' */
-
-	zend_llist filenames_list;
+	HashTable filenames_table;
 
 	zend_bool in_compilation;
 	zend_bool short_tags;
@@ -133,7 +131,6 @@ struct _zend_executor_globals {
 
 	/* for global return() support */
 	zval *global_return_value_ptr;
-	zval global_return_value;
 
 	/* symbol table cache */
 	HashTable *symtable_cache[SYMTABLE_CACHE_SIZE];
@@ -150,9 +147,9 @@ struct _zend_executor_globals {
 	jmp_buf bailout;
 
 	int error_reporting;
+	int orig_error_reporting;
 
 	zend_op_array *active_op_array;
-	zend_op_array *main_op_array;
 
 	HashTable *function_table;	/* function symbol table */
 	HashTable *class_table;		/* class table */
@@ -216,4 +213,4 @@ struct _zend_alloc_globals {
 #endif
 };
 
-#endif /* _T_GLOBALS_H */
+#endif /* ZEND_GLOBALS_H */

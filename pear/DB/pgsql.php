@@ -5,10 +5,10 @@
 // +----------------------------------------------------------------------+
 // | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
 // +----------------------------------------------------------------------+
-// | This source file is subject to version 2.0 of the PHP license,       |
+// | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
 // | available at through the world-wide-web at                           |
-// | http://www.php.net/license/2_0.txt.                                  |
+// | http://www.php.net/license/2_02.txt.                                 |
 // | If you did not receive a copy of the PHP license and are unable to   |
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
@@ -88,14 +88,14 @@ class DB_pgsql extends DB_common {
 	 *
 	 * @return int DB_OK on success, a DB error code on failure
 	 */
-	function connect($dsn, $persistent = false) {
+	function connect(&$dsn, $persistent = false) {
 		if (is_array($dsn)) {
 			$dsninfo = &$dsn;
 		} else {
 			$dsninfo = DB::parseDSN($dsn);
 		}
 		if (!$dsninfo || !$dsninfo['phptype']) {
-			return DB_ERROR; // XXX ERRORMSG
+			return new DB_Error(); // XXX ERRORMSG
 		}
 		$dbhost = $dsninfo['hostspec'] ? $dsninfo['hostspec'] : 'localhost';
 		$user = $dsninfo['username'];
@@ -117,7 +117,7 @@ class DB_pgsql extends DB_common {
 			$conn = false;
 		}
 		if ($conn == false) {
-			return DB_ERROR; // XXX ERRORMSG
+			return new DB_Error(); // XXX ERRORMSG
 		}
 		$this->connection = $conn;
 		return DB_OK;
@@ -255,7 +255,7 @@ class DB_pgsql extends DB_common {
 			 return $errno;
 			*/
 			// the error codes are not supported in pgsql. 
-			return DB_ERROR_NOT_CAPABLE; 
+			return new DB_Error(DB_ERROR_NOT_CAPABLE); 
 		}
 		$this->row[$result]++;
 		return DB_OK;
@@ -333,7 +333,7 @@ class DB_pgsql extends DB_common {
 	function errorNative() {
 	/*	return pg_errormessage($this->connection); */
 		// the error codes are not supported in pgsql. 
-		return DB_ERROR_NOT_CAPABLE; 
+		return new DB_Error(); 
 	}
 
     // }}}
@@ -394,7 +394,7 @@ class DB_pgsql extends DB_common {
 	 * Enable/disable automatic commits [not supported by PostgreSQL]
 	 */
 	function autoCommit($onoff = false) {
-		return DB_ERROR_NOT_CAPABLE;
+		return new DB_Error(DB_ERROR_NOT_CAPABLE);
 	}
 
     // }}}

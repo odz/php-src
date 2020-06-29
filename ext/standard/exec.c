@@ -15,7 +15,7 @@
    | Author: Rasmus Lerdorf                                               |
    +----------------------------------------------------------------------+
  */
-/* $Id: exec.c,v 1.37 2000/06/26 17:12:38 stas Exp $ */
+/* $Id: exec.c,v 1.39 2000/08/06 17:56:56 eschmid Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -172,8 +172,9 @@ static int _Exec(int type, char *cmd, pval *array, pval *return_value)
 
 			tmp = php_addslashes(buf, 0, &len, 0);
 			RETVAL_STRINGL(tmp,len,0);
-		} else
-			RETVAL_STRINGL(buf,l+1,1);
+		} else {
+			RETVAL_STRINGL(buf,l?l+1:0,1);
+		}
 	} else {
 		int b, i;
 
@@ -344,8 +345,8 @@ PHP_FUNCTION(escapeshellcmd)
 }
 /* }}} */
 
-/* {{{ proto string shell_exec(strng cmd)
-   What excatly is this variant for ??? */
+/* {{{ proto string shell_exec(string cmd)
+   Use pclose() for FILE* that has been opened via popen() */
 PHP_FUNCTION(shell_exec)
 {
 	FILE *in;

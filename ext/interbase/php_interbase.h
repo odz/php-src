@@ -17,10 +17,10 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_interbase.h,v 1.13 2000/06/24 16:24:29 jah Exp $ */
+/* $Id: php_interbase.h,v 1.17 2000/07/17 20:51:47 zeev Exp $ */
 
-#ifndef _PHP_IBASE_H
-#define _PHP_IBASE_H
+#ifndef PHP_INTERBASE_H
+#define PHP_INTERBASE_H
 
 #if HAVE_IBASE
 #include <ibase.h>
@@ -76,13 +76,13 @@ PHP_FUNCTION(ibase_errmsg);
 #define IBASE_TRANS_ON_LINK 10
 #define IBASE_BLOB_SEG 4096
 
-typedef struct {
+ZEND_BEGIN_MODULE_GLOBALS(ibase)
 	ISC_STATUS status[20];
 	long default_link;
 	long num_links, num_persistent;
 	long max_links, max_persistent;
 	long allow_persistent;
-	int le_blob, le_link, le_plink, le_result, le_query;
+	int le_blob, le_link, le_plink, le_result, le_query, le_trans;
 	char *default_user, *default_password;
 	char *timestampformat;
 	char *cfg_timestampformat;
@@ -91,13 +91,18 @@ typedef struct {
 	char *timeformat;
 	char *cfg_timeformat;
 	char *errmsg;
-} php_ibase_globals;
+ZEND_END_MODULE_GLOBALS(ibase)
 
 typedef struct {
 	isc_tr_handle trans[IBASE_TRANS_ON_LINK];
 	isc_db_handle link;
-	int dialect;
+	unsigned short dialect;
 } ibase_db_link;
+
+typedef struct {
+	int trans_num;
+	int link_rsrc;
+} ibase_tr_link;
 
 typedef struct {
 	ISC_ARRAY_DESC ar_desc;
@@ -121,7 +126,7 @@ typedef struct {
 	XSQLDA *in_sqlda, *out_sqlda;
 	ibase_array *in_array, *out_array;
 	int in_array_cnt, out_array_cnt;
-	int dialect;
+	unsigned short dialect;
 	int cursor_open;
 } ibase_query;
 
@@ -155,14 +160,15 @@ enum php_interbase_option {
 };
 
 #ifdef ZTS
-#define IBLS_D php_ibase_globals *ibase_globals
+#define IBLS_D zend_ibase_globals *ibase_globals
+#define IBLS_C ibase_globals
 #define IBG(v) (ibase_globals->v)
-#define IBLS_FETCH() php_ibase_globals *ibase_globals = ts_resource(ibase_globals_id)
+#define IBLS_FETCH() zend_ibase_globals *ibase_globals = ts_resource(ibase_globals_id)
 #else
 #define IBLS_D
+#define IBLS_C
 #define IBG(v) (ibase_globals.v)
 #define IBLS_FETCH()
-extern PHP_IBASE_API php_ibase_globals ibase_globals;
 #endif
 
 #else
@@ -171,7 +177,7 @@ extern PHP_IBASE_API php_ibase_globals ibase_globals;
 
 #endif /* HAVE_IBASE */
 
-#endif /* _PHP_IBASE_H */
+#endif /* PHP_INTERBASE_H */
 
 /*
  * Local variables:

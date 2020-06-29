@@ -5,10 +5,10 @@
 // +----------------------------------------------------------------------+
 // | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
 // +----------------------------------------------------------------------+
-// | This source file is subject to version 2.0 of the PHP license,       |
+// | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
 // | available at through the world-wide-web at                           |
-// | http://www.php.net/license/2_0.txt.                                  |
+// | http://www.php.net/license/2_02.txt.                                 |
 // | If you did not receive a copy of the PHP license and are unable to   |
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
@@ -17,12 +17,12 @@
 // |                                                                      |
 // +----------------------------------------------------------------------+
 //
-// $Id: DB.php,v 1.19 2000/06/21 02:22:04 chagenbu Exp $
+// $Id: DB.php,v 1.30 2000/08/28 23:09:36 ssb Exp $
 //
 // Database independent query interface.
 //
 
-// {{{ Database independent error codes.
+require_once "PEAR.php";
 
 /*
  * The method mapErrorCode in each DB_dbtype implementation maps
@@ -53,15 +53,15 @@ define("DB_ERROR_NOSUCHTABLE",     -18);
 define("DB_ERROR_NOSUCHFIELD",     -19);
 define("DB_ERROR_NEED_MORE_DATA",  -20);
 
+
 /*
  * Warnings are not detected as errors by DB::isError(), and are not
  * fatal.  You can detect whether an error is in fact a warning with
  * DB::isWarning().
  */
-define("DB_WARNING_READ_ONLY",   -1000);
+define("DB_WARNING",             -1000);
+define("DB_WARNING_READ_ONLY",   -1001);
 
-// }}}
-// {{{ Prepare/execute parameter types
 
 /*
  * These constants are used when storing information about prepared
@@ -77,8 +77,6 @@ define("DB_WARNING_READ_ONLY",   -1000);
 define("DB_PARAM_SCALAR",           1);
 define("DB_PARAM_OPAQUE",           2);
 
-// }}}
-// {{{ Binary data modes
 
 /*
  * These constants define different ways of returning binary data
@@ -95,8 +93,6 @@ define("DB_BINMODE_PASSTHRU",       1);
 define("DB_BINMODE_RETURN",         2);
 define("DB_BINMODE_CONVERT",        3);
 
-// }}}
-// {{{ Get modes: flags that control the layout of query result structures
 
 /**
  * Column data indexed by numbers, ordered from 0 and up
@@ -114,6 +110,7 @@ define('DB_GETMODE_ASSOC',   2);
  */
 define('DB_GETMODE_FLIPPED', 4);
 
+
 /**
  * This constant DB's default get mode.  It is possible to override by
  * defining in your scripts before including DB.
@@ -122,7 +119,6 @@ if (!defined('DB_GETMODE_DEFAULT')) {
 	define('DB_GETMODE_DEFAULT', DB_GETMODE_ORDERED);
 }
 
-// }}}
 
 /**
  * The main "DB" class is simply a container class with some static
@@ -150,8 +146,6 @@ if (!defined('DB_GETMODE_DEFAULT')) {
  * @since    PHP 4.0
  */
 class DB {
-    // {{{ factory()
-
 	/**
 	 * Create a new DB object for the specified database type
 	 *
@@ -160,17 +154,15 @@ class DB {
 	 * @return object a newly created DB object, or a DB error code on
 	 * error
 	 */
-    function &factory($type) {
-		if (!@include_once("DB/${type}.php")) {
-			return DB_ERROR_NOT_FOUND;
-		}
+	function &factory($type) {
+		@include_once("DB/${type}.php");
 		$classname = 'DB_' . $type;
-		$obj = new $classname;
+		$obj = @new $classname;
+		if (!$obj) {
+			return new DB_Error(DB_ERROR_NOT_FOUND);
+		}
 		return $obj;
-    }
-
-    // }}}
-    // {{{ connect()
+	}
 
 	/**
 	 * Create a new DB object and connect to the specified database
@@ -186,24 +178,20 @@ class DB {
 	 * error
 	 */
 	function &connect($dsn, $persistent = false) {
-		global $USED_PACKAGES;
-
 		$dsninfo = DB::parseDSN($dsn);
 		$type = $dsninfo['phptype'];
-		if (!@include_once("DB/${type}.php")) {
-			return DB_ERROR_NOT_FOUND;
-		}
+		@include_once("DB/${type}.php");
 		$classname = 'DB_' . $type;
-		$obj = new $classname;
-		$err = $obj->connect(&$dsninfo, $persistent);
+		$obj = @new $classname;
+		if (!$obj) {
+			return new DB_Error(DB_ERROR_NOT_FOUND);
+		}
+		$err = $obj->connect($dsninfo, $persistent);
 		if (DB::isError($err)) {
 			return $err;
 		}
 		return $obj;
 	}
-
-    // }}}
-    // {{{ apiVersion()
 
 	/**
 	 * Return the DB API version
@@ -214,48 +202,43 @@ class DB {
 		return 1;
     }
 
-    // }}}
-    // {{{ isError()
-
 	/**
 	 * Tell whether a result code from a DB method is an error
 	 *
-	 * @param $code int result code
+	 * @param $value int result code
 	 *
-	 * @return bool whether $code is an error
+	 * @return bool whether $value is an error
 	 */
-	function isError($code) {
-		return is_int($code) && ($code < 0) && ($code > -1000);
+	function isError($value) {
+		return is_object($value) &&
+			(get_class($value) == "db_error" ||
+			 is_subclass_of($value, "db_error"));
 	}
-
-    // }}}
-    // {{{ isWarning()
 
 	/**
 	 * Tell whether a result code from a DB method is a warning.
 	 * Warnings differ from errors in that they are generated by DB,
 	 * and are not fatal.
 	 *
-	 * @param $code int result code
+	 * @param $value mixed result value
 	 *
-	 * @return bool whether $code is a warning
+	 * @return bool whether $value is a warning
 	 */
-	function isWarning($code) {
-		return is_int($code) && ($code <= -1000);
+	function isWarning($value) {
+		return is_object($value) &&
+			(get_class($value) == "db_warning" ||
+			 is_subclass_of($value, "db_warning"));
 	}
-
-    // }}}
-    // {{{ errorMessage()
 
 	/**
 	 * Return a textual error message for a DB error code
 	 *
-	 * @param $code int error code
+	 * @param $value int error code
 	 *
 	 * @return string error message, or false if the error code was
 	 * not recognized
 	 */
-	function errorMessage($code) {
+	function errorMessage($value) {
 		if (!isset($errorMessages)) {
 			$errorMessages = array(
 				DB_OK                   => "no error",
@@ -267,7 +250,7 @@ class DB {
 				DB_ERROR_UNSUPPORTED    => "not supported",
 				DB_ERROR_MISMATCH       => "mismatch",
 				DB_ERROR_INVALID        => "invalid",
-				DB_ERROR_NOT_CAPABLE    => "DB implementation not capable",
+				DB_ERROR_NOT_CAPABLE    => "DB backend not capable",
 				DB_ERROR_INVALID_NUMBER => "invalid number",
 				DB_ERROR_INVALID_DATE   => "invalid date or time",
 				DB_ERROR_DIVZERO        => "division by zero",
@@ -277,14 +260,15 @@ class DB {
 				DB_ERROR_CANNOT_DROP    => "can not drop",
 				DB_ERROR_NOSUCHTABLE    => "no such table",
 				DB_ERROR_NOSUCHFIELD    => "no such field",
-				DB_WARNING_READ_ONLY    => "warning: read only"
+				DB_WARNING              => "unknown warning",
+				DB_WARNING_READ_ONLY    => "read only"
 			);
 		}
-		return $errorMessages[$code];
+		if (DB::isError($value)) {
+			$value = $value->code;
+		}
+		return $errorMessages[$value];
 	}
-
-    // }}}
-    // {{{ parseDSN()
 
 	/**
 	 * Parse a data source name
@@ -330,6 +314,9 @@ class DB {
 	 * @return bool FALSE is returned on error
 	 */
 	function parseDSN($dsn) {
+		if (is_array($dsn))
+			return $dsn;
+		
 		$parsed = array(
 			'phptype'  => false,
 			'dbsyntax' => false,
@@ -339,11 +326,11 @@ class DB {
 			'username' => false,
 			'password' => false
 		);
-		if (preg_match('|^([^:]+)://|', $dsn, &$arr)) {
+		if (preg_match('|^([^:]+)://|', $dsn, $arr)) {
 			$dbtype = $arr[1];
 			$dsn = preg_replace('|^[^:]+://|', '', $dsn);
 			// match "phptype(dbsyntax)"
-			if (preg_match('|^([^\(]+)\((.+)\)$|', $dbtype, &$arr)) {
+			if (preg_match('|^([^\(]+)\((.+)\)$|', $dbtype, $arr)) {
 				$parsed['phptype'] = $arr[1];
 				$parsed['dbsyntax'] = $arr[2];
 			} else {
@@ -351,7 +338,7 @@ class DB {
 			}
 		} else {
 			// match "phptype(dbsyntax)"
-			if (preg_match('|^([^\(]+)\((.+)\)$|', $dsn, &$arr)) {
+			if (preg_match('|^([^\(]+)\((.+)\)$|', $dsn, $arr)) {
 				$parsed['phptype'] = $arr[1];
 				$parsed['dbsyntax'] = $arr[2];
 			} else {
@@ -360,21 +347,21 @@ class DB {
 			return $parsed;
 		}
 
-		if (preg_match('|^(.*)/([^/]+)/?$|', $dsn, &$arr)) {
+		if (preg_match('|^(.*)/([^/]+)/?$|', $dsn, $arr)) {
 			$parsed['database'] = $arr[2];
 			$dsn = $arr[1];
 		}
 
-		if (preg_match('|^([^:]+):([^@]+)@?(.*)$|', $dsn, &$arr)) {
+		if (preg_match('|^([^:]+):([^@]+)@?(.*)$|', $dsn, $arr)) {
 			$parsed['username'] = $arr[1];
 			$parsed['password'] = $arr[2];
 			$dsn = $arr[3];
-		} elseif (preg_match('|^([^:]+)@(.*)$|', $dsn, &$arr)) {
+		} elseif (preg_match('|^([^:]+)@(.*)$|', $dsn, $arr)) {
 			$parsed['username'] = $arr[1];
 			$dsn = $arr[3];
 		}
-
-		if (preg_match('|^([^\+]+)\+(.*)$|', $dsn, &$arr)) {
+		
+		if (preg_match('|^([^\+]+)\+(.*)$|', $dsn, $arr)) {
 			$parsed['protocol'] = $arr[1];
 			$dsn = $arr[2];
 		}
@@ -382,7 +369,7 @@ class DB {
 		if (!$parsed['database'])
 			$dsn = preg_replace('|/+$|', '', $dsn);
 
-		$parsed['hostspec'] = $dsn;
+		$parsed['hostspec'] = urldecode($dsn);
 
 		if (!$parsed['dbsyntax']) {
 			$parsed['dbsyntax'] = $parsed['phptype'];
@@ -390,23 +377,19 @@ class DB {
 
 		return $parsed;
 	}
-
-    // }}}
 }
 
 /**
  * This class implements a wrapper for a DB result set.
  * A new instance of this class will be returned by the DB implementation
  * after processing a query that returns data.
+ *
+ * @author Stig Bakken <ssb@fast.no>
  */
 class DB_result {
-    // {{{ properties
 
     var $dbh;
     var $result;
-
-    // }}}
-    // {{{ DB_result()
 
     /**
 	 * DB_result constructor.
@@ -418,9 +401,6 @@ class DB_result {
 		$this->result = $result;
     }
 
-    // }}}
-    // {{{ fetchRow()
-
 	/**
 	 * Fetch and return a row of data.
 	 * @return  array   a row of data, or false on error
@@ -429,9 +409,6 @@ class DB_result {
 		return $this->dbh->fetchRow($this->result, $getmode);
     }
 
-    // }}}
-    // {{{ fetchInto()
-
     /**
 	 * Fetch a row of data into an existing array.
 	 *
@@ -439,11 +416,8 @@ class DB_result {
 	 * @return  int     error code
 	 */
     function fetchInto(&$arr, $getmode = DB_GETMODE_DEFAULT) {
-		return $this->dbh->fetchInto($this->result, &$arr, $getmode);
+		return $this->dbh->fetchInto($this->result, $arr, $getmode);
     }
-
-    // }}}
-	// {{{ numCols()
 
 	/**
 	 * Get the the number of columns in a result set.
@@ -454,9 +428,6 @@ class DB_result {
 		return $this->dbh->numCols($this->result);
 	}
 
-	// }}}
-    // {{{ free()
-
     /**
 	 * Frees the resources allocated for this result set.
 	 * @return  int     error code
@@ -466,11 +437,63 @@ class DB_result {
 		if (DB::isError($err)) {
 			return $err;
 		}
-		$this->dbh = $this->result = false;
+		$this->result = false;
 		return true;
     }
+}
 
-    // }}}
+/**
+ * DB_Error implements a class for reporting portable database error
+ * messages.
+ *
+ * @author Stig Bakken <ssb@fast.no>
+ */
+class DB_Error extends PEAR_Error {
+	/**
+	 * DB_Error constructor.
+	 *
+	 * @param $code mixed DB error code, or string with error message.
+	 * @param $mode int what "error mode" to operate in
+	 * @param $level what error level to use for $mode == PEAR_ERROR_TRIGGER
+	 *
+	 * @access public
+	 */
+	function DB_Error($code = DB_ERROR,
+					  $mode = PEAR_ERROR_RETURN,
+					  $level = E_USER_NOTICE) {
+		if (is_int($code)) {
+			$this->PEAR_Error("DB Error: " . DB::errorMessage($code), $code, $mode, $level);
+		} else {
+			$this->PEAR_Error("DB Error: $code", 0, $mode, $level);
+		}
+	}
+}
+
+/**
+ * DB_Warning implements a class for reporting portable database
+ * warning messages.
+ *
+ * @author Stig Bakken <ssb@fast.no>
+ */
+class DB_Warning extends PEAR_Error {
+	/**
+	 * DB_Warning constructor.
+	 *
+	 * @param $code mixed DB error code, or string with error message.
+	 * @param $mode int what "error mode" to operate in
+	 * @param $level what error level to use for $mode == PEAR_ERROR_TRIGGER
+	 *
+	 * @access public
+	 */
+	function DB_Warning($code = DB_WARNING,
+						$mode = PEAR_ERROR_RETURN,
+						$level = E_USER_NOTICE) {
+		if (is_int($code)) {
+			$this->PEAR_Error("DB Warning: " . DB::errorMessage($code), $code, $mode, $level);
+		} else {
+			$this->PEAR_Error("DB Warning: $code", 0, $mode, $level);
+		}
+	}
 }
 
 // Local variables:

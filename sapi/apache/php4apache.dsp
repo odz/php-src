@@ -39,12 +39,12 @@ RSC=rc.exe
 # PROP BASE Target_Dir ""
 # PROP Use_MFC 0
 # PROP Use_Debug_Libraries 0
-# PROP Output_Dir "Release_TS"
+# PROP Output_Dir "..\..\Release_TS"
 # PROP Intermediate_Dir "Release_TS"
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MT /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "APACHEPHP4_EXPORTS" /YX /FD /c
-# ADD CPP /nologo /MD /W3 /GX /O2 /I "...\..\include" /I "..\..\win32" /I "..\..\Zend" /I "..\.." /I "..\..\..\bindlib_w32" /I "\apache\src\include" /I "..\..\main" /D ZEND_DEBUG=0 /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_USRDLL" /D "APACHEPHP4_EXPORTS" /D "WIN32" /D "_MBCS" /YX /FD /c
+# ADD CPP /nologo /MD /W3 /GX /O2 /I "...\..\include" /I "..\..\win32" /I "..\..\Zend" /I "..\.." /I "..\..\..\bindlib_w32" /I "\apache\src\include" /I "..\..\main" /D ZEND_DEBUG=0 /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_USRDLL" /D "APACHEPHP4_EXPORTS" /D "WIN32" /D "_MBCS" /D "APACHE_READDIR_H" /YX /FD /c
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
@@ -54,7 +54,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386
-# ADD LINK32 ZendTS.lib TSRM.lib php4ts.lib ApacheCore.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /base:"0x60000000" /dll /machine:I386 /libpath:"\apache\src\corer" /libpath:"..\..\Release_TS" /libpath:"..\..\TSRM\Release_TS" /libpath:"..\..\Zend\Release_TS"
+# ADD LINK32 php4ts.lib ApacheCore.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /base:"0x60000000" /version:4.0 /dll /machine:I386 /libpath:"\apache\src\corer" /libpath:"..\..\Release_TS" /libpath:"..\..\TSRM\Release_TS" /libpath:"..\..\Zend\Release_TS"
 
 !ELSEIF  "$(CFG)" == "php4apache - Win32 Debug_TS"
 
@@ -65,12 +65,12 @@ LINK32=link.exe
 # PROP BASE Target_Dir ""
 # PROP Use_MFC 0
 # PROP Use_Debug_Libraries 0
-# PROP Output_Dir "e:\apache\modules"
+# PROP Output_Dir "..\Debug_TS"
 # PROP Intermediate_Dir "Debug_TS"
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MT /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "APACHEPHP4_EXPORTS" /YX /FD /c
-# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "...\..\include" /I "..\..\win32" /I "..\..\Zend" /I "..\.." /I "..\..\..\bindlib_w32" /I "\apache\src\include" /I "..\..\main" /D "_DEBUG" /D "_Debug_TS" /D ZEND_DEBUG=1 /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "_WINDOWS" /D "_USRDLL" /D "APACHEPHP4_EXPORTS" /D "WIN32" /D "_MBCS" /FR /YX /FD /c
+# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "...\..\include" /I "..\..\win32" /I "..\..\Zend" /I "..\.." /I "..\..\..\bindlib_w32" /I "\apache\src\include" /I "..\..\main" /D "_DEBUG" /D ZEND_DEBUG=1 /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "_WINDOWS" /D "_USRDLL" /D "APACHEPHP4_EXPORTS" /D "WIN32" /D "_MBCS" /D "APACHE_READDIR_H" /FR /YX /FD /c
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
@@ -80,7 +80,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386
-# ADD LINK32 php4ts_debug.lib ApacheCore.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /base:"0x60000000" /dll /incremental:yes /debug /machine:I386 /pdbtype:sept /libpath:"\apache\src\cored" /libpath:"..\..\Debug_TS" /libpath:"..\..\TSRM\Debug_TS" /libpath:"..\..\Zend\Debug_TS"
+# ADD LINK32 php4ts_debug.lib ApacheCore.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /base:"0x60000000" /version:4.0 /dll /incremental:yes /debug /machine:I386 /out:"..\..\Debug_TS/php4apache.dll" /pdbtype:sept /libpath:"\apache\src\cored" /libpath:"..\..\Debug_TS" /libpath:"..\..\TSRM\Debug_TS" /libpath:"..\..\Zend\Debug_TS"
 
 !ELSEIF  "$(CFG)" == "php4apache - Win32 Release_TS_inline"
 
@@ -91,11 +91,12 @@ LINK32=link.exe
 # PROP BASE Target_Dir ""
 # PROP Use_MFC 0
 # PROP Use_Debug_Libraries 0
-# PROP Output_Dir "Release_TS_inline"
+# PROP Output_Dir "..\..\Release_TS_inline"
 # PROP Intermediate_Dir "Release_TS_inline"
+# PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MT /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "APACHEPHP4_EXPORTS" /YX /FD /c
-# ADD CPP /nologo /MDd /W3 /GX /O2 /I "...\..\include" /I "..\..\win32" /I "..\..\Zend" /I "..\.." /I "..\..\..\bindlib_w32" /I "\apache\src\include" /I "..\..\main" /D ZEND_DEBUG=0 /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "ZEND_WIN32_FORCE_INLINE" /D "NDEBUG" /D "_WINDOWS" /D "_USRDLL" /D "APACHEPHP4_EXPORTS" /D "WIN32" /D "_MBCS" /YX /FD /c
+# ADD CPP /nologo /MD /W3 /GX /O2 /I "...\..\include" /I "..\..\win32" /I "..\..\Zend" /I "..\.." /I "..\..\..\bindlib_w32" /I "\apache\src\include" /I "..\..\main" /D ZEND_DEBUG=0 /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "ZEND_WIN32_FORCE_INLINE" /D "NDEBUG" /D "_WINDOWS" /D "_USRDLL" /D "APACHEPHP4_EXPORTS" /D "WIN32" /D "_MBCS" /D "APACHE_READDIR_H" /YX /FD /c
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
@@ -105,7 +106,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386
-# ADD LINK32 ZendTS.lib TSRM.lib php4ts.lib ApacheCore.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386 /libpath:"\apache\src\corer" /libpath:"..\..\Release_TS_inline" /libpath:"..\..\TSRM\Release_TS_inline" /libpath:"..\..\Zend\Release_TS_inline"
+# ADD LINK32 php4ts.lib ApacheCore.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /version:4.0 /dll /machine:I386 /libpath:"\apache\src\corer" /libpath:"..\..\Release_TS_inline" /libpath:"..\..\TSRM\Release_TS_inline" /libpath:"..\..\Zend\Release_TS_inline"
 
 !ENDIF 
 

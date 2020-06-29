@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
  
-/* $Id: php_mysql.c,v 1.49 2000/06/16 01:53:35 zeev Exp $ */
+/* $Id: php_mysql.c,v 1.51 2000/07/05 20:41:06 zeev Exp $ */
 
 
 /* TODO:
@@ -598,7 +598,6 @@ PHP_FUNCTION(mysql_close)
 	}
 	
 	ZEND_FETCH_RESOURCE2(mysql, MYSQL *, mysql_link, id, "MySQL-Link", le_link, le_plink);
-	
 	zend_list_delete(id);
 	RETURN_TRUE;
 }

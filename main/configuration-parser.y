@@ -19,7 +19,7 @@
 
 
 
-/* $Id: configuration-parser.y,v 1.49 2000/06/26 18:15:49 zeev Exp $ */
+/* $Id: configuration-parser.y,v 1.53 2000/07/25 18:50:50 stas Exp $ */
 
 #define DEBUG_CFG_PARSER 0
 #include "php.h"
@@ -127,7 +127,7 @@ static void yyerror(char *str)
 	
 	sprintf(error_buf, "Error parsing %s on line %d\n", currently_parsed_filename, cfglineno);
 #ifdef PHP_WIN32
-	MessageBox(NULL, error_buf, "PHP Error", MB_OK);
+	MessageBox(NULL, error_buf, "PHP Error", MB_OK|MB_TOPMOST|0x00200000L);
 #else
 	fprintf(stderr, "PHP:  %s", error_buf);
 #endif
@@ -324,13 +324,14 @@ static void convert_browscap_pattern(zval *pattern)
 	char *t;
 
 	for (i=0; i<pattern->value.str.len; i++) {
-		if (pattern->value.str.val[i]=='*' || pattern->value.str.val[i]=='?') {
+		if (pattern->value.str.val[i]=='*' || pattern->value.str.val[i]=='?' || pattern->value.str.val[i]=='.') {
 			break;
 		}
 	}
 
 	if (i==pattern->value.str.len) { /* no wildcards */
 		pattern->value.str.val = zend_strndup(pattern->value.str.val, pattern->value.str.len);
+		return;
 	}
 
 	t = (char *) malloc(pattern->value.str.len*2);
@@ -457,14 +458,18 @@ statement:
 				case PARSING_MODE_BROWSCAP:
 					if (current_section) {
 						zval *new_property;
+						char *new_key;
 
 						new_property = (zval *) malloc(sizeof(zval));
 						INIT_PZVAL(new_property);
 						new_property->value.str.val = $3.value.str.val;
 						new_property->value.str.len = $3.value.str.len;
 						new_property->type = IS_STRING;
-						zend_str_tolower(new_property->value.str.val, new_property->value.str.len);
-						zend_hash_update(current_section->value.obj.properties, $1.value.str.val, $1.value.str.len+1, &new_property, sizeof(zval *), NULL);
+						
+						new_key = zend_strndup($1.value.str.val, $1.value.str.len);
+						zend_str_tolower(new_key,$1.value.str.len);
+						zend_hash_update(current_section->value.obj.properties, new_key, $1.value.str.len+1, &new_property, sizeof(zval *), NULL);
+						free(new_key);
 					}
 					break;
 				case PARSING_MODE_STANDALONE: {

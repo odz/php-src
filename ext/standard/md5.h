@@ -1,33 +1,25 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP HTML Embedded Scripting Language Version 3.0                     |
+   | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997,1998 PHP Development Team (See Credits file)      |
+   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
    +----------------------------------------------------------------------+
-   | This program is free software; you can redistribute it and/or modify |
-   | it under the terms of one of the following licenses:                 |
-   |                                                                      |
-   |  A) the GNU General Public License as published by the Free Software |
-   |     Foundation; either version 2 of the License, or (at your option) |
-   |     any later version.                                               |
-   |                                                                      |
-   |  B) the PHP License as published by the PHP Development Team and     |
-   |     included in the distribution in the file: LICENSE                |
-   |                                                                      |
-   | This program is distributed in the hope that it will be useful,      |
-   | but WITHOUT ANY WARRANTY; without even the implied warranty of       |
-   | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the        |
-   | GNU General Public License for more details.                         |
-   |                                                                      |
-   | You should have received a copy of both licenses referred to here.   |
-   | If you did not, or have any questions about PHP licensing, please    |
-   | contact core@php.net.                                                |
+   | This source file is subject to version 2.02 of the PHP license,      |
+   | that is bundled with this package in the file LICENSE, and is        |
+   | available at through the world-wide-web at                           |
+   | http://www.php.net/license/2_02.txt.                                 |
+   | If you did not receive a copy of the PHP license and are unable to   |
+   | obtain it through the world-wide-web, please send a note to          |
+   | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
    +----------------------------------------------------------------------+
- */
-#ifndef _md5_h
-#define _md5_h
+*/
+
+/* $Id: md5.h,v 1.8 2000/08/21 10:10:31 sas Exp $ */
+
+#ifndef MD5_H
+#define MD5_H
 /* MD5.H - header file for MD5C.C
  */
 
@@ -53,18 +45,18 @@
    documentation and/or software.
  */
 
-#include "php_global.h"
+#include "ext/standard/basic_functions.h"
 
 /* MD5 context. */
 typedef struct {
-	UINT4 state[4];				/* state (ABCD) */
-	UINT4 count[2];				/* number of bits, modulo 2^64 (lsb first) */
+	php_uint32 state[4];				/* state (ABCD) */
+	php_uint32 count[2];				/* number of bits, modulo 2^64 (lsb first) */
 	unsigned char buffer[64];	/* input buffer */
 } PHP_MD5_CTX;
 
-void PHP_MD5Init PROTO_LIST((PHP_MD5_CTX *));
-void PHP_MD5Update PROTO_LIST((PHP_MD5_CTX *, const unsigned char *, unsigned int));
-void PHP_MD5Final PROTO_LIST((unsigned char[16], PHP_MD5_CTX *));
+void PHP_MD5Init(PHP_MD5_CTX *);
+void PHP_MD5Update(PHP_MD5_CTX *, const unsigned char *, unsigned int);
+void PHP_MD5Final(unsigned char[16], PHP_MD5_CTX *);
 
 PHP_NAMED_FUNCTION(php_if_md5);
 

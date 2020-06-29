@@ -18,8 +18,8 @@
 */
 
 
-#ifndef _EXECUTE_H
-#define _EXECUTE_H
+#ifndef ZEND_EXECUTE_H
+#define ZEND_EXECUTE_H
 
 #include "zend_compile.h"
 #include "zend_hash.h"
@@ -157,7 +157,7 @@ ZEND_API zend_bool zend_is_executing(void);
 
 void zend_set_timeout(long seconds);
 void zend_unset_timeout(void);
-void zend_timeout(int dummy);
+ZEND_API void zend_timeout(int dummy);
 
 #ifdef ZEND_WIN32
 void zend_init_timeout_thread();
@@ -216,7 +216,7 @@ ZEND_API inline void zend_assign_to_variable_reference(znode *result, zval **var
 		(*variable_ptr_ptr)->is_ref = 1;
 	}
 
-	if (result && (result->op_type != IS_UNUSED)) {
+	if (result && !(result->u.EA.type & EXT_TYPE_UNUSED)) {
 		Ts[result->u.var].var.ptr_ptr = variable_ptr_ptr;
 		SELECTIVE_PZVAL_LOCK(*variable_ptr_ptr, result);
 		AI_USE_PTR(Ts[result->u.var].var);
@@ -229,4 +229,4 @@ ZEND_API inline void zend_assign_to_variable_reference(znode *result, zval **var
 #define IS_OVERLOADED_OBJECT 1
 #define IS_STRING_OFFSET 2
 
-#endif /* _EXECUTE_H */
+#endif /* ZEND_EXECUTE_H */

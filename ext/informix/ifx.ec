@@ -4,10 +4,10 @@
    +----------------------------------------------------------------------+
    | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.0 of the PHP license,       |
+   | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_0.txt.                                  |
+   | http://www.php.net/license/2_02.txt.                                 |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -20,6 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
+/* $Id: ifx.ec,v 1.47 2000/08/12 12:03:39 danny Exp $ */
 
 /* -------------------------------------------------------------------
  * if you want a function reference : "grep '^\*\*' ifx.ec" will give
@@ -283,7 +284,10 @@ static void _close_ifx_link(link)
     IFXLS_FETCH();
 
     EXEC SQL SET CONNECTION :link;
-    EXEC SQL DISCONNECT CURRENT;
+    if (ifx_check() >= 0) {
+      EXEC SQL close database;
+      EXEC SQL DISCONNECT CURRENT;
+    }
     efree(link);
     IFXG(num_links)--;
 }
@@ -297,8 +301,10 @@ EXEC SQL END DECLARE SECTION;
     IFXLS_FETCH();
 
     EXEC SQL SET CONNECTION :link;
-    EXEC SQL DISCONNECT CURRENT;
-
+    if (ifx_check() >= 0) {
+      EXEC SQL close database;
+      EXEC SQL DISCONNECT CURRENT;
+    }
     free(link);
     IFXG(num_persistent)--;
     IFXG(num_links)--;
@@ -366,7 +372,7 @@ PHP_INI_END()
 #ifdef ZTS
 static void php_ifx_init_globals(php_ifx_globals *ifx_globals)
 {
-	IFXG(num_persistent) = 0;
+    IFXG(num_persistent) = 0;
     IFXG(nullvalue) = malloc(1);
     IFXG(nullvalue)[0] = 0;
     IFXG(nullstring) = malloc(5);
@@ -691,8 +697,26 @@ static void php3_ifx_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
                 RETURN_FALSE;
             }
             link = (int) index_ptr->ptr;
-            ptr = zend_list_find(link,&type);   /* check if the link is still there */
+            ptr = zend_list_find(link, &type);   /* check if the link is still there */
             if (ptr && (type==IFXL(le_link) || type==IFXL(le_plink))) {
+        	/* ensure that the link is not closed */
+        	ifx = ptr;
+        	EXEC SQL SET CONNECTION :ifx;
+        	if (ifx_check() == IFX_ERROR) {
+                    /* the link is closed */
+                    ifx = ptr;        /* reconnect silently */
+                    EXEC SQL CONNECT TO :host AS :ifx 
+                             USER :user USING :passwd 
+                             WITH CONCURRENT TRANSACTION;  
+
+                    if (ifx_check() == IFX_ERROR) {
+                	IFXG(sv_sqlcode) = SQLCODE;
+                	php_error(E_WARNING,"Informix:  unable to connect (%s)", ifx_error(ifx));
+                	zend_hash_del(&EG(regular_list), hashed_details, hashed_details_length+1);
+                	efree(hashed_details);
+                	RETURN_FALSE;
+                    }
+        	}
             	zend_list_addref(link);
                 return_value->value.lval = link;
                 php3_ifx_set_default_link(link);
@@ -722,7 +746,7 @@ static void php3_ifx_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
              WITH CONCURRENT TRANSACTION;  
         if (ifx_check() == IFX_ERROR) {
             IFXG(sv_sqlcode) = SQLCODE;
-            php_error(E_WARNING,"ifx_pconnect : %s", ifx_error(ifx));
+            php_error(E_WARNING,"ifx_connect : %s", ifx_error(ifx));
             efree(hashed_details);
             efree(ifx);
             RETURN_FALSE;
@@ -820,7 +844,7 @@ EXEC SQL END DECLARE SECTION;
     ZEND_FETCH_RESOURCE2(ifx, char *, ifx_link, id, "IFX link", IFXL(le_link), IFXL(le_plink));
     
     EXEC SQL SET CONNECTION :ifx;
-    EXEC SQL close database;
+    EXEC SQL close database;    
     EXEC SQL DISCONNECT CURRENT;    
 
     zend_list_delete(id);
@@ -947,7 +971,7 @@ EXEC SQL END DECLARE SECTION;
     affected_rows = sqlca.sqlerrd[0];    /* save estimated affected rows */
     for (e = 0; e < 6; e++) sqlerrd[e] = sqlca.sqlerrd[e];
    
-    EXEC SQL ALLOCATE DESCRIPTOR :descrpid WITH MAX 256;
+    EXEC SQL ALLOCATE DESCRIPTOR :descrpid WITH MAX 384;
     if (ifx_check() < 0) {
         IFXG(sv_sqlcode) = SQLCODE;
         php_error(E_WARNING,"Allocate desciptor <%s> fails (%s)",
@@ -1333,7 +1357,7 @@ EXEC SQL END DECLARE SECTION;
     }
     affected_rows = sqlca.sqlerrd[0];    /* save estimated affected rows */
     for (e = 0; e < 6; e++) sqlerrd[e] = sqlca.sqlerrd[e];
-    EXEC SQL ALLOCATE DESCRIPTOR :descrpid WITH MAX 256;
+    EXEC SQL ALLOCATE DESCRIPTOR :descrpid WITH MAX 384;
     if (ifx_check() < 0) {
         IFXG(sv_sqlcode) = SQLCODE;
         php_error(E_WARNING,"Allocate desciptor <%s> fails (%s)",
@@ -2109,7 +2133,11 @@ $ifdef HAVE_IFX_IUS;
             case SQLSERIAL8   :
             case SQLINT8   :
                 EXEC SQL GET DESCRIPTOR :descrpid VALUE :i :int8_var = DATA;
+	        memset(string_data, ' ', sizeof(string_data));
                 ifx_int8toasc(&int8_var,string_data,200);
+                p = string_data;         /* rtrim string_data */
+                while ((*p != ' ') && (p < &string_data[sizeof(string_data) - 1])) ++p;
+                *p = 0;		
                 add_assoc_string(return_value, fieldname, string_data, DUP);
                 break;
             case SQLLVARCHAR:
@@ -2162,12 +2190,37 @@ $ifdef HAVE_IFX_IUS;
 $endif;
 		
             case SQLBYTES   :   
-            case SQLTEXT    :        /* NULL has already been dealt with */   
+            case SQLTEXT    :     
                 bid_b=Ifx_Result->res_id[locind];
                 locator_b=php3_intifx_get_blobloc(bid_b,&EG(regular_list)); 
                 ++locind;
 
                 EXEC SQL GET DESCRIPTOR :descrpid VALUE :i :*locator_b = DATA;
+                /* work around for ESQL/C bug with NULL values and BLOBS */                
+                if ((locator_b->loc_status < 0) && (locator_b->loc_bufsize == 0)){
+                  locator_b->loc_indicator = -1;
+                }      
+                /* normal check for NULL values */
+                if (locator_b->loc_indicator == -1) { 
+                  if((IFXG(textasvarchar)==0 && fieldtype==SQLTEXT) 
+                      || (IFXG(byteasvarchar)==0 && fieldtype==SQLBYTES)) {
+                    bid_b=Ifx_Result->res_id[locind];
+                    bid=php3_intifx_copy_blob(bid_b, &EG(regular_list));
+                    php3_intifx_update_blob(bid,nullstr,strlen(nullstr),&EG(regular_list));
+                    add_assoc_long(return_value,fieldname,bid);
+                    break; 
+                  }
+                  if (
+                     (fieldtype==SQLTEXT) || (fieldtype==SQLBYTES)
+$ifdef HAVE_IFX_IUS;
+                                          || (fieldtype==SQLUDTFIXED)
+$endif;
+                      ) {
+                    add_assoc_string(return_value, fieldname, nullstr, DUP);
+		    break;
+                  }
+                }
+		
                 if (locator_b->loc_status < 0) {  /* blob too large */   
                        php_error(E_WARNING,"no memory (%d bytes) for blob",
                                   locator_b->loc_bufsize);
@@ -2459,7 +2512,11 @@ $ifdef HAVE_IFX_IUS;
                 case SQLSERIAL8:
                 case SQLINT8   :
                     EXEC SQL GET DESCRIPTOR :descrpid VALUE :i :int8_var = DATA;
+                    memset(string_data, ' ', sizeof(string_data));
                     ifx_int8toasc(&int8_var,string_data,200);
+                    p = string_data;         /* rtrim string_data */
+                    while ((*p != ' ') && (p < &string_data[sizeof(string_data) - 1])) ++p;
+                    *p = 0;		
                     php_printf("<td>%s</td>", string_data);
                     break;
                 case SQLLVARCHAR:
@@ -2499,7 +2556,6 @@ $endif;
                     char_data = NULL;
                     break;
                 case SQLTEXT    :
-                                /* NULL has already been dealt with          */
                                 /* treated always as a long VARCHAR here     */
                                 /* if blobinbfile, too bad                   */
                     bid_b=Ifx_Result->res_id[locind];
@@ -2509,6 +2565,22 @@ $endif;
                   
                     EXEC SQL GET DESCRIPTOR :descrpid VALUE :i 
                                             :*locator_b = DATA;
+                    /* work around for ESQL/C bug with NULL values and BLOBS */                
+                    if ((locator_b->loc_status < 0) && (locator_b->loc_bufsize == 0)){
+                      locator_b->loc_indicator = -1;
+                    }      
+                    /* normal check for NULL values */
+                    if (locator_b->loc_indicator == -1) {
+                      if (
+                         (fieldtype==SQLTEXT) || (fieldtype==SQLBYTES)
+$ifdef HAVE_IFX_IUS;
+                                              || (fieldtype==SQLUDTFIXED)
+$endif;
+                          ) {
+                        php_printf("<td>%s</td>", nullstr);
+		        break;
+                      }
+		    }
                     if (locator_b->loc_status < 0) {  /* blob too large */   
                         php_error(E_WARNING,"no memory (%d bytes) for blob",
                                    locator_b->loc_bufsize);

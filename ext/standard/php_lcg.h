@@ -12,9 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sascha Schumann <ss@2ns.de>                                 |
+   | Authors: Sascha Schumann <sascha@schumann.cx>                        |
    +----------------------------------------------------------------------+
- */
+*/
+
+/* $Id: php_lcg.h,v 1.8 2000/07/24 01:39:49 david Exp $ */
 
 #ifndef PHP_LCG_H
 #define PHP_LCG_H

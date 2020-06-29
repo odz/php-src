@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors:                                                             |
+   | Authors: Uwe Steinmann <steinm@php.net>                              |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_domxml.c,v 1.5 2000/06/19 19:45:53 steinm Exp $ */
+/* $Id: php_domxml.c,v 1.10 2000/08/10 08:31:40 hholzgra Exp $ */
 
 
 #include "php.h"
@@ -41,7 +41,7 @@ static zend_class_entry *domxmltestnode_class_entry_ptr;
 static int node_attributes(zval **attributes, xmlNode *nodep);
 static int node_children(zval **children, xmlNode *nodep);
 
-static zend_function_entry php_domxml_functions[] = {
+static zend_function_entry domxml_functions[] = {
 	PHP_FE(xmldoc,	NULL)
 	PHP_FE(xmldocfile,	NULL)
 	PHP_FE(xmltree,	NULL)
@@ -103,9 +103,13 @@ static zend_function_entry php_domxmlns_class_functions[] = {
 void domxmltestnode_class_startup();
 #endif
 
-zend_module_entry php_domxml_module_entry = {
-	"domxml", php_domxml_functions, PHP_MINIT(domxml), NULL, NULL, NULL, PHP_MINFO(domxml), STANDARD_MODULE_PROPERTIES
+zend_module_entry domxml_module_entry = {
+	"domxml", domxml_functions, PHP_MINIT(domxml), NULL, NULL, NULL, PHP_MINFO(domxml), STANDARD_MODULE_PROPERTIES
 };
+
+#ifdef COMPILE_DL_DOMXML
+ZEND_GET_MODULE(domxml)
+#endif
 
 void _free_node(xmlNode *tmp) {
 /*fprintf(stderr, "Freeing node: %s\n", tmp->name);*/
@@ -956,7 +960,7 @@ PHP_FUNCTION(domxml_dumpmem)
 /* }}} */
 
 /* {{{ proto class xmldoc(string xmldoc)
-   Creates dom object of xml document */
+   Creates DOM object of XML document */
 PHP_FUNCTION(xmldoc)
 {
 	zval *arg;
@@ -987,7 +991,7 @@ PHP_FUNCTION(xmldoc)
 /* }}} */
 
 /* {{{ proto class xmldocfile(string filename)
-   Creates dom object of xml document in file*/
+   Creates DOM object of XML document in file*/
 PHP_FUNCTION(xmldocfile)
 {
 	zval *arg;
@@ -1237,7 +1241,7 @@ static int node_attributes(zval **attributes, xmlNode *nodep)
 	return count;
 }
 
-/* {{{ proto string domxml_children([int node])
+/* {{{ proto string node_children([int node])
    Returns list of children nodes */
 static int node_children(zval **children, xmlNode *nodep)
 {
@@ -1299,7 +1303,7 @@ static int node_children(zval **children, xmlNode *nodep)
 /* }}} */
 
 /* {{{ proto class xmltree(string xmldoc)
-   Create a tree of php objects from an xml document */
+   Create a tree of PHP objects from an XML document */
 PHP_FUNCTION(xmltree)
 {
 	zval *arg;

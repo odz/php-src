@@ -1,5 +1,10 @@
-#ifndef _PHP_COMPAT_H
-#define _PHP_COMPAT_H
+#ifndef PHP3_COMPAT_H
+#define PHP3_COMPAT_H
+
+typedef zval pval;
+
+#define pval_copy_constructor zval_copy_ctor
+#define pval_destructor	zval_dtor
 
 #define _php3_hash_init zend_hash_init
 #define _php3_hash_destroy zend_hash_destroy
@@ -94,4 +99,4 @@
 
 #define list_entry			zend_rsrc_list_entry
 
-#endif							/* _PHP_COMPAT_H */
+#endif							/* PHP3_COMPAT_H */

@@ -1,32 +1,26 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP HTML Embedded Scripting Language Version 3.0                     |
+   | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997,1998 PHP Development Team (See Credits file)      |
+   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
    +----------------------------------------------------------------------+
-   | This program is free software; you can redistribute it and/or modify |
-   | it under the terms of the GNU General Public License as published by |
-   | the Free Software Foundation; either version 2 of the License, or    |
-   | (at your option) any later version.                                  |
-   |                                                                      |
-   | This program is distributed in the hope that it will be useful,      |
-   | but WITHOUT ANY WARRANTY; without even the implied warranty of       |
-   | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the        |
-   | GNU General Public License for more details.                         |
-   |                                                                      |
-   | You should have received a copy of the GNU General Public License    |
-   | along with this program; if not, write to the Free Software          |
-   | Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.            |
+   | This source file is subject to version 2.02 of the PHP license,      |
+   | that is bundled with this package in the file LICENSE, and is        |
+   | available at through the world-wide-web at                           |
+   | http://www.php.net/license/2_02.txt.                                 |
+   | If you did not receive a copy of the PHP license and are unable to   |
+   | obtain it through the world-wide-web, please send a note to          |
+   | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
    |          Stefan Röhrich <sr@linux.de>                                |
    +----------------------------------------------------------------------+
- */
+*/
 
-/* $Id: php_zlib.h,v 1.6 2000/06/10 08:47:58 andi Exp $ */
+/* $Id: php_zlib.h,v 1.9 2000/07/24 01:39:51 david Exp $ */
 
-#ifndef _PHP_ZLIB_H
-#define _PHP_ZLIB_H
+#ifndef PHP_ZLIB_H
+#define PHP_ZLIB_H
 
 #if HAVE_ZLIB
 
@@ -37,8 +31,8 @@ typedef struct {
 extern zend_module_entry php_zlib_module_entry;
 #define zlib_module_ptr &php_zlib_module_entry
 
-extern PHP_MINIT_FUNCTION(zlib);
-extern PHP_MSHUTDOWN_FUNCTION(zlib);
+PHP_MINIT_FUNCTION(zlib);
+PHP_MSHUTDOWN_FUNCTION(zlib);
 PHP_MINFO_FUNCTION(zlib);
 PHP_FUNCTION(gzopen);
 PHP_FUNCTION(gzclose);
@@ -73,4 +67,4 @@ PHP_FUNCTION(gzuncompress);
 
 #define phpext_zlib_ptr zlib_module_ptr
 
-#endif /* _PHP_ZLIB_H */
+#endif /* PHP_ZLIB_H */

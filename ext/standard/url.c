@@ -15,7 +15,7 @@
    | Author: Jim Winstead (jimw@php.net)                                  |
    +----------------------------------------------------------------------+
  */
-/* $Id: url.c,v 1.26 2000/06/09 13:15:19 zeev Exp $ */
+/* $Id: url.c,v 1.28 2000/08/08 09:06:51 martin Exp $ */
 
 #include <stdlib.h>
 #include <string.h>
@@ -37,7 +37,7 @@
 #endif /*_OSD_POSIX*/
 
 
-void free_url(url * theurl)
+void free_url(php_url * theurl)
 {
 	if (theurl->scheme)
 		efree(theurl->scheme);
@@ -56,7 +56,7 @@ void free_url(url * theurl)
 	efree(theurl);
 }
 
-url *url_parse(char *str)
+php_url *url_parse(char *str)
 {
 	regex_t re;
 	regmatch_t subs[10];
@@ -64,12 +64,12 @@ url *url_parse(char *str)
 	int length = strlen(str);
 	char *result;
 
-	url *ret = (url *) emalloc(sizeof(url));
+	php_url *ret = (php_url *) emalloc(sizeof(php_url));
 	if (!ret) {
 		/*php_error(E_WARNING,"Unable to allocate memory\n");*/
 		return NULL;
 	}
-	memset(ret, 0, sizeof(url));
+	memset(ret, 0, sizeof(php_url));
 
 	/* from Appendix B of draft-fielding-url-syntax-09,
 	   http://www.ics.uci.edu/~fielding/url/url.txt */
@@ -161,7 +161,7 @@ url *url_parse(char *str)
 PHP_FUNCTION(parse_url)
 {
 	pval **str;
-	url *resource;
+	php_url *resource;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &str) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -253,7 +253,8 @@ char *php_url_encode(char *s, int len)
 			str[y] = hexchars[(unsigned char) s[x] & 15];
 		}
 #else /*CHARSET_EBCDIC*/
-		} else if (!isalnum(str[y]) && strchr("_-.", str[y]) != NULL) {
+		} else if (!isalnum(str[y]) && strchr("_-.", str[y]) == NULL) {
+			/* Allow only alphanumeric chars and '_', '-', '.'; escape the rest */
 			str[y++] = '%';
 			str[y++] = hexchars[os_toascii[(unsigned char) s[x]] >> 4];
 			str[y] = hexchars[os_toascii[(unsigned char) s[x]] & 0x0F];

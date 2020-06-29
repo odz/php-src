@@ -17,7 +17,7 @@
    |          Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: crypt.c,v 1.28 2000/06/05 19:47:44 andi Exp $ */
+/* $Id: crypt.c,v 1.30 2000/07/26 16:42:04 sas Exp $ */
 #include <stdlib.h>
 
 #include "php.h"
@@ -46,6 +46,7 @@
 extern char *crypt(char *__key,char *__salt);
 #endif
 
+#include "php_lcg.h"
 #include "php_crypt.h"
 
 /* 
@@ -57,14 +58,17 @@ extern char *crypt(char *__key,char *__salt);
 #if PHP_STD_DES_CRYPT
 #define PHP_MAX_SALT_LEN 2
 #endif
+
 #if PHP_EXT_DES_CRYPT
 #undef PHP_MAX_SALT_LEN
 #define PHP_MAX_SALT_LEN 9
 #endif
+
 #if PHP_MD5_CRYPT
 #undef PHP_MAX_SALT_LEN
 #define PHP_MAX_SALT_LEN 12
 #endif
+
 #if PHP_BLOWFISH_CRYPT
 #undef PHP_MAX_SALT_LEN
 #define PHP_MAX_SALT_LEN 17
@@ -83,22 +87,18 @@ extern char *crypt(char *__key,char *__salt);
 
 #if HAVE_LRAND48
 #define PHP_CRYPT_RAND lrand48()
-#else
-#if HAVE_RANDOM
+#elif HAVE_RANDOM
 #define PHP_CRYPT_RAND random()
 #else
 #define PHP_CRYPT_RAND rand()
-#endif
 #endif
 
 PHP_MINIT_FUNCTION(crypt)
 {
 #if PHP_STD_DES_CRYPT
     REGISTER_LONG_CONSTANT("CRYPT_SALT_LENGTH", 2, CONST_CS | CONST_PERSISTENT);
-#else
-#if PHP_MD5_CRYPT
+#elif PHP_MD5_CRYPT
     REGISTER_LONG_CONSTANT("CRYPT_SALT_LENGTH", 12, CONST_CS | CONST_PERSISTENT);
-#endif
 #endif
     REGISTER_LONG_CONSTANT("CRYPT_STD_DES", PHP_STD_DES_CRYPT, CONST_CS | CONST_PERSISTENT);
     REGISTER_LONG_CONSTANT("CRYPT_EXT_DES", PHP_EXT_DES_CRYPT, CONST_CS | CONST_PERSISTENT);
@@ -150,25 +150,21 @@ PHP_FUNCTION(crypt)
 	/* The automatic salt generation only covers standard DES and md5-crypt */
 	if(!*salt) {
 #if HAVE_SRAND48
-		srand48((unsigned int) time(0) * getpid());
+		srand48((unsigned int) time(0) * getpid() * (php_combined_lcg() * 10000.0));
+#elif HAVE_SRANDOM
+		srandom((unsigned int) time(0) * getpid() * (php_combined_lcg() * 10000.0));
 #else
-#if HAVE_SRANDOM
-		srandom((unsigned int) time(0) * getpid());
-#else
-		srand((unsigned int) time(0) * getpid());
-#endif
+		srand((unsigned int) time(0) * getpid() * (php_combined_lcg() * 10000.0));
 #endif
 
 #if PHP_STD_DES_CRYPT
 		php_to64(&salt[0], PHP_CRYPT_RAND, 2);
 		salt[2] = '\0';
-#else
-#if PHP_MD5_CRYPT
+#elif PHP_MD5_CRYPT
 		strcpy(salt, "$1$");
 		php_to64(&salt[3], PHP_CRYPT_RAND, 4);
 		php_to64(&salt[7], PHP_CRYPT_RAND, 4);
 		strcpy(&salt[11], "$");
-#endif
 #endif
 	}
 

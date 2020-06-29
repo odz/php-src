@@ -42,6 +42,9 @@
 #define CONFIGURATION_FILE_PATH "php.ini"
 #define USE_CONFIG_FILE 1
 
+#define PHP_INCLUDE_PATH	NULL
+
+
 /* Undefine if you want stricter XML/SGML compliance by default */
 /* this disables "<?expression?>" and "<?=expression?>" */
 #define DEFAULT_SHORT_OPEN_TAG 1
@@ -113,7 +116,7 @@
    DONT TOUCH!!!!!  Unless you realy know what your messing with!
    ---------------------------------------------------------------*/
 
-#define DISCARD_PATH 1
+#define DISCARD_PATH 0
 #undef HAVE_SETITIMER
 #undef HAVE_IODBC
 #define HAVE_UODBC 1

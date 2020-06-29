@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: var.c,v 1.70 2000/06/23 16:58:30 sas Exp $ */
+/* $Id: var.c,v 1.72 2000/08/29 11:09:20 thies Exp $ */
 
 
 /* {{{ includes 
@@ -92,7 +92,7 @@ void php_var_dump(pval **struc, int level)
 head_done:
 			zend_hash_apply_with_arguments(myht, (ZEND_STD_HASH_APPLIER) php_array_element_dump, 1, level);
 			if (level>1) {
-				php_printf("%*c\n", level-1, ' ');
+				php_printf("%*c", level-1, ' ');
 			}
 			PUTS("}\n");
 			break;	
@@ -430,6 +430,7 @@ int php_var_unserialize(pval **rval, const char **p, const char *max)
 			zend_bool incomplete_class = 0;
 			char *class_name = NULL;
 			size_t name_len = 0;
+			int pi;
 			
 			INIT_PZVAL(*rval);
 
@@ -459,8 +460,8 @@ int php_var_unserialize(pval **rval, const char **p, const char *max)
 					}
 					(*p) += 2;
 					class_name = emalloc(i + 1);
-					if (i > 0) {
-						memcpy(class_name, *p, i);
+					for(pi=0;pi<i;pi++) {
+						class_name[pi] = tolower((*p)[pi]);
 					}
 					class_name[i] = 0;
 					(*p) += i;

@@ -115,8 +115,7 @@ void init_executor(CLS_D ELS_DC)
 	original_sigsegv_handler = signal(SIGSEGV, zend_handle_sigsegv);
 #endif
 	EG(return_value_ptr_ptr) = &EG(global_return_value_ptr);
-	EG(global_return_value_ptr) = &EG(global_return_value);
-	INIT_ZVAL(EG(global_return_value));
+	EG(global_return_value_ptr) = NULL;
 
 	EG(symtable_cache_ptr) = EG(symtable_cache)-1;
 	EG(symtable_cache_limit)=EG(symtable_cache)+SYMTABLE_CACHE_SIZE-1;
@@ -129,7 +128,6 @@ void init_executor(CLS_D ELS_DC)
 
 	zend_ptr_stack_init(&EG(argument_stack));
 
-	EG(main_op_array) = NULL;
 	zend_hash_init(&EG(symbol_table), 50, NULL, ZVAL_PTR_DTOR, 0);
 	EG(active_symbol_table) = &EG(symbol_table);
 
@@ -145,6 +143,8 @@ void init_executor(CLS_D ELS_DC)
 
 	zend_ptr_stack_init(&EG(user_error_handlers));
 
+	EG(orig_error_reporting) = EG(error_reporting);
+
 #ifdef ZEND_WIN32
 	EG(timed_out) = 0;
 #endif
@@ -153,11 +153,6 @@ void init_executor(CLS_D ELS_DC)
 
 void shutdown_executor(ELS_D)
 {
-	if (EG(global_return_value_ptr) == &EG(global_return_value)) {
-		zval_dtor(&EG(global_return_value));
-	} else {
-		zval_ptr_dtor(EG(return_value_ptr_ptr));
-	}
 	zend_ptr_stack_destroy(&EG(arg_types_stack));
 			
 	while (EG(symtable_cache_ptr)>=EG(symtable_cache)) {
@@ -178,10 +173,6 @@ void shutdown_executor(ELS_D)
 	zend_ptr_stack_destroy(&EG(argument_stack));
 
 	/* Destroy all op arrays */
-	if (EG(main_op_array)) {
-		destroy_op_array(EG(main_op_array));
-		efree(EG(main_op_array));
-	}
 	zend_hash_apply(EG(function_table), (int (*)(void *)) is_not_internal_function);
 	zend_hash_apply(EG(class_table), (int (*)(void *)) is_not_internal_class);
 
@@ -203,6 +194,8 @@ void shutdown_executor(ELS_D)
 
 	zend_ptr_stack_clean(&EG(user_error_handlers), ZVAL_DESTRUCTOR, 1);
 	zend_ptr_stack_destroy(&EG(user_error_handlers));
+
+	EG(error_reporting) = EG(orig_error_reporting);
 }
 
 
@@ -232,8 +225,8 @@ ZEND_API char *get_active_function_name()
 
 ZEND_API char *zend_get_executed_filename(ELS_D)
 {
-	if (EG(opline_ptr)) {
-		return active_opline->filename;
+	if (EG(active_op_array)) {
+		return EG(active_op_array)->filename;
 	} else {
 		return "[no active file]";
 	}
@@ -363,7 +356,9 @@ int call_user_function_ex(HashTable *function_table, zval *object, zval *functio
 			return FAILURE;
 		}
 		function_name = *tmp_real_function_name;
+		SEPARATE_ZVAL_IF_NOT_REF(tmp_object_ptr);
 		object = *tmp_object_ptr;
+		object->is_ref = 1;
 	}
 
 	if (object) {
@@ -550,7 +545,7 @@ void execute_new_code(CLS_D)
 #endif
 
 
-void zend_timeout(int dummy)
+ZEND_API void zend_timeout(int dummy)
 {
 	ELS_FETCH();
 
@@ -676,12 +671,16 @@ void zend_set_timeout(long seconds)
 #	ifdef HAVE_SETITIMER
 	{
 		struct itimerval t_r;		/* timeout requested */
+		sigset_t sigset;
 
 		t_r.it_value.tv_sec = seconds;
 		t_r.it_value.tv_usec = t_r.it_interval.tv_sec = t_r.it_interval.tv_usec = 0;
 
 		setitimer(ITIMER_PROF, &t_r, NULL);
 		signal(SIGPROF, zend_timeout);
+		sigemptyset(&sigset);
+		sigaddset(&sigset, SIGPROF);
+		sigprocmask(SIG_UNBLOCK,&sigset,NULL);
 	}
 #	endif
 #endif

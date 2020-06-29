@@ -300,8 +300,8 @@ JNIEXPORT jlong JNICALL Java_net_php_servlet_define
 {
 	pval *pzval;
 	jlong addr = 0;
-	ELS_FETCH();
 	const char *nameAsUTF = (*jenv)->GetStringUTFChars(jenv, name, 0);
+	ELS_FETCH();
 
 	MAKE_STD_ZVAL(pzval);
 	(pval*)(long)addr = pzval;
@@ -320,7 +320,7 @@ JNIEXPORT jlong JNICALL Java_net_php_servlet_define
 JNIEXPORT void JNICALL Java_net_php_servlet_send
 	(JNIEnv *jenv, jobject self, 
 	 jstring requestMethod, jstring queryString,
-	 jstring pathInfo, jstring pathTranslated,
+	 jstring requestURI, jstring pathTranslated,
 	 jstring contentType, jint contentLength, 
 	 jstring authUser, jboolean display_source_mode)
 {
@@ -354,8 +354,14 @@ JNIEXPORT void JNICALL Java_net_php_servlet_send
 	SETSTRING( SG(request_info).auth_user, authUser );
 	SETSTRING( SG(request_info).request_method, requestMethod );
 	SETSTRING( SG(request_info).query_string, queryString );
-	SETSTRING( SG(request_info).request_uri, pathInfo );
+	SETSTRING( SG(request_info).request_uri, requestURI );
 	SETSTRING( SG(request_info).content_type, contentType );
+	SG(sapi_headers).http_response_code = 200;
+	if (!strcmp(SG(request_info).request_method, "HEAD")) {
+		SG(request_info).headers_only = 1;
+	} else {
+		SG(request_info).headers_only = 0;
+	}
 	SG(request_info).content_length = contentLength;
 	SG(request_info).auth_password = NULL;
 	if (php_request_startup(CLS_C ELS_CC PLS_CC SLS_CC)==FAILURE) {
@@ -380,6 +386,7 @@ JNIEXPORT void JNICALL Java_net_php_servlet_send
 	chdir(cwd);
 #endif
 	file_handle.filename = SG(request_info).path_translated;
+	file_handle.opened_path = NULL;
 	file_handle.free_filename = 0;
 	file_handle.type = ZEND_HANDLE_FP;
 

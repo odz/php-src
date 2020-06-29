@@ -24,12 +24,11 @@
    | If you did not, or have any questions about PHP licensing, please    |
    | contact core@php.net.                                                |
    +----------------------------------------------------------------------+
-   | Authors:                                                             |
-   |          Andrew Skalski      <askalski@chek.com>                     |
+   | Authors: Andrew Skalski      <askalski@chek.com>                     |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_ftp.c,v 1.24 2000/06/17 16:49:03 zeev Exp $ */
+/* $Id: php_ftp.c,v 1.26 2000/08/08 20:28:18 eschmid Exp $ */
 
 #include "php.h"
 
@@ -130,7 +129,7 @@ PHP_MINIT_FUNCTION(ftp)
 	}
 
 /* {{{ proto int ftp_connect(string host [, int port])
-   Open a FTP stream */
+   Opens a FTP stream */
 PHP_FUNCTION(ftp_connect)
 {
 	pval		*arg1, *arg2;
@@ -169,7 +168,7 @@ PHP_FUNCTION(ftp_connect)
 /* }}} */
 
 /* {{{ proto int ftp_login(int stream, string username, string password)
-   Logs into the FTP server. */
+   Logs into the FTP server */
 PHP_FUNCTION(ftp_login)
 {
 	pval		*arg1, *arg2, *arg3;
@@ -201,7 +200,7 @@ PHP_FUNCTION(ftp_login)
 /* }}} */
 
 /* {{{ proto string ftp_pwd(int stream)
-   Returns the present working directory. */
+   Returns the present working directory */
 PHP_FUNCTION(ftp_pwd)
 {
 	pval		*arg1;
@@ -445,7 +444,7 @@ PHP_FUNCTION(ftp_systype)
 /* }}} */
 
 /* {{{ proto int ftp_fget(int stream, int fp, string remote_file, int mode)
-   Retrieves a file from the FTP server and writes it to an open file. */
+   Retrieves a file from the FTP server and writes it to an open file */
 PHP_FUNCTION(ftp_fget)
 {
 	pval		*arg1, *arg2, *arg3, *arg4;
@@ -484,7 +483,7 @@ PHP_FUNCTION(ftp_fget)
 /* }}} */
 
 /* {{{ proto int ftp_pasv(int stream, int pasv)
-   Turns passive mode on or off. */
+   Turns passive mode on or off */
 PHP_FUNCTION(ftp_pasv)
 {
 	pval		*arg1, *arg2;
@@ -510,7 +509,7 @@ PHP_FUNCTION(ftp_pasv)
 /* }}} */
 
 /* {{{ proto int ftp_get(int stream, string local_file, string remote_file, int mode)
-   Retrieves a file from the FTP server and writes it to a local file. */
+   Retrieves a file from the FTP server and writes it to a local file */
 PHP_FUNCTION(ftp_get)
 {
 	pval		*arg1, *arg2, *arg3, *arg4;
@@ -581,7 +580,7 @@ PHP_FUNCTION(ftp_get)
 /* }}} */
 
 /* {{{ proto int ftp_fput(int stream, string local_file, string remote_file, int mode)
-   Stores a file from an open file to the FTP server. */
+   Stores a file from an open file to the FTP server */
 PHP_FUNCTION(ftp_fput)
 {
 	pval		*arg1, *arg2, *arg3, *arg4;
@@ -662,7 +661,7 @@ PHP_FUNCTION(ftp_put)
 /* }}} */
 
 /* {{{ proto int ftp_size(int stream, string path)
-   Returns the size of the file, or -1 on error. */
+   Returns the size of the file, or -1 on error */
 PHP_FUNCTION(ftp_size)
 {
 	pval		*arg1, *arg2;

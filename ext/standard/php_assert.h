@@ -14,12 +14,12 @@
    +----------------------------------------------------------------------+
    | Author: Thies C. Arntzen (thies@digicol.de)                          |
    +----------------------------------------------------------------------+
- */
+*/
 
-/* $Id: php_assert.h,v 1.5 2000/05/18 15:34:35 zeev Exp $ */
+/* $Id: php_assert.h,v 1.7 2000/07/24 01:39:49 david Exp $ */
 
-#ifndef _PHP_ASSERT_H
-#define _PHP_ASSERT_H
+#ifndef PHP_ASSERT_H
+#define PHP_ASSERT_H
 
 PHP_MINIT_FUNCTION(assert);
 PHP_MSHUTDOWN_FUNCTION(assert);
@@ -29,4 +29,4 @@ PHP_MINFO_FUNCTION(assert);
 PHP_FUNCTION(assert);
 PHP_FUNCTION(assert_options);
 
-#endif /* _PHP_ASSERT_H */
+#endif /* PHP_ASSERT_H */

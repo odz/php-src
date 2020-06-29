@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: php_sybase_ct.c,v 1.24 2000/06/05 19:47:45 andi Exp $ */
+/* $Id: php_sybase_ct.c,v 1.27 2000/07/24 19:12:32 joey Exp $ */
 
 
 #include "php.h"
@@ -27,8 +27,6 @@
 #include "php_globals.h"
 
 #if HAVE_SYBASE_CT
-
-
 
 function_entry sybase_functions[] = {
 	PHP_FE(sybase_connect,				NULL)
@@ -264,36 +262,36 @@ PHP_MINIT_FUNCTION(sybase)
 	 * signals to implement timeouts, they are actually implemented
 	 * by using poll() or select() on Solaris and Linux.
 	 */
-	if (cfg_get_long("sybase.login_timeout",&timeout)==SUCCESS) {
+	if (cfg_get_long("sybct.login_timeout",&timeout)==SUCCESS) {
 		CS_INT cs_login_timeout = timeout;
 		if (ct_config(context, CS_SET, CS_LOGIN_TIMEOUT, &cs_login_timeout, CS_UNUSED, NULL)!=CS_SUCCEED) {
 			php_error(E_WARNING,"Sybase:  Unable to set login timeoutt");
 		}
 	}
-	if (cfg_get_long("sybase.timeout",&timeout)==SUCCESS) {
+	if (cfg_get_long("sybct.timeout",&timeout)==SUCCESS) {
 		CS_INT cs_timeout = timeout;
 		if (ct_config(context, CS_SET, CS_TIMEOUT, &cs_timeout, CS_UNUSED, NULL)!=CS_SUCCEED) {
 			php_error(E_WARNING,"Sybase:  Unable to set timeout");
 		}
 	}
 
-	if (cfg_get_long("sybase.allow_persistent",&sybase_globals.allow_persistent)==FAILURE) {
+	if (cfg_get_long("sybct.allow_persistent",&sybase_globals.allow_persistent)==FAILURE) {
 		sybase_globals.allow_persistent=1;
 	}
-	if (cfg_get_long("sybase.max_persistent",&sybase_globals.max_persistent)==FAILURE) {
+	if (cfg_get_long("sybct.max_persistent",&sybase_globals.max_persistent)==FAILURE) {
 		sybase_globals.max_persistent=-1;
 	}
-	if (cfg_get_long("sybase.max_links",&sybase_globals.max_links)==FAILURE) {
+	if (cfg_get_long("sybct.max_links",&sybase_globals.max_links)==FAILURE) {
 		sybase_globals.max_links=-1;
 	}
-	if (cfg_get_long("sybase.min_server_severity",&sybase_globals.cfg_min_server_severity)==FAILURE) {
+	if (cfg_get_long("sybct.min_server_severity",&sybase_globals.cfg_min_server_severity)==FAILURE) {
 		sybase_globals.cfg_min_server_severity=10;
 	}
-	if (cfg_get_long("sybase.min_client_severity",&sybase_globals.cfg_min_client_severity)==FAILURE) {
+	if (cfg_get_long("sybct.min_client_severity",&sybase_globals.cfg_min_client_severity)==FAILURE) {
 		sybase_globals.cfg_min_client_severity=10;
 	}
 	
-	if (cfg_get_string("sybase.hostname",&sybase_globals.hostname)==FAILURE
+	if (cfg_get_string("sybct.hostname",&sybase_globals.hostname)==FAILURE
 		|| sybase_globals.hostname[0]==0) {
 		sybase_globals.hostname=NULL;
 	}
@@ -312,7 +310,7 @@ PHP_RINIT_FUNCTION(sybase)
 {
 	sybase_globals.default_link=-1;
 	sybase_globals.num_links = sybase_globals.num_persistent;
-	sybase_globals.appname = estrndup("PHP 3.0",7);
+	sybase_globals.appname = estrndup("PHP 4.0",7);
 	sybase_globals.server_message = NULL;
 	sybase_globals.min_server_severity = sybase_globals.cfg_min_server_severity;
 	sybase_globals.min_client_severity = sybase_globals.cfg_min_client_severity;
@@ -559,7 +557,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 			ptr = zend_list_find(link,&type);   /* check if the link is still there */
 			if (ptr && (type==sybase_globals.le_link || type==sybase_globals.le_plink)) {
 				return_value->value.lval = sybase_globals.default_link = link;
-				return_value->type = IS_LONG;
+				return_value->type = IS_RESOURCE;
 				efree(hashed_details);
 				return;
 			} else {

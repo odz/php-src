@@ -19,7 +19,7 @@
  */
 
 
-/* $Id: datetime.c,v 1.49 2000/06/25 17:55:13 eschmid Exp $ */
+/* $Id: datetime.c,v 1.53 2000/08/21 09:50:52 sas Exp $ */
 
 
 #include "php.h"
@@ -32,6 +32,8 @@
 # include <sys/time.h>
 #endif
 #include <stdio.h>
+
+#include "php_parsedate.h"
 
 char *mon_full_names[] =
 {
@@ -64,8 +66,6 @@ static int phpday_tab[2][12] =
 };
 
 #define isleap(year) (((year%4) == 0 && (year%100)!=0) || (year%400)==0)
-
-extern PHPAPI time_t parse_date (const char *p, const time_t *now);
 
 /* {{{ proto int time(void)
    Return current UNIX timestamp */
@@ -120,6 +120,17 @@ void php_mktime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 		ta->tm_isdst = is_dst = (*arguments[6])->value.lval;
 		/* fall-through */
 	case 6:
+		/* special case: 
+		   a zero in year, month and day is considered illegal
+		   as it would be interpreted as 30.11.1999 otherwise
+		*/
+		if (  (  (*arguments[5])->value.lval==0)
+			  &&((*arguments[4])->value.lval==0)
+			  &&((*arguments[3])->value.lval==0)
+			  ) {
+			RETURN_LONG(-1);
+		}
+
 		/*
 		** Accept parameter in range 0..1000 interpreted as 1900..2900
 		** (if 100 is given, it means year 2000)
@@ -236,6 +247,9 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 	}
 	for (i = 0; i < (*format)->value.str.len; i++) {
 		switch ((*format)->value.str.val[i]) {
+			case 'O':		/* GMT offset in [+-]HHMM format */
+				size += 5;
+				break;
 			case 'U':		/* seconds since the epoch */
 				size += 10;
 				break;
@@ -406,6 +420,14 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 				sprintf(tmp_buff, "%01d", ta->tm_wday);  /* SAFE */
 				strcat(return_value->value.str.val, tmp_buff);
 				break;
+			case 'O':		/* GMT offset in [+-]HHMM format */
+#if HAVE_TM_GMTOFF				
+				sprintf(tmp_buff, "%c%02d%02d", (ta->tm_gmtoff < 0) ? '-' : '+', abs(ta->tm_gmtoff / 3600), abs( ta->tm_gmtoff % 3600));
+#else
+				sprintf(tmp_buff, "%c%02d%02d", ((ta->tm_isdst ? timezone - 3600:timezone)<0)?'-':'+',abs((ta->tm_isdst ? timezone - 3600 : timezone) / 3600), abs((ta->tm_isdst ? timezone - 3600 : timezone) % 3600));
+#endif
+				strcat(return_value->value.str.val, tmp_buff);
+				break;
 			case 'Z':		/* timezone offset in seconds */
 #if HAVE_TM_GMTOFF
 				sprintf(tmp_buff, "%ld", ta->tm_gmtoff);
@@ -573,7 +595,7 @@ char *php_std_date(time_t t)
 	tm1 = php_gmtime_r(&t, &tmbuf);
 	str = emalloc(81);
 	if (PG(y2k_compliance)) {
-		snprintf(str, 80, "%s, %02d %s %04d %02d:%02d:%02d GMT",
+		snprintf(str, 80, "%s, %02d-%s-%04d %02d:%02d:%02d GMT",
 				day_short_names[tm1->tm_wday],
 				tm1->tm_mday,
 				mon_short_names[tm1->tm_mon],
@@ -581,7 +603,7 @@ char *php_std_date(time_t t)
 				tm1->tm_hour, tm1->tm_min, tm1->tm_sec);
 	} else {
 		snprintf(str, 80, "%s, %02d-%s-%02d %02d:%02d:%02d GMT",
-				day_full_names[tm1->tm_wday],
+				day_short_names[tm1->tm_wday],
 				tm1->tm_mday,
 				mon_short_names[tm1->tm_mon],
 				((tm1->tm_year)%100),

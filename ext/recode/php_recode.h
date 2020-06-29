@@ -1,26 +1,26 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0													  |
+   | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group					  |
+   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,	  |
-   | that is bundled with this package in the file LICENSE, and is		  |
-   | available at through the world-wide-web at							  |
-   | http://www.php.net/license/2_02.txt.								  |
+   | that is bundled with this package in the file LICENSE, and is        |
+   | available at through the world-wide-web at                           |
+   | http://www.php.net/license/2_02.txt.                                 |
    | If you did not receive a copy of the PHP license and are unable to	  |
-   | obtain it through the world-wide-web, please send a note to		  |
-   | license@php.net so we can mail you a copy immediately.				  |
+   | obtain it through the world-wide-web, please send a note to          |
+   | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Kristian Koehntopp (kris@koehntopp.de)					  |
+   | Authors: Kristian Koehntopp <kris@koehntopp.de>                      |
    +----------------------------------------------------------------------+
  */
 
 
-/* $Id: php_recode.h,v 1.4 2000/06/10 08:47:58 andi Exp $ */
+/* $Id: php_recode.h,v 1.6 2000/07/15 16:09:18 eschmid Exp $ */
 
-#ifndef _PHP_RECODE_H
-#define _PHP_RECODE_H
+#ifndef PHP_RECODE_H
+#define PHP_RECODE_H
 
 #ifdef PHP_WIN32
 #define PHP_MYSQL_API __declspec(dllexport)
@@ -86,4 +86,4 @@ extern PHP_MYSQL_API php_recode_globals recode_globals;
 #define phpext_recode_ptr NULL
 #endif
 
-#endif /* _PHP_RECODE_H */
+#endif /* PHP_RECODE_H */

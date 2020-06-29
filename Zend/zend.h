@@ -18,10 +18,10 @@
 */
 
 
-#ifndef _ZEND_H
-#define _ZEND_H
+#ifndef ZEND_H
+#define ZEND_H
 
-#define ZEND_VERSION "1.0.1"
+#define ZEND_VERSION "1.0.2"
 
 #ifdef __cplusplus
 #define BEGIN_EXTERN_C() extern "C" {
@@ -135,6 +135,7 @@
 typedef unsigned char zend_bool;
 typedef unsigned char zend_uchar;
 typedef unsigned int zend_uint;
+typedef unsigned long zend_ulong;
 typedef unsigned short zend_ushort;
 
 #undef SUCCESS
@@ -364,6 +365,11 @@ ZEND_API int zend_get_ini_entry(char *name, uint name_length, zval *contents);
 #define ZMSG_MEMORY_LEAK_REPEATED		5L
 #define ZMSG_LOG_SCRIPT_NAME			6L
 
+
+#define ZVAL_ADDREF(pz)		(++(pz)->refcount)
+#define ZVAL_DELREF(pz)		(--(pz)->refcount)
+#define ZVAL_REFCOUNT(pz)	((pz)->refcount)
+
 #define INIT_PZVAL(z)		\
 	(z)->refcount = 1;		\
 	(z)->is_ref = 0;	
@@ -399,6 +405,11 @@ ZEND_API int zend_get_ini_entry(char *name, uint name_length, zval *contents);
 		SEPARATE_ZVAL(ppzv);				\
 	}
 
+#define SEPARATE_ZVAL_TO_MAKE_IS_REF(ppzv)	\
+	if (!PZVAL_IS_REF(*ppzv)) {				\
+		SEPARATE_ZVAL(ppzv);				\
+		(*(ppzv))->is_ref = 1;				\
+	}
 
 #define COPY_PZVAL_TO_ZVAL(zv, pzv)			\
 	(zv) = *(pzv);							\
@@ -406,7 +417,7 @@ ZEND_API int zend_get_ini_entry(char *name, uint name_length, zval *contents);
 		zval_copy_ctor(&(zv));				\
 		(pzv)->refcount--;					\
 	} else {								\
-		FREE_ZVAL(pzv);							\
+		FREE_ZVAL(pzv);						\
 	}										\
 	INIT_PZVAL(&(zv));
 
@@ -423,7 +434,7 @@ ZEND_API int zend_get_ini_entry(char *name, uint name_length, zval *contents);
 #define EMPTY_SWITCH_DEFAULT_CASE()
 #endif
 
-#endif /* _ZEND_H */
+#endif /* ZEND_H */
 
 /*
  * Local variables:

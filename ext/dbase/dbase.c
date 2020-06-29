@@ -233,7 +233,7 @@ PHP_FUNCTION(dbase_pack) {
 /* {{{ proto bool dbase_add_record(int identifier, array data)
    Adds a record to the database */
 PHP_FUNCTION(dbase_add_record) {
-	pval *dbh_id, *fields, *field;
+	pval *dbh_id, *fields, **field;
 	dbhead_t *dbh;
 	int dbh_type;
 
@@ -274,13 +274,18 @@ PHP_FUNCTION(dbase_add_record) {
 
 	dbf = dbh->db_fields;
 	for (i = 0, cur_f = dbf; cur_f < &dbf[num_fields]; i++, cur_f++) {
+		zval tmp;
 		if (zend_hash_index_find(fields->value.ht, i, (void **)&field) == FAILURE) {
 			php_error(E_WARNING, "unexpected error");
 			efree(cp);
 			RETURN_FALSE;
 		}
-		convert_to_string(field);
-		sprintf(t_cp, cur_f->db_format, field->value.str.val); 
+		
+		tmp = **field;
+		zval_copy_ctor(&tmp);
+		convert_to_string(&tmp);
+		sprintf(t_cp, cur_f->db_format, tmp.value.str.val);
+		zval_dtor(&tmp); 
 		t_cp += cur_f->db_flen;
 	}
 
@@ -563,7 +568,7 @@ PHP_FUNCTION(dbase_get_record_with_names) {
 /* {{{ proto bool dbase_create(string filename, array fields)
    Creates a new dBase-format database file */
 PHP_FUNCTION(dbase_create) {
-	pval *filename, *fields, *field, *value;
+	pval *filename, *fields, **field, **value;
 	int fd;
 	dbhead_t *dbh;
 
@@ -617,7 +622,20 @@ PHP_FUNCTION(dbase_create) {
 	dbh->db_hlen = sizeof(struct dbf_dhead) + 2 + num_fields * sizeof(struct dbf_dfield);
 
 	rlen = 1;
-	
+	/**
+	 * Patch by greg@darkphoton.com
+	 **/
+	/* make sure that the db_format entries for all fields are set to NULL to ensure we
+       don't seg fault if there's an error and we need to call free_dbf_head() before all
+       fields have been defined. */
+	for (i = 0, cur_f = dbf; i < num_fields; i++, cur_f++) {
+		cur_f->db_format = NULL;
+	}
+	/**
+	 * end patch
+	 */
+
+
 	for (i = 0, cur_f = dbf; i < num_fields; i++, cur_f++) {
 		/* look up the first field */
 		if (zend_hash_index_find(fields->value.ht, i, (void **)&field) == FAILURE) {
@@ -626,33 +644,33 @@ PHP_FUNCTION(dbase_create) {
 			RETURN_FALSE;
 		}
 
-		if (field->type != IS_ARRAY) {
+		if (Z_TYPE_PP (field) != IS_ARRAY) {
 			php_error(E_WARNING, "second parameter must be array of arrays");
 			free_dbf_head(dbh);
 			RETURN_FALSE;
 		}
 
 		/* field name */
-		if (zend_hash_index_find(field->value.ht, 0, (void **)&value) == FAILURE) {
+		if (zend_hash_index_find(Z_ARRVAL_PP(field), 0, (void **)&value) == FAILURE) {
 			php_error(E_WARNING, "expected field name as first element of list in field %d", i);
 			free_dbf_head(dbh);
 			RETURN_FALSE;
 		}
-		convert_to_string(value);
-		if (value->value.str.len > 10 || value->value.str.len == 0) {
-			php_error(E_WARNING, "invalid field name '%s' (must be non-empty and less than or equal to 10 characters)", value->value.str.val);
+		convert_to_string_ex(value);
+		if ((*value)->value.str.len > 10 || (*value)->value.str.len == 0) {
+			php_error(E_WARNING, "invalid field name '%s' (must be non-empty and less than or equal to 10 characters)", (*value)->value.str.val);
 			free_dbf_head(dbh);
 			RETURN_FALSE;
 		}
-		copy_crimp(cur_f->db_fname, value->value.str.val, value->value.str.len);
+		copy_crimp(cur_f->db_fname, (*value)->value.str.val, (*value)->value.str.len);
 
 		/* field type */
-		if (zend_hash_index_find(field->value.ht,1,(void **)&value) == FAILURE) {
+		if (zend_hash_index_find(Z_ARRVAL_PP (field), 1,(void **)&value) == FAILURE) {
 			php_error(E_WARNING, "expected field type as sececond element of list in field %d", i);
 			RETURN_FALSE;
 		}
-		convert_to_string(value);
-		cur_f->db_type = toupper(*value->value.str.val);
+		convert_to_string_ex(value);
+		cur_f->db_type = toupper(*(*value)->value.str.val);
 
 		cur_f->db_fdc = 0;
 
@@ -672,22 +690,22 @@ PHP_FUNCTION(dbase_create) {
 		case 'N':
 		case 'C':
 			/* field length */
-			if (zend_hash_index_find(field->value.ht,2,(void **)&value) == FAILURE) {
+			if (zend_hash_index_find(Z_ARRVAL_PP (field), 2,(void **)&value) == FAILURE) {
 				php_error(E_WARNING, "expected field length as third element of list in field %d", i);
 				free_dbf_head(dbh);
 				RETURN_FALSE;
 			}
-			convert_to_long(value);
-			cur_f->db_flen = value->value.lval;
+			convert_to_long_ex(value);
+			cur_f->db_flen = (*value)->value.lval;
 
 			if (cur_f->db_type == 'N') {
-				if (zend_hash_index_find(field->value.ht,3,(void **)&value) == FAILURE) {
+				if (zend_hash_index_find(Z_ARRVAL_PP (field), 3, (void **)&value) == FAILURE) {
 					php_error(E_WARNING, "expected field precision as fourth element of list in field %d", i);
 					free_dbf_head(dbh);
 					RETURN_FALSE;
 				}
-				convert_to_long(value);
-				cur_f->db_fdc = value->value.lval;
+				convert_to_long_ex(value);
+				cur_f->db_fdc = (*value)->value.lval;
 			}
 			break;
 		default:

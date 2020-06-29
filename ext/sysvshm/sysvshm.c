@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Christian Cartus <chc@idgruppe.de>                          |
+   | Authors: Christian Cartus <cartus@atrior.de>                         |
    +----------------------------------------------------------------------+
  */
  
-/* $Id: sysvshm.c,v 1.27 2000/06/05 19:47:45 andi Exp $ */
+/* $Id: sysvshm.c,v 1.30 2000/08/12 20:45:48 eschmid Exp $ */
 
 /* This has been built and tested on Solaris 2.6.
  * It may not compile or execute correctly on other systems.
@@ -75,8 +75,8 @@ PHP_MINIT_FUNCTION(sysvshm)
 }
 
 
-/* {{{ proto int shm_attach(int key, int size, int flag)
-   Return an id for the shared memory with the given key */
+/* {{{ proto int shm_attach(int key [, int memsize [, int perm]])
+   Creates or open a shared memory segment */
 PHP_FUNCTION(shm_attach)
 {
 	pval **arg_key,**arg_size,**arg_flag;
@@ -150,8 +150,8 @@ PHP_FUNCTION(shm_attach)
 
 
 
-/* {{{ proto int shm_detach(int id)
-   Releases the shared memory attachment with the given id */
+/* {{{ proto int shm_detach(int shm_identifier)
+   Disconnects from shared memory segment */
 PHP_FUNCTION(shm_detach)
 {
 	pval **arg_id;
@@ -170,8 +170,8 @@ PHP_FUNCTION(shm_detach)
 	RETURN_TRUE;
 }
 /* }}} */
-/* {{{ proto int shm_remove(int key)
-   Removes the shared memory with the given key */
+/* {{{ proto int shm_remove(int shm_identifier)
+   Removes shared memory from Unix systems */
 PHP_FUNCTION(shm_remove)
 {
 	pval **arg_key;
@@ -201,8 +201,8 @@ PHP_FUNCTION(shm_remove)
 
 
 
-/* {{{ proto int shm_put_var(int id, int key, object *variable)
-   Insert a variable into shared memory */
+/* {{{ proto int shm_put_var(int shm_identifier, int variable_key, mixed variable)
+   Inserts or updates a variable in shared memory */
 PHP_FUNCTION(shm_put_var)
 {
 	pval **arg_id, **arg_key, **arg_var;
@@ -248,10 +248,8 @@ PHP_FUNCTION(shm_put_var)
 /* }}} */
 
 
-
-
-/* {{{ proto string/float/int/array shm_get_var(int id, int key)
-   Returns a variable into shared memory */
+/* {{{ proto mixed shm_get_var(int id, int variable_key)
+   Returns a variable from shared memory */
 PHP_FUNCTION(shm_get_var)
 {
 	pval **arg_id, **arg_key;
@@ -295,7 +293,7 @@ PHP_FUNCTION(shm_get_var)
 }
 /* }}} */
 
-/* {{{ proto int shm_remove_var(int id, int key)
+/* {{{ proto int shm_remove_var(int id, int variable_key)
    Removes variable from shared memory */
 PHP_FUNCTION(shm_remove_var)
 {

@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: */
+/* $Id: math.c,v 1.35 2000/07/30 21:55:27 hholzgra Exp $ */
 
 #include "php.h"
 #include "php_math.h"
@@ -56,9 +56,8 @@ PHP_FUNCTION(abs)
 }
 
 /* }}} */ 
-/* {{{ proto int ceil(double number)
+/* {{{ proto double ceil(double number)
    Returns the next highest integer value of the number */
-
 PHP_FUNCTION(ceil) 
 {
 	zval **value;
@@ -70,7 +69,7 @@ PHP_FUNCTION(ceil)
 	convert_scalar_to_number_ex(value);
 
 	if ((*value)->type == IS_DOUBLE) {
-		RETURN_LONG((long)ceil((*value)->value.dval));
+		RETURN_DOUBLE(ceil((*value)->value.dval));
 	} else if ((*value)->type == IS_LONG) {
 		RETURN_LONG((*value)->value.lval);
 	}
@@ -79,7 +78,7 @@ PHP_FUNCTION(ceil)
 }
 
 /* }}} */
-/* {{{ proto int floor(double number)
+/* {{{ proto double floor(double number)
    Returns the next lowest integer value from the number */
 
 PHP_FUNCTION(floor) {
@@ -92,7 +91,7 @@ PHP_FUNCTION(floor) {
 	convert_scalar_to_number_ex(value);
 
 	if ((*value)->type == IS_DOUBLE) {
-		RETURN_LONG((long)floor((*value)->value.dval));
+		RETURN_DOUBLE(floor((*value)->value.dval));
 	} else if ((*value)->type == IS_LONG) {
 		RETURN_LONG((*value)->value.lval);
 	}
@@ -482,7 +481,7 @@ PHP_FUNCTION(bindec)
 }
 
 /* }}} */
-/* {{{ proto int hexdec(string hexadimal_number)
+/* {{{ proto int hexdec(string hexadecimal_number)
    Returns the decimal equivalent of the hexadecimal number */
 
 PHP_FUNCTION(hexdec)
@@ -637,9 +636,9 @@ char *_php_math_number_format(double d,int dec,char dec_point,char thousand_sep)
 	}
 
 	if (dec) {
-		reslen = dec+1 + (tmplen-dec-1) + (tmplen-1-dec-1)/3;
+		reslen = dec+1 + (tmplen-dec-1) + ((thousand_sep) ? (tmplen-1-dec-1)/3 : 0);
 	} else {
-		reslen = tmplen+(tmplen-1)/3;
+		reslen = tmplen+((thousand_sep) ? (tmplen-1)/3 : 0);
 	}
 	if (is_negative) {
 		reslen++;
@@ -660,7 +659,7 @@ char *_php_math_number_format(double d,int dec,char dec_point,char thousand_sep)
 	
 	while(s>=tmpbuf) {
 		*t-- = *s--;
-		if ((++count%3)==0 && s>=tmpbuf) {
+		if (thousand_sep && (++count%3)==0 && s>=tmpbuf) {
 			*t-- = thousand_sep;
 		}
 	}
@@ -709,6 +708,8 @@ PHP_FUNCTION(number_format)
 		}
 		if ((*t_s)->value.str.len==1) {
 			thousand_sep=(*t_s)->value.str.val[0];
+		} else if((*t_s)->value.str.len==0) {
+			thousand_sep=0;	
 		}
 		RETURN_STRING(_php_math_number_format((*num)->value.dval,(*dec)->value.lval,dec_point,thousand_sep),0);
 		break;

@@ -5,10 +5,10 @@
 // +----------------------------------------------------------------------+
 // | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
 // +----------------------------------------------------------------------+
-// | This source file is subject to version 2.0 of the PHP license,       |
+// | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
 // | available at through the world-wide-web at                           |
-// | http://www.php.net/license/2_0.txt.                                  |
+// | http://www.php.net/license/2_02.txt.                                 |
 // | If you did not receive a copy of the PHP license and are unable to   |
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
@@ -21,7 +21,7 @@
 // can be manipulated and that updates the database accordingly.
 //
 
-use "DB";
+require_once "DB.php";
 
 function DB_storage_destructor() {
     global $DB_storage_object_list;
@@ -31,6 +31,7 @@ function DB_storage_destructor() {
 	while (list($ind, $obj) = each($DB_storage_object_list)) {
 	    $obj->destroy();
 	}
+	$DB_storage_object_list = null;
     }
 }
 
@@ -60,10 +61,11 @@ class DB_storage {
      */
     function DB_storage($table, $keycolumn, &$dbh) {
 	global $DB_storage_object_list;
-	if (!is_array($DB_storage_object_list)) {
+	if (is_array($DB_storage_object_list)) {
+	    $DB_storage_object_list[] = &$this;
+	} else {
 	    $DB_storage_object_list = array(&$this);
 	}
-	$DB_storage_object_list[] = &$this;
 	$this->_table = $table;
 	$this->_keycolumn = $keycolumn;
 	$this->_dbh = $dbh;
@@ -71,10 +73,98 @@ class DB_storage {
     }
 
     /**
+     * Method used to initialize a DB_storage object from the
+     * configured table.
+     * @param $keyval the key of the row to fetch
+     * @return int DB_OK on success, DB error if not
+     */
+    function setup($keyval) {
+	if (is_int($keyval)) {
+	    $qval = "$keyval";
+	} else {
+	    $qval = "'" . $this->_dbh->quoteString($keyval) . "'";
+	}
+	$sth = $this->_dbh->query("SELECT * FROM " .
+				  $this->_table . " WHERE " .
+				  $this->_keycolumn . " = $qval");
+	if (DB::isError($sth)) {
+	    return $sth;
+	}
+	while ($row = $sth->fetchRow(DB_GETMODE_ASSOC)) {
+	    reset($row);
+	    while (list($key, $value) = each($row)) {
+		$this->_properties[$key] = true;
+		$this->$key = &$value;
+		unset($value);
+	    }
+	}
+    }
+
+    /**
+     * Create a new (empty) row in the configured table for this
+     * object.
+     */
+    function insert($newid = false) {
+	if (is_int($newid)) {
+	    $qid = "$newid";
+	} else {
+	    $qid = "'" . $this->_dbh->quoteString($newid) . "'";
+	}
+	$sth = $this->_dbh->query("INSERT INTO " .
+				  $this->_table . " (" .
+				  $this->_keycolumn .
+				  ") VALUES($qid)");
+	if (DB::isError($sth)) {
+	    return $sth;
+	}
+	$this->setup($newid);
+    }
+
+    /**
+     * Output a simple description of this DB_storage object.
+     * @return string object description
+     */
+    function __string_value() {
+	$info = get_class(&$this);
+	$info .= " (table=";
+	$info .= $this->_table;
+	$info .= ", keycolumn=";
+	$info .= $this->_keycolumn;
+	$info .= ", dbh=";
+	if (is_object($this->_dbh)) {
+	    $info .= $this->_dbh->__string_value();
+	} else {
+	    $info .= "null";
+	}
+	$info .= ")";
+	if (sizeof($this->_properties)) {
+	    $keyname = $this->_keycolumn;
+	    $key = $this->$keyname;
+	    $info .= " [loaded, key=$key]";
+	}
+	if (sizeof($this->_changes)) {
+	    $info .= " [modified]";
+	}
+	return $info;
+    }
+
+    /**
+     * Dump the contents of this object to "standard output".
+     */
+    function dump() {
+	reset($this->_properties);
+	while (list($prop, $foo) = each($this->_properties)) {
+	    print "$prop = ";
+	    print htmlentities($this->$prop);
+	    print "<BR>\n";
+	}
+    }
+
+    /**
      * Static method used to create new DB storage objects.
      * @param $data assoc. array where the keys are the names
      *              of properties/columns
-     * @return object a new instance of DB_storage (or inheriting class)
+     * @return object a new instance of DB_storage or a subclass of it
      */
     function &create($table, &$data) {
 	$classname = get_class(&$this);

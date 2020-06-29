@@ -5,19 +5,18 @@
 // +----------------------------------------------------------------------+
 // | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
 // +----------------------------------------------------------------------+
-// | This source file is subject to version 2.0 of the PHP license,       |
+// | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
 // | available at through the world-wide-web at                           |
-// | http://www.php.net/license/2_0.txt.                                  |
+// | http://www.php.net/license/2_02.txt.                                 |
 // | If you did not receive a copy of the PHP license and are unable to   |
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors: Sterling Hughes <sterling@designmultimedia.com>             |
-// |                                                                      |
+// | Authors: Sterling Hughes <sterling@php.net>                          |
 // +----------------------------------------------------------------------+
 //
-// $Id: msql.php,v 1.2 2000/06/21 02:22:04 chagenbu Exp $
+// $Id: msql.php,v 1.6 2000/08/24 01:34:16 sterling Exp $
 //
 // Database independent query interface definition for PHP's Mini-SQL
 // extension.
@@ -42,14 +41,14 @@ class DB_msql extends DB_common {
         );
     }
 
-    function connect ( $dsn, $persistent=false ) {
+    function connect (&$dsn, $persistent=false) {
         if(is_array($dsn)) {
             $dsninfo = &$dsn;
         } else {
             $dsninfo = DB::parseDSN($dsn);
         }
         if (!$dsninfo || !$dsninfo['phptype']) {
-            return DB_ERROR; 
+            return new DB_Error(); 
         }
 
         $user = $dsninfo['username'];
@@ -66,7 +65,7 @@ class DB_msql extends DB_common {
         if ($dsninfo['database']) {
             @msql_select_db($dsninfo['database'], $conn);
         } else {
-            return DB_ERROR;
+            return new DB_Error();
         }
         $this->connection = $conn;
         return DB_OK;
@@ -79,7 +78,7 @@ class DB_msql extends DB_common {
     function &query( $stmt ) {
         $result = @msql_query($stmt, $this->connection);
         if (!$result) {
-            return DB_ERROR;
+            return new DB_Error();
         }
         // Determine which queries that should return data, and which
         // should return an error code only.
@@ -94,7 +93,7 @@ class DB_msql extends DB_common {
     function simpleQuery($stmt) {
         $result = @msql_query($stmt, $this->connection);
         if (!$result) {
-            return DB_ERROR;
+            return new DB_Error();
         }
         // Determine which queries that should return data, and which
         // should return an error code only.
@@ -112,7 +111,7 @@ class DB_msql extends DB_common {
             $row = @msql_fetch_row($result);
         }
         if (!$row) {
-            return DB_ERROR;
+            return new DB_Error();
         }
         return $row;
     }
@@ -124,7 +123,7 @@ class DB_msql extends DB_common {
             $ar = @msql_fetch_row($result);
         }
         if (!$ar) {
-            return DB_ERROR;
+            return new DB_Error();
         }
         return DB_OK;
     }
@@ -144,7 +143,7 @@ class DB_msql extends DB_common {
     function numCols($result) {
         $cols = @msql_num_fields($result);
         if (!$cols) {
-            return DB_ERROR;
+            return new DB_Error();
         }
         return $cols;
     }
@@ -174,7 +173,7 @@ class DB_msql extends DB_common {
         $realquery = $this->execute_emulate_query($stmt, $data);
         $result = @msql_query($realquery, $this->connection);
         if (!$result) {
-            return DB_ERROR;
+            return new DB_Error();
         }
         if ( preg_match('/(SELECT|SHOW|LIST|DESCRIBE)/i', $realquery) ) {
             return $result;
@@ -184,15 +183,15 @@ class DB_msql extends DB_common {
     }
 
     function autoCommit($onoff=false) {
-        return DB_ERROR_NOT_CAPABLE;
+        return new DB_Error(DB_ERROR_NOT_CAPABLE);
     }
 
     function commit() {
-        return DB_ERROR_NOT_CAPABLE;
+        return new DB_Error(DB_ERROR_NOT_CAPABLE);
     }
 
     function rollback() {
-        return DB_ERROR_NOT_CAPABLE;
+        return new DB_Error(DB_ERROR_NOT_CAPABLE);
     }
 }
 

@@ -27,21 +27,16 @@
    +----------------------------------------------------------------------+
  */
 
-#ifndef _CYBERCASH_H
-#define _CYBERCASH_H
+#ifndef CYBERCASH_H
+#define CYBERCASH_H
 
 
 #if HAVE_MCK
 
-#if PHP_API_VERSION < 19990421
-#define zend_module_entry cybercash_module_entry
-#include "modules.h"
-#include "internal_functions.h"
-#endif
-
 extern zend_module_entry cybercash_module_entry;
 #define cybercash_module_ptr &cybercash_module_entry
 
+PHP_MINFO_FUNCTION(cybercash);
 PHP_FUNCTION(cybercash_encr);
 PHP_FUNCTION(cybercash_decr);
 PHP_FUNCTION(cybercash_base64_encode);

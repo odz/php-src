@@ -183,7 +183,7 @@ inline void restore_lexical_state(zend_lex_state *lex_state CLS_DC)
 BEGIN_EXTERN_C()
 
 
-ZEND_API void zend_open_file_dtor(zend_file_handle *fh)
+ZEND_API void zend_file_handle_dtor(zend_file_handle *fh)
 {
 	switch (fh->type) {
 		case ZEND_HANDLE_FP:
@@ -235,7 +235,7 @@ int zend_compare_file_handles(zend_file_handle *fh1, zend_file_handle *fh2)
 }
 
 
-ZEND_API void zend_close_file_handle(zend_file_handle *file_handle CLS_DC)
+ZEND_API void zend_destroy_file_handle(zend_file_handle *file_handle CLS_DC)
 {
 	zend_llist_del_element(&CG(open_files), file_handle, (int (*)(void *, void *)) zend_compare_file_handles);
 }
@@ -243,22 +243,28 @@ ZEND_API void zend_close_file_handle(zend_file_handle *file_handle CLS_DC)
 
 ZEND_API int open_file_for_scanning(zend_file_handle *file_handle CLS_DC)
 {
+	char *file_path=NULL;
+
 #ifndef ZTS
 	switch (file_handle->type) {
 		case ZEND_HANDLE_FILENAME:
 			file_handle->handle.fp = zend_fopen(file_handle->filename, &file_handle->opened_path);
+		    file_path = file_handle->opened_path; 
 			break;
 		case ZEND_HANDLE_FD:
-			file_handle->opened_path = NULL;
+		  /* file_handle->opened_path = NULL; */
 			file_handle->handle.fp = fdopen(file_handle->handle.fd, "r");
 			break;
 		case ZEND_HANDLE_FP:
-			file_handle->opened_path = NULL;
+		  /* file_handle->opened_path = NULL; */
 			file_handle->handle.fp = file_handle->handle.fp;
 			break;
 	}
 	if (!file_handle->handle.fp) {
 		return FAILURE;
+	}
+	if (!file_path) {
+		file_path = file_handle->filename;
 	}
 	file_handle->type = ZEND_HANDLE_FP;	
 	if (file_handle->handle.fp != stdin) {
@@ -271,7 +277,7 @@ ZEND_API int open_file_for_scanning(zend_file_handle *file_handle CLS_DC)
 #else
 	switch (file_handle->type) {
 		case ZEND_HANDLE_FD:
-			file_handle->opened_path = NULL;
+		  /* file_handle->opened_path = NULL; */
 			file_handle->handle.is = new ifstream(file_handle->handle.fd);
 			file_handle->type = ZEND_HANDLE_FSTREAM;
 			break;
@@ -286,7 +292,7 @@ ZEND_API int open_file_for_scanning(zend_file_handle *file_handle CLS_DC)
 				break;
 			}
 		case ZEND_HANDLE_FP:
-			file_handle->opened_path = NULL;
+		  /* file_handle->opened_path = NULL; */
 			if (file_handle->handle.fp==stdin) {
 				file_handle->handle.is = &cin;
 			} else {
@@ -298,6 +304,9 @@ ZEND_API int open_file_for_scanning(zend_file_handle *file_handle CLS_DC)
 			}	
 			break;
 	}
+
+	file_path = file_handle->filename;
+
 	if (file_handle->handle.is->fail()) {
 		delete file_handle->handle.is;
 		return FAILURE;
@@ -309,38 +318,23 @@ ZEND_API int open_file_for_scanning(zend_file_handle *file_handle CLS_DC)
 	CG(ZFL) = new ZendFlexLexer;
 	CG(ZFL)->switch_streams(file_handle->handle.is, &cout);
 #endif
-	zend_set_compiled_filename(file_handle->filename);
+	zend_set_compiled_filename(file_path);
 	CG(zend_lineno) = 1;
 	return SUCCESS;
 }
 END_EXTERN_C()
 
 
-ZEND_API zend_op_array *zend_compile_files(int type CLS_DC, int file_count, ...)
-{
-	va_list files;
-	zend_op_array *op_array;
-
-	va_start(files, file_count);
-	op_array = zend_v_compile_files(type CLS_CC, file_count, files);
-	va_end(files);
-	return op_array;
-}
-
-
-ZEND_API zend_op_array *v_compile_files(int type CLS_DC, int file_count, va_list files)
+ZEND_API zend_op_array *compile_file(zend_file_handle *file_handle, int type CLS_DC)
 {
 	zend_lex_state original_lex_state;
 	zend_op_array *op_array = (zend_op_array *) emalloc(sizeof(zend_op_array));
 	zend_op_array *original_active_op_array = CG(active_op_array);
 	zend_op_array *retval=NULL;
-	int i;
 	int compiler_result;
-	int compiled_files=0;
-	int last_file=0;
+	zend_bool compilation_successful=0;
 	znode retval_znode;
 	zend_bool original_in_compilation = CG(in_compilation);
-	zend_file_handle **file_handles = (zend_file_handle **) do_alloca(file_count * sizeof(zend_file_handle *));
 
 	retval_znode.op_type = IS_CONST;
 	retval_znode.u.constant.type = IS_LONG;
@@ -348,55 +342,42 @@ ZEND_API zend_op_array *v_compile_files(int type CLS_DC, int file_count, va_list
 	retval_znode.u.constant.is_ref = 0;
 	retval_znode.u.constant.refcount = 1;
 
-	init_op_array(op_array, ZEND_USER_FUNCTION, INITIAL_OP_ARRAY_SIZE);
 	save_lexical_state(&original_lex_state CLS_CC);
 
 	retval = op_array; /* success oriented */
 
-	for (i=0; i<file_count; i++) {
-		file_handles[i] = va_arg(files, zend_file_handle *);
-		if (file_handles[i]) {
-			last_file = i;
-		}
-	}
-
-	for (i=0; i<file_count; i++) {
-		if (!file_handles[i]) {
-			continue;
-		}
-		if (open_file_for_scanning(file_handles[i] CLS_CC)==FAILURE) {
-			zend_message_dispatcher(ZMSG_FAILED_INCLUDE_FOPEN, file_handles[i]->filename);
+	if (open_file_for_scanning(file_handle CLS_CC)==FAILURE) {
+		if (type==ZEND_REQUIRE) {
+			zend_message_dispatcher(ZMSG_FAILED_REQUIRE_FOPEN, file_handle->filename);
+			zend_bailout();		
 		} else {
-			CG(in_compilation) = 1;
-			CG(active_op_array) = op_array;
-			compiler_result = zendparse(CLS_C);
-			zend_close_file_handle(file_handles[i] CLS_CC);
-			if (i == last_file) {
-				do_return(&retval_znode, 0 CLS_CC);
-			}
-			restore_lexical_state(&original_lex_state CLS_CC);
-			CG(in_compilation) = original_in_compilation;
-			if (compiler_result==1) { /* parser error */
-				CG(unclean_shutdown) = 1;
-				retval = NULL;
-				break;
-			}
-			compiled_files++;
+			zend_message_dispatcher(ZMSG_FAILED_INCLUDE_FOPEN, file_handle->filename);
 		}
+		compilation_successful=0;
+	} else {
+		init_op_array(op_array, ZEND_USER_FUNCTION, INITIAL_OP_ARRAY_SIZE CLS_CC);
+		CG(in_compilation) = 1;
+		CG(active_op_array) = op_array;
+		compiler_result = zendparse(CLS_C);
+		do_return(&retval_znode, 0 CLS_CC);
+		restore_lexical_state(&original_lex_state CLS_CC);
+		CG(in_compilation) = original_in_compilation;
+		if (compiler_result==1) { /* parser error */
+			CG(unclean_shutdown) = 1;
+			retval = NULL;
+		}
+		compilation_successful=1;
 	}
 
 	if (retval) {
-		if (compiled_files>0) {
-			CG(active_op_array) = original_active_op_array;
+		CG(active_op_array) = original_active_op_array;
+		if (compilation_successful) {
 			pass_two(op_array);
 		} else {
-			CG(active_op_array) = original_active_op_array;
-			destroy_op_array(op_array);
 			efree(op_array);
 			retval = NULL;
 		}
 	}
-	free_alloca(file_handles);
 	return retval;
 }
 
@@ -406,7 +387,6 @@ zend_op_array *compile_filename(int type, zval *filename CLS_DC ELS_DC)
 	zend_file_handle file_handle;
 	zval tmp;
 	zend_op_array *retval;
-	int error_reporting=0;
 
 	if (filename->type != IS_STRING) {
 		tmp = *filename;
@@ -420,22 +400,8 @@ zend_op_array *compile_filename(int type, zval *filename CLS_DC ELS_DC)
 	file_handle.opened_path = NULL;
 
 
-	if (type==ZEND_REQUIRE) {
-		/* We don't want to hear about inclusion failures;  If we fail,
-		 * we'll generate a require failure
-		 */
-		error_reporting = EG(error_reporting);
-		EG(error_reporting) = 0;
-	}
-	retval = zend_compile_files(type CLS_CC, 1, &file_handle);
-
-	if (type==ZEND_REQUIRE) {
-		EG(error_reporting) = error_reporting;
-		if (!retval) {
-			zend_message_dispatcher(ZMSG_FAILED_REQUIRE_FOPEN, filename->value.str.val);
-			zend_bailout();		
-		}
-	}
+	retval = zend_compile_file(&file_handle, type CLS_CC);
+	zend_destroy_file_handle(&file_handle CLS_CC);
 
 	if (filename==&tmp) {
 		zval_dtor(&tmp);
@@ -443,8 +409,11 @@ zend_op_array *compile_filename(int type, zval *filename CLS_DC ELS_DC)
 	return retval;
 }
 
-
-static inline int prepare_string_for_scanning(zval *str CLS_DC)
+#ifndef ZTS
+static inline int prepare_string_for_scanning(zval *str)
+#else
+static inline int prepare_string_for_scanning(zval *str, istrstream **input_stream CLS_DC)
+#endif
 {
 #ifndef ZTS
 	/* enforce two trailing NULLs for flex... */
@@ -455,10 +424,10 @@ static inline int prepare_string_for_scanning(zval *str CLS_DC)
 	yyin=NULL;
 	yy_scan_buffer(str->value.str.val, str->value.str.len+2);
 #else
-	istrstream *input_stream = new istrstream(str->value.str.val, str->value.str.len);
+	*input_stream = new istrstream(str->value.str.val, str->value.str.len);
 	CG(ZFL) = new ZendFlexLexer;
 
-	CG(ZFL)->switch_streams(input_stream, &cout);
+	CG(ZFL)->switch_streams(*input_stream, &cout);
 #endif
 	zend_set_compiled_filename("Eval code");
 	CG(zend_lineno) = 1;
@@ -475,6 +444,9 @@ zend_op_array *compile_string(zval *source_string CLS_DC)
 	zval tmp;
 	int compiler_result;
 	zend_bool original_in_compilation = CG(in_compilation);
+#ifdef ZTS
+	istrstream *input_stream;
+#endif
 
 	if (source_string->value.str.len==0) {
 		efree(op_array);
@@ -488,13 +460,16 @@ zend_op_array *compile_string(zval *source_string CLS_DC)
 	convert_to_string(&tmp);
 	source_string = &tmp;
 
-	init_op_array(op_array, ZEND_EVAL_CODE, INITIAL_OP_ARRAY_SIZE);
 	save_lexical_state(&original_lex_state CLS_CC);
-	if (prepare_string_for_scanning(source_string CLS_CC)==FAILURE) {
-		destroy_op_array(op_array);
+#ifndef ZTS
+	if (prepare_string_for_scanning(source_string)==FAILURE) {
+#else
+	if (prepare_string_for_scanning(source_string, &input_stream CLS_CC)==FAILURE) {
+#endif
 		efree(op_array);
 		retval = NULL;
 	} else {
+		init_op_array(op_array, ZEND_EVAL_CODE, INITIAL_OP_ARRAY_SIZE CLS_CC);
 		CG(active_op_array) = op_array;
 #ifndef ZTS
 		BEGIN(ST_IN_SCRIPTING);
@@ -512,10 +487,12 @@ zend_op_array *compile_string(zval *source_string CLS_DC)
 			do_return(NULL, 0 CLS_CC);
 			CG(active_op_array) = original_active_op_array;
 			pass_two(op_array);
-			pass_include_eval(op_array);
 			retval = op_array;
 		}
 	}
+#ifdef ZTS
+	delete input_stream;
+#endif
 	zval_dtor(&tmp);
 	CG(in_compilation) = original_in_compilation;
 	return retval;
@@ -523,87 +500,6 @@ zend_op_array *compile_string(zval *source_string CLS_DC)
 
 
 BEGIN_EXTERN_C()
-int require_filename(char *filename, zend_bool unique CLS_DC)
-{
-	zend_file_handle file_handle;
-
-	file_handle.type = ZEND_HANDLE_FILENAME;
-	file_handle.filename = filename;
-	file_handle.free_filename = 0;
-	if (require_file(&file_handle, unique CLS_CC)==FAILURE) {
-		zend_bailout();
-		return FAILURE; /* will never get here */
-	}
-	return SUCCESS;
-}
-
-
-int use_filename(char *filename, uint filename_length CLS_DC)
-{
-	zend_error(E_COMPILE_ERROR,"use: Not yet supported. Please use include_once() or require_once()");
-	return FAILURE;
-
-#if 0
-	zend_file_handle file_handle;
-
-	file_handle.filename = (char *) emalloc(filename_length + zend_uv.import_use_extension_length);
-	memcpy(file_handle.filename, filename, filename_length);
-	memcpy(file_handle.filename+filename_length, zend_uv.import_use_extension, zend_uv.import_use_extension_length);
-	file_handle.filename[filename_length+zend_uv.import_use_extension_length] = 0;
-	file_handle.free_filename = 1;
-
-	file_handle.type = ZEND_HANDLE_FILENAME;
-	if (require_file(&file_handle, 1 CLS_CC)==FAILURE) {
-		efree(file_handle.filename);
-		zend_bailout();
-		return FAILURE; /* will never get here */
-	}
-	return SUCCESS;
-#endif
-}
-
-
-int require_file(zend_file_handle *file_handle, zend_bool unique CLS_DC)
-{
-	zend_lex_state original_lex_state;
-	int compiler_result;
-
-	save_lexical_state(&original_lex_state CLS_CC);
-	if (open_file_for_scanning(file_handle CLS_CC)==FAILURE) {
-		zend_message_dispatcher(ZMSG_FAILED_REQUIRE_FOPEN, file_handle->filename);
-		return FAILURE;
-	}
-	if (file_handle->opened_path) {
-		if (unique) {
-			zend_file_handle *pfh;
-
-			if (zend_hash_add(&CG(used_files), file_handle->opened_path, strlen(file_handle->opened_path)+1, file_handle, sizeof(zend_file_handle), (void **) &pfh)==FAILURE) {
-				zend_close_file_handle(file_handle CLS_CC);
-				restore_lexical_state(&original_lex_state CLS_CC);
-				return SUCCESS;
-			} else {
-				/* pfh is a copy we only save for get_used_files() */
-				pfh->type = ZEND_HANDLE_FILENAME;
-				if (pfh->filename) {
-					pfh->filename = estrdup(pfh->filename);
-					pfh->free_filename = 1;
-				}
-				if (pfh->opened_path) {
-					pfh->opened_path = strdup(pfh->opened_path);
-				}
-			}
-		}
-	}
-	compiler_result = zendparse(CLS_C);
-	zend_close_file_handle(file_handle CLS_CC);
-	restore_lexical_state(&original_lex_state CLS_CC);
-	if (compiler_result==1) {
-		zend_bailout();
-	}
-	return SUCCESS;
-}
-
-
 int highlight_file(char *filename, zend_syntax_highlighter_ini *syntax_highlighter_ini)
 {
 	zend_lex_state original_lex_state;
@@ -620,7 +516,7 @@ int highlight_file(char *filename, zend_syntax_highlighter_ini *syntax_highlight
 		return FAILURE;
 	}
 	zend_highlight(syntax_highlighter_ini);
-	zend_close_file_handle(&file_handle CLS_CC);
+	zend_destroy_file_handle(&file_handle CLS_CC);
 	restore_lexical_state(&original_lex_state CLS_CC);
 	return SUCCESS;
 }
@@ -630,16 +526,26 @@ int highlight_string(zval *str, zend_syntax_highlighter_ini *syntax_highlighter_
 {
 	zend_lex_state original_lex_state;
 	zval tmp = *str;
+#ifdef ZTS
+	istrstream *input_stream;
+#endif
 	CLS_FETCH();
 
 	str = &tmp;
 	zval_copy_ctor(str);
 	save_lexical_state(&original_lex_state CLS_CC);
-	if (prepare_string_for_scanning(str CLS_CC)==FAILURE) {
+#ifndef ZTS
+	if (prepare_string_for_scanning(str)==FAILURE) {
+#else
+	if (prepare_string_for_scanning(str, &input_stream CLS_CC)==FAILURE) {
+#endif
 		return FAILURE;
 	}
 	zend_highlight(syntax_highlighter_ini);
 	restore_lexical_state(&original_lex_state CLS_CC);
+#ifdef ZTS
+	delete input_stream;
+#endif
 	zval_dtor(str);
 	return SUCCESS;
 }
@@ -688,47 +594,6 @@ int yyFlexLexer::yylex()
 
 #endif
 
-
-/* redefine YY_INPUT to handle urls for win32*/
-#if 0 /*defined(ZEND_WIN32)*/
-#define YY_INPUT(buf,result,max_size) \
-	if ( yyin->_tmpfname != "url" ){ \
-	if ( yy_current_buffer->yy_is_interactive ) \
-		{ \
-		int c = '*', n; \
-		for ( n = 0; n < max_size && \
-			     (c = getc( yyin )) != EOF && c != '\n'; ++n ) \
-			buf[n] = (char) c; \
-		if ( c == '\n' ) \
-			buf[n++] = (char) c; \
-		if ( c == EOF && ferror( yyin ) ) \
-			YY_FATAL_ERROR( "input in flex scanner failed" ); \
-		result = n; \
-		} \
-	else if ( ((result = fread( buf, 1, max_size, yyin )) == 0) \
-		  && ferror( yyin ) ) \
-		YY_FATAL_ERROR( "input in flex scanner failed" ); \
-	}else{ /* this is a url */ \
-	int recv_char=0,socketd=0; \
-	/*memset(buf,0,max_size);*/ \
-	socketd=yyin->_file; \
-	if ( yy_current_buffer->yy_is_interactive ) \
-		{ \
-		int c = '*', n; \
-		for ( n = 0; n < max_size && \
-			     ( (recv_char=recv( socketd,(char *)&c,1,0 ))) >0 && c != '\n'; ++n ) \
-			buf[n] = (char) c; \
-		if ( c == '\n' ) \
-			buf[n++] = (char) c; \
-		if ( recv_char == SOCKET_ERROR ) \
-			YY_FATAL_ERROR( "input from url in flex scanner failed" ); \
-		result = n; \
-		} \
-	else if ((result = recv( socketd, (char *)buf, max_size, 0)) == SOCKET_ERROR) \
-		  	YY_FATAL_ERROR( "input from url read in flex scanner failed" ); \
-	}
-#endif
-
 %}
 
 LNUM	[0-9]+
@@ -741,6 +606,7 @@ TABS_AND_SPACES [ \t]*
 TOKENS [;:,.\[\]()|^&+-/*=%!~$<>?@]
 ENCAPSED_TOKENS [\[\]{}$]
 ESCAPED_AND_WHITESPACE [\n\t\r #'.:;,()|^&+-/*=%!~<>?@]+
+ANY_CHAR (.|[\n])
 
 %option noyylineno
 %option noyywrap
@@ -879,7 +745,7 @@ ESCAPED_AND_WHITESPACE [\n\t\r #'.:;,()|^&+-/*=%!~<>?@]+
 	return T_STRING;
 }
 
-<ST_LOOKING_FOR_PROPERTY>. {
+<ST_LOOKING_FOR_PROPERTY>{ANY_CHAR} {
 	/*unput(yytext[0]);*/
 	yyless(0);
 	yy_pop_state();
@@ -1122,7 +988,7 @@ ESCAPED_AND_WHITESPACE [\n\t\r #'.:;,()|^&+-/*=%!~<>?@]+
 }
 
 
-<ST_LOOKING_FOR_VARNAME>. {
+<ST_LOOKING_FOR_VARNAME>{ANY_CHAR} {
 	/*unput(yytext[0]);*/
 	yyless(0);
 	yy_pop_state();
@@ -1244,7 +1110,7 @@ ESCAPED_AND_WHITESPACE [\n\t\r #'.:;,()|^&+-/*=%!~<>?@]+
 
 
 <INITIAL>"<?php_track_vars?>"([\n]|"\r\n")? {
-	zend_error(E_WARNING, "<?php_track_vars?> is no longer supported - please use the track_vars INI directive instead");
+	zend_error(E_WARNING, "&lt;?php_track_vars?&gt; is no longer supported - please use the track_vars INI directive instead");
 	HANDLE_NEWLINE(yytext[yyleng-1]);
 	zendlval->value.str.val = (char *) estrndup(yytext, yyleng);
 	zendlval->value.str.len = yyleng;
@@ -1618,7 +1484,7 @@ ESCAPED_AND_WHITESPACE [\n\t\r #'.:;,()|^&+-/*=%!~<>?@]+
 	return T_CHARACTER;
 }
 
-<ST_DOUBLE_QUOTES,ST_BACKQUOTE,ST_HEREDOC>"\\". {
+<ST_DOUBLE_QUOTES,ST_BACKQUOTE,ST_HEREDOC>"\\"{ANY_CHAR} {
 	switch (yytext[1]) {
 		case 'n':
 			zendlval->value.lval = (long) '\n';
@@ -1686,6 +1552,6 @@ ESCAPED_AND_WHITESPACE [\n\t\r #'.:;,()|^&+-/*=%!~<>?@]+
 	
 
 
-<ST_IN_SCRIPTING,INITIAL,ST_DOUBLE_QUOTES,ST_BACKQUOTE,ST_SINGLE_QUOTE,ST_HEREDOC>. {
+<ST_IN_SCRIPTING,INITIAL,ST_DOUBLE_QUOTES,ST_BACKQUOTE,ST_SINGLE_QUOTE,ST_HEREDOC>{ANY_CHAR} {
 	zend_error(E_COMPILE_WARNING,"Unexpected character in input:  '%c' (ASCII=%d) state=%d",yytext[0],yytext[0],YYSTATE);
 }

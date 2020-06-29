@@ -15,7 +15,9 @@
    | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
    |          Zeev Suraski <zeev@zend.com>                                |
    +----------------------------------------------------------------------+
- */
+*/
+
+/* $Id: info.c,v 1.113 2000/08/27 22:46:40 rasmus Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -34,17 +36,17 @@
 #define PHP_CONF_LONG(directive,value1,value2) \
 	php_printf("<TR VALIGN=\"baseline\" BGCOLOR=\"" PHP_CONTENTS_COLOR "\"><TD BGCOLOR=\"" PHP_ENTRY_NAME_COLOR "\">%s<BR></TD><TD>%ld<BR></TD><TD>%ld<BR></TD></TR>\n",directive,value1,value2);
 
-#define SECTION(name)  PUTS("<H2>" name "</H2>\n")
+#define SECTION(name)  PUTS("<H2 align=\"center\">" name "</H2>\n")
 
 #define CREDIT_LINE(module, authors) php_info_print_table_row(2, module, authors)
-
+PHPAPI extern char *php_ini_path;
 
 static int _display_module_info(zend_module_entry *module, void *arg)
 {
 	int show_info_func = *((int *) arg);
 
 	if (show_info_func && module->info_func) {
-		php_printf("<A NAME=\"module_%s\"><H2>%s</H2>\n", module->name, module->name);
+		php_printf("<H2 align=\"center\"><A NAME=\"module_%s\">%s</A></H2>\n", module->name, module->name);
 		module->info_func(module);
 	} else if (!show_info_func && !module->info_func) {
 		php_printf("<TR VALIGN=\"baseline\" BGCOLOR=\"" PHP_CONTENTS_COLOR "\">");
@@ -106,7 +108,7 @@ static void php_print_gpcse_array(char *name, uint name_length ELS_DC)
 	}
 }
 
-void php_info_print_style()
+void php_info_print_style(void)
 {
 	php_printf("<STYLE TYPE=\"text/css\"><!--\n");
 	php_printf("A { text-decoration: none; }\n");
@@ -119,6 +121,30 @@ void php_info_print_style()
 }
 
 
+PHPAPI char *php_get_uname()
+{
+	char *php_uname;
+#ifdef PHP_WIN32
+	char php_windows_uname[256];
+	DWORD dwBuild=0;
+	DWORD dwVersion = GetVersion();
+	DWORD dwWindowsMajorVersion =  (DWORD)(LOBYTE(LOWORD(dwVersion)));
+	DWORD dwWindowsMinorVersion =  (DWORD)(HIBYTE(LOWORD(dwVersion)));
+
+	/* Get build numbers for Windows NT or Win95 */
+	if (dwVersion < 0x80000000){
+		dwBuild = (DWORD)(HIWORD(dwVersion));
+		snprintf(php_windows_uname,255,"%s %d.%d build %d","Windows NT",dwWindowsMajorVersion,dwWindowsMinorVersion,dwBuild);
+	} else {
+		snprintf(php_windows_uname,255,"%s %d.%d","Windows 95/98",dwWindowsMajorVersion,dwWindowsMinorVersion);
+	}
+	php_uname = php_windows_uname;
+#else
+	php_uname=PHP_UNAME;
+#endif
+	return estrdup(php_uname);
+}
+
 PHPAPI void php_print_info(int flag)
 {
 	char **env,*tmp1,*tmp2;
@@ -126,38 +152,21 @@ PHPAPI void php_print_info(int flag)
 	int expose_php = INI_INT("expose_php");
 	time_t the_time;
 	struct tm *ta, tmbuf;
-#ifdef PHP_WIN32
-	char php_windows_uname[256];
-	DWORD dwBuild=0;
-	DWORD dwVersion = GetVersion();
-	DWORD dwWindowsMajorVersion =  (DWORD)(LOBYTE(LOWORD(dwVersion)));
-	DWORD dwWindowsMinorVersion =  (DWORD)(HIBYTE(LOWORD(dwVersion)));
-#endif
 	ELS_FETCH();
 	SLS_FETCH();
 
 	the_time = time(NULL);
 	ta = php_localtime_r(&the_time, &tmbuf);
-	
-	PUTS("<CENTER>");
+
+	PUTS("<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 3.2//EN\">\n<html>\n");
 
 	if (flag & PHP_INFO_GENERAL) {
 		char *zend_version = get_zend_version();
 
-#ifdef PHP_WIN32
-		/* Get build numbers for Windows NT or Win95 */
-		if (dwVersion < 0x80000000){
-			dwBuild = (DWORD)(HIWORD(dwVersion));
-			snprintf(php_windows_uname,255,"%s %d.%d build %d","Windows NT",dwWindowsMajorVersion,dwWindowsMinorVersion,dwBuild);
-		} else {
-			snprintf(php_windows_uname,255,"%s %d.%d","Windows 95/98",dwWindowsMajorVersion,dwWindowsMinorVersion);
-		}
-		php_uname = php_windows_uname;
-#else
-		php_uname=PHP_UNAME;
-#endif
-
+		php_uname = php_get_uname();
+		PUTS("<head>");
 		php_info_print_style();
+		PUTS("<title>phpinfo()</title></head><body>");
 
 		php_info_print_box_start(1);
 		if (expose_php) {
@@ -166,9 +175,9 @@ PHPAPI void php_print_info(int flag)
 				PUTS(SG(request_info).request_uri);
 			}
 			if ((ta->tm_mon==3) && (ta->tm_mday==1)) {
-				PUTS("?=PHPE9568F36-D428-11d2-A769-00AA001ACF42\" border=0 align=\"right\"></a>");
+				PUTS("?=PHPE9568F36-D428-11d2-A769-00AA001ACF42\" border=0 align=\"right\" alt=\"Thies!\"></a>");
 			} else {
-				PUTS("?=PHPE9568F34-D428-11d2-A769-00AA001ACF42\" border=0 align=\"right\"></a>");
+				PUTS("?=PHPE9568F34-D428-11d2-A769-00AA001ACF42\" border=0 align=\"right\" alt=\"PHP Logo\"></a>");
 			}
 		}
 		php_printf("<H1>PHP Version %s</H1>\n", PHP_VERSION);
@@ -189,7 +198,7 @@ PHPAPI void php_print_info(int flag)
 		php_info_print_table_row(2, "Virtual Directory Support", "disabled" );
 #endif
 
-		php_info_print_table_row(2, "Configuration File (php.ini) Path", CONFIGURATION_FILE_PATH );
+		php_info_print_table_row(2, "Configuration File (php.ini) Path", php_ini_path?php_ini_path:CONFIGURATION_FILE_PATH );
 
 #if ZEND_DEBUG
 		php_info_print_table_row(2, "ZEND_DEBUG", "enabled" );
@@ -211,30 +220,31 @@ PHPAPI void php_print_info(int flag)
 			if (SG(request_info).request_uri) {
 				PUTS(SG(request_info).request_uri);
 			}
-			PUTS("?=PHPE9568F35-D428-11d2-A769-00AA001ACF42\" border=\"0\" align=\"right\"></a>\n");
+			PUTS("?=PHPE9568F35-D428-11d2-A769-00AA001ACF42\" border=\"0\" align=\"right\" alt=\"Zend logo\"></a>\n");
 		}
 		php_printf("This program makes use of the Zend scripting language engine:<BR>");
 		zend_html_puts(zend_version, strlen(zend_version));
 		php_printf("</BR>\n");
 		php_info_print_box_end();
+		efree(php_uname);
 	}
 
 	if ((flag & PHP_INFO_CREDITS) && expose_php) {	
 		php_info_print_hr();
-		PUTS("<a href=\"");
+		PUTS("<h1 align=\"center\"><a href=\"");
 		if (SG(request_info).request_uri) {
 			PUTS(SG(request_info).request_uri);
 		}
 		PUTS("?=PHPB8B5F2A0-3C92-11d3-A3A9-4C7B08C10000\">");
-		PUTS("<h1>PHP 4.0 Credits</h1>");
-		PUTS("</a>\n");
+		PUTS("PHP 4.0 Credits");
+		PUTS("</a></h1>\n");
 	}
 
 	php_ini_sort_entries();
 
 	if (flag & PHP_INFO_CONFIGURATION) {
 		php_info_print_hr();
-		PUTS("<h1>Configuration</h1>\n");
+		PUTS("<h1 align=\"center\">Configuration</h1>\n");
 		SECTION("PHP Core\n");
 		display_ini_entries(NULL);
 	}
@@ -317,8 +327,6 @@ PHPAPI void php_print_info(int flag)
 		PUTS("</P>\n");
 		php_info_print_box_end();
 	}
-
-	PUTS("</center>");
 }
 
 
@@ -330,8 +338,7 @@ void php_print_credits(int flag)
 
 	php_info_print_style();
 
-	PUTS("<center>");
-	PUTS("<h1>PHP 4.0 Credits</h1>\n");
+	PUTS("<h1 align=\"center\">PHP 4.0 Credits</h1>\n");
 
 	if (flag & PHP_CREDITS_GROUP) {
 		/* Group */
@@ -366,7 +373,7 @@ void php_print_credits(int flag)
 		/* SAPI Modules */
 
 		php_info_print_table_start();
-		php_info_print_table_colspan_header(2, "SAPI Module");
+		php_info_print_table_colspan_header(2, "SAPI Modules");
 		php_info_print_table_header(2, "Contribution", "Authors");
 		CREDIT_LINE("Apache", "Rasmus Lerdorf, Zeev Suraski");
 		CREDIT_LINE("ISAPI", "Andi Gutmans, Zeev Suraski");
@@ -387,12 +394,15 @@ void php_print_credits(int flag)
 		CREDIT_LINE("Apache", "Rasmus Lerdorf, Stig Bakken, David Sklar");
 		CREDIT_LINE("Assert", "Thies C. Arntzen");
 		CREDIT_LINE("BC Math", "Andi Gutmans");
+		CREDIT_LINE("CURL", "Sterling Hughes");
 		CREDIT_LINE("CyberCash", "Evan Klinger");
 		CREDIT_LINE("Win32 COM", "Zeev Suraski");
 		CREDIT_LINE("DAV", "Stig Bakken");
 		CREDIT_LINE("DBA", "Sascha Schumann");
 		CREDIT_LINE("DBM", "Rasmus Lerdorf, Jim Winstead");
 		CREDIT_LINE("dBase", "Jim Winstead");
+		CREDIT_LINE("dotnet", "Sam Ruby");
+		CREDIT_LINE("EXIF", "Rasmus Lerdorf");
 		CREDIT_LINE("FDF", "Uwe Steinmann");
 		CREDIT_LINE("FilePro", "Chad Robinson");
 		CREDIT_LINE("FTP", "Andrew Skalski");
@@ -440,8 +450,6 @@ void php_print_credits(int flag)
 		php_info_print_table_end();
 	}
 
-	PUTS("</center>");
-
 	if (flag & PHP_CREDITS_FULLPAGE) {
 		PUTS("</body></html>\n");
 	}
@@ -449,7 +457,7 @@ void php_print_credits(int flag)
 
 PHPAPI void php_info_print_table_start()
 {
-	php_printf("<TABLE BORDER=0 CELLPADDING=3 CELLSPACING=1 WIDTH=600 BGCOLOR=\"#000000\">\n");
+	php_printf("<TABLE BORDER=0 CELLPADDING=3 CELLSPACING=1 WIDTH=600 BGCOLOR=\"#000000\" ALIGN=\"CENTER\">\n");
 }
 
 PHPAPI void php_info_print_table_end()
@@ -592,7 +600,7 @@ PHP_FUNCTION(phpversion)
 /* }}} */
 
 
-/* {{{ proto void phpcredits(int)
+/* {{{ proto void phpcredits([int flag])
    Prints the list of people who've contributed to the PHP project */
 PHP_FUNCTION(phpcredits)
 {
@@ -638,7 +646,7 @@ PHP_FUNCTION(zend_logo_guid)
 	RETURN_STRINGL(ZEND_LOGO_GUID, sizeof(ZEND_LOGO_GUID)-1, 1);
 }
 
-/* {{{ proto string sapi_module_name(void)
+/* {{{ proto string php_sapi_name(void)
    Return the current SAPI module name */
 PHP_FUNCTION(php_sapi_name)
 {
@@ -647,6 +655,15 @@ PHP_FUNCTION(php_sapi_name)
 	} else {
 		RETURN_FALSE;
 	}
+}
+
+/* }}} */
+
+/* {{{ proto string php_uname(void)
+   Return information about the system PHP was built on */
+PHP_FUNCTION(php_uname)
+{
+	RETURN_STRING(php_get_uname(), 0);
 }
 
 /* }}} */

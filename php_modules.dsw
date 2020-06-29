@@ -27,7 +27,91 @@ Package=<4>
 
 ###############################################################################
 
+Project: "cpdf"=.\ext\cpdf\cpdf.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "curl"=.\ext\curl\curl.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "cybercash"=.\ext\cybercash\cybercash.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "dbase"=.\ext\dbase\dbase.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "domxml"=.\ext\domxml\domxml.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "dotnet"=.\ext\dotnet\dotnet.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
 Project: "exif"=.\ext\exif\exif.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "fdf"=.\ext\fdf\fdf.dsp - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -51,7 +135,56 @@ Package=<4>
 
 ###############################################################################
 
+Project: "gd"=.\ext\gd\gd.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "gettext"=.\ext\gettext\gettext.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
 Project: "imap"=.\ext\imap\imap.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "ifx"=.\ext\informix\ifx.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+
+###############################################################################
+
+Project: "interbase"=.\ext\interbase\interbase.dsp - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -135,6 +268,18 @@ Package=<4>
 
 ###############################################################################
 
+Project: "pdf"=".\ext\pdf\pdf.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
 Project: "pgsql"=.\ext\pgsql\pgsql.dsp - Package Owner=<4>
 
 Package=<5>
@@ -148,6 +293,18 @@ Package=<4>
 ###############################################################################
 
 Project: "swf"=.\ext\swf\swf.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "sybase_ct"=.\ext\sybase_ct\sybase_ct.dsp - Package Owner=<4>
 
 Package=<5>
 {{{

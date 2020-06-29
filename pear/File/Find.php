@@ -5,183 +5,222 @@
 // +----------------------------------------------------------------------+
 // | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
 // +----------------------------------------------------------------------+
-// | This source file is subject to version 2.0 of the PHP license,       |
+// | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
 // | available at through the world-wide-web at                           |
-// | http://www.php.net/license/2_0.txt.                                  |
+// | http://www.php.net/license/2_02.txt.                                 |
 // | If you did not receive a copy of the PHP license and are unable to   |
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors: Sterling Hughes <sterling@designmultimedia.com>             |
-// |                                                                      |
+// | Authors: Sterling Hughes <sterling@php.net>                          |
 // +----------------------------------------------------------------------+
 //
-// $Id:
+// $Id: Find.php,v 1.10 2000/08/24 01:34:16 sterling Exp $
 //
 // Commonly needed functions searching directory trees
 //
 
-define("N_PATH", "Invalid Path");
-define("N_OPEN", "Cannot Open File");
-define("N_WRITE", "Cannot Write to file");
-define("N_CLOSE", "Cannot Close file or directory");
+require_once 'PEAR.php';
 
-class File_Find {
+class File_Find
+{
+	var $_dirs       = array ();
+	var $files       = array ();
+	var $directories = array ();
 
-var $errmess; // Error message is stored here
-var $err; // if there was an error this is set to 1, otherwise it is set to 0
+	/**
+	 * Search the current directory to find matches for the
+	 * the specified pattern.
+	 *
+	 * @param $pattern a string containing the pattern to search
+	 * the directory for.
+	 * 
+	 * @param $direct_path a string containing the directory path
+	 * to search.
+	 *
+	 * @param $pattern_type a string containing the type of 
+	 * pattern matching functions to use (can either be 'php' or
+	 * 'perl').
+	 *
+	 * @return an array containing all of the files and directories
+	 * matching the pattern.
+	 * 
+	 * @author Sterling Hughes <sterling@php.net>
+	 */
+	function &glob ($pattern, $dirpath, $pattern_type='php')
+	{
+		$dh = @opendir ($dirpath);
+		
+		if (!$dh) {
+			$pe = new FileFindException ("Cannot open directory");
+			return ($pe);
+		}
+			
+		$match_function = File_Find::_determineRegex ($pattern_type);
 
-/*
- *  array glob ( string pattern, string directory_path[, string pattern_type]) -- will search the current directory to find matches
- *  for the specified pattern.  It only searches the current directory and directory names are included in the search.  If you are looking to
- *  search a directory tree then see the search method.
- */
+		while ($entry = @readdir ($dh))
+		{
+			if ($match_function ($pattern, $entry) &&
+			    $entry != '.'                      &&
+			    $entry != '..') {
+				$matches[] = $entry;
+			}
+		}
+		
+		@closedir ($dh);
+		return ($matches);
+	}
 
-function glob ( $pattern, $dirpath, $pattern_type="PHP" ) {
-    $dh = @opendir($dirpath) or File_Find::_RaiseException(N_PATH);
-    if ( strtolower($pattern_type) == "perl" ) {
-        while ($entry = readdir($dh)) {
-            if ( preg_match($pattern,$entry) && $entry != '.' && $entry != '..' ) {
-                $matches[] = $entry;
-            }
-        }
-    } else {
-        while ($entry = readdir($dh)) {
-            if ( strtolower(substr($pattern, -2)) == "/i") {
-                if (eregi(substr($pattern,0,-2), $entry)) {
-                    $matches[] = $entry;
-                }
-            } else {
-                if (ereg($pattern, $entry)) {
-                    $matches[] = $entry;
-                }
-            }
-        }
-    }
-    @closedir($dh);
-    return $matches;
-}
+	/**
+	 * Map the directory tree given by the directory_path parameter.
+	 *
+	 * @param $directory_path contains the directory path that you
+	 * want to map.
+	 *
+	 * @return a two element array, the first element containing a list
+	 * of all the directories, the second element containing a list of all the
+	 * files.
+	 *
+	 * @author Sterling Hughes <sterling@php.net>
+	 */
+	function &maptree ($directory)
+	{
+		$this->_dirs = array ($directory);
 
-var $_dirs;
-var $files = array();
-var $directories = array();
+		while (count ($this->_dirs))
+		{
+			$dir = array_pop ($this->_dirs); 
+			File_Find::_build ($dir);
+			array_push ($this->directories, $dir);
+		}
+		
+		return array ($this->directories, $this->files);
+	}
+	
+	/**
+	 * Search the specified directory tree with the specified pattern.  Return an
+	 * array containing all matching files (no directories included).
+	 *
+	 * @param $pattern the pattern to match every file with.
+	 * 
+	 * @param $directory the directory tree to search in.
+	 * 
+	 * @param $regex_type the type of regular expression support to use, either
+	 * 'php' or 'perl'.
+	 *
+	 * @return a list of files matching the pattern parameter in the the directory
+	 * path specified by the directory parameter
+	 *
+	 * @author Sterling Hughes <sterling@php.net>
+	 */
+	function &search ($pattern, $directory, $type='php') {
+		list (,$files)  = File_Find::maptree ($directory);
+		$match_function = File_Find::_determineRegex ($type);
+		
+		reset ($files);
+		while (list (,$entry) = each ($files))
+		{
+			if ($match_function ($pattern, $entry))
+				$matches[] = $entry;
+		}
+		
+		return ($matches);
+	}
+	
+	/**
+	 * Determine whether or not a variable is a PEAR exception
+	 *
+	 * @param $var the variable to test.
+	 * 
+	 * @return returns true if the variable is a PEAR error, otherwise
+	 * it returns false.
+	 */
+	function isError (&$var)
+	{
+		return PEAR::isError($var);
+	}
+	
+	/**
+	 * Fetch the current File_Find version
+	 *
+	 * @return the current File_Find version.
+	 */
+	function File_Find_version()
+	{
+ 		return (1.1);
+	}
 
-/*
- *  array maptree ( string directory_path ) -- Will return two arrays the first a listing of all the sub directories under the 
- *  specified directory and the second listing all the files under the specified directory.
- */
-function maptree ( $directory ) {
-    $this->directories = array();
-    $this->_dirs = array($directory);
+	/* 
+	 * internal function to build singular directory trees, used by
+	 * File_Find::maptree()
+	 */
+	function _build ($directory)
+	{
+		$dh = @opendir ($directory);
+		
+		if (!$dh) {
+			$pe = new FileFindException ("Cannot open directory");
+			return ($pe);
+		}
 
-    while (count($this->_dirs)) {
-        $t = array_pop($this->_dirs); 
-        File_Find::_build( $t );
-        array_push($this->directories, $t);
-    }
-    return array($this->directories, $this->files);
-}
-
-
-/* internal function to build singular directory trees */
-
-function _build ( $directory ) {
-    $dh = @opendir($directory) or File_Find::_RaiseException(N_PATH);
-    while ( $entry = readdir($dh) ) {
-        if ($entry != '.' && $entry != '..') {
-            $entry = $directory . $entry;
-            if ( is_dir($entry) ) {
-                $ent_name = $entry . '/';
-                array_push($this->_dirs, $ent_name);
-            } else {
-                array_push($this->files, $entry);
-            }
-        }
-    }
-    @closedir($dh);
-}
-
-/*
- *   array search ( string pattern, string directory [, string regex_type] ) -- Will search an entire directory tree for a pattern specified 
- *   by the 'pattern' argument, in a directory specified by the 'directory' argument, of a pattern type specified by 'regex_type'.  If 
- *   regex_type is left out than PHP type regular expressions will be used.  If you want to specify the use of eregi instead of ereg attach a 
- *  '/i' onto the very end of your regular expression.
- */
-
-function search ( $pattern, $directory, $type="PHP" ) {
-    File_Find::maptree($directory);
-    if ( strtolower($type) == "perl" ) {
-        while (list(,$entry) = each($this->files)) {
-            if ( preg_match($pattern,$entry) && $entry != '.' && $entry != '..' ) {
-                $matches[] = $entry;
-            }
-        }
-    } else {
-        while (list(,$entry) = each($this->files)) {
-            if ( strtolower(substr($pattern, -2)) == "/i") {
-                if (eregi(substr($pattern,0,-2), $entry)) {
-                    $matches[] = $entry;
-                }
-            } else {
-                if (ereg($pattern, $entry)) {
-                    $matches[] = $entry;
-                }
-            }
-        }
-    }
-    return $matches;
-
-}
-
-function _RaiseException ( $error_message ) {
-    $this->errmess = $error_message;
-    $this->err = 1;
-}
-
-/*
- *   double File_Find_version(void) -- Returns the current version of File_Find
- */
-function File_Find_version() {
-    return 1.0;
-}
+		while ($entry = @readdir ($dh))
+		{
+		
+			if ($entry != '.' &&
+			    $entry != '..') {
+				
+				$entry = "$directory/$entry";
+				
+				if (is_dir ($entry))
+					array_push ($this->_dirs, $entry);
+				else
+					array_push ($this->files, $entry);
+		
+			}
+		
+		}
+		
+		@closedir ($dh);
+	}
+	
+	/*
+	 * internal function to determine the type of regular expression to
+	 * use, implemented by File_Find::glob() and File_Find::search()
+	 */
+	function _determineRegex ($type)
+	{
+		if (strtolower ($pattern_type) == 'perl') {
+			$match_function = 'preg_match';
+		} else if (strtolower (substr ($pattern, -2)) == '/i') {
+			$match_function = 'eregi';
+		} else {
+			$match_function = 'ereg';
+		}
+		
+		return ($match_function);
+	}
 
 //End Class
 }
-?>
 
-<?php
-/* EXAMPLES FOR THIS CLASS
+class FileFindException extends PEAR_Error
+{
+	var $classname             = 'FileFindException';
+	var $error_message_prepend = 'Error in File_Find';
+	
+	function FileFindException ($message, $mode = PEAR_ERROR_RETURN, $level = E_USER_NOTICE)
+	{
+		$this->PEAR_Error ($message, $mode, $level);
+	}
+}
 
-Mapping an entire directory structure:
 
-require('File/Find.php');
-$searcher = new File_Find;
-list ($directories,$files) = $searcher->maptree('/pear');
-print implode("\n<br>\n", $directories);
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ */
 
-(Yes That's it)
-
-Searching an entire directory structure:
-
-require('File/Find.php');
-$fs = new File_Find;
-$files = $fs->search('/\.c$/','/cvs/php4', 'perl');
-print implode("\n<br>\n", $files);
-
-Searching a singular directory:
-
-require('File/Find.php');
-$fs = new File_Find;
-$files = $fs->glob('/.*/', '/cvs/', 'perl');
-print implode("\n<br>\n", $files);
-
-Usages:
-Filecrawler (I built a complete crawler in 20 lines)
-Removing a directory tree.
-...
-
-END EXAMPLES
-
-*/
 ?>

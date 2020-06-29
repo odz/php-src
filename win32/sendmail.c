@@ -13,8 +13,8 @@
  *  Very simple SMTP Send-mail program for sending command-line level
  *  emails and CGI-BIN form response for the Windows platform.
  *
- *  The complete wSendmail package with source code can be downloaded
- *  from http://virtual.icr.com.au:80/jgaa/cgi-bin.htm
+ *  The complete wSendmail package with source code can be located
+ *  from http://www.jgaa.com
  *
  */
 
@@ -60,7 +60,7 @@ char MailHost[HOST_NAME_LEN];
 char LocalHost[HOST_NAME_LEN];
 #endif
 char seps[] = " ,\t\n";
-char *php_mailer = "PHP 3.0 WIN32";
+char *php_mailer = "PHP 4.0 WIN32";
 
 char *get_header(char *h, char *headers);
 
@@ -154,12 +154,15 @@ int TSendMail(char *host, int *error,
 //********************************************************************/
 void TSMClose()
 {
-	Post("QUIT\n");
+	Post("QUIT\r\n");
 	Ack();
 	/* to guarantee that the cleanup is not made twice and 
 	   compomise the rest of the application if sockets are used
 	   elesewhere 
 	*/
+
+	shutdown(sc, 0); 
+	closesocket(sc);
 }
 
 
@@ -197,9 +200,9 @@ char *GetSMErrorText(int index)
 //*******************************************************************/
 int SendText(char *RPath, char *Subject, char *mailTo, char *data, char *headers)
 {
-
 	int res, i;
 	char *p;
+	char *tempMailTo, *token, *pos1, *pos2;
 
 	/* check for NULL parameters */
 	if (data == NULL)
@@ -214,7 +217,7 @@ int SendText(char *RPath, char *Subject, char *mailTo, char *data, char *headers
 	if (strchr(mailTo, '@') == NULL)
 		return (BAD_MSG_DESTINATION);
 
-	sprintf(Buffer, "HELO %s\n", LocalHost);
+	sprintf(Buffer, "HELO %s\r\n", LocalHost);
 
 	/* in the beggining of the dialog */
 	/* attempt reconnect if the first Post fail */
@@ -226,20 +229,47 @@ int SendText(char *RPath, char *Subject, char *mailTo, char *data, char *headers
 	if ((res = Ack()) != SUCCESS)
 		return (res);
 
-	sprintf(Buffer, "MAIL FROM:<%s>\n", RPath);
+	sprintf(Buffer, "MAIL FROM:<%s>\r\n", RPath);
 	if ((res = Post(Buffer)) != SUCCESS)
 		return (res);
 	if ((res = Ack()) != SUCCESS)
 		return (res);
 
 
-	sprintf(Buffer, "RCPT TO:<%s>\n", mailTo);
-	if ((res = Post(Buffer)) != SUCCESS)
-		return (res);
-	if ((res = Ack()) != SUCCESS)
-		return (res);
+	tempMailTo = estrdup(mailTo);
+	
+	/* Send mail to all rcpt's */
+	token = strtok(tempMailTo, ",");
+	while(token != NULL)
+	{
+		sprintf(Buffer, "RCPT TO:<%s>\r\n", token);
+		if ((res = Post(Buffer)) != SUCCESS)
+			return (res);
+		if ((res = Ack()) != SUCCESS)
+			return (res);
+		token = strtok(NULL, ",");
+	}
 
-	if ((res = Post("DATA\n")) != SUCCESS)
+	/* Send mail to all Cc rcpt's */
+	efree(tempMailTo);
+	if (headers && (pos1 = strstr(headers, "Cc:"))) {
+		pos2 = strstr(pos1, "\r\n");
+		tempMailTo = estrndup(pos1, pos2-pos1);
+
+		token = strtok(tempMailTo, ",");
+		while(token != NULL)
+		{
+			sprintf(Buffer, "RCPT TO:<%s>\r\n", token);
+			if ((res = Post(Buffer)) != SUCCESS)
+				return (res);
+			if ((res = Ack()) != SUCCESS)
+				return (res);
+			token = strtok(NULL, ",");
+		}
+		efree(tempMailTo);
+	}
+
+	if ((res = Post("DATA\r\n")) != SUCCESS)
 		return (res);
 	if ((res = Ack()) != SUCCESS)
 		return (res);
@@ -335,7 +365,9 @@ int PostHeader(char *RPath, char *Subject, char *mailTo, char *xheaders)
 		p += sprintf(p, "From: %s\r\n", RPath);
 	}
 	p += sprintf(p, "Subject: %s\r\n", Subject);
-	p += sprintf(p, "To: %s\r\n", mailTo);
+	if(!xheaders || !strstr(xheaders, "To:")){
+		p += sprintf(p, "To: %s\r\n", mailTo);
+	}
 	if(xheaders){
 		p += sprintf(p, "%s\r\n", xheaders);
 	}
@@ -363,6 +395,7 @@ int MailConnect()
 {
 
 	int res;
+	short portnum;
 
 	/* Create Socket */
 	if ((sc = socket(PF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET)
@@ -380,9 +413,14 @@ int MailConnect()
 	}
         */
 
+	portnum = (short) INI_INT("sendmail_port");
+	if (!portnum) {
+		portnum = 25;
+	}
+
 	/* Connect to server */
 	sock_in.sin_family = AF_INET;
-	sock_in.sin_port = htons(25);
+	sock_in.sin_port = htons(portnum);
 	sock_in.sin_addr.S_un.S_addr = GetAddr(MailHost);
 
 	if (connect(sc, (LPSOCKADDR) & sock_in, sizeof(sock_in)))

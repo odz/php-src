@@ -17,7 +17,7 @@
    | PHP 4.0 patches by Zeev Suraski <zeev@zend.com>                      |
    +----------------------------------------------------------------------+
  */
-/* $Id: mod_php4.c,v 1.53 2000/06/28 18:27:13 zeev Exp $ */
+/* $Id: mod_php4.c,v 1.65 2000/08/20 14:29:00 sas Exp $ */
 
 #define NO_REGEX_EXTRA_H
 #ifdef WIN32
@@ -64,7 +64,7 @@
 # include "mod_dav.h"
 #endif
 
-int apache_php_module_main(request_rec *r, int fd, int display_source_mode CLS_DC ELS_DC PLS_DC SLS_DC);
+int apache_php_module_main(request_rec *r, int display_source_mode CLS_DC ELS_DC PLS_DC SLS_DC);
 void php_save_umask(void);
 void php_restore_umask(void);
 int sapi_apache_read_post(char *buffer, uint count_bytes SLS_DC);
@@ -76,6 +76,10 @@ int send_parsed_php(request_rec * r);
 int send_parsed_php_source(request_rec * r);
 int php_xbithack_handler(request_rec * r);
 void php_init_handler(server_rec *s, pool *p);
+
+#if MODULE_MAGIC_NUMBER >= 19970728
+static void php_child_exit_handler(server_rec *s, pool *p);
+#endif
 
 #if MODULE_MAGIC_NUMBER > 19961007
 #define CONST_PREFIX const
@@ -105,20 +109,6 @@ typedef struct _php_per_dir_entry {
 	uint value_length;
 	int type;
 } php_per_dir_entry;
-
-/* handled apropriately in apache_php_module_main */
-/* popenf isn't working on Windows, use open instead
-#if WIN32|WINNT
-# ifdef popenf
-#  undef popenf
-# endif
-# define popenf(p,n,f,m) open((n),(f),(m))
-# ifdef pclosef
-#  undef pclosef
-# endif
-# define pclosef(p,f) close(f)
-#endif
-*/
 
 php_apache_info_struct php_apache_info;		/* active config */
 
@@ -255,7 +245,7 @@ static void sapi_apache_register_server_variables(zval *track_vars_array ELS_DC 
 		} else {
 			val = empty_string;
 		}
-		php_register_variable(elts[i].key, val, NULL ELS_CC PLS_CC);
+		php_register_variable(elts[i].key, val, track_vars_array  ELS_CC PLS_CC);
 	}
 
 	/* insert special variables */
@@ -284,7 +274,7 @@ static void php_apache_log_message(char *message)
 #if MODULE_MAGIC_NUMBER >= 19970831
 		aplog_error(NULL, 0, APLOG_ERR | APLOG_NOERRNO, ((request_rec *) SG(server_context))->server, "%s", message);
 #else
-		log_error(message, ((requset_rec *) SG(server_context))->server);
+		log_error(message, ((request_rec *) SG(server_context))->server);
 #endif
 	} else {
 		fprintf(stderr, message);
@@ -325,13 +315,13 @@ static struct stat *php_apache_get_stat(SLS_D)
 }
 
 
-static char *php_apache_getenv(char *name, int name_len SLS_DC)
+static char *php_apache_getenv(char *name, size_t name_len SLS_DC)
 {
 	return (char *) table_get(((request_rec *) SG(server_context))->subprocess_env, name);
 }
 
 
-static sapi_module_struct sapi_module = {
+static sapi_module_struct sapi_module_conf = {
 	"apache",						/* name */
 	"Apache",						/* pretty name */
 									
@@ -389,16 +379,20 @@ static void init_request_info(SLS_D)
 	SG(request_info).request_method = (char *)r->method;
 	SG(request_info).content_type = (char *) table_get(r->subprocess_env, "CONTENT_TYPE");
 	SG(request_info).content_length = (content_length ? atoi(content_length) : 0);
+	SG(request_info).headers_only = r->header_only;
+	SG(sapi_headers).http_response_code = r->status;
 
 	if (r->headers_in) {
 		authorization = table_get(r->headers_in, "Authorization");
 	}
 	if (authorization
 /* 		&& !auth_type(r) */
-		&& !strcmp(getword(r->pool, &authorization, ' '), "Basic")) {
+		&& !strcasecmp(getword(r->pool, &authorization, ' '), "Basic")) {
 		tmp = uudecode(r->pool, authorization);
 		SG(request_info).auth_user = getword_nulls_nc(r->pool, &tmp, ':');
 		if (SG(request_info).auth_user) {
+			r->connection->user = pstrdup(r->connection->pool,SG(request_info).auth_user);
+			r->connection->ap_auth_type = "Basic";
 			SG(request_info).auth_user = estrdup(SG(request_info).auth_user);
 		}
 		SG(request_info).auth_password = tmp;
@@ -437,7 +431,7 @@ static char *php_apache_get_default_mimetype(request_rec *r SLS_DC)
 
 int send_php(request_rec *r, int display_source_mode, char *filename)
 {
-	int fd, retval;
+	int retval;
 	HashTable *per_dir_conf;
 	SLS_FETCH();
 	ELS_FETCH();
@@ -474,11 +468,6 @@ int send_php(request_rec *r, int display_source_mode, char *filename)
 	if (filename == NULL) {
 		filename = r->filename;
 	}
-	/* Open the file */
-	if ((fd = popenf(r->pool, filename, O_RDONLY, 0)) == -1) {
-		log_reason("file permissions deny server access", filename, r);
-		return FORBIDDEN;
-	}
 
 	/* Apache 1.2 has a more complex mechanism for reading POST data */
 #if MODULE_MAGIC_NUMBER > 19961007
@@ -507,17 +496,15 @@ int send_php(request_rec *r, int display_source_mode, char *filename)
 	SG(server_context) = r;
 	
 	php_save_umask();
-	V_CHDIR_FILE(filename);
 	add_common_vars(r);
 	add_cgi_vars(r);
 
 	init_request_info(SLS_C);
-	apache_php_module_main(r, fd, display_source_mode CLS_CC ELS_CC PLS_CC SLS_CC);
+	apache_php_module_main(r, display_source_mode CLS_CC ELS_CC PLS_CC SLS_CC);
 
 	/* Done, restore umask, turn off timeout, close file and return */
 	php_restore_umask();
 	kill_timeout(r);
-	pclosef(r->pool, fd);
 	return OK;
 }
 
@@ -590,8 +577,8 @@ CONST_PREFIX char *php_apache_value_handler_ex(cmd_parms *cmd, HashTable *conf, 
 #ifdef ZTS
 		tsrm_startup(1, 1, 0);
 #endif
-		sapi_startup(&sapi_module);
-		php_apache_startup(&sapi_module);
+		sapi_startup(&sapi_module_conf);
+		php_apache_startup(&sapi_module_conf);
 	}
 	per_dir_entry.type = mode;
 
@@ -675,12 +662,31 @@ int php_xbithack_handler(request_rec * r)
 static void apache_php_module_shutdown_wrapper(void)
 {
 	apache_php_initialized = 0;
-	sapi_module.shutdown(&sapi_module);
+	sapi_module_conf.shutdown(&sapi_module_conf);
+
+#if MODULE_MAGIC_NUMBER >= 19970728
+	/* This function is only called on server exit if the apache API
+	 * child_exit handler exists, so shutdown globally 
+	 */
+	sapi_shutdown();
+#endif
+
 #ifdef ZTS
 	tsrm_shutdown();
 #endif
 }
 
+#if MODULE_MAGIC_NUMBER >= 19970728
+static void php_child_exit_handler(server_rec *s, pool *p)
+{
+/*	apache_php_initialized = 0; */
+	sapi_module_conf.shutdown(&sapi_module_conf);
+
+#ifdef ZTS
+	tsrm_shutdown();
+#endif
+}
+#endif
 
 void php_init_handler(server_rec *s, pool *p)
 {
@@ -690,8 +696,8 @@ void php_init_handler(server_rec *s, pool *p)
 #ifdef ZTS
 		tsrm_startup(1, 1, 0);
 #endif
-		sapi_startup(&sapi_module);
-		php_apache_startup(&sapi_module);
+		sapi_startup(&sapi_module_conf);
+		php_apache_startup(&sapi_module_conf);
 	}
 #if MODULE_MAGIC_NUMBER >= 19980527
 	{
@@ -789,7 +795,7 @@ module MODULE_VAR_EXPORT php4_module =
 	,NULL             			/* child_init */
 #endif
 #if MODULE_MAGIC_NUMBER >= 19970728
-	,NULL						/* child_exit */
+	,php_child_exit_handler		/* child_exit */
 #endif
 #if MODULE_MAGIC_NUMBER >= 19970902
 	,NULL						/* post read-request */
