@@ -1,3 +1,28 @@
+2004-07-14  Stanislav Malyshev  <stas@zend.com>
+
+    * zend_object_handlers.c:
+      be consistent with write_dimension
+
+    * zend_object_handlers.c:
+      fix #28957
+
+2004-07-13  Andi Gutmans  <andi@zend.com>
+
+    * zend.h:
+      - 5.0.1-dev
+
+2004-07-13  Marcus Boerger  <marcus.boerger@post.rwth-aachen.de>
+
+    * zend_constants.c:
+      Bugfix #29116 Zend constant warning uses memory after free (jdolecek at
+      NetBSD dot org)
+
+2004-07-13  Andi Gutmans  <andi@zend.com>
+
+    * (php_5_0_0)
+      zend.h:
+      - Roll PHP 5.0.0
+
 2004-07-12  Ilia Alshanetsky  <ilia@prohost.org>
 
     * (php_5_0_0RC4)
@@ -4910,7 +4935,7 @@
 2003-06-10  Jani Taskinen  <sniper@iki.fi>
 
     * zend_multiply.h:
-      - Missing $Id: ChangeLog,v 1.498 2004/07/13 00:32:43 changelog Exp $ tag
+      - Missing $Id: ChangeLog,v 1.500 2004/07/15 00:33:10 changelog Exp $ tag
 
 2003-06-10  James Cox  <james@imajes.info>
 
@@ -6634,7 +6659,7 @@
       zend_types.h
       zend_variables.c
       zend_variables.h:
-      - Added some missing CVS $Id: ChangeLog,v 1.498 2004/07/13 00:32:43 changelog Exp $ tags, headers and footers.
+      - Added some missing CVS $Id: ChangeLog,v 1.500 2004/07/15 00:33:10 changelog Exp $ tags, headers and footers.
 
 2003-01-30  Ilia Alshanetsky  <ilia@prohost.org>
 

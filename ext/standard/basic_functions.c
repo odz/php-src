@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: basic_functions.c,v 1.673 2004/06/27 21:49:47 iliaa Exp $ */
+/* $Id: basic_functions.c,v 1.673.2.2 2004/08/11 04:10:44 pollita Exp $ */
 
 #include "php.h"
 #include "php_streams.h"
@@ -34,6 +34,10 @@
 #include "zend_operators.h"
 #include "ext/standard/dns.h"
 #include "ext/standard/php_uuencode.h"
+
+#ifdef PHP_WIN32
+#include "win32/php_win32_globals.h"
+#endif
 
 typedef struct yy_buffer_state *YY_BUFFER_STATE;
 
@@ -475,7 +479,7 @@ function_entry basic_functions[] = {
 	PHP_FALIAS(show_source, 		highlight_file,							NULL)
 	PHP_FE(highlight_string,												NULL)
 	PHP_FE(php_strip_whitespace,												NULL)
-	PHP_FE(php_check_syntax,												NULL)
+	PHP_FE(php_check_syntax,												second_arg_force_ref)
 
 	PHP_FE(ini_get,															NULL)
 	PHP_FE(ini_get_all,														NULL)
@@ -999,8 +1003,14 @@ PHP_MINIT_FUNCTION(basic)
 {
 #ifdef ZTS
 	ts_allocate_id(&basic_globals_id, sizeof(php_basic_globals), (ts_allocate_ctor) basic_globals_ctor, (ts_allocate_dtor) basic_globals_dtor);
+#ifdef PHP_WIN32
+	ts_allocate_id(&php_win32_core_globals_id, sizeof(php_win32_core_globals), (ts_allocate_ctor)php_win32_core_globals_ctor, NULL);
+#endif
 #else
 	basic_globals_ctor(&basic_globals TSRMLS_CC);
+#ifdef PHP_WIN32
+	php_win32_core_globals_ctor(&php_win32_core_globals TSRMLS_CC);
+#endif
 #endif
 
 	REGISTER_LONG_CONSTANT("CONNECTION_ABORTED", PHP_CONNECTION_ABORTED, CONST_CS | CONST_PERSISTENT);
@@ -1099,6 +1109,9 @@ PHP_MSHUTDOWN_FUNCTION(basic)
 {
 #ifdef ZTS
 	ts_free_id(basic_globals_id);
+#ifdef PHP_WIN32
+	ts_free_id(php_win32_core_globals_id);
+#endif
 #else
 	basic_globals_dtor(&basic_globals TSRMLS_CC);
 #endif
@@ -1208,6 +1221,9 @@ PHP_RSHUTDOWN_FUNCTION(basic)
 	PHP_RSHUTDOWN(assert)(SHUTDOWN_FUNC_ARGS_PASSTHRU);
 	PHP_RSHUTDOWN(url_scanner_ex)(SHUTDOWN_FUNC_ARGS_PASSTHRU);
 	PHP_RSHUTDOWN(streams)(SHUTDOWN_FUNC_ARGS_PASSTHRU);
+#ifdef PHP_WIN32
+	PHP_RSHUTDOWN(win32_core_globals)(SHUTDOWN_FUNC_ARGS_PASSTHRU);
+#endif
 
 	if (BG(user_tick_functions)) {
 		zend_llist_destroy(BG(user_tick_functions));
@@ -2320,10 +2336,10 @@ PHP_FUNCTION(php_check_syntax)
 	PG(log_errors) = PG(display_errors) = 0;
 
 	if (php_lint_script(&file_handle TSRMLS_CC) != SUCCESS) {
-		if (errm && PZVAL_IS_REF(errm)) {
+		if (errm) {
 			char *error_str;
 
-			convert_to_string_ex(&errm);
+			zval_dtor(errm);
 			spprintf(&error_str, 0, "%s in %s on line %d", PG(last_error_message), PG(last_error_file), PG(last_error_lineno));
 			ZVAL_STRING(errm, error_str, 0);
 		}

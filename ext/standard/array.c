@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: array.c,v 1.266 2004/07/11 21:15:04 andrey Exp $ */
+/* $Id: array.c,v 1.266.2.2 2004/08/10 06:01:20 moriyoshi Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -994,7 +994,7 @@ static int php_array_walk(HashTable *target_hash, zval **userdata, int recursive
 {
 	zval **args[3],			/* Arguments to userland function */
 		  *retval_ptr,			/* Return value - unused */
-		  *key;				/* Entry key */
+		  *key=NULL;				/* Entry key */
 	char  *string_key;
 	uint   string_key_len;
 	ulong  num_key;
@@ -1058,7 +1058,10 @@ static int php_array_walk(HashTable *target_hash, zval **userdata, int recursive
 			}
 		}
 
-		zval_ptr_dtor(&key);
+		if (key) {
+			zval_ptr_dtor(&key);
+			key = NULL;
+		}
 		zend_hash_move_forward_ex(target_hash, &pos);
 	}
 	
@@ -1372,13 +1375,16 @@ PHP_FUNCTION(extract)
 				if (extract_refs) {
 					zval **orig_var;
 
-					SEPARATE_ZVAL_TO_MAKE_IS_REF(entry);
-					zval_add_ref(entry);
-
 					if (zend_hash_find(EG(active_symbol_table), final_name.c, final_name.len+1, (void **) &orig_var) == SUCCESS) {
 						zval_ptr_dtor(orig_var);
+
+						SEPARATE_ZVAL_TO_MAKE_IS_REF(entry);
+						zval_add_ref(entry);
+						
 						*orig_var = *entry;
 					} else {
+						(*entry)->is_ref = 1;
+						zval_add_ref(entry);
 						zend_hash_update(EG(active_symbol_table), final_name.c, final_name.len+1, (void **) entry, sizeof(zval *), NULL);
 					}
 				} else {

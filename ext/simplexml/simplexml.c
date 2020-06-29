@@ -18,7 +18,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: simplexml.c,v 1.139 2004/05/04 15:03:48 wez Exp $ */
+/* $Id: simplexml.c,v 1.139.2.3 2004/08/06 17:35:59 pollita Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -92,7 +92,7 @@ static void _node_as_zval(php_sxe_object *sxe, xmlNodePtr node, zval *value, int
 		__n = (__s)->node->node; \
 	} else { \
 		__n = NULL; \
-		php_error(E_WARNING, "Node no longer exists"); \
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Node no longer exists"); \
 	} \
 }
 
@@ -272,7 +272,7 @@ static zval * sxe_dimension_read(zval *object, zval *offset, int type TSRMLS_DC)
 /* {{{ change_node_zval()
  */
 static void
-change_node_zval(xmlNodePtr node, zval *value)
+change_node_zval(xmlNodePtr node, zval *value TSRMLS_DC)
 {
 	zval value_copy;
 
@@ -295,7 +295,7 @@ change_node_zval(xmlNodePtr node, zval *value)
 			}
 			break;
 		default:
-			php_error(E_WARNING, "It is not possible to assign complex types to nodes");
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "It is not possible to assign complex types to nodes");
 			break;
 	}
 }
@@ -418,9 +418,9 @@ next_iter:
 				xmlUnlinkNode(tempnode);
 				php_libxml_node_free_resource((xmlNodePtr) tempnode TSRMLS_CC);
 			}
-			change_node_zval(newnode, value);
+			change_node_zval(newnode, value TSRMLS_CC);
 		} else if (counter > 1) {
-			php_error(E_WARNING, "Cannot assign to an array of nodes (duplicate subnodes or attr detected)\n");
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Cannot assign to an array of nodes (duplicate subnodes or attr detected)\n");
 		} else {
 			if (attribs) {
 				switch (Z_TYPE_P(value)) {
@@ -433,7 +433,7 @@ next_iter:
 						newnode = (xmlNodePtr)xmlNewProp(node, name, Z_STRVAL_P(value));
 						break;
 					default:
-						php_error(E_WARNING, "It is not yet possible to assign complex types to attributes");
+						php_error_docref(NULL TSRMLS_CC, E_WARNING, "It is not yet possible to assign complex types to attributes");
 				}
 			}
 		}
@@ -764,8 +764,8 @@ sxe_objects_compare(zval *object1, zval *object2 TSRMLS_DC)
 }
 /* }}} */
 
-/* {{{ xpath()
- */
+/* {{{ array SimpleXMLElement::xpath(string path)
+   Runs XPath query on the XML data */
 SXE_METHOD(xpath)
 {
 	php_sxe_object    *sxe;
@@ -845,8 +845,8 @@ SXE_METHOD(xpath)
 }
 /* }}} */
 
-/* {{{ proto asXML([string filename])
- */
+/* {{{ proto string SimpleXMLElement::asXML([string filename])
+   Return a well-formed XML string based on SimpleXML element */
 SXE_METHOD(asXML)
 {
 	php_sxe_object     *sxe;
@@ -918,8 +918,8 @@ SXE_METHOD(asXML)
 }
 /* }}} */
 
-/* {{{ simplexml_children()
- */
+/* {{{ proto object SimpleXMLElement::children()
+   Finds children of given node */
 SXE_METHOD(children)
 {
 	php_sxe_object *sxe;
@@ -940,8 +940,8 @@ SXE_METHOD(children)
 }
 /* }}} */
 
-/* {{{ simplexml_attributes()
- */
+/* {{{ proto array SimpleXMLElement::attributes([string ns])
+   Identifies an element's attributes */
 SXE_METHOD(attributes)
 {
 	php_sxe_object *sxe;
@@ -1280,6 +1280,9 @@ PHP_FUNCTION(simplexml_load_string)
 }
 /* }}} */
 
+
+/* {{{ proto SimpleXMLElement::__construct()
+   SimpleXMLElement constructor */
 SXE_METHOD(__construct)
 {
 	php_sxe_object *sxe = php_sxe_fetch_object(getThis() TSRMLS_CC);
@@ -1304,6 +1307,8 @@ SXE_METHOD(__construct)
 	php_libxml_increment_doc_ref((php_libxml_node_object *)sxe, docp TSRMLS_CC);
 	php_libxml_increment_node_ptr((php_libxml_node_object *)sxe, xmlDocGetRootElement(docp), NULL TSRMLS_CC);
 }
+/* }}} */
+
 
 typedef struct {
 	zend_object_iterator  intern;
@@ -1540,7 +1545,7 @@ PHP_FUNCTION(simplexml_import_dom)
 
 	if (nodep) {
 		if (nodep->doc == NULL) {
-			php_error(E_WARNING, "Imported Node must have associated Document");
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Imported Node must have associated Document");
 			RETURN_NULL();
 		}
 		if (nodep->type == XML_DOCUMENT_NODE || nodep->type == XML_HTML_DOCUMENT_NODE) {
@@ -1565,7 +1570,7 @@ PHP_FUNCTION(simplexml_import_dom)
 		return_value->type = IS_OBJECT;
 		return_value->value.obj = php_sxe_register_object(sxe TSRMLS_CC);
 	} else {
-		php_error(E_WARNING, "Invalid Nodetype to import");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid Nodetype to import");
 		RETVAL_NULL();
 	}
 }
@@ -1651,7 +1656,7 @@ PHP_MINFO_FUNCTION(simplexml)
 {
 	php_info_print_table_start();
 	php_info_print_table_header(2, "Simplexml support", "enabled");
-	php_info_print_table_row(2, "Revision", "$Revision: 1.139 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.139.2.3 $");
 	php_info_print_table_row(2, "Schema support",
 #ifdef LIBXML_SCHEMAS_ENABLED
 		"enabled");

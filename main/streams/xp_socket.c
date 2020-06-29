@@ -16,7 +16,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: xp_socket.c,v 1.23 2004/03/08 23:11:45 abies Exp $ */
+/* $Id: xp_socket.c,v 1.23.2.3 2004/08/10 13:45:58 wez Exp $ */
 
 #include "php.h"
 #include "ext/standard/file.h"
@@ -52,13 +52,49 @@ static size_t php_sockop_write(php_stream *stream, const char *buf, size_t count
 		return 0;
 	}
 
+retry:
 	didwrite = send(sock->socket, buf, count, 0);
 
 	if (didwrite <= 0) {
-		char *estr = php_socket_strerror(php_socket_errno(), NULL, 0);
+		long err = php_socket_errno();
+		char *estr;
 
+		if (sock->is_blocked && err == EWOULDBLOCK) {
+			fd_set fdw, tfdw;
+			int retval;
+			struct timeval timeout, *ptimeout;
+
+			FD_ZERO(&fdw);
+			FD_SET(sock->socket, &fdw);
+			sock->timeout_event = 0;
+
+			if (sock->timeout.tv_sec == -1)
+				ptimeout = NULL;
+			else
+				ptimeout = &timeout;
+
+			do {
+				tfdw = fdw;
+				timeout = sock->timeout;
+
+				retval = select(sock->socket + 1, NULL, &tfdw, NULL, ptimeout);
+
+				if (retval == 0) {
+					sock->timeout_event = 1;
+					break;
+				}
+
+				if (retval > 0) {
+					/* writable now; retry */
+					goto retry;
+				}
+
+				err = php_socket_errno();
+			} while (err == EINTR);
+		}
+		estr = php_socket_strerror(err, NULL, 0);
 		php_error_docref(NULL TSRMLS_CC, E_NOTICE, "send of %ld bytes failed with errno=%d %s",
-				(long)count, php_socket_errno(), estr);
+				(long)count, err, estr);
 		efree(estr);
 	}
 
@@ -185,14 +221,27 @@ static int php_sockop_close(php_stream *stream, int close_handle TSRMLS_DC)
 
 static int php_sockop_flush(php_stream *stream TSRMLS_DC)
 {
+#if 0
 	php_netstream_data_t *sock = (php_netstream_data_t*)stream->abstract;
 	return fsync(sock->socket);
+#endif
+	return 0;
 }
 
 static int php_sockop_stat(php_stream *stream, php_stream_statbuf *ssb TSRMLS_DC)
 {
 	php_netstream_data_t *sock = (php_netstream_data_t*)stream->abstract;
 	return fstat(sock->socket, &ssb->sb);
+}
+
+static inline int sock_sendto(php_netstream_data_t *sock, char *buf, size_t buflen, int flags,
+		struct sockaddr *addr, socklen_t addrlen
+		TSRMLS_DC)
+{
+	if (addr) {
+		return sendto(sock->socket, buf, buflen, flags, addr, addrlen);
+	}
+	return send(sock->socket, buf, buflen, flags);
 }
 
 static inline int sock_recvfrom(php_netstream_data_t *sock, char *buf, size_t buflen, int flags,
@@ -233,11 +282,13 @@ static int php_sockop_set_option(php_stream *stream, int option, int value, void
 				if (value == -1) {
 					if (sock->timeout.tv_sec == -1) {
 						tv.tv_sec = FG(default_socket_timeout);
+						tv.tv_usec = 0;
 					} else {
 						tv = sock->timeout;
 					}
 				} else {
 					tv.tv_sec = value;
+					tv.tv_usec = 0;
 				}
 
 				if (sock->socket == -1) {
@@ -312,11 +363,11 @@ static int php_sockop_set_option(php_stream *stream, int option, int value, void
 					if ((xparam->inputs.flags & STREAM_OOB) == STREAM_OOB) {
 						flags |= MSG_OOB;
 					}
-					xparam->outputs.returncode = sendto(sock->socket,
+					xparam->outputs.returncode = sock_sendto(sock,
 							xparam->inputs.buf, xparam->inputs.buflen,
 							flags,
 							xparam->inputs.addr,
-							xparam->inputs.addrlen);
+							xparam->inputs.addrlen TSRMLS_CC);
 					if (xparam->outputs.returncode == -1) {
 						char *err = php_socket_strerror(php_socket_errno(), NULL, 0);
 						php_error_docref(NULL TSRMLS_CC, E_WARNING,

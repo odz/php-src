@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_objects_API.c,v 1.41 2004/05/23 20:33:09 andi Exp $ */
+/* $Id: zend_objects_API.c,v 1.41.2.1 2004/07/25 17:37:55 helly Exp $ */
 
 #include "zend.h"
 #include "zend_globals.h"
@@ -204,6 +204,15 @@ ZEND_API void zend_object_store_set_object(zval *zobject, void *object TSRMLS_DC
 	zend_object_handle handle = Z_OBJ_HANDLE_P(zobject);
 
 	EG(objects_store).object_buckets[handle].bucket.obj.object = object;
+}
+
+
+/* Called when the ctor was terminated by an exception */
+ZEND_API void zend_object_store_ctor_failed(zval *zobject TSRMLS_DC)
+{
+	zend_object_handle handle = Z_OBJ_HANDLE_P(zobject);
+
+	EG(objects_store).object_buckets[handle].destructor_called = 1;
 }
 
 

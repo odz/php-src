@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_objects_API.h,v 1.14 2004/05/25 14:19:19 andi Exp $ */
+/* $Id: zend_objects_API.h,v 1.14.2.1 2004/07/25 17:37:55 helly Exp $ */
 
 #ifndef ZEND_OBJECTS_API_H
 #define ZEND_OBJECTS_API_H
@@ -68,6 +68,7 @@ ZEND_API zend_object_value zend_objects_store_clone_obj(zval *object TSRMLS_DC);
 ZEND_API void *zend_object_store_get_object(zval *object TSRMLS_DC);
 /* See comment in zend_objects_API.c before you use this */
 ZEND_API void zend_object_store_set_object(zval *zobject, void *object TSRMLS_DC);
+ZEND_API void zend_object_store_ctor_failed(zval *zobject TSRMLS_DC);
 
 ZEND_API void zend_objects_store_free_object_storage(zend_objects_store *objects TSRMLS_DC);
 

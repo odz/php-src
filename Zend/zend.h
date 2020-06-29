@@ -17,12 +17,12 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend.h,v 1.256 2004/07/13 19:05:31 andi Exp $ */
+/* $Id: zend.h,v 1.257.2.6 2004/08/12 20:39:36 andi Exp $ */
 
 #ifndef ZEND_H
 #define ZEND_H
 
-#define ZEND_VERSION "2.0.0"
+#define ZEND_VERSION "2.0.1"
 
 #define ZEND_ENGINE_2
 
@@ -91,7 +91,7 @@ const char *zend_mh_bundle_error(void);
 
 #endif /* HAVE_MACH_O_DYLD_H */
 
-#if defined(HAVE_LIBDL)
+#if defined(HAVE_LIBDL) && !defined(HAVE_MACH_O_DYLD_H)
 
 # ifndef RTLD_LAZY
 #  define RTLD_LAZY 1    /* Solaris 1, FreeBSD's (2.1.7.1 and older) */

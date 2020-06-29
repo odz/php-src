@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_operators.h,v 1.88 2004/04/03 11:09:39 andi Exp $ */
+/* $Id: zend_operators.h,v 1.88.2.1 2004/07/16 02:02:09 iliaa Exp $ */
 
 #ifndef ZEND_OPERATORS_H
 #define ZEND_OPERATORS_H
@@ -87,6 +87,8 @@ static inline zend_bool is_numeric_string(char *str, int length, long *lval, dou
 				*lval = local_lval;
 			}
 			return IS_LONG;
+		} else if (end_ptr_long == str && *end_ptr_long != '\0') { /* ignore partial string matches */
+			return 0;
 		}
 	} else {
 		end_ptr_long=NULL;

@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_execute.c,v 1.652 2004/07/12 17:47:29 iliaa Exp $ */
+/* $Id: zend_execute.c,v 1.652.2.3 2004/08/02 02:35:03 iliaa Exp $ */
 
 #define ZEND_INTENSIVE_DEBUGGING 0
 
@@ -52,6 +52,7 @@ static void zend_extension_fcall_end_handler(zend_extension *extension, zend_op_
 #define EX_T(offset) (*(temp_variable *)((char *) EX(Ts) + offset))
 #define T(offset) (*(temp_variable *)((char *) Ts + offset))
 
+#define TEMP_VAR_STACK_LIMIT 2000
 
 /* former zend_execute_locks.h */
 static inline void zend_pzval_lock_func(zval *z)
@@ -1330,7 +1331,11 @@ static int zend_check_symbol(zval **pz TSRMLS_DC)
 	}
 
 #define RETURN_FROM_EXECUTE_LOOP(execute_data)								\
-	efree(EX(Ts));													\
+	if (EX(op_array)->T < TEMP_VAR_STACK_LIMIT) {						\
+ 		free_alloca(EX(Ts));													\
+ 	} else {								\
+ 		efree(EX(Ts));							\
+ 	}									\
 	EG(in_execution) = EX(original_in_execution);							\
 	EG(current_execute_data) = EX(prev_execute_data);						\
 	return 1; /* CHECK_ME */
@@ -1349,7 +1354,11 @@ ZEND_API void execute(zend_op_array *op_array TSRMLS_DC)
 	/* Initialize execute_data */
 	EX(fbc) = NULL;
 	EX(object) = NULL;
-	EX(Ts) = (temp_variable *) safe_emalloc(sizeof(temp_variable), op_array->T, 0);
+ 	if (op_array->T < TEMP_VAR_STACK_LIMIT) {
+ 		EX(Ts) = (temp_variable *) do_alloca(sizeof(temp_variable) * op_array->T);
+ 	} else {
+ 		EX(Ts) = (temp_variable *) safe_emalloc(sizeof(temp_variable), op_array->T, 0);
+ 	}
 	EX(op_array) = op_array;
 	EX(original_in_execution) = EG(in_execution);
 	EX(prev_execute_data) = EG(current_execute_data);
@@ -2777,6 +2786,9 @@ int zend_do_fcall_common_helper(ZEND_OPCODE_HANDLER_ARGS)
 	if (EG(This)) {
 		if (EG(exception) && EX(fbc) && EX(fbc)->common.fn_flags&ZEND_ACC_CTOR) {
 			EG(This)->refcount--;
+			if (EG(This)->refcount == 1) {
+			    zend_object_store_ctor_failed(EG(This) TSRMLS_CC);
+			}
 			zval_ptr_dtor(&EG(This));
 		} else if (should_change_scope) {
 			zval_ptr_dtor(&EG(This));
@@ -2929,21 +2941,16 @@ int zend_catch_handler(ZEND_OPCODE_HANDLER_ARGS)
 	}
 	ce = Z_OBJCE_P(EG(exception));
 	if (ce != EX_T(opline->op1.u.var).class_entry) {
-		while (ce->parent) {
-			if (ce->parent == EX_T(opline->op1.u.var).class_entry) {
-				goto exception_should_be_taken;
+		if (!instanceof_function(ce, EX_T(opline->op1.u.var).class_entry TSRMLS_CC)) {
+			if (opline->op1.u.EA.type) {
+				zend_throw_exception_internal(NULL TSRMLS_CC);
+				NEXT_OPCODE();
 			}
-			ce = ce->parent;
+			SET_OPCODE(&op_array->opcodes[opline->extended_value]);
+			return 0; /* CHECK_ME */
 		}
-		if (opline->op1.u.EA.type) {
-			zend_throw_exception_internal(NULL TSRMLS_CC);
-			NEXT_OPCODE();
-		}
-		SET_OPCODE(&op_array->opcodes[opline->extended_value]);
-		return 0; /* CHECK_ME */
 	}
 
-exception_should_be_taken:
 	zend_hash_update(EG(active_symbol_table), opline->op2.u.constant.value.str.val,
 		opline->op2.u.constant.value.str.len+1, &EG(exception), sizeof(zval *), (void **) NULL);
 	EG(exception) = NULL;

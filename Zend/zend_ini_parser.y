@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_ini_parser.y,v 1.32 2004/05/17 20:09:37 andrei Exp $ */
+/* $Id: zend_ini_parser.y,v 1.32.2.1 2004/07/20 08:45:04 stas Exp $ */
 
 #define DEBUG_CFG_PARSER 0
 #include "zend.h"
@@ -139,7 +139,7 @@ static void ini_error(char *str)
 }
 
 
-int zend_parse_ini_file(zend_file_handle *fh, zend_bool unbuffered_errors, zend_ini_parser_cb_t ini_parser_cb, void *arg)
+ZEND_API int zend_parse_ini_file(zend_file_handle *fh, zend_bool unbuffered_errors, zend_ini_parser_cb_t ini_parser_cb, void *arg)
 {
 	int retval;
 	zend_ini_parser_param ini_parser_param;

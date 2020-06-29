@@ -17,7 +17,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: streamsfuncs.c,v 1.35 2004/06/16 23:57:25 abies Exp $ */
+/* $Id: streamsfuncs.c,v 1.35.2.3 2004/08/06 14:18:49 wez Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -273,7 +273,7 @@ PHP_FUNCTION(stream_socket_sendto)
 	php_stream *stream;
 	zval *zstream;
 	long flags = 0;
-	char *data, *target_addr = NULL;
+	char *data, *target_addr;
 	int datalen, target_addr_len = 0;
 	php_sockaddr_storage sa;
 	socklen_t sl = 0;
@@ -283,7 +283,7 @@ PHP_FUNCTION(stream_socket_sendto)
 	}
 	php_stream_from_zval(stream, &zstream);
 
-	if (target_addr) {
+	if (target_addr_len) {
 		/* parse the address */
 		if (FAILURE == php_network_parse_network_address_with_port(target_addr, target_addr_len, (struct sockaddr*)&sa, &sl TSRMLS_CC)) {
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Failed to parse `%s' into a valid network address", target_addr);
@@ -316,6 +316,11 @@ PHP_FUNCTION(stream_socket_recvfrom)
 		zval_dtor(zremote);
 		ZVAL_NULL(zremote);
 		Z_STRLEN_P(zremote) = 0;
+	}
+
+	if (to_read <= 0) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Length parameter must be greater than 0.");
+		RETURN_FALSE;
 	}
 	
 	read_buf = emalloc(to_read + 1);
@@ -537,7 +542,7 @@ static int stream_array_to_fd_set(zval *stream_array, fd_set *fds, php_socket_t 
 		 * when casting.  It is only used here so that the buffered data warning
 		 * is not displayed.
 		 * */
-		if (SUCCESS == php_stream_cast(stream, PHP_STREAM_AS_FD_FOR_SELECT | PHP_STREAM_CAST_INTERNAL, (void*)&this_fd, 1)) {
+		if (SUCCESS == php_stream_cast(stream, PHP_STREAM_AS_FD_FOR_SELECT | PHP_STREAM_CAST_INTERNAL, (void*)&this_fd, 1) && this_fd >= 0) {
 			FD_SET(this_fd, fds);
 			if (this_fd > *max_fd) {
 				*max_fd = this_fd;
@@ -573,7 +578,7 @@ static int stream_array_from_fd_set(zval *stream_array, fd_set *fds TSRMLS_DC)
 		 * when casting.  It is only used here so that the buffered data warning
 		 * is not displayed.
 		 */
-		if (SUCCESS == php_stream_cast(stream, PHP_STREAM_AS_FD_FOR_SELECT | PHP_STREAM_CAST_INTERNAL, (void*)&this_fd, 1)) {
+		if (SUCCESS == php_stream_cast(stream, PHP_STREAM_AS_FD_FOR_SELECT | PHP_STREAM_CAST_INTERNAL, (void*)&this_fd, 1) && this_fd >= 0) {
 			if (FD_ISSET(this_fd, fds)) {
 				zend_hash_next_index_insert(new_hash, (void *)elem, sizeof(zval *), (void **)&dest_elem);
 				if (dest_elem) {

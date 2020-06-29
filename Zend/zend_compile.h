@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_compile.h,v 1.284 2004/06/06 08:37:12 sesser Exp $ */
+/* $Id: zend_compile.h,v 1.284.2.1 2004/08/01 21:55:39 helly Exp $ */
 
 #ifndef ZEND_COMPILE_H
 #define ZEND_COMPILE_H
@@ -840,6 +840,7 @@ END_EXTERN_C()
 #define ZEND_GET_FUNC_NAME          "__get"
 #define ZEND_SET_FUNC_NAME          "__set"
 #define ZEND_CALL_FUNC_NAME         "__call"
+#define ZEND_AUTOLOAD_FUNC_NAME     "__autoload"
 
 #endif /* ZEND_COMPILE_H */
 

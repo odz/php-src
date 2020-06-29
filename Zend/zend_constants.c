@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_constants.c,v 1.68 2004/07/01 16:28:32 iliaa Exp $ */
+/* $Id: zend_constants.c,v 1.69 2004/07/13 19:22:11 helly Exp $ */
 
 #include "zend.h"
 #include "zend_constants.h"
@@ -317,11 +317,11 @@ ZEND_API int zend_register_constant(zend_constant *c TSRMLS_DC)
 	}
 
 	if (zend_hash_add(EG(zend_constants), name, c->name_len, (void *) c, sizeof(zend_constant), NULL)==FAILURE) {
+		zend_error(E_NOTICE,"Constant %s already defined", name);
 		free(c->name);
 		if (!(c->flags & CONST_PERSISTENT)) {
 			zval_dtor(&c->value);
 		}
-		zend_error(E_NOTICE,"Constant %s already defined", name);
 		ret = FAILURE;
 	}
 	if (lowercase_name) {

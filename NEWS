@@ -1,5 +1,62 @@
 PHP                                                                        NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+12 Aug 2004, PHP 5.0.1
+- Changed destructor mechanism so that destructors are called prior to request
+  shutdown. (Marcus)
+- Rewritten UNIX and Windows install help files. (Documentation Team)
+- Updated several libraries bundled with the windows release which now 
+  includes libxml2-2.6.11, libxslt-1.1.7 and iconv-1.9.1. (Rob, Edin)
+- Improved and moved ActiveScript SAPI to PECL.  (Wez)
+- Fixed bug #29606 (php_strip_whitespace() prints to stdout rather then
+  returning the value). (Ilia)
+- Fixed bug #29577 (MYSQLI_CLIENT_FOUND_ROWS undefined) (Georg)
+- Fixed bug #29573 (Segmentation fault, when exception thrown within
+  PHP function called from XSLT). (Christian)
+- Fixed bug #29522 (accessing properties without connection) (Georg)
+- Fixed bug #29505 (get_class_vars() severely broken when used with arrays).
+  (Marcus)
+- Fixed bug #29490 (.Net object instantiation failed). (Michael Sisolak).
+- Fixed bug #29474 (win32: usleep() doesn't work). (Wez)
+- Fixed bug #29449 (win32: feof() hangs on empty tcp stream). (Wez)
+- Fixed bug #29437 (Possible crash inside array_walk_recursive()). (Ilia)
+- Fixed bug #29431 (crash when parsing invalid address; invalid address
+  returned by stream_socket_recvfrom(), stream_socket_getname()). (Wez)
+- Fixed bug #29409 (Segfault in PHP functions called from XSLT). (Rob)
+- Fixed unloading of dynamically loaded extensions. 
+  (Marcus, kameshj at fastmail dot fm)
+- Fixed bug #29395 (sqlite_escape_string() returns bogus data on empty
+  strings). (Ilia, Tony)
+- Fixed bug #29392 (com_dotnet crashes when echo'ing an object). (Wez)
+- Fixed bug #29368 (The destructor is called when an exception is thrown from 
+  the constructor). (Marcus)
+- Fixed bug #29354 (Exception constructor marked as both public and protected).
+  (Marcus)
+- Fixed bug #29342 (strtotime() does not handle empty date string properly).
+  (Ilia)
+- Fixed bug #29340 (win32 build produces invalid php_ifx.dll). (Edin)
+- Fixed bug #29335 (fetch functions now use MYSQLI_BOTH as default) (Georg)
+- Fixed bug #29291 (get_class_vars() return names with NULLs). (Marcus)
+- Fixed bug #29264 (gettext extension not working). (Edin)
+- Fixed bug #29258 (variant_date_from_timestamp() does not honour
+  timezone).  (Wez)
+- Fixed bug #29256 (error when sending large packets on a socket). (Dmitry)
+- Fixed bug #29236 (memory error when wsdl-cache is enabled). (Dmitry)
+- Fixed bug #29147 (Compile Error in mnoGoSearch functions). (Sergey, Antony)
+- Fixed bug #29132 ($_SERVER["PHP_AUTH_USER"] isn't defined). (Stefan)
+- Fixed bug #29119 (html_entity_decode() misbehaves with UTF-8). (Moriyoshi)
+- Fixed bug #29109 (SoapFault exception: [WSDL] Out of memory). (Dmitry)
+- Fixed bug #29061 (soap extension segfaults). (Dmitry)
+- Fixed bug #28985 (__getTypes() returning nothing on complex WSDL). (Dmitry)
+- Fixed bug #28969 (Wrong data encoding of special characters). (Dmitry)
+- Fixed bug #28895 (ReflectionClass::isAbstract always returns false). (Marcus)
+- Fixed bug #28829 (Thread-unsafety in bcmath elementary values). (Sara)
+- Fixed bug #28464 (catch() does not catch exceptions by interfaces). (Marcus)
+- Fixed ReflectionClass::getMethod() and ReflectionClass::getProperty() to
+  raise an ReflectionException instead of returning NULL on failure.
+  (Sebastian)
+- Fixed convert.* filters to consume remaining buckets_in on flush. (Sara)
+- Fixed bug in mysqli->client_version. (Georg)
+
 13 Jul 2004, PHP 5.0.0
 - Updated PCRE to provide better error handling in certain cases. (Andrei)
 - Changed doc comments to require a single white space after '/**'. (Marcus)
@@ -7,7 +64,6 @@ PHP                                                                        NEWS
 - Fixed bug #29008 (array_combine() does not handle non-numeric/string keys).
   (Ilia)
 - Fixed bug #28999 (fixed behaviour of exec() to work as it did in 4.X). (Ilia)
-- Fixed bug #28895 (ReflectionClass::isAbstract always returns false). (Marcus)
 - Fixed bug #28868 (Internal filter registry not thread safe). (Sara)
 - Fixed bug #28851 (call_user_func_array has typo in error message). (Marcus)
 - Fixed bug #28831 (ArrayObject::offsetGet() does the work of offsetUnset()). 

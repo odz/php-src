@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_highlight.c,v 1.43 2004/02/25 14:14:47 derick Exp $ */
+/* $Id: zend_highlight.c,v 1.43.2.2 2004/08/11 22:38:31 iliaa Exp $ */
 
 #include "zend.h"
 #include "zend_language_parser.h"
@@ -159,6 +159,12 @@ ZEND_API void zend_highlight(zend_syntax_highlighter_ini *syntax_highlighter_ini
 		switch (token_type) {
 			case T_END_HEREDOC:
 				zend_html_puts(token.value.str.val, token.value.str.len TSRMLS_CC);
+				{
+					char *ptr = LANG_SCNG(yy_text);
+					if (ptr[LANG_SCNG(yy_leng) - 1] != ';') {
+						zend_html_putc('\n');
+					}
+				}
 				break;
 			default:
 				zend_html_puts(LANG_SCNG(yy_text), LANG_SCNG(yy_leng) TSRMLS_CC);
@@ -203,7 +209,7 @@ ZEND_API void zend_strip(TSRMLS_D)
 		switch (token_type) {
 			case T_WHITESPACE:
 				if (!prev_space) {
-					putchar(' ');
+					zend_write(" ", sizeof(" ") - 1);
 					prev_space = 1;
 				}
 						/* lack of break; is intentional */
@@ -215,9 +221,9 @@ ZEND_API void zend_strip(TSRMLS_D)
 			case T_END_HEREDOC: {
 					char *ptr = LANG_SCNG(yy_text);
 
-					fwrite(ptr, LANG_SCNG(yy_leng) - 1, 1, stdout);
+					zend_write(ptr, LANG_SCNG(yy_leng) - 1);
 					/* The ensure that we only write one ; and that it followed by the required newline */
-					putchar('\n');
+					zend_write("\n", sizeof("\n") - 1);
 					if (ptr[LANG_SCNG(yy_leng) - 1] == ';') {
 						lex_scan(&token TSRMLS_CC);
 					}
@@ -226,7 +232,7 @@ ZEND_API void zend_strip(TSRMLS_D)
 				break;
 			
 			default:
-				fwrite(LANG_SCNG(yy_text), LANG_SCNG(yy_leng), 1, stdout);
+				zend_write(LANG_SCNG(yy_text), LANG_SCNG(yy_leng));
 				break;
 		}
 

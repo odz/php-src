@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_object_handlers.c,v 1.99 2004/05/26 22:19:44 wez Exp $ */
+/* $Id: zend_object_handlers.c,v 1.101 2004/07/14 09:04:13 stas Exp $ */
 
 #include "zend.h"
 #include "zend_globals.h"
@@ -381,7 +381,14 @@ zval *zend_std_read_dimension(zval *object, zval *offset, int type TSRMLS_DC)
 	zval *retval;
 	
 	if (instanceof_function_ex(ce, zend_ce_arrayaccess, 1 TSRMLS_CC)) {
+		if(offset == NULL) {
+			/* [] construct */
+			zval offset_null;
+			INIT_ZVAL(offset_null);
+			offset = &offset_null;
+		}
 		zend_call_method_with_1_params(&object, ce, NULL, "offsetget", &retval, offset);
+
 		if (!retval) {
 			if (!EG(exception)) {
 				zend_error(E_ERROR, "Undefined offset for object of type %s used as array", ce->name);

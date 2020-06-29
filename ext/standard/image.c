@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: image.c,v 1.98 2004/01/08 08:17:32 andi Exp $ */
+/* $Id: image.c,v 1.98.2.2 2004/08/11 12:31:37 derick Exp $ */
 
 #include "php.h"
 #include <stdio.h>
@@ -955,6 +955,11 @@ static int php_get_wbmp(php_stream *stream, struct gfxinfo **result, int check T
 		}
 		height = (height << 7) | (i & 0x7f);
 	} while (i & 0x80);
+
+	/* maximum valid sizes for wbmp (although 127x127 may be a more accurate one) */
+	if (height > 2048 || width > 2048) {
+		return 0;
+	}
 	
 	if (!check) {
 		(*result)->width = width;
@@ -1283,11 +1288,14 @@ PHP_FUNCTION(getimagesize)
 		case IMAGE_FILETYPE_SWF:
 			result = php_handle_swf(stream TSRMLS_CC);
 			break;
-#if HAVE_ZLIB && !defined(COMPILE_DL_ZLIB)
 		case IMAGE_FILETYPE_SWC:
+#if HAVE_ZLIB && !defined(COMPILE_DL_ZLIB)
 			result = php_handle_swc(stream TSRMLS_CC);
-			break;
+#else
+			php_error_docref(NULL TSRMLS_CC, E_NOTICE, "The image is a compressed SWF file, but you do not have a static version of the zlib extension enabled.");
+
 #endif
+			break;
 		case IMAGE_FILETYPE_PSD:
 			result = php_handle_psd(stream TSRMLS_CC);
 			break;

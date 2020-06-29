@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: xsltprocessor.c,v 1.29 2004/05/28 14:17:46 iliaa Exp $ */
+/* $Id: xsltprocessor.c,v 1.29.2.3 2004/08/10 08:02:00 chregu Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -144,6 +144,7 @@ static void xsl_ext_function_php(xmlXPathParserContextPtr ctxt, int nargs, int t
 	xmlXPathObjectPtr obj;
 	char *str;
 	char *callable = NULL;
+	xsl_object *intern;
 	
 	TSRMLS_FETCH();
 
@@ -155,9 +156,10 @@ static void xsl_ext_function_php(xmlXPathParserContextPtr ctxt, int nargs, int t
 	}
 
 	fci.param_count = nargs - 1;
-	fci.params = safe_emalloc(fci.param_count, sizeof(zval**), 0);
-
-	args = safe_emalloc(nargs - 1, sizeof(zval *), 0);
+	if (fci.param_count > 0) {
+		fci.params = safe_emalloc(fci.param_count, sizeof(zval**), 0);
+		args = safe_emalloc(nargs - 1, sizeof(zval *), 0);
+	}
 	/* Reverse order to pop values off ctxt stack */
 	for (i = nargs - 2; i >= 0; i--) {
 		obj = valuePop(ctxt);
@@ -228,11 +230,13 @@ static void xsl_ext_function_php(xmlXPathParserContextPtr ctxt, int nargs, int t
 	if (obj->stringval == NULL) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Handler name must be a string");
 		xmlXPathFreeObject(obj);
-		for (i = 0; i < nargs - 1; i++) {
-			zval_ptr_dtor(&args[i]);
+		if (fci.param_count > 0) {
+			for (i = 0; i < nargs - 1; i++) {
+				zval_ptr_dtor(&args[i]);
+			}
+			efree(args);
+			efree(fci.params);
 		}
-		efree(args);
-		efree(fci.params);
 		return; 
 	}
 	INIT_PZVAL(&handler);
@@ -253,11 +257,20 @@ static void xsl_ext_function_php(xmlXPathParserContextPtr ctxt, int nargs, int t
 		if (result == FAILURE) {
 			if (Z_TYPE(handler) == IS_STRING) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to call handler %s()", Z_STRVAL_P(&handler));
-			} 
+			}
+		/* retval is == NULL, when an exception occured, don't report anything, because PHP itself will handle that */
+		} else if (retval == NULL) {
 		} else {
 			if (retval->type == IS_OBJECT && instanceof_function( Z_OBJCE_P(retval), dom_node_class_entry TSRMLS_CC)) {
 				xmlNode *nodep;
 				dom_object *obj;
+				intern = (xsl_object *) tctxt->_private;
+				if (intern->node_list == NULL) {
+					ALLOC_HASHTABLE(intern->node_list);
+					zend_hash_init(intern->node_list, 0, NULL, ZVAL_PTR_DTOR, 0);
+				}
+				zval_add_ref(&retval);
+				zend_hash_next_index_insert(intern->node_list, &retval, sizeof(zval *), NULL);
 				obj = (dom_object *)zend_object_store_get_object(retval TSRMLS_CC);
 				nodep = dom_object_get_node(obj);
 				valuePush(ctxt, xmlXPathNewNodeSet(nodep));
@@ -275,11 +288,13 @@ static void xsl_ext_function_php(xmlXPathParserContextPtr ctxt, int nargs, int t
 	}
 	efree(callable);
 	zval_dtor(&handler);
-	for (i = 0; i < nargs - 1; i++) {
-		zval_ptr_dtor(&args[i]);
+	if (fci.param_count > 0) {
+		for (i = 0; i < nargs - 1; i++) {
+			zval_ptr_dtor(&args[i]);
+		}
+		efree(args);
+		efree(fci.params);
 	}
-	efree(args);
-	efree(fci.params);
 }
 
 static void xsl_ext_function_string_php(xmlXPathParserContextPtr ctxt, int nargs)
@@ -378,6 +393,58 @@ PHP_FUNCTION(xsl_xsltprocessor_import_stylesheet)
 /* }}} end xsl_xsltprocessor_import_stylesheet */
 
 
+static xmlDocPtr php_xsl_apply_stylesheet(xsl_object *intern, xsltStylesheetPtr style, xmlDocPtr doc TSRMLS_DC)
+{
+	xmlDocPtr newdocp;
+	xsltTransformContextPtr ctxt;
+	char **params = NULL;
+	int clone;
+
+	if (style == NULL) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "No stylesheet associated to this object");
+		return NULL;
+	}
+	if (intern->parameter) {
+		params = php_xsl_xslt_make_params(intern->parameter, 0 TSRMLS_CC);
+	}
+
+	if (intern->hasKeys == 1) {
+		doc = xmlCopyDoc(doc, 1);
+	}
+
+	ctxt = xsltNewTransformContext(style, doc);
+	ctxt->_private = (void *) intern;
+	
+	newdocp = xsltApplyStylesheetUser(style, doc, (const char**) params, NULL, NULL, ctxt);
+
+	xsltFreeTransformContext(ctxt);
+
+	if (intern->node_list != NULL) {
+		zend_hash_destroy(intern->node_list);
+		FREE_HASHTABLE(intern->node_list);	
+		intern->node_list = NULL;
+	}
+
+	if (intern->registerPhpFunctions == 1) {
+		php_xsl_unregister_php_functions();
+	}
+	
+	if (intern->hasKeys == 1) {
+		xmlFreeDoc(doc);
+	}
+
+	if (params) {
+		clone = 0;
+		while(params[clone]) {
+			efree(params[clone++]);
+		}
+		efree(params);
+	}
+
+	return newdocp;
+
+}
+
 /* {{{ proto xsl_document xsl_xsltprocessor_transform_to_doc(node doc [,boolean clone]);
 URL: http://www.w3.org/TR/2003/WD-DOM-Level-3-Core-20030226/DOM3-Core.html#
 Since: 
@@ -389,8 +456,7 @@ PHP_FUNCTION(xsl_xsltprocessor_transform_to_doc)
 	xmlNodePtr node = NULL;
 	xmlDoc *newdocp;
 	xsltStylesheetPtr sheetp;
-	int ret, clone;
-	char **params = NULL;
+	int ret;
 	xsl_object *intern;
 	
 	id = getThis();
@@ -411,30 +477,7 @@ PHP_FUNCTION(xsl_xsltprocessor_transform_to_doc)
 		RETURN_NULL();
 	}
 
-	if (intern->parameter) {
-		params = php_xsl_xslt_make_params(intern->parameter, 0 TSRMLS_CC);
-	}
-
-	if (intern->hasKeys == 1) {
-		doc = xmlCopyDoc(doc, 1);
-	}
-	newdocp = xsltApplyStylesheet(sheetp, doc, (const char**) params);
-	
-	if (intern->registerPhpFunctions == 1) {
-		php_xsl_unregister_php_functions();
-	}
-	
-	if (intern->hasKeys == 1) {
-		xmlFreeDoc(doc);
-	}
-
-	if (params) {
-		clone = 0;
-		while(params[clone]) {
-			efree(params[clone++]);
-		}
-		efree(params);
-	}
+	newdocp = php_xsl_apply_stylesheet(intern, sheetp, doc TSRMLS_CC);
 
 	if (newdocp) {
 		DOM_RET_OBJ(rv, (xmlNodePtr) newdocp, &ret, NULL);
@@ -455,8 +498,8 @@ PHP_FUNCTION(xsl_xsltprocessor_transform_to_uri)
 	xmlDoc *newdocp;
 	xmlNodePtr node = NULL;
 	xsltStylesheetPtr sheetp;
-	int ret, uri_len, clone;
-	char **params = NULL, *uri;
+	int ret, uri_len;
+	char *uri;
 	xsl_object *intern;
 	
 	id = getThis();
@@ -477,31 +520,7 @@ PHP_FUNCTION(xsl_xsltprocessor_transform_to_uri)
 		RETURN_NULL();
 	}
 
-	if (intern->parameter) {
-		params = php_xsl_xslt_make_params(intern->parameter, 0 TSRMLS_CC);
-	}
-
-	if (intern->hasKeys == 1) {
-		doc = xmlCopyDoc(doc, 1);
-	}
-
-	newdocp = xsltApplyStylesheet(sheetp, doc, (const char**)params);
-	
-	if (intern->registerPhpFunctions == 1) {
-		php_xsl_unregister_php_functions();
-	}
-	
-	if (intern->hasKeys == 1) {
-		xmlFreeDoc(doc);
-	}
-
-	if (params) {
-		clone = 0;
-		while(params[clone]) {
-			efree(params[clone++]);
-		}
-		efree(params);
-	}
+	newdocp = php_xsl_apply_stylesheet(intern, sheetp, doc TSRMLS_CC);
 
 	ret = -1;
 	if (newdocp) {
@@ -523,10 +542,9 @@ PHP_FUNCTION(xsl_xsltprocessor_transform_to_xml)
 	xmlDoc *newdocp;
 	xmlNodePtr node = NULL;
 	xsltStylesheetPtr sheetp;
-	int ret, clone;
+	int ret;
 	xmlChar *doc_txt_ptr;
 	int doc_txt_len;
-	char **params = NULL;
 	xsl_object *intern;
 	
 	id = getThis();
@@ -547,31 +565,7 @@ PHP_FUNCTION(xsl_xsltprocessor_transform_to_xml)
 		RETURN_NULL();
 	}
 
-	if (intern->parameter) {
-		params = php_xsl_xslt_make_params(intern->parameter, 0 TSRMLS_CC);
-	}
-
-	if (intern->hasKeys == 1) {
-		doc = xmlCopyDoc(doc, 1);
-	}
-
-	newdocp = xsltApplyStylesheet(sheetp, doc, (const char**)params);
-	
-	if (intern->registerPhpFunctions == 1) {
-		php_xsl_unregister_php_functions();
-	}
-	
-	if (intern->hasKeys == 1) {
-		xmlFreeDoc(doc);
-	}
-
-	if (params) {
-		clone = 0;
-		while(params[clone]) {
-			efree(params[clone++]);
-		}
-		efree(params);
-	}
+	newdocp = php_xsl_apply_stylesheet(intern, sheetp, doc TSRMLS_CC);
 
 	ret = -1;
 	if (newdocp) {

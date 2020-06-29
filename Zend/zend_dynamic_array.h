@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_dynamic_array.h,v 1.12 2004/01/08 17:31:47 sniper Exp $ */
+/* $Id: zend_dynamic_array.h,v 1.13 2004/07/15 19:41:22 helly Exp $ */
 
 #ifndef ZEND_DYNAMIC_ARRAY_H
 #define ZEND_DYNAMIC_ARRAY_H
@@ -30,7 +30,7 @@ typedef struct _dynamic_array {
 } dynamic_array;
 
 BEGIN_EXTERN_C()
-ZEND_API int zend_dynamic_array_init(dynamic_array *da);
+ZEND_API int zend_dynamic_array_init(dynamic_array *da, unsigned int element_size, unsigned int size);
 ZEND_API void *zend_dynamic_array_push(dynamic_array *da);
 ZEND_API void *zend_dynamic_array_pop(dynamic_array *da);
 ZEND_API void *zend_dynamic_array_get_element(dynamic_array *da, unsigned int index);
