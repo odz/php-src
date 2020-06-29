@@ -16,7 +16,7 @@
    |          Jim Winstead <jimw@php.net>                                 |
    +----------------------------------------------------------------------+
  */
-/* $Id: fopen_wrappers.c,v 1.142 2002/02/02 05:43:55 sebastian Exp $ */
+/* $Id: fopen_wrappers.c,v 1.142.2.2 2002/05/11 20:02:21 rasmus Exp $ */
 
 /* {{{ includes
  */
@@ -268,7 +268,7 @@ PHPAPI int php_check_safe_mode_include_dir(char *path TSRMLS_DC)
 	}
 
 	/* Nothing to check... */
-	return 0;
+	return -1;
 }
 /* }}} */
 
@@ -441,7 +441,7 @@ PHPAPI FILE *php_fopen_with_path(char *filename, char *mode, char *path, char **
 	}
 
 	filename_length = strlen(filename);
-	
+
 	/* Relative path open */
 	if (*filename == '.') {
 		if (PG(safe_mode) && (!php_checkuid(filename, mode, CHECKUID_CHECK_MODE_PARAM))) {

@@ -1,8 +1,49 @@
 PHP 4                                                                      NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+13 May 2002, Version 4.2.1
+- Added safe-mode checks to show_source(), parse_ini_file() and rmdir(). Also
+  fixed security problems with safe_mode_include_dir directive. (Rasmus)
+- Changed HTTP upload code to accept 0 byte file uploads. (Zeev)
+- Major update of domxml. New functions, better DOM compliance and bug fixes:
+  * Changed the old $node->append_child() to $node->append_sibling() since
+    the new append_child() behaves correctly (= W3C standard).
+  * Added domxml functions:
+    . domxml_elem_get_elements_by_tagname() 
+    . domxml_doc_get_elements_by_tagname()
+    . domxml_doc_get_element_by_id()
+    . domxml_elem_remove_attribute()
+    . domxml_elem_get_attribute_node()
+  * Fixed a segfault in domxml_unlink(). 
+  * Added formatting option to domxml_dump_mem(). 
+  (Uwe, jtate, Chregu)
+- Fixed a bug in socket_select() that could cause unexpected behavior when
+  using a statement like $w = $e = array($sock); This change unfortunately
+  prevents the use of constant values (e.g. NULL) for the socket array
+  paramaters. Instead, use a temporary variable or an expression with the
+  leftmost member being a temporary variable. ex.:
+  socket_select($w, $r, $e = NULL, 10); (Jason)
+- Fixed crashes in the session serializer. (Stas)
+- Fixed malformed atime/mtime with touch(). (Yasuo)
+- Fixed a couple of bugs in array_sum() and array_merge(). (Andrei)
+- Fixed SJIS directory name handling under Windows. (Rui)
+- Fixed empty mb_output_handler() output when Content-Type is specified.
+  (Yasuo) 
+- Fixed the false logic in ext/session which made SID constant not to be
+  defined when cookies are disabled. (Sascha)
+- Fixed possible crash bug in HTTP uploads. (Patch: Lucas Schroeder)
+- Fixed possible NULL-pointer dereferencing in the COM extension which
+  caused 'Error in php_OLECHAR_to_char()' warnings on various places.
+  Also modified the API to consistently return NULL in case of an error.
+  (Alan, Harald)
+- Fixed a bug in the COM extension that caused outproc servers to 'hang'
+  because of a missing Release() call. (Alan, Harald)
+
 22 Apr 2002, Version 4.2.0
 - ATTENTION!! register_globals defaults to 'off' now !!!
 - Note: Apache2 support is EXPERIMENTAL.
+- PostgreSQL functions are renamed, but all old function names are available.
+  Old function names will be available long enough. User can safely use old 
+  function names. (Yasuo)
 - Moved ext/mailparse to PECL. See http://thebrainroom.com/opensource/php/
   for more information and to download the extension. (Wez/Jim)
 - Fixed pg_last_notice() crash. (Yasuo)
@@ -28,7 +69,6 @@ PHP 4                                                                      NEWS
     ?>
 - Fixed segfault in ibase_close() if user does not free the resultset.
   Bugs #15419, #15992. (daniela)
-- Fixed pg_last_notice() crash. (Yasuo)
 - Added optional 3rd parameter "int encoding_mode" to gzencode() and fixed 
   parameters to conform documentation. (Stefan)
 - Changed read_exif_data() to be an alias of exif_read_data(). (Marcus)

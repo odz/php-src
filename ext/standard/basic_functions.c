@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: basic_functions.c,v 1.447.2.2 2002/04/11 12:53:19 derick Exp $ */
+/* $Id: basic_functions.c,v 1.447.2.4 2002/05/11 19:23:05 rasmus Exp $ */
 
 #include "php.h"
 #include "php_main.h"
@@ -1889,6 +1889,14 @@ PHP_FUNCTION(highlight_file)
 	}
 	convert_to_string(filename);
 
+	if (PG(safe_mode) && (!php_checkuid(Z_STRVAL_P(filename), NULL, CHECKUID_ALLOW_ONLY_FILE))) {
+		RETURN_FALSE;
+	}
+
+	if (php_check_open_basedir(Z_STRVAL_P(filename) TSRMLS_CC)) {
+		RETURN_FALSE;
+	}
+
 	if (i) {
 		php_start_ob_buffer (NULL, 0, 1 TSRMLS_CC);
 	}
@@ -2493,6 +2501,15 @@ PHP_FUNCTION(parse_ini_file)
 	}
 
 	convert_to_string_ex(filename);
+
+	if (PG(safe_mode) && (!php_checkuid(Z_STRVAL_PP(filename), NULL, CHECKUID_ALLOW_ONLY_FILE))) {
+		RETURN_FALSE;
+	}
+
+	if (php_check_open_basedir(Z_STRVAL_PP(filename) TSRMLS_CC)) {
+		RETURN_FALSE;
+	}
+
 	fh.handle.fp = VCWD_FOPEN(Z_STRVAL_PP(filename), "r");
 	if (!fh.handle.fp) {
 		php_error(E_WARNING, "Cannot open '%s' for reading", Z_STRVAL_PP(filename));

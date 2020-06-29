@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: file.c,v 1.205 2002/02/28 08:26:44 sebastian Exp $ */
+/* $Id: file.c,v 1.205.2.2 2002/05/12 16:08:31 rasmus Exp $ */
 
 /* Synced with php 3.0 revision 1.218 1999-06-16 [ssb] */
 
@@ -1453,7 +1453,7 @@ PHP_FUNCTION(fseek)
 PHP_FUNCTION(mkdir)
 {
 	int dir_len, ret;
-	mode_t mode = 0777;
+	long mode = 0777;
 	char *dir;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|l", &dir, &dir_len, &mode) == FAILURE) {
@@ -1468,7 +1468,7 @@ PHP_FUNCTION(mkdir)
 		RETURN_FALSE;
 	}
 
-	ret = VCWD_MKDIR(dir, mode);
+	ret = VCWD_MKDIR(dir, (mode_t)mode);
 	if (ret < 0) {
 		php_error(E_WARNING, "mkdir() failed (%s)", strerror(errno));
 		RETURN_FALSE;
@@ -1490,7 +1490,7 @@ PHP_FUNCTION(rmdir)
 
 	convert_to_string_ex(arg1);
 
-	if (PG(safe_mode) &&(!php_checkuid(Z_STRVAL_PP(arg1), NULL, CHECKUID_ALLOW_FILE_NOT_EXISTS))) {
+	if (PG(safe_mode) &&(!php_checkuid(Z_STRVAL_PP(arg1), NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
 		RETURN_FALSE;
 	}
 

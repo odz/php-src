@@ -175,9 +175,7 @@ PHPAPI void php_print_info(int flag TSRMLS_DC)
 			}
 			if ((ta->tm_mon==3) && (ta->tm_mday==1)) {
 				PUTS("?="PHP_EGG_LOGO_GUID"\" border=0 align=\"right\" alt=\"Thies!\"></a>");
-			} else if ((ta->tm_mon==11) && (ta->tm_mday==25)) {
-				PUTS("?="PHP_XMAS_LOGO_GUID"\" border=0 align=\"right\" alt=\"Happy X-mas!\"></a>");
-			} else { 
+			} else {
 				PUTS("?="PHP_LOGO_GUID"\" border=0 align=\"right\" alt=\"PHP Logo\"></a>");
 			}
 		}

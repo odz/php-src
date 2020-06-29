@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.14.2.5 2002/04/16 10:12:57 derick Exp $
+dnl $Id: config.m4,v 1.14.2.7 2002/05/02 10:24:03 sniper Exp $
 dnl
 dnl +------------------------------------------------------------------------------+
 dnl |  This is where the magic of the extension reallly is.  Depending on what     |
@@ -55,23 +55,24 @@ if test "$PHP_XSLT" != "no"; then
 					
   if test "$PHP_XSLT_SABLOT" != "no"; then
     found_expat=no
-    for i in $PHP_EXPAT_DIR $XSLT_DIR; do
+    for i in $PHP_EXPAT_DIR $XSLT_DIR /usr/local /usr; do
       if test -f $i/lib/libexpat.a -o -f $i/lib/libexpat.$SHLIB_SUFFIX_NAME; then
         AC_DEFINE(HAVE_LIBEXPAT2, 1, [ ])
         PHP_ADD_INCLUDE($i/include)
         PHP_ADD_LIBRARY_WITH_PATH(expat, $i/lib, XSLT_SHARED_LIBADD)
         found_expat=yes
+        break
       fi
     done
 
     if test "$found_expat" = "no"; then
-      PHP_ADD_LIBRARY(xmlparse)
-      PHP_ADD_LIBRARY(xmltok)
+      AC_MSG_ERROR([expat not found. To build sablotron you need the expat library.])
     fi
 
     if test "$PHP_ICONV" = "no"; then
       PHP_ICONV=yes
     fi
+
     PHP_SETUP_ICONV(XSLT_SHARED_LIBADD, [], [
       AC_MSG_ERROR([iconv not found, in order to build sablotron you need the iconv library])
     ])

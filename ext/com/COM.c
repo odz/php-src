@@ -133,6 +133,7 @@ PHPAPI HRESULT php_COM_invoke(comval *obj, DISPID dispIdMember, WORD wFlags, DIS
 		if (FAILED(hr)) {
 			switch (hr) {
 				case DISP_E_EXCEPTION: {
+						
 						char *src=estrdup("Unavailable");
 						int srclen=strlen(src);
 						char *desc=estrdup("Unavailable");
@@ -500,14 +501,11 @@ PHP_FUNCTION(com_load)
 	}
 
 	if (server_name != NULL) {
-		/* if a server is passed, one obviously wants to instanciate a
-		 * remote server
-		 */
-		flags = CLSCTX_REMOTE_SERVER;
-
 		/* What is server name? A String or an array? */
 
-		if (Z_TYPE_P(server_name) == IS_ARRAY) {
+		if (Z_TYPE_P(server_name) == IS_NULL) {
+			server_name = NULL;
+		} else if (Z_TYPE_P(server_name) == IS_ARRAY) {
 			pval **tmp;
 			/* DAB: 22 Sept 2001 */
 			/* Aha - we have a number of possible */
@@ -567,14 +565,12 @@ PHP_FUNCTION(com_load)
 				convert_to_long_ex(tmp);
 				flags = (CLSCTX) Z_LVAL_PP(tmp);
 			}
-		}
-		if (Z_TYPE_P(server_name) == IS_NULL) {
-			server_name = NULL;
 		} else {
 			if (!INI_INT("com.allow_dcom")) {
 				php_error(E_WARNING, "DCOM is disabled");
-				RETURN_FALSE;
+				RETURN_NULL();
 			} else {
+				flags = CLSCTX_REMOTE_SERVER;
 				convert_to_string_ex(&server_name);
 			}
 		}
@@ -618,7 +614,7 @@ PHP_FUNCTION(com_load)
 			error_message = php_COM_error_message(hr TSRMLS_CC);  
 			php_error(E_WARNING,"Invalid ProgID, GUID string, or Moniker: %s", error_message);
 			LocalFree(error_message);
-			RETURN_FALSE;
+			RETURN_NULL();
 		}
 	} else {
 		efree(ProgID);
@@ -678,7 +674,7 @@ PHP_FUNCTION(com_load)
 			LocalFree(error_message);
 			efree(clsid_str);
 			php_COM_destruct(obj TSRMLS_CC);
-			RETURN_FALSE;
+			RETURN_NULL();
 		}
 	}
 
@@ -915,7 +911,7 @@ PHP_FUNCTION(com_invoke)
 	}
 	arguments = (pval **) emalloc(sizeof(pval *)*arg_count);
 	if (zend_get_parameters_array(ht, arg_count, arguments) == FAILURE) {
-		RETURN_FALSE;
+		RETURN_NULL();
 	}
 
 	object = arguments[0];
@@ -926,7 +922,7 @@ PHP_FUNCTION(com_invoke)
 	obj = (comval *)zend_list_find(Z_LVAL_P(object), &type);
 	if (!obj || (type != IS_COM)) {
 		php_error(E_WARNING,"%d is not a COM object handler", Z_STRVAL_P(function_name));
-		RETURN_FALSE;
+		RETURN_NULL();
 	}
 
 	/* obtain property/method handler */
@@ -938,7 +934,7 @@ PHP_FUNCTION(com_invoke)
 		FREE_VARIANT(var_result);
 		efree(arguments);
 
-		RETURN_FALSE;
+		RETURN_NULL();
 	}
 
 	RETVAL_VARIANT(var_result);
@@ -1106,7 +1102,7 @@ static void do_COM_propput(pval *return_value, comval *obj, pval *arg_property, 
 		FREE_VARIANT(var_result);
 		FREE_VARIANT(new_value);
 
-		RETURN_FALSE;
+		RETURN_NULL();
 	}
 
 	php_pval_to_variant(value, new_value, codepage TSRMLS_CC);
@@ -1131,7 +1127,7 @@ static void do_COM_propput(pval *return_value, comval *obj, pval *arg_property, 
 		FREE_VARIANT(var_result);
 		FREE_VARIANT(new_value);
 
-		RETURN_FALSE;
+		RETURN_NULL();
 	}
 
 	dispparams.cArgs = 0;
@@ -1175,7 +1171,7 @@ PHP_FUNCTION(com_propget)
 	obj = (comval *)zend_list_find(Z_LVAL_P(arg_comval), &type);
 	if (!obj || (type != IS_COM)) {
 		php_error(E_WARNING,"%d is not a COM object handler", Z_LVAL_P(arg_comval));
-		RETURN_FALSE;
+		RETURN_NULL();
 	}
 	convert_to_string_ex(&arg_property);
 
@@ -1183,7 +1179,7 @@ PHP_FUNCTION(com_propget)
 
 	if (do_COM_propget(var_result, obj, arg_property, FALSE TSRMLS_CC) == FAILURE) {
 		FREE_VARIANT(var_result);
-		RETURN_FALSE;
+		RETURN_NULL();
 	}
 
 	RETVAL_VARIANT(var_result);
@@ -1209,7 +1205,7 @@ PHP_FUNCTION(com_propput)
 	obj = (comval *)zend_list_find(Z_LVAL_P(arg_comval), &type);
 	if (!obj || (type != IS_COM)) {
 		php_error(E_WARNING,"%d is not a COM object handler", Z_LVAL_P(arg_comval));
-		RETURN_FALSE;
+		RETURN_NULL();
 	}
 	convert_to_string_ex(&arg_property);
 
@@ -1443,34 +1439,38 @@ PHPAPI void php_COM_call_function_handler(INTERNAL_FUNCTION_PARAMETERS, zend_pro
 		pval *object_handle;
 
 		PHP_FN(com_load)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
-		if (!zend_is_true(return_value)) {
-			ZVAL_FALSE(object);
-			return;
+		if (zend_is_true(return_value)) {
+			ALLOC_ZVAL(object_handle);
+			*object_handle = *return_value;
+			pval_copy_constructor(object_handle);
+			INIT_PZVAL(object_handle);
+			zend_hash_index_update(Z_OBJPROP_P(object), 0, &object_handle, sizeof(pval *), NULL);
+			pval_destructor(&function_name->element);
+		} else {
+			ZVAL_NULL(object);
 		}
-		ALLOC_ZVAL(object_handle);
-		*object_handle = *return_value;
-		pval_copy_constructor(object_handle);
-		INIT_PZVAL(object_handle);
-		zend_hash_index_update(Z_OBJPROP_P(object), 0, &object_handle, sizeof(pval *), NULL);
-		pval_destructor(&function_name->element);
 
 		return;
 	}
 
+	RETVAL_NULL();
 	property = php_COM_get_property_handler(property_reference);
-	if (Z_TYPE(property) == IS_NULL) {
-		if (property.refcount == 1) {
-			pval_destructor(&property);
-		}
+
+	if (Z_TYPE(property) != IS_OBJECT) {
+		pval_destructor(&property);
 		pval_destructor(&function_name->element);
+
+		/* error message - function call on a non-object */
 		return;
 	}
+
 	zend_hash_index_find(Z_OBJPROP(property), 0, (void **) &handle);
 	obj = (comval *)zend_list_find(Z_LVAL_PP(handle), &type);
 
 	if (!obj || (type != IS_COM)) {
 		pval_destructor(&property);
 		pval_destructor(&function_name->element);
+
 		return;
 	}
 
@@ -1490,9 +1490,7 @@ PHPAPI void php_COM_call_function_handler(INTERNAL_FUNCTION_PARAMETERS, zend_pro
 		arguments = (pval **) emalloc(sizeof(pval *)*arg_count);
 		zend_get_parameters_array(ht, arg_count, arguments);
 
-		if (do_COM_invoke(obj , &function_name->element, var_result, arguments, arg_count TSRMLS_CC) == FAILURE) {
-			RETVAL_FALSE;
-		} else {
+		if (do_COM_invoke(obj , &function_name->element, var_result, arguments, arg_count TSRMLS_CC) == SUCCESS) {
 			php_variant_to_pval(var_result, return_value, codepage TSRMLS_CC);
 		}
 
@@ -1500,9 +1498,12 @@ PHPAPI void php_COM_call_function_handler(INTERNAL_FUNCTION_PARAMETERS, zend_pro
 		efree(arguments);
 	}
 
-	if (property.refcount == 1) {
+	if (zend_llist_count(property_reference->elements_list) > 1) {
+		/* destruct temporary object */
+		zend_list_delete(Z_LVAL_PP(handle));
 		pval_destructor(&property);
 	}
+	
 	pval_destructor(&function_name->element);
 }
 

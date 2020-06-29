@@ -16,7 +16,7 @@
    |          Jani Taskinen <sniper@php.net>                              |
    +----------------------------------------------------------------------+
  */
-/* $Id: rfc1867.c,v 1.94.2.2 2002/04/01 23:29:19 sniper Exp $ */
+/* $Id: rfc1867.c,v 1.94.2.4 2002/05/11 11:58:52 zeev Exp $ */
 
 /*
  *  This product includes software developed by the Apache Group
@@ -32,6 +32,8 @@
 #include "php_variables.h"
 #include "rfc1867.h"
 
+
+#undef DEBUG_FILE_UPLOAD
 
 #define SAFE_RETURN { \
 	if (lbuf) efree(lbuf); \
@@ -371,11 +373,12 @@ static char *php_mime_get_hdr_value(zend_llist header, char *key)
 	}
 	
 	entry = zend_llist_get_first(&header);
-	do {
+	while (entry) {
 		if (!strcasecmp(entry->key, key)) {
 			return entry->value;
 		}
-	} while ((entry = zend_llist_get_next(&header)));
+		entry = zend_llist_get_next(&header);
+	}
 	
 	return NULL;
 }
@@ -726,7 +729,7 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 			cancel_upload = 0;
 
 			if(strlen(filename) == 0) {
-				sapi_module.sapi_error(E_WARNING, "No file uploaded");
+				sapi_module.sapi_error(E_NOTICE, "No file uploaded");
 				cancel_upload = UPLOAD_ERROR_D;
 			}
 
@@ -751,19 +754,19 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 			} 
 			fclose(fp);
 
+#ifdef DEBUG_FILE_UPLOAD
 			if(strlen(filename) > 0 && total_bytes == 0) {
 				sapi_module.sapi_error(E_WARNING, "Uploaded file size 0 - file [%s=%s] not saved", param, filename);
 				cancel_upload = UPLOAD_ERROR_E;
 			}
-			
-			if (cancel_upload || total_bytes == 0) {
+#endif		
 
+			if (cancel_upload) {
 				if (temp_filename) {
 					unlink(temp_filename);
 					efree(temp_filename);
 				}
 				temp_filename="";
-
 			} else {
 				zend_hash_add(SG(rfc1867_uploaded_files), temp_filename, strlen(temp_filename) + 1, &temp_filename, sizeof(char *), NULL);
 			}

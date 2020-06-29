@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_virtual_cwd.c,v 1.27 2001/12/11 15:16:20 sebastian Exp $ */
+/* $Id: tsrm_virtual_cwd.c,v 1.27.2.2 2002/04/25 14:52:46 hirokawa Exp $ */
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -68,7 +68,8 @@ cwd_state main_cwd_state; /* True global */
 #endif
 
 #ifdef TSRM_WIN32
-#define tsrm_strtok_r(a,b,c) strtok((a),(b))
+#include <tchar.h>
+#define tsrm_strtok_r(a,b,c) _tcstok((a),(b))
 #define TOKENIZER_STRING "/\\"
 	
 static int php_check_dots(const char *element, int n) 
@@ -363,7 +364,8 @@ CWD_API int virtual_file_ex(cwd_state *state, const char *path, verify_path_func
 			state->cwd = (char *) realloc(state->cwd, state->cwd_length+ptr_length+1+1);
 #ifdef TSRM_WIN32
 			/* Windows 9x will consider C:\\Foo as a network path. Avoid it. */
-			if (state->cwd[state->cwd_length-1]!='\\' && state->cwd[state->cwd_length-1]!='/') {
+			if ((state->cwd[state->cwd_length-1]!='\\' && state->cwd[state->cwd_length-1]!='/') ||
+				IsDBCSLeadByte(state->cwd[state->cwd_length-2])) {
 				state->cwd[state->cwd_length++] = DEFAULT_SLASH;
 			}
 #else

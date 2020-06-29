@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sockets.c,v 1.95.2.1 2002/03/09 07:20:35 jason Exp $ */
+/* $Id: sockets.c,v 1.95.2.4 2002/05/08 15:33:49 jason Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -97,6 +97,9 @@ static int le_iov;
 static int le_socket;
 #define le_socket_name "Socket"
 
+static unsigned char first_through_third_args_force_ref[] =
+{3, BYREF_FORCE, BYREF_FORCE, BYREF_FORCE};
+
 static unsigned char second_and_third_args_force_ref[] =
 {3, BYREF_NONE, BYREF_FORCE, BYREF_FORCE};
 
@@ -118,7 +121,7 @@ function_entry sockets_functions[] = {
 	PHP_FE(socket_iovec_fetch,		NULL)
 	PHP_FE(socket_iovec_add,		NULL)
 	PHP_FE(socket_iovec_delete,		NULL)
-	PHP_FE(socket_select, 			NULL)
+	PHP_FE(socket_select, 			first_through_third_args_force_ref)
 	PHP_FE(socket_create, 			NULL)
 	PHP_FE(socket_create_listen, 	NULL)
 	PHP_FE(socket_create_pair,		NULL)
@@ -480,7 +483,8 @@ int php_sock_array_from_fd_set(zval *sock_array, fd_set *fds TSRMLS_DC) {
 
 	/* Destroy old array, add new one */
 	zend_hash_destroy(Z_ARRVAL_P(sock_array));
-   
+	efree(Z_ARRVAL_P(sock_array));
+
 	zend_hash_internal_pointer_reset(new_hash);
 	Z_ARRVAL_P(sock_array) = new_hash;
    
@@ -998,7 +1002,7 @@ PHP_FUNCTION(socket_bind)
 					RETURN_FALSE;
 				}
 			     
-				retval = bind(php_sock->bsd_socket, (struct sockaddr *)sa, sizeof(sa_storage));
+				retval = bind(php_sock->bsd_socket, (struct sockaddr *)sa, sizeof(struct sockaddr_in));
 				break;
 			}
 		
@@ -1259,7 +1263,7 @@ PHP_FUNCTION(socket_recv)
 		zval_dtor(buf);
 		Z_TYPE_P(buf)=IS_NULL;
 	} else {
-		recv_buf[retval+1] = '\0';
+		recv_buf[retval] = '\0';
 
 		/* Rebuild buffer zval */
 		zval_dtor(buf);

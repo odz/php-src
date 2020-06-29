@@ -389,10 +389,12 @@ static inline void php_var_serialize_class_name(smart_str *buf, zval **struc TSR
 
 static void php_var_serialize_class(smart_str *buf, zval **struc, zval *retval_ptr, HashTable *var_hash TSRMLS_DC)
 {
-	int count = zend_hash_num_elements(HASH_OF(retval_ptr));
+	int count;
 
 	php_var_serialize_class_name(buf, struc TSRMLS_CC);
-
+	/* count after serializing name, since php_var_serialize_class_name
+	   changes the count if the variable is incomplete class */
+	count = zend_hash_num_elements(HASH_OF(retval_ptr));
 	smart_str_append_long(buf, count);
 	smart_str_appendl(buf, ":{", 2);
 
@@ -423,6 +425,9 @@ static void php_var_serialize_class(smart_str *buf, zval **struc, zval *retval_p
 				php_error(E_NOTICE, "__sleep should return an array only "
 						"containing the names of instance-variables to "
 						"serialize.");
+				/* we should still add element even if it's not OK,
+				   since we already wrote the length of the array before */
+				smart_str_appendl(buf,"s:0:\"\";N;", 9);
 				continue;
 			}
 
@@ -508,12 +513,14 @@ static void php_var_serialize_intern(smart_str *buf, zval **struc, HashTable *va
 			}
 		case IS_ARRAY:
 			myht = HASH_OF(*struc);
-			i = zend_hash_num_elements(myht);
 			if (Z_TYPE_PP(struc) == IS_ARRAY) {
 				smart_str_appendl(buf, "a:", 2);
 			} else {
 				php_var_serialize_class_name(buf, struc TSRMLS_CC);
 			}
+			/* count after serializing name, since php_var_serialize_class_name
+			   changes the count if the variable is incomplete class */
+			i = zend_hash_num_elements(myht);
 			smart_str_append_long(buf, i);
 			smart_str_appendl(buf, ":{", 2);
 			if (i > 0) {
@@ -530,12 +537,6 @@ static void php_var_serialize_intern(smart_str *buf, zval **struc, HashTable *va
 					if (i == HASH_KEY_NON_EXISTANT)
 						break;
 					
-					if (zend_hash_get_current_data_ex(myht, 
-								(void **) &data, &pos) != SUCCESS 
-							|| !data 
-							|| data == struc)
-						continue;
-
 					switch (i) {
 					  case HASH_KEY_IS_LONG:
 							php_var_serialize_long(buf, index);
@@ -544,7 +545,17 @@ static void php_var_serialize_intern(smart_str *buf, zval **struc, HashTable *va
 							php_var_serialize_string(buf, key, key_len - 1);
 							break;
 					}
+
+					/* we should still add element even if it's not OK,
+					   since we already wrote the length of the array before */
+					if (zend_hash_get_current_data_ex(myht, 
+						(void **) &data, &pos) != SUCCESS 
+						|| !data 
+						|| data == struc) {
+						smart_str_appendl(buf, "N;", 2);
+					} else {
 					php_var_serialize_intern(buf, data, var_hash TSRMLS_CC);
+					}
 				}
 			}
 			smart_str_appendc(buf, '}');

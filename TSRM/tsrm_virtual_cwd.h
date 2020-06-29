@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_virtual_cwd.h,v 1.17 2001/12/11 15:16:20 sebastian Exp $ */
+/* $Id: tsrm_virtual_cwd.h,v 1.17.2.1 2002/04/25 14:52:46 hirokawa Exp $ */
 
 #ifndef VIRTUAL_CWD_H
 #define VIRTUAL_CWD_H
@@ -50,6 +50,8 @@ typedef unsigned short mode_t;
 #define DEFAULT_SLASH '\\'
 #define DEFAULT_DIR_SEPARATOR	';'
 #define IS_SLASH(c)	((c) == '/' || (c) == '\\')
+#define IS_SLASH_P(c)	(*(c) == '/' || \
+        (*(c) == '\\' && !IsDBCSLeadByte(*(c-1))))
 #define COPY_WHEN_ABSOLUTE 2
 #define IS_ABSOLUTE_PATH(path, len) \
 	(len >= 2 && isalpha(path[0]) && path[1] == ':')
@@ -70,6 +72,7 @@ typedef unsigned short mode_t;
 #endif
 
 #define IS_SLASH(c)	((c) == '/')
+#define IS_SLASH_P(c)	(*(c) == '/')
 
 #endif
 

@@ -53,10 +53,9 @@ int php_init_info_logos(void)
 	if(zend_hash_init(&phpinfo_logo_hash, 0, NULL, NULL, 1)==FAILURE) 
 		return FAILURE;
 
-	php_register_info_logo(PHP_LOGO_GUID     , "image/gif", php_logo     , sizeof(php_logo));
-	php_register_info_logo(PHP_EGG_LOGO_GUID , "image/gif", php_egg_logo , sizeof(php_egg_logo));
-	php_register_info_logo(PHP_XMAS_LOGO_GUID, "image/gif", php_xmas_logo, sizeof(php_xmas_logo));
-	php_register_info_logo(ZEND_LOGO_GUID    , "image/gif", zend_logo    , sizeof(zend_logo));
+	php_register_info_logo(PHP_LOGO_GUID    , "image/gif", php_logo    , sizeof(php_logo));
+	php_register_info_logo(PHP_EGG_LOGO_GUID, "image/gif", php_egg_logo, sizeof(php_egg_logo));
+	php_register_info_logo(ZEND_LOGO_GUID   , "image/gif", zend_logo   , sizeof(zend_logo));
 
 	return SUCCESS;
 }
