@@ -996,7 +996,7 @@
 #undef HAVE_BZ2
 
 /* Whether to build bz2 as dynamic module */
-#undef COMPILE_DL_BZ
+#undef COMPILE_DL_BZ2
 
 /*   */
 #undef HAVE_CALENDAR
