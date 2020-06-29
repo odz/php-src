@@ -1,5 +1,49 @@
 PHP                                                                        NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+20 Dec 2012, PHP 5.3.20
+
+- Zend Engine:
+  . Fixed bug #63635 (Segfault in gc_collect_cycles). (Dmitry)
+  . Fixed bug #63512 (parse_ini_file() with INI_SCANNER_RAW removes quotes 
+    from value). (Pierrick)
+  . Fixed bug #63468 (wrong called method as callback with inheritance).
+    (Laruence)
+
+- Core:
+  . Fixed bug #63451 (config.guess file does not have AIX 7 defined, 
+    shared objects are not created). (kemcline at au1 dot ibm dot com)
+  . Fixed bug #63377 (Segfault on output buffer).
+    (miau dot jp at gmail dot com, Laruence)
+
+- Apache2 Handler SAPI:
+  . Enabled Apache 2.4 configure option for Windows (Pierre, Anatoliy)
+
+- Date:
+  . Fixed bug #63435 (Datetime::format('u') sometimes wrong by 1 microsecond).
+    (Remi)
+
+- Fileinfo:
+  . Fixed bug #63248 (Load multiple magic files from a directory under Windows).
+    (Anatoliy)
+  . Fixed bug #63590 (Different results in TS and NTS under Windows).
+    (Anatoliy)
+
+- FPM:
+  . Fixed bug #63581 (Possible null dereference and buffer overflow). (Remi)
+
+- Imap:
+  . Fixed bug #63126 (DISABLE_AUTHENTICATOR ignores array). (Remi)
+
+- MySQLnd:
+  . Fixed bug #63398 (Segfault when polling closed link). (Laruence)
+
+- Reflection:
+  . Fixed Bug #63614 (Fatal error on Reflection). (Laruence)
+
+- SOAP
+  . Fixed bug #63271 (SOAP wsdl cache is not enabled after initial requests).
+    (John Jawed, Dmitry)
+
 22 Nov 2012, PHP 5.3.19
 
 - Core
