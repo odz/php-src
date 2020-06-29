@@ -1254,7 +1254,7 @@ class_constant (334)
     on left: 462 463, on right: 364
 
 
-state 0
+State 0
 
     0 $accept: . start $end
 
@@ -1264,14 +1264,14 @@ state 0
     top_statement_list  go to state 2
 
 
-state 1
+State 1
 
     0 $accept: start . $end
 
     $end  shift, and go to state 3
 
 
-state 2
+State 2
 
     1 start: top_statement_list .
     3 top_statement_list: top_statement_list . $@1 top_statement
@@ -1282,14 +1282,14 @@ state 2
     $@1  go to state 4
 
 
-state 3
+State 3
 
     0 $accept: start $end .
 
     $default  accept
 
 
-state 4
+State 4
 
     3 top_statement_list: top_statement_list $@1 . top_statement
 
@@ -1402,7 +1402,7 @@ state 4
     class_constant                           go to state 110
 
 
-state 5
+State 5
 
   458 internal_functions_in_yacc: T_REQUIRE_ONCE . expr
 
@@ -1479,7 +1479,7 @@ state 5
     class_constant                     go to state 110
 
 
-state 6
+State 6
 
   457 internal_functions_in_yacc: T_REQUIRE . expr
 
@@ -1556,14 +1556,14 @@ state 6
     class_constant                     go to state 110
 
 
-state 7
+State 7
 
   456 internal_functions_in_yacc: T_EVAL . '(' expr ')'
 
     '('  shift, and go to state 117
 
 
-state 8
+State 8
 
   455 internal_functions_in_yacc: T_INCLUDE_ONCE . expr
 
@@ -1640,7 +1640,7 @@ state 8
     class_constant                     go to state 110
 
 
-state 9
+State 9
 
   454 internal_functions_in_yacc: T_INCLUDE . expr
 
@@ -1717,7 +1717,7 @@ state 9
     class_constant                     go to state 110
 
 
-state 10
+State 10
 
   292 expr_without_variable: T_PRINT . expr
 
@@ -1794,7 +1794,7 @@ state 10
     class_constant                     go to state 110
 
 
-state 11
+State 11
 
   259 expr_without_variable: '+' . expr
 
@@ -1871,7 +1871,7 @@ state 11
     class_constant                     go to state 110
 
 
-state 12
+State 12
 
   260 expr_without_variable: '-' . expr
 
@@ -1948,7 +1948,7 @@ state 12
     class_constant                     go to state 110
 
 
-state 13
+State 13
 
   261 expr_without_variable: '!' . expr
 
@@ -2025,7 +2025,7 @@ state 13
     class_constant                     go to state 110
 
 
-state 14
+State 14
 
   262 expr_without_variable: '~' . expr
 
@@ -2102,7 +2102,7 @@ state 14
     class_constant                     go to state 110
 
 
-state 15
+State 15
 
   288 expr_without_variable: '@' . $@49 expr
 
@@ -2111,7 +2111,7 @@ state 15
     $@49  go to state 125
 
 
-state 16
+State 16
 
   285 expr_without_variable: T_UNSET_CAST . expr
 
@@ -2188,7 +2188,7 @@ state 16
     class_constant                     go to state 110
 
 
-state 17
+State 17
 
   284 expr_without_variable: T_BOOL_CAST . expr
 
@@ -2265,7 +2265,7 @@ state 17
     class_constant                     go to state 110
 
 
-state 18
+State 18
 
   283 expr_without_variable: T_OBJECT_CAST . expr
 
@@ -2342,7 +2342,7 @@ state 18
     class_constant                     go to state 110
 
 
-state 19
+State 19
 
   282 expr_without_variable: T_ARRAY_CAST . expr
 
@@ -2419,7 +2419,7 @@ state 19
     class_constant                     go to state 110
 
 
-state 20
+State 20
 
   281 expr_without_variable: T_STRING_CAST . expr
 
@@ -2496,7 +2496,7 @@ state 20
     class_constant                     go to state 110
 
 
-state 21
+State 21
 
   280 expr_without_variable: T_DOUBLE_CAST . expr
 
@@ -2573,7 +2573,7 @@ state 21
     class_constant                     go to state 110
 
 
-state 22
+State 22
 
   279 expr_without_variable: T_INT_CAST . expr
 
@@ -2650,7 +2650,7 @@ state 22
     class_constant                     go to state 110
 
 
-state 23
+State 23
 
   238 expr_without_variable: T_DEC . rw_variable
 
@@ -2676,7 +2676,7 @@ state 23
     simple_indirect_reference          go to state 108
 
 
-state 24
+State 24
 
   236 expr_without_variable: T_INC . rw_variable
 
@@ -2702,7 +2702,7 @@ state 24
     simple_indirect_reference          go to state 108
 
 
-state 25
+State 25
 
   223 expr_without_variable: T_CLONE . expr
 
@@ -2779,7 +2779,7 @@ state 25
     class_constant                     go to state 110
 
 
-state 26
+State 26
 
   222 expr_without_variable: T_NEW . class_name_reference $@41 ctor_arguments
 
@@ -2802,7 +2802,7 @@ state 26
     simple_indirect_reference     go to state 151
 
 
-state 27
+State 27
 
   286 expr_without_variable: T_EXIT . exit_expr
 
@@ -2813,7 +2813,7 @@ state 27
     exit_expr  go to state 153
 
 
-state 28
+State 28
 
    38 unticked_statement: T_IF . '(' expr ')' $@5 statement $@6 elseif_list else_single
    41                   | T_IF . '(' expr ')' ':' $@7 inner_statement_list $@8 new_elseif_list new_else_single T_ENDIF ';'
@@ -2821,21 +2821,21 @@ state 28
     '('  shift, and go to state 154
 
 
-state 29
+State 29
 
   342 common_scalar: T_LNUMBER .
 
     $default  reduce using rule 342 (common_scalar)
 
 
-state 30
+State 30
 
   343 common_scalar: T_DNUMBER .
 
     $default  reduce using rule 343 (common_scalar)
 
 
-state 31
+State 31
 
     5 namespace_name: T_STRING .
    34 statement: T_STRING . ':'
@@ -2845,35 +2845,35 @@ state 31
     $default  reduce using rule 5 (namespace_name)
 
 
-state 32
+State 32
 
   363 scalar: T_STRING_VARNAME .
 
     $default  reduce using rule 363 (scalar)
 
 
-state 33
+State 33
 
   408 compound_variable: T_VARIABLE .
 
     $default  reduce using rule 408 (compound_variable)
 
 
-state 34
+State 34
 
    64 unticked_statement: T_INLINE_HTML .
 
     $default  reduce using rule 64 (unticked_statement)
 
 
-state 35
+State 35
 
   344 common_scalar: T_CONSTANT_ENCAPSED_STRING .
 
     $default  reduce using rule 344 (common_scalar)
 
 
-state 36
+State 36
 
    63 unticked_statement: T_ECHO . echo_expr_list ';'
 
@@ -2951,7 +2951,7 @@ state 36
     class_constant                     go to state 110
 
 
-state 37
+State 37
 
    47 unticked_statement: T_DO . $@11 statement T_WHILE '(' $@12 expr ')' ';'
 
@@ -2960,21 +2960,21 @@ state 37
     $@11  go to state 158
 
 
-state 38
+State 38
 
    44 unticked_statement: T_WHILE . '(' $@9 expr ')' $@10 while_statement
 
     '('  shift, and go to state 159
 
 
-state 39
+State 39
 
    51 unticked_statement: T_FOR . '(' for_expr ';' $@13 for_expr ';' $@14 for_expr ')' $@15 for_statement
 
     '('  shift, and go to state 160
 
 
-state 40
+State 40
 
    69 unticked_statement: T_FOREACH . '(' variable T_AS $@17 foreach_variable foreach_optional_arg ')' $@18 foreach_statement
    72                   | T_FOREACH . '(' expr_without_variable T_AS $@19 variable foreach_optional_arg ')' $@20 foreach_statement
@@ -2982,7 +2982,7 @@ state 40
     '('  shift, and go to state 161
 
 
-state 41
+State 41
 
    74 unticked_statement: T_DECLARE . $@21 '(' declare_list ')' declare_statement
 
@@ -2991,14 +2991,14 @@ state 41
     $@21  go to state 162
 
 
-state 42
+State 42
 
    53 unticked_statement: T_SWITCH . '(' expr ')' $@16 switch_case_list
 
     '('  shift, and go to state 163
 
 
-state 43
+State 43
 
    54 unticked_statement: T_BREAK . ';'
    55                   | T_BREAK . expr ';'
@@ -3077,7 +3077,7 @@ state 43
     class_constant                     go to state 110
 
 
-state 44
+State 44
 
    56 unticked_statement: T_CONTINUE . ';'
    57                   | T_CONTINUE . expr ';'
@@ -3156,28 +3156,28 @@ state 44
     class_constant                     go to state 110
 
 
-state 45
+State 45
 
    83 unticked_statement: T_GOTO . T_STRING ';'
 
     T_STRING  shift, and go to state 168
 
 
-state 46
+State 46
 
   295 function: T_FUNCTION .
 
     $default  reduce using rule 295 (function)
 
 
-state 47
+State 47
 
    25 constant_declaration: T_CONST . T_STRING '=' static_scalar
 
     T_STRING  shift, and go to state 169
 
 
-state 48
+State 48
 
    58 unticked_statement: T_RETURN . ';'
    59                   | T_RETURN . expr_without_variable ';'
@@ -3257,7 +3257,7 @@ state 48
     class_constant                     go to state 110
 
 
-state 49
+State 49
 
    81 unticked_statement: T_TRY . $@22 '{' inner_statement_list '}' T_CATCH '(' $@23 fully_qualified_class_name $@24 T_VARIABLE ')' $@25 '{' inner_statement_list '}' $@26 additional_catches
 
@@ -3266,7 +3266,7 @@ state 49
     $@22  go to state 174
 
 
-state 50
+State 50
 
    82 unticked_statement: T_THROW . expr ';'
 
@@ -3343,7 +3343,7 @@ state 50
     class_constant                     go to state 110
 
 
-state 51
+State 51
 
    16 top_statement: T_USE . use_declarations ';'
 
@@ -3355,7 +3355,7 @@ state 51
     use_declaration   go to state 179
 
 
-state 52
+State 52
 
    61 unticked_statement: T_GLOBAL . global_var_list ';'
 
@@ -3366,21 +3366,21 @@ state 52
     global_var       go to state 183
 
 
-state 53
+State 53
 
   106 class_entry_type: T_FINAL . T_CLASS
 
     T_CLASS  shift, and go to state 184
 
 
-state 54
+State 54
 
   105 class_entry_type: T_ABSTRACT . T_CLASS
 
     T_CLASS  shift, and go to state 185
 
 
-state 55
+State 55
 
    62 unticked_statement: T_STATIC . static_var_list ';'
   318 class_name: T_STATIC .
@@ -3392,98 +3392,98 @@ state 55
     static_var_list  go to state 187
 
 
-state 56
+State 56
 
    66 unticked_statement: T_UNSET . '(' unset_variables ')' ';'
 
     '('  shift, and go to state 188
 
 
-state 57
+State 57
 
   452 internal_functions_in_yacc: T_ISSET . '(' isset_variables ')'
 
     '('  shift, and go to state 189
 
 
-state 58
+State 58
 
   453 internal_functions_in_yacc: T_EMPTY . '(' variable ')'
 
     '('  shift, and go to state 190
 
 
-state 59
+State 59
 
    10 top_statement: T_HALT_COMPILER . '(' ')' ';'
 
     '('  shift, and go to state 191
 
 
-state 60
+State 60
 
   104 class_entry_type: T_CLASS .
 
     $default  reduce using rule 104 (class_entry_type)
 
 
-state 61
+State 61
 
   109 interface_entry: T_INTERFACE .
 
     $default  reduce using rule 109 (interface_entry)
 
 
-state 62
+State 62
 
   216 expr_without_variable: T_LIST . '(' $@39 assignment_list ')' '=' expr
 
     '('  shift, and go to state 192
 
 
-state 63
+State 63
 
   290 expr_without_variable: T_ARRAY . '(' array_pair_list ')'
 
     '('  shift, and go to state 193
 
 
-state 64
+State 64
 
   348 common_scalar: T_CLASS_C .
 
     $default  reduce using rule 348 (common_scalar)
 
 
-state 65
+State 65
 
   349 common_scalar: T_METHOD_C .
 
     $default  reduce using rule 349 (common_scalar)
 
 
-state 66
+State 66
 
   350 common_scalar: T_FUNC_C .
 
     $default  reduce using rule 350 (common_scalar)
 
 
-state 67
+State 67
 
   345 common_scalar: T_LINE .
 
     $default  reduce using rule 345 (common_scalar)
 
 
-state 68
+State 68
 
   346 common_scalar: T_FILE .
 
     $default  reduce using rule 346 (common_scalar)
 
 
-state 69
+State 69
 
   352 common_scalar: T_START_HEREDOC . T_ENCAPSED_AND_WHITESPACE T_END_HEREDOC
   353              | T_START_HEREDOC . T_END_HEREDOC
@@ -3499,7 +3499,7 @@ state 69
     encaps_var   go to state 200
 
 
-state 70
+State 70
 
    11 top_statement: T_NAMESPACE . namespace_name ';'
    13              | T_NAMESPACE . namespace_name '{' $@2 top_statement_list '}'
@@ -3515,21 +3515,21 @@ state 70
     namespace_name  go to state 203
 
 
-state 71
+State 71
 
   351 common_scalar: T_NS_C .
 
     $default  reduce using rule 351 (common_scalar)
 
 
-state 72
+State 72
 
   347 common_scalar: T_DIR .
 
     $default  reduce using rule 347 (common_scalar)
 
 
-state 73
+State 73
 
   307 function_call: T_NS_SEPARATOR . namespace_name '(' $@53 function_call_parameter_list ')'
   321 class_name: T_NS_SEPARATOR . namespace_name
@@ -3540,7 +3540,7 @@ state 73
     namespace_name  go to state 204
 
 
-state 74
+State 74
 
   272 expr_without_variable: '(' . expr ')'
 
@@ -3617,14 +3617,14 @@ state 74
     class_constant                     go to state 110
 
 
-state 75
+State 75
 
    75 unticked_statement: ';' .
 
     $default  reduce using rule 75 (unticked_statement)
 
 
-state 76
+State 76
 
    35 unticked_statement: '{' . inner_statement_list '}'
 
@@ -3633,7 +3633,7 @@ state 76
     inner_statement_list  go to state 206
 
 
-state 77
+State 77
 
   409 compound_variable: '$' . '{' expr '}'
   420 simple_indirect_reference: '$' .
@@ -3643,7 +3643,7 @@ state 77
     $default  reduce using rule 420 (simple_indirect_reference)
 
 
-state 78
+State 78
 
   291 expr_without_variable: '`' . backticks_expr '`'
 
@@ -3659,7 +3659,7 @@ state 78
     encaps_var      go to state 200
 
 
-state 79
+State 79
 
   369 scalar: '"' . encaps_list '"'
 
@@ -3672,7 +3672,7 @@ state 79
     encaps_var   go to state 200
 
 
-state 80
+State 80
 
     6 namespace_name: namespace_name . T_NS_SEPARATOR T_STRING
   303 function_call: namespace_name . '(' $@51 function_call_parameter_list ')'
@@ -3686,14 +3686,14 @@ state 80
     $default                reduce using rule 365 (scalar)
 
 
-state 81
+State 81
 
     3 top_statement_list: top_statement_list $@1 top_statement .
 
     $default  reduce using rule 3 (top_statement_list)
 
 
-state 82
+State 82
 
    17 top_statement: constant_declaration . ';'
    24 constant_declaration: constant_declaration . ',' T_STRING '=' static_scalar
@@ -3702,70 +3702,70 @@ state 82
     ';'  shift, and go to state 216
 
 
-state 83
+State 83
 
     7 top_statement: statement .
 
     $default  reduce using rule 7 (top_statement)
 
 
-state 84
+State 84
 
    33 statement: unticked_statement .
 
     $default  reduce using rule 33 (statement)
 
 
-state 85
+State 85
 
     8 top_statement: function_declaration_statement .
 
     $default  reduce using rule 8 (top_statement)
 
 
-state 86
+State 86
 
     9 top_statement: class_declaration_statement .
 
     $default  reduce using rule 9 (top_statement)
 
 
-state 87
+State 87
 
    94 function_declaration_statement: unticked_function_declaration_statement .
 
     $default  reduce using rule 94 (function_declaration_statement)
 
 
-state 88
+State 88
 
    95 class_declaration_statement: unticked_class_declaration_statement .
 
     $default  reduce using rule 95 (class_declaration_statement)
 
 
-state 89
+State 89
 
   101 unticked_class_declaration_statement: class_entry_type . T_STRING extends_from $@30 implements_list '{' class_statement_list '}'
 
     T_STRING  shift, and go to state 217
 
 
-state 90
+State 90
 
   103 unticked_class_declaration_statement: interface_entry . T_STRING $@31 interface_extends_list '{' class_statement_list '}'
 
     T_STRING  shift, and go to state 218
 
 
-state 91
+State 91
 
   380 expr: expr_without_variable .
 
     $default  reduce using rule 380 (expr)
 
 
-state 92
+State 92
 
    99 unticked_function_declaration_statement: function . is_reference T_STRING $@29 '(' parameter_list ')' '{' inner_statement_list '}'
   294 expr_without_variable: function . is_reference '(' @50 parameter_list ')' lexical_vars '{' inner_statement_list '}'
@@ -3777,14 +3777,14 @@ state 92
     is_reference  go to state 220
 
 
-state 93
+State 93
 
   401 base_variable_with_function_calls: function_call .
 
     $default  reduce using rule 401 (base_variable_with_function_calls)
 
 
-state 94
+State 94
 
   309 function_call: class_name . T_PAAMAYIM_NEKUDOTAYIM T_STRING '(' $@54 function_call_parameter_list ')'
   311              | class_name . T_PAAMAYIM_NEKUDOTAYIM variable_without_objects '(' $@55 function_call_parameter_list ')'
@@ -3794,21 +3794,21 @@ state 94
     T_PAAMAYIM_NEKUDOTAYIM  shift, and go to state 221
 
 
-state 95
+State 95
 
   368 scalar: common_scalar .
 
     $default  reduce using rule 368 (scalar)
 
 
-state 96
+State 96
 
   289 expr_without_variable: scalar .
 
     $default  reduce using rule 289 (expr_without_variable)
 
 
-state 97
+State 97
 
    65 unticked_statement: expr . ';'
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
@@ -3868,14 +3868,14 @@ state 97
     ';'                    shift, and go to state 248
 
 
-state 98
+State 98
 
   379 expr: r_variable .
 
     $default  reduce using rule 379 (expr)
 
 
-state 99
+State 99
 
   235 expr_without_variable: rw_variable . T_INC
   237                      | rw_variable . T_DEC
@@ -3884,7 +3884,7 @@ state 99
     T_INC  shift, and go to state 250
 
 
-state 100
+State 100
 
   217 expr_without_variable: variable . '=' expr
   218                      | variable . '=' '&' variable
@@ -3921,21 +3921,21 @@ state 100
     $default  reduce using rule 381 (r_variable)
 
 
-state 101
+State 101
 
   317 function_call: variable_without_objects . '(' $@58 function_call_parameter_list ')'
 
     '('  shift, and go to state 263
 
 
-state 102
+State 102
 
   404 base_variable: static_member .
 
     $default  reduce using rule 404 (base_variable)
 
 
-state 103
+State 103
 
   313 function_call: variable_class_name . T_PAAMAYIM_NEKUDOTAYIM T_STRING '(' $@56 function_call_parameter_list ')'
   315              | variable_class_name . T_PAAMAYIM_NEKUDOTAYIM variable_without_objects '(' $@57 function_call_parameter_list ')'
@@ -3945,7 +3945,7 @@ state 103
     T_PAAMAYIM_NEKUDOTAYIM  shift, and go to state 264
 
 
-state 104
+State 104
 
   386 variable: base_variable_with_function_calls . T_OBJECT_OPERATOR $@61 object_property $@62 method_or_not variable_properties
   387         | base_variable_with_function_calls .
@@ -3955,14 +3955,14 @@ state 104
     $default  reduce using rule 387 (variable)
 
 
-state 105
+State 105
 
   400 base_variable_with_function_calls: base_variable .
 
     $default  reduce using rule 400 (base_variable_with_function_calls)
 
 
-state 106
+State 106
 
   395 variable_without_objects: reference_variable .
   399 variable_class_name: reference_variable .
@@ -3978,14 +3978,14 @@ state 106
     $default                reduce using rule 402 (base_variable)
 
 
-state 107
+State 107
 
   407 reference_variable: compound_variable .
 
     $default  reduce using rule 407 (reference_variable)
 
 
-state 108
+State 108
 
   396 variable_without_objects: simple_indirect_reference . reference_variable
   403 base_variable: simple_indirect_reference . reference_variable
@@ -3998,35 +3998,35 @@ state 108
     compound_variable   go to state 107
 
 
-state 109
+State 109
 
   278 expr_without_variable: internal_functions_in_yacc .
 
     $default  reduce using rule 278 (expr_without_variable)
 
 
-state 110
+State 110
 
   364 scalar: class_constant .
 
     $default  reduce using rule 364 (scalar)
 
 
-state 111
+State 111
 
     5 namespace_name: T_STRING .
 
     $default  reduce using rule 5 (namespace_name)
 
 
-state 112
+State 112
 
   318 class_name: T_STATIC .
 
     $default  reduce using rule 318 (class_name)
 
 
-state 113
+State 113
 
   305 function_call: T_NAMESPACE . T_NS_SEPARATOR namespace_name '(' $@52 function_call_parameter_list ')'
   320 class_name: T_NAMESPACE . T_NS_SEPARATOR namespace_name
@@ -4035,7 +4035,7 @@ state 113
     T_NS_SEPARATOR  shift, and go to state 201
 
 
-state 114
+State 114
 
   294 expr_without_variable: function . is_reference '(' @50 parameter_list ')' lexical_vars '{' inner_statement_list '}'
 
@@ -4046,7 +4046,7 @@ state 114
     is_reference  go to state 270
 
 
-state 115
+State 115
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -4107,7 +4107,7 @@ state 115
     $default  reduce using rule 458 (internal_functions_in_yacc)
 
 
-state 116
+State 116
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -4168,7 +4168,7 @@ state 116
     $default  reduce using rule 457 (internal_functions_in_yacc)
 
 
-state 117
+State 117
 
   456 internal_functions_in_yacc: T_EVAL '(' . expr ')'
 
@@ -4245,7 +4245,7 @@ state 117
     class_constant                     go to state 110
 
 
-state 118
+State 118
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -4306,7 +4306,7 @@ state 118
     $default  reduce using rule 455 (internal_functions_in_yacc)
 
 
-state 119
+State 119
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -4367,7 +4367,7 @@ state 119
     $default  reduce using rule 454 (internal_functions_in_yacc)
 
 
-state 120
+State 120
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -4425,7 +4425,7 @@ state 120
     $default  reduce using rule 292 (expr_without_variable)
 
 
-state 121
+State 121
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -4459,7 +4459,7 @@ state 121
     $default  reduce using rule 259 (expr_without_variable)
 
 
-state 122
+State 122
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -4493,7 +4493,7 @@ state 122
     $default  reduce using rule 260 (expr_without_variable)
 
 
-state 123
+State 123
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -4529,7 +4529,7 @@ state 123
     $default  reduce using rule 261 (expr_without_variable)
 
 
-state 124
+State 124
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -4563,7 +4563,7 @@ state 124
     $default  reduce using rule 262 (expr_without_variable)
 
 
-state 125
+State 125
 
   288 expr_without_variable: '@' $@49 . expr
 
@@ -4640,7 +4640,7 @@ state 125
     class_constant                     go to state 110
 
 
-state 126
+State 126
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -4674,7 +4674,7 @@ state 126
     $default  reduce using rule 285 (expr_without_variable)
 
 
-state 127
+State 127
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -4708,7 +4708,7 @@ state 127
     $default  reduce using rule 284 (expr_without_variable)
 
 
-state 128
+State 128
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -4742,7 +4742,7 @@ state 128
     $default  reduce using rule 283 (expr_without_variable)
 
 
-state 129
+State 129
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -4776,7 +4776,7 @@ state 129
     $default  reduce using rule 282 (expr_without_variable)
 
 
-state 130
+State 130
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -4810,7 +4810,7 @@ state 130
     $default  reduce using rule 281 (expr_without_variable)
 
 
-state 131
+State 131
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -4844,7 +4844,7 @@ state 131
     $default  reduce using rule 280 (expr_without_variable)
 
 
-state 132
+State 132
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -4878,7 +4878,7 @@ state 132
     $default  reduce using rule 279 (expr_without_variable)
 
 
-state 133
+State 133
 
   305 function_call: T_NAMESPACE . T_NS_SEPARATOR namespace_name '(' $@52 function_call_parameter_list ')'
   320 class_name: T_NAMESPACE . T_NS_SEPARATOR namespace_name
@@ -4886,7 +4886,7 @@ state 133
     T_NS_SEPARATOR  shift, and go to state 273
 
 
-state 134
+State 134
 
   307 function_call: T_NS_SEPARATOR . namespace_name '(' $@53 function_call_parameter_list ')'
   321 class_name: T_NS_SEPARATOR . namespace_name
@@ -4896,7 +4896,7 @@ state 134
     namespace_name  go to state 274
 
 
-state 135
+State 135
 
     6 namespace_name: namespace_name . T_NS_SEPARATOR T_STRING
   303 function_call: namespace_name . '(' $@51 function_call_parameter_list ')'
@@ -4908,7 +4908,7 @@ state 135
     $default  reduce using rule 319 (class_name)
 
 
-state 136
+State 136
 
   309 function_call: class_name . T_PAAMAYIM_NEKUDOTAYIM T_STRING '(' $@54 function_call_parameter_list ')'
   311              | class_name . T_PAAMAYIM_NEKUDOTAYIM variable_without_objects '(' $@55 function_call_parameter_list ')'
@@ -4917,21 +4917,21 @@ state 136
     T_PAAMAYIM_NEKUDOTAYIM  shift, and go to state 275
 
 
-state 137
+State 137
 
   238 expr_without_variable: T_DEC rw_variable .
 
     $default  reduce using rule 238 (expr_without_variable)
 
 
-state 138
+State 138
 
   383 rw_variable: variable .
 
     $default  reduce using rule 383 (rw_variable)
 
 
-state 139
+State 139
 
   313 function_call: variable_class_name . T_PAAMAYIM_NEKUDOTAYIM T_STRING '(' $@56 function_call_parameter_list ')'
   315              | variable_class_name . T_PAAMAYIM_NEKUDOTAYIM variable_without_objects '(' $@57 function_call_parameter_list ')'
@@ -4940,14 +4940,14 @@ state 139
     T_PAAMAYIM_NEKUDOTAYIM  shift, and go to state 276
 
 
-state 140
+State 140
 
   236 expr_without_variable: T_INC rw_variable .
 
     $default  reduce using rule 236 (expr_without_variable)
 
 
-state 141
+State 141
 
   223 expr_without_variable: T_CLONE expr .
   240                      | expr . T_BOOLEAN_OR $@42 expr
@@ -4981,14 +4981,14 @@ state 141
     $default  reduce using rule 223 (expr_without_variable)
 
 
-state 142
+State 142
 
   320 class_name: T_NAMESPACE . T_NS_SEPARATOR namespace_name
 
     T_NS_SEPARATOR  shift, and go to state 277
 
 
-state 143
+State 143
 
   321 class_name: T_NS_SEPARATOR . namespace_name
 
@@ -4997,7 +4997,7 @@ state 143
     namespace_name  go to state 278
 
 
-state 144
+State 144
 
     6 namespace_name: namespace_name . T_NS_SEPARATOR T_STRING
   319 class_name: namespace_name .
@@ -5007,7 +5007,7 @@ state 144
     $default  reduce using rule 319 (class_name)
 
 
-state 145
+State 145
 
   325 class_name_reference: class_name .
   397 static_member: class_name . T_PAAMAYIM_NEKUDOTAYIM variable_without_objects
@@ -5017,7 +5017,7 @@ state 145
     $default  reduce using rule 325 (class_name_reference)
 
 
-state 146
+State 146
 
   222 expr_without_variable: T_NEW class_name_reference . $@41 ctor_arguments
 
@@ -5026,21 +5026,21 @@ state 146
     $@41  go to state 280
 
 
-state 147
+State 147
 
   326 class_name_reference: dynamic_class_name_reference .
 
     $default  reduce using rule 326 (class_name_reference)
 
 
-state 148
+State 148
 
   398 static_member: variable_class_name . T_PAAMAYIM_NEKUDOTAYIM variable_without_objects
 
     T_PAAMAYIM_NEKUDOTAYIM  shift, and go to state 281
 
 
-state 149
+State 149
 
   329 dynamic_class_name_reference: base_variable . T_OBJECT_OPERATOR $@59 object_property $@60 dynamic_class_name_variable_properties
   330                             | base_variable .
@@ -5050,7 +5050,7 @@ state 149
     $default  reduce using rule 330 (dynamic_class_name_reference)
 
 
-state 150
+State 150
 
   399 variable_class_name: reference_variable .
   402 base_variable: reference_variable .
@@ -5064,7 +5064,7 @@ state 150
     $default                reduce using rule 402 (base_variable)
 
 
-state 151
+State 151
 
   403 base_variable: simple_indirect_reference . reference_variable
   421 simple_indirect_reference: simple_indirect_reference . '$'
@@ -5076,7 +5076,7 @@ state 151
     compound_variable   go to state 107
 
 
-state 152
+State 152
 
   335 exit_expr: '(' . ')'
   336          | '(' . expr ')'
@@ -5155,14 +5155,14 @@ state 152
     class_constant                     go to state 110
 
 
-state 153
+State 153
 
   286 expr_without_variable: T_EXIT exit_expr .
 
     $default  reduce using rule 286 (expr_without_variable)
 
 
-state 154
+State 154
 
    38 unticked_statement: T_IF '(' . expr ')' $@5 statement $@6 elseif_list else_single
    41                   | T_IF '(' . expr ')' ':' $@7 inner_statement_list $@8 new_elseif_list new_else_single T_ENDIF ';'
@@ -5240,14 +5240,14 @@ state 154
     class_constant                     go to state 110
 
 
-state 155
+State 155
 
    34 statement: T_STRING ':' .
 
     $default  reduce using rule 34 (statement)
 
 
-state 156
+State 156
 
    63 unticked_statement: T_ECHO echo_expr_list . ';'
   208 echo_expr_list: echo_expr_list . ',' expr
@@ -5256,7 +5256,7 @@ state 156
     ';'  shift, and go to state 288
 
 
-state 157
+State 157
 
   209 echo_expr_list: expr .
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
@@ -5317,7 +5317,7 @@ state 157
     $default  reduce using rule 209 (echo_expr_list)
 
 
-state 158
+State 158
 
    47 unticked_statement: T_DO $@11 . statement T_WHILE '(' $@12 expr ')' ';'
 
@@ -5415,7 +5415,7 @@ state 158
     class_constant                     go to state 110
 
 
-state 159
+State 159
 
    44 unticked_statement: T_WHILE '(' . $@9 expr ')' $@10 while_statement
 
@@ -5424,7 +5424,7 @@ state 159
     $@9  go to state 290
 
 
-state 160
+State 160
 
    51 unticked_statement: T_FOR '(' . for_expr ';' $@13 for_expr ';' $@14 for_expr ')' $@15 for_statement
 
@@ -5505,7 +5505,7 @@ state 160
     class_constant                     go to state 110
 
 
-state 161
+State 161
 
    69 unticked_statement: T_FOREACH '(' . variable T_AS $@17 foreach_variable foreach_optional_arg ')' $@18 foreach_statement
    72                   | T_FOREACH '(' . expr_without_variable T_AS $@19 variable foreach_optional_arg ')' $@20 foreach_statement
@@ -5583,14 +5583,14 @@ state 161
     class_constant                     go to state 110
 
 
-state 162
+State 162
 
    74 unticked_statement: T_DECLARE $@21 . '(' declare_list ')' declare_statement
 
     '('  shift, and go to state 296
 
 
-state 163
+State 163
 
    53 unticked_statement: T_SWITCH '(' . expr ')' $@16 switch_case_list
 
@@ -5667,14 +5667,14 @@ state 163
     class_constant                     go to state 110
 
 
-state 164
+State 164
 
    54 unticked_statement: T_BREAK ';' .
 
     $default  reduce using rule 54 (unticked_statement)
 
 
-state 165
+State 165
 
    55 unticked_statement: T_BREAK expr . ';'
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
@@ -5734,14 +5734,14 @@ state 165
     ';'                    shift, and go to state 298
 
 
-state 166
+State 166
 
    56 unticked_statement: T_CONTINUE ';' .
 
     $default  reduce using rule 56 (unticked_statement)
 
 
-state 167
+State 167
 
    57 unticked_statement: T_CONTINUE expr . ';'
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
@@ -5801,28 +5801,28 @@ state 167
     ';'                    shift, and go to state 299
 
 
-state 168
+State 168
 
    83 unticked_statement: T_GOTO T_STRING . ';'
 
     ';'  shift, and go to state 300
 
 
-state 169
+State 169
 
    25 constant_declaration: T_CONST T_STRING . '=' static_scalar
 
     '='  shift, and go to state 301
 
 
-state 170
+State 170
 
    58 unticked_statement: T_RETURN ';' .
 
     $default  reduce using rule 58 (unticked_statement)
 
 
-state 171
+State 171
 
    59 unticked_statement: T_RETURN expr_without_variable . ';'
   380 expr: expr_without_variable .
@@ -5832,7 +5832,7 @@ state 171
     $default  reduce using rule 380 (expr)
 
 
-state 172
+State 172
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -5890,7 +5890,7 @@ state 172
     T_INSTANCEOF           shift, and go to state 247
 
 
-state 173
+State 173
 
    60 unticked_statement: T_RETURN variable . ';'
   217 expr_without_variable: variable . '=' expr
@@ -5929,14 +5929,14 @@ state 173
     $default  reduce using rule 381 (r_variable)
 
 
-state 174
+State 174
 
    81 unticked_statement: T_TRY $@22 . '{' inner_statement_list '}' T_CATCH '(' $@23 fully_qualified_class_name $@24 T_VARIABLE ')' $@25 '{' inner_statement_list '}' $@26 additional_catches
 
     '{'  shift, and go to state 304
 
 
-state 175
+State 175
 
    82 unticked_statement: T_THROW expr . ';'
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
@@ -5996,7 +5996,7 @@ state 175
     ';'                    shift, and go to state 305
 
 
-state 176
+State 176
 
    22 use_declaration: T_NS_SEPARATOR . namespace_name
    23                | T_NS_SEPARATOR . namespace_name T_AS T_STRING
@@ -6006,7 +6006,7 @@ state 176
     namespace_name  go to state 306
 
 
-state 177
+State 177
 
     6 namespace_name: namespace_name . T_NS_SEPARATOR T_STRING
    20 use_declaration: namespace_name .
@@ -6018,7 +6018,7 @@ state 177
     $default  reduce using rule 20 (use_declaration)
 
 
-state 178
+State 178
 
    16 top_statement: T_USE use_declarations . ';'
    18 use_declarations: use_declarations . ',' use_declaration
@@ -6027,21 +6027,21 @@ state 178
     ';'  shift, and go to state 309
 
 
-state 179
+State 179
 
    19 use_declarations: use_declaration .
 
     $default  reduce using rule 19 (use_declarations)
 
 
-state 180
+State 180
 
   174 global_var: T_VARIABLE .
 
     $default  reduce using rule 174 (global_var)
 
 
-state 181
+State 181
 
   175 global_var: '$' . r_variable
   176           | '$' . '{' expr '}'
@@ -6069,7 +6069,7 @@ state 181
     simple_indirect_reference          go to state 108
 
 
-state 182
+State 182
 
    61 unticked_statement: T_GLOBAL global_var_list . ';'
   172 global_var_list: global_var_list . ',' global_var
@@ -6078,28 +6078,28 @@ state 182
     ';'  shift, and go to state 314
 
 
-state 183
+State 183
 
   173 global_var_list: global_var .
 
     $default  reduce using rule 173 (global_var_list)
 
 
-state 184
+State 184
 
   106 class_entry_type: T_FINAL T_CLASS .
 
     $default  reduce using rule 106 (class_entry_type)
 
 
-state 185
+State 185
 
   105 class_entry_type: T_ABSTRACT T_CLASS .
 
     $default  reduce using rule 105 (class_entry_type)
 
 
-state 186
+State 186
 
   179 static_var_list: T_VARIABLE .
   180                | T_VARIABLE . '=' static_scalar
@@ -6109,7 +6109,7 @@ state 186
     $default  reduce using rule 179 (static_var_list)
 
 
-state 187
+State 187
 
    62 unticked_statement: T_STATIC static_var_list . ';'
   177 static_var_list: static_var_list . ',' T_VARIABLE
@@ -6119,7 +6119,7 @@ state 187
     ';'  shift, and go to state 317
 
 
-state 188
+State 188
 
    66 unticked_statement: T_UNSET '(' . unset_variables ')' ';'
 
@@ -6146,7 +6146,7 @@ state 188
     simple_indirect_reference          go to state 108
 
 
-state 189
+State 189
 
   452 internal_functions_in_yacc: T_ISSET '(' . isset_variables ')'
 
@@ -6172,7 +6172,7 @@ state 189
     isset_variables                    go to state 322
 
 
-state 190
+State 190
 
   453 internal_functions_in_yacc: T_EMPTY '(' . variable ')'
 
@@ -6197,14 +6197,14 @@ state 190
     simple_indirect_reference          go to state 108
 
 
-state 191
+State 191
 
    10 top_statement: T_HALT_COMPILER '(' . ')' ';'
 
     ')'  shift, and go to state 324
 
 
-state 192
+State 192
 
   216 expr_without_variable: T_LIST '(' . $@39 assignment_list ')' '=' expr
 
@@ -6213,7 +6213,7 @@ state 192
     $@39  go to state 325
 
 
-state 193
+State 193
 
   290 expr_without_variable: T_ARRAY '(' . array_pair_list ')'
 
@@ -6295,7 +6295,7 @@ state 193
     class_constant                     go to state 110
 
 
-state 194
+State 194
 
   442 encaps_var: T_VARIABLE .
   444           | T_VARIABLE . '[' $@67 encaps_var_offset ']'
@@ -6307,7 +6307,7 @@ state 194
     $default  reduce using rule 442 (encaps_var)
 
 
-state 195
+State 195
 
   352 common_scalar: T_START_HEREDOC T_ENCAPSED_AND_WHITESPACE . T_END_HEREDOC
   441 encaps_list: T_ENCAPSED_AND_WHITESPACE . encaps_var
@@ -6320,14 +6320,14 @@ state 195
     encaps_var  go to state 333
 
 
-state 196
+State 196
 
   353 common_scalar: T_START_HEREDOC T_END_HEREDOC .
 
     $default  reduce using rule 353 (common_scalar)
 
 
-state 197
+State 197
 
   446 encaps_var: T_DOLLAR_OPEN_CURLY_BRACES . expr '}'
   447           | T_DOLLAR_OPEN_CURLY_BRACES . T_STRING_VARNAME '[' expr ']' '}'
@@ -6405,7 +6405,7 @@ state 197
     class_constant                     go to state 110
 
 
-state 198
+State 198
 
   448 encaps_var: T_CURLY_OPEN . variable '}'
 
@@ -6430,7 +6430,7 @@ state 198
     simple_indirect_reference          go to state 108
 
 
-state 199
+State 199
 
   370 scalar: T_START_HEREDOC encaps_list . T_END_HEREDOC
   438 encaps_list: encaps_list . encaps_var
@@ -6445,14 +6445,14 @@ state 199
     encaps_var  go to state 339
 
 
-state 200
+State 200
 
   440 encaps_list: encaps_var .
 
     $default  reduce using rule 440 (encaps_list)
 
 
-state 201
+State 201
 
   305 function_call: T_NAMESPACE T_NS_SEPARATOR . namespace_name '(' $@52 function_call_parameter_list ')'
   320 class_name: T_NAMESPACE T_NS_SEPARATOR . namespace_name
@@ -6463,7 +6463,7 @@ state 201
     namespace_name  go to state 340
 
 
-state 202
+State 202
 
    15 top_statement: T_NAMESPACE '{' . $@3 top_statement_list '}'
 
@@ -6472,7 +6472,7 @@ state 202
     $@3  go to state 341
 
 
-state 203
+State 203
 
     6 namespace_name: namespace_name . T_NS_SEPARATOR T_STRING
    11 top_statement: T_NAMESPACE namespace_name . ';'
@@ -6483,7 +6483,7 @@ state 203
     '{'             shift, and go to state 343
 
 
-state 204
+State 204
 
     6 namespace_name: namespace_name . T_NS_SEPARATOR T_STRING
   307 function_call: T_NS_SEPARATOR namespace_name . '(' $@53 function_call_parameter_list ')'
@@ -6497,7 +6497,7 @@ state 204
     $default                reduce using rule 367 (scalar)
 
 
-state 205
+State 205
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -6557,7 +6557,7 @@ state 205
     ')'                    shift, and go to state 345
 
 
-state 206
+State 206
 
    27 inner_statement_list: inner_statement_list . $@4 inner_statement
    35 unticked_statement: '{' inner_statement_list . '}'
@@ -6569,7 +6569,7 @@ state 206
     $@4  go to state 347
 
 
-state 207
+State 207
 
   409 compound_variable: '$' '{' . expr '}'
 
@@ -6646,7 +6646,7 @@ state 207
     class_constant                     go to state 110
 
 
-state 208
+State 208
 
   338 backticks_expr: T_ENCAPSED_AND_WHITESPACE .
   441 encaps_list: T_ENCAPSED_AND_WHITESPACE . encaps_var
@@ -6660,14 +6660,14 @@ state 208
     encaps_var  go to state 333
 
 
-state 209
+State 209
 
   291 expr_without_variable: '`' backticks_expr . '`'
 
     '`'  shift, and go to state 349
 
 
-state 210
+State 210
 
   339 backticks_expr: encaps_list .
   438 encaps_list: encaps_list . encaps_var
@@ -6683,7 +6683,7 @@ state 210
     encaps_var  go to state 339
 
 
-state 211
+State 211
 
   441 encaps_list: T_ENCAPSED_AND_WHITESPACE . encaps_var
 
@@ -6694,7 +6694,7 @@ state 211
     encaps_var  go to state 333
 
 
-state 212
+State 212
 
   369 scalar: '"' encaps_list . '"'
   438 encaps_list: encaps_list . encaps_var
@@ -6709,14 +6709,14 @@ state 212
     encaps_var  go to state 339
 
 
-state 213
+State 213
 
     6 namespace_name: namespace_name T_NS_SEPARATOR . T_STRING
 
     T_STRING  shift, and go to state 351
 
 
-state 214
+State 214
 
   303 function_call: namespace_name '(' . $@51 function_call_parameter_list ')'
 
@@ -6725,21 +6725,21 @@ state 214
     $@51  go to state 352
 
 
-state 215
+State 215
 
    24 constant_declaration: constant_declaration ',' . T_STRING '=' static_scalar
 
     T_STRING  shift, and go to state 353
 
 
-state 216
+State 216
 
    17 top_statement: constant_declaration ';' .
 
     $default  reduce using rule 17 (top_statement)
 
 
-state 217
+State 217
 
   101 unticked_class_declaration_statement: class_entry_type T_STRING . extends_from $@30 implements_list '{' class_statement_list '}'
 
@@ -6750,7 +6750,7 @@ state 217
     extends_from  go to state 355
 
 
-state 218
+State 218
 
   103 unticked_class_declaration_statement: interface_entry T_STRING . $@31 interface_extends_list '{' class_statement_list '}'
 
@@ -6759,14 +6759,14 @@ state 218
     $@31  go to state 356
 
 
-state 219
+State 219
 
    97 is_reference: '&' .
 
     $default  reduce using rule 97 (is_reference)
 
 
-state 220
+State 220
 
    99 unticked_function_declaration_statement: function is_reference . T_STRING $@29 '(' parameter_list ')' '{' inner_statement_list '}'
   294 expr_without_variable: function is_reference . '(' @50 parameter_list ')' lexical_vars '{' inner_statement_list '}'
@@ -6775,7 +6775,7 @@ state 220
     '('       shift, and go to state 358
 
 
-state 221
+State 221
 
   309 function_call: class_name T_PAAMAYIM_NEKUDOTAYIM . T_STRING '(' $@54 function_call_parameter_list ')'
   311              | class_name T_PAAMAYIM_NEKUDOTAYIM . variable_without_objects '(' $@55 function_call_parameter_list ')'
@@ -6792,7 +6792,7 @@ state 221
     simple_indirect_reference  go to state 362
 
 
-state 222
+State 222
 
   244 expr_without_variable: expr T_LOGICAL_OR . $@44 expr
 
@@ -6801,7 +6801,7 @@ state 222
     $@44  go to state 363
 
 
-state 223
+State 223
 
   247 expr_without_variable: expr T_LOGICAL_XOR . expr
 
@@ -6878,7 +6878,7 @@ state 223
     class_constant                     go to state 110
 
 
-state 224
+State 224
 
   246 expr_without_variable: expr T_LOGICAL_AND . $@45 expr
 
@@ -6887,7 +6887,7 @@ state 224
     $@45  go to state 365
 
 
-state 225
+State 225
 
   275 expr_without_variable: expr '?' . $@46 expr ':' $@47 expr
   277                      | expr '?' . ':' $@48 expr
@@ -6899,7 +6899,7 @@ state 225
     $@46  go to state 367
 
 
-state 226
+State 226
 
   240 expr_without_variable: expr T_BOOLEAN_OR . $@42 expr
 
@@ -6908,7 +6908,7 @@ state 226
     $@42  go to state 368
 
 
-state 227
+State 227
 
   242 expr_without_variable: expr T_BOOLEAN_AND . $@43 expr
 
@@ -6917,7 +6917,7 @@ state 227
     $@43  go to state 369
 
 
-state 228
+State 228
 
   248 expr_without_variable: expr '|' . expr
 
@@ -6994,7 +6994,7 @@ state 228
     class_constant                     go to state 110
 
 
-state 229
+State 229
 
   250 expr_without_variable: expr '^' . expr
 
@@ -7071,7 +7071,7 @@ state 229
     class_constant                     go to state 110
 
 
-state 230
+State 230
 
   249 expr_without_variable: expr '&' . expr
 
@@ -7148,7 +7148,7 @@ state 230
     class_constant                     go to state 110
 
 
-state 231
+State 231
 
   264 expr_without_variable: expr T_IS_NOT_IDENTICAL . expr
 
@@ -7225,7 +7225,7 @@ state 231
     class_constant                     go to state 110
 
 
-state 232
+State 232
 
   263 expr_without_variable: expr T_IS_IDENTICAL . expr
 
@@ -7302,7 +7302,7 @@ state 232
     class_constant                     go to state 110
 
 
-state 233
+State 233
 
   266 expr_without_variable: expr T_IS_NOT_EQUAL . expr
 
@@ -7379,7 +7379,7 @@ state 233
     class_constant                     go to state 110
 
 
-state 234
+State 234
 
   265 expr_without_variable: expr T_IS_EQUAL . expr
 
@@ -7456,7 +7456,7 @@ state 234
     class_constant                     go to state 110
 
 
-state 235
+State 235
 
   267 expr_without_variable: expr '<' . expr
 
@@ -7533,7 +7533,7 @@ state 235
     class_constant                     go to state 110
 
 
-state 236
+State 236
 
   269 expr_without_variable: expr '>' . expr
 
@@ -7610,7 +7610,7 @@ state 236
     class_constant                     go to state 110
 
 
-state 237
+State 237
 
   270 expr_without_variable: expr T_IS_GREATER_OR_EQUAL . expr
 
@@ -7687,7 +7687,7 @@ state 237
     class_constant                     go to state 110
 
 
-state 238
+State 238
 
   268 expr_without_variable: expr T_IS_SMALLER_OR_EQUAL . expr
 
@@ -7764,7 +7764,7 @@ state 238
     class_constant                     go to state 110
 
 
-state 239
+State 239
 
   258 expr_without_variable: expr T_SR . expr
 
@@ -7841,7 +7841,7 @@ state 239
     class_constant                     go to state 110
 
 
-state 240
+State 240
 
   257 expr_without_variable: expr T_SL . expr
 
@@ -7918,7 +7918,7 @@ state 240
     class_constant                     go to state 110
 
 
-state 241
+State 241
 
   252 expr_without_variable: expr '+' . expr
 
@@ -7995,7 +7995,7 @@ state 241
     class_constant                     go to state 110
 
 
-state 242
+State 242
 
   253 expr_without_variable: expr '-' . expr
 
@@ -8072,7 +8072,7 @@ state 242
     class_constant                     go to state 110
 
 
-state 243
+State 243
 
   251 expr_without_variable: expr '.' . expr
 
@@ -8149,7 +8149,7 @@ state 243
     class_constant                     go to state 110
 
 
-state 244
+State 244
 
   254 expr_without_variable: expr '*' . expr
 
@@ -8226,7 +8226,7 @@ state 244
     class_constant                     go to state 110
 
 
-state 245
+State 245
 
   255 expr_without_variable: expr '/' . expr
 
@@ -8303,7 +8303,7 @@ state 245
     class_constant                     go to state 110
 
 
-state 246
+State 246
 
   256 expr_without_variable: expr '%' . expr
 
@@ -8380,7 +8380,7 @@ state 246
     class_constant                     go to state 110
 
 
-state 247
+State 247
 
   271 expr_without_variable: expr T_INSTANCEOF . class_name_reference
 
@@ -8403,28 +8403,28 @@ state 247
     simple_indirect_reference     go to state 151
 
 
-state 248
+State 248
 
    65 unticked_statement: expr ';' .
 
     $default  reduce using rule 65 (unticked_statement)
 
 
-state 249
+State 249
 
   237 expr_without_variable: rw_variable T_DEC .
 
     $default  reduce using rule 237 (expr_without_variable)
 
 
-state 250
+State 250
 
   235 expr_without_variable: rw_variable T_INC .
 
     $default  reduce using rule 235 (expr_without_variable)
 
 
-state 251
+State 251
 
   217 expr_without_variable: variable '=' . expr
   218                      | variable '=' . '&' variable
@@ -8504,7 +8504,7 @@ state 251
     class_constant                     go to state 110
 
 
-state 252
+State 252
 
   234 expr_without_variable: variable T_SR_EQUAL . expr
 
@@ -8581,7 +8581,7 @@ state 252
     class_constant                     go to state 110
 
 
-state 253
+State 253
 
   233 expr_without_variable: variable T_SL_EQUAL . expr
 
@@ -8658,7 +8658,7 @@ state 253
     class_constant                     go to state 110
 
 
-state 254
+State 254
 
   232 expr_without_variable: variable T_XOR_EQUAL . expr
 
@@ -8735,7 +8735,7 @@ state 254
     class_constant                     go to state 110
 
 
-state 255
+State 255
 
   231 expr_without_variable: variable T_OR_EQUAL . expr
 
@@ -8812,7 +8812,7 @@ state 255
     class_constant                     go to state 110
 
 
-state 256
+State 256
 
   230 expr_without_variable: variable T_AND_EQUAL . expr
 
@@ -8889,7 +8889,7 @@ state 256
     class_constant                     go to state 110
 
 
-state 257
+State 257
 
   229 expr_without_variable: variable T_MOD_EQUAL . expr
 
@@ -8966,7 +8966,7 @@ state 257
     class_constant                     go to state 110
 
 
-state 258
+State 258
 
   228 expr_without_variable: variable T_CONCAT_EQUAL . expr
 
@@ -9043,7 +9043,7 @@ state 258
     class_constant                     go to state 110
 
 
-state 259
+State 259
 
   227 expr_without_variable: variable T_DIV_EQUAL . expr
 
@@ -9120,7 +9120,7 @@ state 259
     class_constant                     go to state 110
 
 
-state 260
+State 260
 
   226 expr_without_variable: variable T_MUL_EQUAL . expr
 
@@ -9197,7 +9197,7 @@ state 260
     class_constant                     go to state 110
 
 
-state 261
+State 261
 
   225 expr_without_variable: variable T_MINUS_EQUAL . expr
 
@@ -9274,7 +9274,7 @@ state 261
     class_constant                     go to state 110
 
 
-state 262
+State 262
 
   224 expr_without_variable: variable T_PLUS_EQUAL . expr
 
@@ -9351,7 +9351,7 @@ state 262
     class_constant                     go to state 110
 
 
-state 263
+State 263
 
   317 function_call: variable_without_objects '(' . $@58 function_call_parameter_list ')'
 
@@ -9360,7 +9360,7 @@ state 263
     $@58  go to state 403
 
 
-state 264
+State 264
 
   313 function_call: variable_class_name T_PAAMAYIM_NEKUDOTAYIM . T_STRING '(' $@56 function_call_parameter_list ')'
   315              | variable_class_name T_PAAMAYIM_NEKUDOTAYIM . variable_without_objects '(' $@57 function_call_parameter_list ')'
@@ -9377,7 +9377,7 @@ state 264
     simple_indirect_reference  go to state 362
 
 
-state 265
+State 265
 
   386 variable: base_variable_with_function_calls T_OBJECT_OPERATOR . $@61 object_property $@62 method_or_not variable_properties
 
@@ -9386,7 +9386,7 @@ state 265
     $@61  go to state 406
 
 
-state 266
+State 266
 
   405 reference_variable: reference_variable '[' . dim_offset ']'
 
@@ -9466,7 +9466,7 @@ state 266
     class_constant                     go to state 110
 
 
-state 267
+State 267
 
   406 reference_variable: reference_variable '{' . expr '}'
 
@@ -9543,7 +9543,7 @@ state 267
     class_constant                     go to state 110
 
 
-state 268
+State 268
 
   409 compound_variable: '$' . '{' expr '}'
   421 simple_indirect_reference: simple_indirect_reference '$' .
@@ -9553,7 +9553,7 @@ state 268
     $default  reduce using rule 421 (simple_indirect_reference)
 
 
-state 269
+State 269
 
   396 variable_without_objects: simple_indirect_reference reference_variable .
   403 base_variable: simple_indirect_reference reference_variable .
@@ -9567,14 +9567,14 @@ state 269
     $default  reduce using rule 403 (base_variable)
 
 
-state 270
+State 270
 
   294 expr_without_variable: function is_reference . '(' @50 parameter_list ')' lexical_vars '{' inner_statement_list '}'
 
     '('  shift, and go to state 358
 
 
-state 271
+State 271
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -9634,7 +9634,7 @@ state 271
     ')'                    shift, and go to state 410
 
 
-state 272
+State 272
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -9668,7 +9668,7 @@ state 272
     $default  reduce using rule 288 (expr_without_variable)
 
 
-state 273
+State 273
 
   305 function_call: T_NAMESPACE T_NS_SEPARATOR . namespace_name '(' $@52 function_call_parameter_list ')'
   320 class_name: T_NAMESPACE T_NS_SEPARATOR . namespace_name
@@ -9678,7 +9678,7 @@ state 273
     namespace_name  go to state 411
 
 
-state 274
+State 274
 
     6 namespace_name: namespace_name . T_NS_SEPARATOR T_STRING
   307 function_call: T_NS_SEPARATOR namespace_name . '(' $@53 function_call_parameter_list ')'
@@ -9690,7 +9690,7 @@ state 274
     $default  reduce using rule 321 (class_name)
 
 
-state 275
+State 275
 
   309 function_call: class_name T_PAAMAYIM_NEKUDOTAYIM . T_STRING '(' $@54 function_call_parameter_list ')'
   311              | class_name T_PAAMAYIM_NEKUDOTAYIM . variable_without_objects '(' $@55 function_call_parameter_list ')'
@@ -9706,7 +9706,7 @@ state 275
     simple_indirect_reference  go to state 362
 
 
-state 276
+State 276
 
   313 function_call: variable_class_name T_PAAMAYIM_NEKUDOTAYIM . T_STRING '(' $@56 function_call_parameter_list ')'
   315              | variable_class_name T_PAAMAYIM_NEKUDOTAYIM . variable_without_objects '(' $@57 function_call_parameter_list ')'
@@ -9722,7 +9722,7 @@ state 276
     simple_indirect_reference  go to state 362
 
 
-state 277
+State 277
 
   320 class_name: T_NAMESPACE T_NS_SEPARATOR . namespace_name
 
@@ -9731,7 +9731,7 @@ state 277
     namespace_name  go to state 414
 
 
-state 278
+State 278
 
     6 namespace_name: namespace_name . T_NS_SEPARATOR T_STRING
   321 class_name: T_NS_SEPARATOR namespace_name .
@@ -9741,7 +9741,7 @@ state 278
     $default  reduce using rule 321 (class_name)
 
 
-state 279
+State 279
 
   397 static_member: class_name T_PAAMAYIM_NEKUDOTAYIM . variable_without_objects
 
@@ -9754,7 +9754,7 @@ state 279
     simple_indirect_reference  go to state 362
 
 
-state 280
+State 280
 
   222 expr_without_variable: T_NEW class_name_reference $@41 . ctor_arguments
 
@@ -9765,7 +9765,7 @@ state 280
     ctor_arguments  go to state 417
 
 
-state 281
+State 281
 
   398 static_member: variable_class_name T_PAAMAYIM_NEKUDOTAYIM . variable_without_objects
 
@@ -9778,7 +9778,7 @@ state 281
     simple_indirect_reference  go to state 362
 
 
-state 282
+State 282
 
   329 dynamic_class_name_reference: base_variable T_OBJECT_OPERATOR . $@59 object_property $@60 dynamic_class_name_variable_properties
 
@@ -9787,7 +9787,7 @@ state 282
     $@59  go to state 419
 
 
-state 283
+State 283
 
   403 base_variable: simple_indirect_reference reference_variable .
   405 reference_variable: reference_variable . '[' dim_offset ']'
@@ -9799,14 +9799,14 @@ state 283
     $default  reduce using rule 403 (base_variable)
 
 
-state 284
+State 284
 
   335 exit_expr: '(' ')' .
 
     $default  reduce using rule 335 (exit_expr)
 
 
-state 285
+State 285
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -9866,7 +9866,7 @@ state 285
     ')'                    shift, and go to state 420
 
 
-state 286
+State 286
 
    38 unticked_statement: T_IF '(' expr . ')' $@5 statement $@6 elseif_list else_single
    41                   | T_IF '(' expr . ')' ':' $@7 inner_statement_list $@8 new_elseif_list new_else_single T_ENDIF ';'
@@ -9927,7 +9927,7 @@ state 286
     ')'                    shift, and go to state 421
 
 
-state 287
+State 287
 
   208 echo_expr_list: echo_expr_list ',' . expr
 
@@ -10004,21 +10004,21 @@ state 287
     class_constant                     go to state 110
 
 
-state 288
+State 288
 
    63 unticked_statement: T_ECHO echo_expr_list ';' .
 
     $default  reduce using rule 63 (unticked_statement)
 
 
-state 289
+State 289
 
    47 unticked_statement: T_DO $@11 statement . T_WHILE '(' $@12 expr ')' ';'
 
     T_WHILE  shift, and go to state 423
 
 
-state 290
+State 290
 
    44 unticked_statement: T_WHILE '(' $@9 . expr ')' $@10 while_statement
 
@@ -10095,14 +10095,14 @@ state 290
     class_constant                     go to state 110
 
 
-state 291
+State 291
 
    51 unticked_statement: T_FOR '(' for_expr . ';' $@13 for_expr ';' $@14 for_expr ')' $@15 for_statement
 
     ';'  shift, and go to state 425
 
 
-state 292
+State 292
 
   211 for_expr: non_empty_for_expr .
   213 non_empty_for_expr: non_empty_for_expr . ',' $@38 expr
@@ -10112,7 +10112,7 @@ state 292
     $default  reduce using rule 211 (for_expr)
 
 
-state 293
+State 293
 
   214 non_empty_for_expr: expr .
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
@@ -10173,7 +10173,7 @@ state 293
     $default  reduce using rule 214 (non_empty_for_expr)
 
 
-state 294
+State 294
 
    72 unticked_statement: T_FOREACH '(' expr_without_variable . T_AS $@19 variable foreach_optional_arg ')' $@20 foreach_statement
   380 expr: expr_without_variable .
@@ -10183,7 +10183,7 @@ state 294
     $default  reduce using rule 380 (expr)
 
 
-state 295
+State 295
 
    69 unticked_statement: T_FOREACH '(' variable . T_AS $@17 foreach_variable foreach_optional_arg ')' $@18 foreach_statement
   217 expr_without_variable: variable . '=' expr
@@ -10222,7 +10222,7 @@ state 295
     $default  reduce using rule 381 (r_variable)
 
 
-state 296
+State 296
 
    74 unticked_statement: T_DECLARE $@21 '(' . declare_list ')' declare_statement
 
@@ -10231,7 +10231,7 @@ state 296
     declare_list  go to state 430
 
 
-state 297
+State 297
 
    53 unticked_statement: T_SWITCH '(' expr . ')' $@16 switch_case_list
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
@@ -10291,28 +10291,28 @@ state 297
     ')'                    shift, and go to state 431
 
 
-state 298
+State 298
 
    55 unticked_statement: T_BREAK expr ';' .
 
     $default  reduce using rule 55 (unticked_statement)
 
 
-state 299
+State 299
 
    57 unticked_statement: T_CONTINUE expr ';' .
 
     $default  reduce using rule 57 (unticked_statement)
 
 
-state 300
+State 300
 
    83 unticked_statement: T_GOTO T_STRING ';' .
 
     $default  reduce using rule 83 (unticked_statement)
 
 
-state 301
+State 301
 
    25 constant_declaration: T_CONST T_STRING '=' . static_scalar
 
@@ -10342,21 +10342,21 @@ state 301
     static_class_constant  go to state 442
 
 
-state 302
+State 302
 
    59 unticked_statement: T_RETURN expr_without_variable ';' .
 
     $default  reduce using rule 59 (unticked_statement)
 
 
-state 303
+State 303
 
    60 unticked_statement: T_RETURN variable ';' .
 
     $default  reduce using rule 60 (unticked_statement)
 
 
-state 304
+State 304
 
    81 unticked_statement: T_TRY $@22 '{' . inner_statement_list '}' T_CATCH '(' $@23 fully_qualified_class_name $@24 T_VARIABLE ')' $@25 '{' inner_statement_list '}' $@26 additional_catches
 
@@ -10365,14 +10365,14 @@ state 304
     inner_statement_list  go to state 443
 
 
-state 305
+State 305
 
    82 unticked_statement: T_THROW expr ';' .
 
     $default  reduce using rule 82 (unticked_statement)
 
 
-state 306
+State 306
 
     6 namespace_name: namespace_name . T_NS_SEPARATOR T_STRING
    22 use_declaration: T_NS_SEPARATOR namespace_name .
@@ -10384,14 +10384,14 @@ state 306
     $default  reduce using rule 22 (use_declaration)
 
 
-state 307
+State 307
 
    21 use_declaration: namespace_name T_AS . T_STRING
 
     T_STRING  shift, and go to state 445
 
 
-state 308
+State 308
 
    18 use_declarations: use_declarations ',' . use_declaration
 
@@ -10402,14 +10402,14 @@ state 308
     use_declaration  go to state 446
 
 
-state 309
+State 309
 
    16 top_statement: T_USE use_declarations ';' .
 
     $default  reduce using rule 16 (top_statement)
 
 
-state 310
+State 310
 
   176 global_var: '$' '{' . expr '}'
 
@@ -10486,21 +10486,21 @@ state 310
     class_constant                     go to state 110
 
 
-state 311
+State 311
 
   175 global_var: '$' r_variable .
 
     $default  reduce using rule 175 (global_var)
 
 
-state 312
+State 312
 
   381 r_variable: variable .
 
     $default  reduce using rule 381 (r_variable)
 
 
-state 313
+State 313
 
   172 global_var_list: global_var_list ',' . global_var
 
@@ -10510,14 +10510,14 @@ state 313
     global_var  go to state 448
 
 
-state 314
+State 314
 
    61 unticked_statement: T_GLOBAL global_var_list ';' .
 
     $default  reduce using rule 61 (unticked_statement)
 
 
-state 315
+State 315
 
   180 static_var_list: T_VARIABLE '=' . static_scalar
 
@@ -10547,7 +10547,7 @@ state 315
     static_class_constant  go to state 442
 
 
-state 316
+State 316
 
   177 static_var_list: static_var_list ',' . T_VARIABLE
   178                | static_var_list ',' . T_VARIABLE '=' static_scalar
@@ -10555,14 +10555,14 @@ state 316
     T_VARIABLE  shift, and go to state 450
 
 
-state 317
+State 317
 
    62 unticked_statement: T_STATIC static_var_list ';' .
 
     $default  reduce using rule 62 (unticked_statement)
 
 
-state 318
+State 318
 
    66 unticked_statement: T_UNSET '(' unset_variables . ')' ';'
    92 unset_variables: unset_variables . ',' unset_variable
@@ -10571,28 +10571,28 @@ state 318
     ')'  shift, and go to state 452
 
 
-state 319
+State 319
 
    91 unset_variables: unset_variable .
 
     $default  reduce using rule 91 (unset_variables)
 
 
-state 320
+State 320
 
    93 unset_variable: variable .
 
     $default  reduce using rule 93 (unset_variable)
 
 
-state 321
+State 321
 
   459 isset_variables: variable .
 
     $default  reduce using rule 459 (isset_variables)
 
 
-state 322
+State 322
 
   452 internal_functions_in_yacc: T_ISSET '(' isset_variables . ')'
   461 isset_variables: isset_variables . ',' $@68 variable
@@ -10601,21 +10601,21 @@ state 322
     ')'  shift, and go to state 454
 
 
-state 323
+State 323
 
   453 internal_functions_in_yacc: T_EMPTY '(' variable . ')'
 
     ')'  shift, and go to state 455
 
 
-state 324
+State 324
 
    10 top_statement: T_HALT_COMPILER '(' ')' . ';'
 
     ';'  shift, and go to state 456
 
 
-state 325
+State 325
 
   216 expr_without_variable: T_LIST '(' $@39 . assignment_list ')' '=' expr
 
@@ -10645,7 +10645,7 @@ state 325
     assignment_list_element            go to state 460
 
 
-state 326
+State 326
 
   437 non_empty_array_pair_list: '&' . w_variable
 
@@ -10671,7 +10671,7 @@ state 326
     simple_indirect_reference          go to state 108
 
 
-state 327
+State 327
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -10735,14 +10735,14 @@ state 327
     $default  reduce using rule 433 (non_empty_array_pair_list)
 
 
-state 328
+State 328
 
   290 expr_without_variable: T_ARRAY '(' array_pair_list . ')'
 
     ')'  shift, and go to state 464
 
 
-state 329
+State 329
 
   429 array_pair_list: non_empty_array_pair_list . possible_comma
   430 non_empty_array_pair_list: non_empty_array_pair_list . ',' expr T_DOUBLE_ARROW expr
@@ -10757,7 +10757,7 @@ state 329
     possible_comma  go to state 466
 
 
-state 330
+State 330
 
   444 encaps_var: T_VARIABLE '[' . $@67 encaps_var_offset ']'
 
@@ -10766,28 +10766,28 @@ state 330
     $@67  go to state 467
 
 
-state 331
+State 331
 
   445 encaps_var: T_VARIABLE T_OBJECT_OPERATOR . T_STRING
 
     T_STRING  shift, and go to state 468
 
 
-state 332
+State 332
 
   352 common_scalar: T_START_HEREDOC T_ENCAPSED_AND_WHITESPACE T_END_HEREDOC .
 
     $default  reduce using rule 352 (common_scalar)
 
 
-state 333
+State 333
 
   441 encaps_list: T_ENCAPSED_AND_WHITESPACE encaps_var .
 
     $default  reduce using rule 441 (encaps_list)
 
 
-state 334
+State 334
 
   363 scalar: T_STRING_VARNAME .
   447 encaps_var: T_DOLLAR_OPEN_CURLY_BRACES T_STRING_VARNAME . '[' expr ']' '}'
@@ -10797,7 +10797,7 @@ state 334
     $default  reduce using rule 363 (scalar)
 
 
-state 335
+State 335
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -10857,35 +10857,35 @@ state 335
     '}'                    shift, and go to state 470
 
 
-state 336
+State 336
 
   448 encaps_var: T_CURLY_OPEN variable . '}'
 
     '}'  shift, and go to state 471
 
 
-state 337
+State 337
 
   439 encaps_list: encaps_list T_ENCAPSED_AND_WHITESPACE .
 
     $default  reduce using rule 439 (encaps_list)
 
 
-state 338
+State 338
 
   370 scalar: T_START_HEREDOC encaps_list T_END_HEREDOC .
 
     $default  reduce using rule 370 (scalar)
 
 
-state 339
+State 339
 
   438 encaps_list: encaps_list encaps_var .
 
     $default  reduce using rule 438 (encaps_list)
 
 
-state 340
+State 340
 
     6 namespace_name: namespace_name . T_NS_SEPARATOR T_STRING
   305 function_call: T_NAMESPACE T_NS_SEPARATOR namespace_name . '(' $@52 function_call_parameter_list ')'
@@ -10899,7 +10899,7 @@ state 340
     $default                reduce using rule 366 (scalar)
 
 
-state 341
+State 341
 
    15 top_statement: T_NAMESPACE '{' $@3 . top_statement_list '}'
 
@@ -10908,14 +10908,14 @@ state 341
     top_statement_list  go to state 473
 
 
-state 342
+State 342
 
    11 top_statement: T_NAMESPACE namespace_name ';' .
 
     $default  reduce using rule 11 (top_statement)
 
 
-state 343
+State 343
 
    13 top_statement: T_NAMESPACE namespace_name '{' . $@2 top_statement_list '}'
 
@@ -10924,7 +10924,7 @@ state 343
     $@2  go to state 474
 
 
-state 344
+State 344
 
   307 function_call: T_NS_SEPARATOR namespace_name '(' . $@53 function_call_parameter_list ')'
 
@@ -10933,21 +10933,21 @@ state 344
     $@53  go to state 475
 
 
-state 345
+State 345
 
   272 expr_without_variable: '(' expr ')' .
 
     $default  reduce using rule 272 (expr_without_variable)
 
 
-state 346
+State 346
 
    35 unticked_statement: '{' inner_statement_list '}' .
 
     $default  reduce using rule 35 (unticked_statement)
 
 
-state 347
+State 347
 
    27 inner_statement_list: inner_statement_list $@4 . inner_statement
 
@@ -11057,7 +11057,7 @@ state 347
     class_constant                           go to state 110
 
 
-state 348
+State 348
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -11117,28 +11117,28 @@ state 348
     '}'                    shift, and go to state 481
 
 
-state 349
+State 349
 
   291 expr_without_variable: '`' backticks_expr '`' .
 
     $default  reduce using rule 291 (expr_without_variable)
 
 
-state 350
+State 350
 
   369 scalar: '"' encaps_list '"' .
 
     $default  reduce using rule 369 (scalar)
 
 
-state 351
+State 351
 
     6 namespace_name: namespace_name T_NS_SEPARATOR T_STRING .
 
     $default  reduce using rule 6 (namespace_name)
 
 
-state 352
+State 352
 
   303 function_call: namespace_name '(' $@51 . function_call_parameter_list ')'
 
@@ -11220,14 +11220,14 @@ state 352
     class_constant                          go to state 110
 
 
-state 353
+State 353
 
    24 constant_declaration: constant_declaration ',' T_STRING . '=' static_scalar
 
     '='  shift, and go to state 487
 
 
-state 354
+State 354
 
   108 extends_from: T_EXTENDS . fully_qualified_class_name
 
@@ -11239,7 +11239,7 @@ state 354
     fully_qualified_class_name  go to state 491
 
 
-state 355
+State 355
 
   101 unticked_class_declaration_statement: class_entry_type T_STRING extends_from . $@30 implements_list '{' class_statement_list '}'
 
@@ -11248,7 +11248,7 @@ state 355
     $@30  go to state 492
 
 
-state 356
+State 356
 
   103 unticked_class_declaration_statement: interface_entry T_STRING $@31 . interface_extends_list '{' class_statement_list '}'
 
@@ -11259,7 +11259,7 @@ state 356
     interface_extends_list  go to state 494
 
 
-state 357
+State 357
 
    99 unticked_function_declaration_statement: function is_reference T_STRING . $@29 '(' parameter_list ')' '{' inner_statement_list '}'
 
@@ -11268,7 +11268,7 @@ state 357
     $@29  go to state 495
 
 
-state 358
+State 358
 
   294 expr_without_variable: function is_reference '(' . @50 parameter_list ')' lexical_vars '{' inner_statement_list '}'
 
@@ -11277,7 +11277,7 @@ state 358
     @50  go to state 496
 
 
-state 359
+State 359
 
   309 function_call: class_name T_PAAMAYIM_NEKUDOTAYIM T_STRING . '(' $@54 function_call_parameter_list ')'
   462 class_constant: class_name T_PAAMAYIM_NEKUDOTAYIM T_STRING .
@@ -11287,7 +11287,7 @@ state 359
     $default  reduce using rule 462 (class_constant)
 
 
-state 360
+State 360
 
   311 function_call: class_name T_PAAMAYIM_NEKUDOTAYIM variable_without_objects . '(' $@55 function_call_parameter_list ')'
   397 static_member: class_name T_PAAMAYIM_NEKUDOTAYIM variable_without_objects .
@@ -11297,7 +11297,7 @@ state 360
     $default  reduce using rule 397 (static_member)
 
 
-state 361
+State 361
 
   395 variable_without_objects: reference_variable .
   405 reference_variable: reference_variable . '[' dim_offset ']'
@@ -11309,7 +11309,7 @@ state 361
     $default  reduce using rule 395 (variable_without_objects)
 
 
-state 362
+State 362
 
   396 variable_without_objects: simple_indirect_reference . reference_variable
   421 simple_indirect_reference: simple_indirect_reference . '$'
@@ -11321,7 +11321,7 @@ state 362
     compound_variable   go to state 107
 
 
-state 363
+State 363
 
   244 expr_without_variable: expr T_LOGICAL_OR $@44 . expr
 
@@ -11398,7 +11398,7 @@ state 363
     class_constant                     go to state 110
 
 
-state 364
+State 364
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -11457,7 +11457,7 @@ state 364
     $default  reduce using rule 247 (expr_without_variable)
 
 
-state 365
+State 365
 
   246 expr_without_variable: expr T_LOGICAL_AND $@45 . expr
 
@@ -11534,7 +11534,7 @@ state 365
     class_constant                     go to state 110
 
 
-state 366
+State 366
 
   277 expr_without_variable: expr '?' ':' . $@48 expr
 
@@ -11543,7 +11543,7 @@ state 366
     $@48  go to state 502
 
 
-state 367
+State 367
 
   275 expr_without_variable: expr '?' $@46 . expr ':' $@47 expr
 
@@ -11620,7 +11620,7 @@ state 367
     class_constant                     go to state 110
 
 
-state 368
+State 368
 
   240 expr_without_variable: expr T_BOOLEAN_OR $@42 . expr
 
@@ -11697,7 +11697,7 @@ state 368
     class_constant                     go to state 110
 
 
-state 369
+State 369
 
   242 expr_without_variable: expr T_BOOLEAN_AND $@43 . expr
 
@@ -11774,7 +11774,7 @@ state 369
     class_constant                     go to state 110
 
 
-state 370
+State 370
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -11828,7 +11828,7 @@ state 370
     $default  reduce using rule 248 (expr_without_variable)
 
 
-state 371
+State 371
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -11881,7 +11881,7 @@ state 371
     $default  reduce using rule 250 (expr_without_variable)
 
 
-state 372
+State 372
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -11933,7 +11933,7 @@ state 372
     $default  reduce using rule 249 (expr_without_variable)
 
 
-state 373
+State 373
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -11986,7 +11986,7 @@ state 373
     $default  reduce using rule 264 (expr_without_variable)
 
 
-state 374
+State 374
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -12039,7 +12039,7 @@ state 374
     $default  reduce using rule 263 (expr_without_variable)
 
 
-state 375
+State 375
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -12092,7 +12092,7 @@ state 375
     $default  reduce using rule 266 (expr_without_variable)
 
 
-state 376
+State 376
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -12145,7 +12145,7 @@ state 376
     $default  reduce using rule 265 (expr_without_variable)
 
 
-state 377
+State 377
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -12194,7 +12194,7 @@ state 377
     $default  reduce using rule 267 (expr_without_variable)
 
 
-state 378
+State 378
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -12243,7 +12243,7 @@ state 378
     $default  reduce using rule 269 (expr_without_variable)
 
 
-state 379
+State 379
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -12292,7 +12292,7 @@ state 379
     $default  reduce using rule 270 (expr_without_variable)
 
 
-state 380
+State 380
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -12341,7 +12341,7 @@ state 380
     $default  reduce using rule 268 (expr_without_variable)
 
 
-state 381
+State 381
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -12383,7 +12383,7 @@ state 381
     $default  reduce using rule 258 (expr_without_variable)
 
 
-state 382
+State 382
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -12425,7 +12425,7 @@ state 382
     $default  reduce using rule 257 (expr_without_variable)
 
 
-state 383
+State 383
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -12464,7 +12464,7 @@ state 383
     $default  reduce using rule 252 (expr_without_variable)
 
 
-state 384
+State 384
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -12503,7 +12503,7 @@ state 384
     $default  reduce using rule 253 (expr_without_variable)
 
 
-state 385
+State 385
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -12542,7 +12542,7 @@ state 385
     $default  reduce using rule 251 (expr_without_variable)
 
 
-state 386
+State 386
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -12578,7 +12578,7 @@ state 386
     $default  reduce using rule 254 (expr_without_variable)
 
 
-state 387
+State 387
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -12614,7 +12614,7 @@ state 387
     $default  reduce using rule 255 (expr_without_variable)
 
 
-state 388
+State 388
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -12650,14 +12650,14 @@ state 388
     $default  reduce using rule 256 (expr_without_variable)
 
 
-state 389
+State 389
 
   271 expr_without_variable: expr T_INSTANCEOF class_name_reference .
 
     $default  reduce using rule 271 (expr_without_variable)
 
 
-state 390
+State 390
 
   218 expr_without_variable: variable '=' '&' . variable
   220                      | variable '=' '&' . T_NEW class_name_reference $@40 ctor_arguments
@@ -12684,7 +12684,7 @@ state 390
     simple_indirect_reference          go to state 108
 
 
-state 391
+State 391
 
   217 expr_without_variable: variable '=' expr .
   240                      | expr . T_BOOLEAN_OR $@42 expr
@@ -12742,7 +12742,7 @@ state 391
     $default  reduce using rule 217 (expr_without_variable)
 
 
-state 392
+State 392
 
   234 expr_without_variable: variable T_SR_EQUAL expr .
   240                      | expr . T_BOOLEAN_OR $@42 expr
@@ -12800,7 +12800,7 @@ state 392
     $default  reduce using rule 234 (expr_without_variable)
 
 
-state 393
+State 393
 
   233 expr_without_variable: variable T_SL_EQUAL expr .
   240                      | expr . T_BOOLEAN_OR $@42 expr
@@ -12858,7 +12858,7 @@ state 393
     $default  reduce using rule 233 (expr_without_variable)
 
 
-state 394
+State 394
 
   232 expr_without_variable: variable T_XOR_EQUAL expr .
   240                      | expr . T_BOOLEAN_OR $@42 expr
@@ -12916,7 +12916,7 @@ state 394
     $default  reduce using rule 232 (expr_without_variable)
 
 
-state 395
+State 395
 
   231 expr_without_variable: variable T_OR_EQUAL expr .
   240                      | expr . T_BOOLEAN_OR $@42 expr
@@ -12974,7 +12974,7 @@ state 395
     $default  reduce using rule 231 (expr_without_variable)
 
 
-state 396
+State 396
 
   230 expr_without_variable: variable T_AND_EQUAL expr .
   240                      | expr . T_BOOLEAN_OR $@42 expr
@@ -13032,7 +13032,7 @@ state 396
     $default  reduce using rule 230 (expr_without_variable)
 
 
-state 397
+State 397
 
   229 expr_without_variable: variable T_MOD_EQUAL expr .
   240                      | expr . T_BOOLEAN_OR $@42 expr
@@ -13090,7 +13090,7 @@ state 397
     $default  reduce using rule 229 (expr_without_variable)
 
 
-state 398
+State 398
 
   228 expr_without_variable: variable T_CONCAT_EQUAL expr .
   240                      | expr . T_BOOLEAN_OR $@42 expr
@@ -13148,7 +13148,7 @@ state 398
     $default  reduce using rule 228 (expr_without_variable)
 
 
-state 399
+State 399
 
   227 expr_without_variable: variable T_DIV_EQUAL expr .
   240                      | expr . T_BOOLEAN_OR $@42 expr
@@ -13206,7 +13206,7 @@ state 399
     $default  reduce using rule 227 (expr_without_variable)
 
 
-state 400
+State 400
 
   226 expr_without_variable: variable T_MUL_EQUAL expr .
   240                      | expr . T_BOOLEAN_OR $@42 expr
@@ -13264,7 +13264,7 @@ state 400
     $default  reduce using rule 226 (expr_without_variable)
 
 
-state 401
+State 401
 
   225 expr_without_variable: variable T_MINUS_EQUAL expr .
   240                      | expr . T_BOOLEAN_OR $@42 expr
@@ -13322,7 +13322,7 @@ state 401
     $default  reduce using rule 225 (expr_without_variable)
 
 
-state 402
+State 402
 
   224 expr_without_variable: variable T_PLUS_EQUAL expr .
   240                      | expr . T_BOOLEAN_OR $@42 expr
@@ -13380,7 +13380,7 @@ state 402
     $default  reduce using rule 224 (expr_without_variable)
 
 
-state 403
+State 403
 
   317 function_call: variable_without_objects '(' $@58 . function_call_parameter_list ')'
 
@@ -13462,7 +13462,7 @@ state 403
     class_constant                          go to state 110
 
 
-state 404
+State 404
 
   313 function_call: variable_class_name T_PAAMAYIM_NEKUDOTAYIM T_STRING . '(' $@56 function_call_parameter_list ')'
   463 class_constant: variable_class_name T_PAAMAYIM_NEKUDOTAYIM T_STRING .
@@ -13472,7 +13472,7 @@ state 404
     $default  reduce using rule 463 (class_constant)
 
 
-state 405
+State 405
 
   315 function_call: variable_class_name T_PAAMAYIM_NEKUDOTAYIM variable_without_objects . '(' $@57 function_call_parameter_list ')'
   398 static_member: variable_class_name T_PAAMAYIM_NEKUDOTAYIM variable_without_objects .
@@ -13482,7 +13482,7 @@ state 405
     $default  reduce using rule 398 (static_member)
 
 
-state 406
+State 406
 
   386 variable: base_variable_with_function_calls T_OBJECT_OPERATOR $@61 . object_property $@62 method_or_not variable_properties
 
@@ -13500,7 +13500,7 @@ state 406
     simple_indirect_reference  go to state 362
 
 
-state 407
+State 407
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -13561,14 +13561,14 @@ state 407
     $default  reduce using rule 411 (dim_offset)
 
 
-state 408
+State 408
 
   405 reference_variable: reference_variable '[' dim_offset . ']'
 
     ']'  shift, and go to state 517
 
 
-state 409
+State 409
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -13628,14 +13628,14 @@ state 409
     '}'                    shift, and go to state 518
 
 
-state 410
+State 410
 
   456 internal_functions_in_yacc: T_EVAL '(' expr ')' .
 
     $default  reduce using rule 456 (internal_functions_in_yacc)
 
 
-state 411
+State 411
 
     6 namespace_name: namespace_name . T_NS_SEPARATOR T_STRING
   305 function_call: T_NAMESPACE T_NS_SEPARATOR namespace_name . '(' $@52 function_call_parameter_list ')'
@@ -13647,21 +13647,21 @@ state 411
     $default  reduce using rule 320 (class_name)
 
 
-state 412
+State 412
 
   309 function_call: class_name T_PAAMAYIM_NEKUDOTAYIM T_STRING . '(' $@54 function_call_parameter_list ')'
 
     '('  shift, and go to state 497
 
 
-state 413
+State 413
 
   313 function_call: variable_class_name T_PAAMAYIM_NEKUDOTAYIM T_STRING . '(' $@56 function_call_parameter_list ')'
 
     '('  shift, and go to state 509
 
 
-state 414
+State 414
 
     6 namespace_name: namespace_name . T_NS_SEPARATOR T_STRING
   320 class_name: T_NAMESPACE T_NS_SEPARATOR namespace_name .
@@ -13671,14 +13671,14 @@ state 414
     $default  reduce using rule 320 (class_name)
 
 
-state 415
+State 415
 
   397 static_member: class_name T_PAAMAYIM_NEKUDOTAYIM variable_without_objects .
 
     $default  reduce using rule 397 (static_member)
 
 
-state 416
+State 416
 
   341 ctor_arguments: '(' . function_call_parameter_list ')'
 
@@ -13760,21 +13760,21 @@ state 416
     class_constant                          go to state 110
 
 
-state 417
+State 417
 
   222 expr_without_variable: T_NEW class_name_reference $@41 ctor_arguments .
 
     $default  reduce using rule 222 (expr_without_variable)
 
 
-state 418
+State 418
 
   398 static_member: variable_class_name T_PAAMAYIM_NEKUDOTAYIM variable_without_objects .
 
     $default  reduce using rule 398 (static_member)
 
 
-state 419
+State 419
 
   329 dynamic_class_name_reference: base_variable T_OBJECT_OPERATOR $@59 . object_property $@60 dynamic_class_name_variable_properties
 
@@ -13792,14 +13792,14 @@ state 419
     simple_indirect_reference  go to state 362
 
 
-state 420
+State 420
 
   336 exit_expr: '(' expr ')' .
 
     $default  reduce using rule 336 (exit_expr)
 
 
-state 421
+State 421
 
    38 unticked_statement: T_IF '(' expr ')' . $@5 statement $@6 elseif_list else_single
    41                   | T_IF '(' expr ')' . ':' $@7 inner_statement_list $@8 new_elseif_list new_else_single T_ENDIF ';'
@@ -13811,7 +13811,7 @@ state 421
     $@5  go to state 522
 
 
-state 422
+State 422
 
   208 echo_expr_list: echo_expr_list ',' expr .
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
@@ -13872,14 +13872,14 @@ state 422
     $default  reduce using rule 208 (echo_expr_list)
 
 
-state 423
+State 423
 
    47 unticked_statement: T_DO $@11 statement T_WHILE . '(' $@12 expr ')' ';'
 
     '('  shift, and go to state 523
 
 
-state 424
+State 424
 
    44 unticked_statement: T_WHILE '(' $@9 expr . ')' $@10 while_statement
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
@@ -13939,7 +13939,7 @@ state 424
     ')'                    shift, and go to state 524
 
 
-state 425
+State 425
 
    51 unticked_statement: T_FOR '(' for_expr ';' . $@13 for_expr ';' $@14 for_expr ')' $@15 for_statement
 
@@ -13948,7 +13948,7 @@ state 425
     $@13  go to state 525
 
 
-state 426
+State 426
 
   213 non_empty_for_expr: non_empty_for_expr ',' . $@38 expr
 
@@ -13957,7 +13957,7 @@ state 426
     $@38  go to state 526
 
 
-state 427
+State 427
 
    72 unticked_statement: T_FOREACH '(' expr_without_variable T_AS . $@19 variable foreach_optional_arg ')' $@20 foreach_statement
 
@@ -13966,7 +13966,7 @@ state 427
     $@19  go to state 527
 
 
-state 428
+State 428
 
    69 unticked_statement: T_FOREACH '(' variable T_AS . $@17 foreach_variable foreach_optional_arg ')' $@18 foreach_statement
 
@@ -13975,14 +13975,14 @@ state 428
     $@17  go to state 528
 
 
-state 429
+State 429
 
   126 declare_list: T_STRING . '=' static_scalar
 
     '='  shift, and go to state 529
 
 
-state 430
+State 430
 
    74 unticked_statement: T_DECLARE $@21 '(' declare_list . ')' declare_statement
   127 declare_list: declare_list . ',' T_STRING '=' static_scalar
@@ -13991,7 +13991,7 @@ state 430
     ')'  shift, and go to state 531
 
 
-state 431
+State 431
 
    53 unticked_statement: T_SWITCH '(' expr ')' . $@16 switch_case_list
 
@@ -14000,7 +14000,7 @@ state 431
     $@16  go to state 532
 
 
-state 432
+State 432
 
   358 static_scalar: '+' . static_scalar
 
@@ -14030,7 +14030,7 @@ state 432
     static_class_constant  go to state 442
 
 
-state 433
+State 433
 
   359 static_scalar: '-' . static_scalar
 
@@ -14060,14 +14060,14 @@ state 433
     static_class_constant  go to state 442
 
 
-state 434
+State 434
 
   360 static_scalar: T_ARRAY . '(' static_array_pair_list ')'
 
     '('  shift, and go to state 535
 
 
-state 435
+State 435
 
   352 common_scalar: T_START_HEREDOC . T_ENCAPSED_AND_WHITESPACE T_END_HEREDOC
   353              | T_START_HEREDOC . T_END_HEREDOC
@@ -14076,7 +14076,7 @@ state 435
     T_END_HEREDOC              shift, and go to state 196
 
 
-state 436
+State 436
 
   320 class_name: T_NAMESPACE . T_NS_SEPARATOR namespace_name
   356 static_scalar: T_NAMESPACE . T_NS_SEPARATOR namespace_name
@@ -14084,7 +14084,7 @@ state 436
     T_NS_SEPARATOR  shift, and go to state 537
 
 
-state 437
+State 437
 
   321 class_name: T_NS_SEPARATOR . namespace_name
   357 static_scalar: T_NS_SEPARATOR . namespace_name
@@ -14094,7 +14094,7 @@ state 437
     namespace_name  go to state 538
 
 
-state 438
+State 438
 
     6 namespace_name: namespace_name . T_NS_SEPARATOR T_STRING
   319 class_name: namespace_name .
@@ -14106,35 +14106,35 @@ state 438
     $default                reduce using rule 355 (static_scalar)
 
 
-state 439
+State 439
 
   362 static_class_constant: class_name . T_PAAMAYIM_NEKUDOTAYIM T_STRING
 
     T_PAAMAYIM_NEKUDOTAYIM  shift, and go to state 539
 
 
-state 440
+State 440
 
   354 static_scalar: common_scalar .
 
     $default  reduce using rule 354 (static_scalar)
 
 
-state 441
+State 441
 
    25 constant_declaration: T_CONST T_STRING '=' static_scalar .
 
     $default  reduce using rule 25 (constant_declaration)
 
 
-state 442
+State 442
 
   361 static_scalar: static_class_constant .
 
     $default  reduce using rule 361 (static_scalar)
 
 
-state 443
+State 443
 
    27 inner_statement_list: inner_statement_list . $@4 inner_statement
    81 unticked_statement: T_TRY $@22 '{' inner_statement_list . '}' T_CATCH '(' $@23 fully_qualified_class_name $@24 T_VARIABLE ')' $@25 '{' inner_statement_list '}' $@26 additional_catches
@@ -14146,28 +14146,28 @@ state 443
     $@4  go to state 347
 
 
-state 444
+State 444
 
    23 use_declaration: T_NS_SEPARATOR namespace_name T_AS . T_STRING
 
     T_STRING  shift, and go to state 541
 
 
-state 445
+State 445
 
    21 use_declaration: namespace_name T_AS T_STRING .
 
     $default  reduce using rule 21 (use_declaration)
 
 
-state 446
+State 446
 
    18 use_declarations: use_declarations ',' use_declaration .
 
     $default  reduce using rule 18 (use_declarations)
 
 
-state 447
+State 447
 
   176 global_var: '$' '{' expr . '}'
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
@@ -14227,21 +14227,21 @@ state 447
     '}'                    shift, and go to state 542
 
 
-state 448
+State 448
 
   172 global_var_list: global_var_list ',' global_var .
 
     $default  reduce using rule 172 (global_var_list)
 
 
-state 449
+State 449
 
   180 static_var_list: T_VARIABLE '=' static_scalar .
 
     $default  reduce using rule 180 (static_var_list)
 
 
-state 450
+State 450
 
   177 static_var_list: static_var_list ',' T_VARIABLE .
   178                | static_var_list ',' T_VARIABLE . '=' static_scalar
@@ -14251,7 +14251,7 @@ state 450
     $default  reduce using rule 177 (static_var_list)
 
 
-state 451
+State 451
 
    92 unset_variables: unset_variables ',' . unset_variable
 
@@ -14277,14 +14277,14 @@ state 451
     simple_indirect_reference          go to state 108
 
 
-state 452
+State 452
 
    66 unticked_statement: T_UNSET '(' unset_variables ')' . ';'
 
     ';'  shift, and go to state 545
 
 
-state 453
+State 453
 
   461 isset_variables: isset_variables ',' . $@68 variable
 
@@ -14293,42 +14293,42 @@ state 453
     $@68  go to state 546
 
 
-state 454
+State 454
 
   452 internal_functions_in_yacc: T_ISSET '(' isset_variables ')' .
 
     $default  reduce using rule 452 (internal_functions_in_yacc)
 
 
-state 455
+State 455
 
   453 internal_functions_in_yacc: T_EMPTY '(' variable ')' .
 
     $default  reduce using rule 453 (internal_functions_in_yacc)
 
 
-state 456
+State 456
 
    10 top_statement: T_HALT_COMPILER '(' ')' ';' .
 
     $default  reduce using rule 10 (top_statement)
 
 
-state 457
+State 457
 
   426 assignment_list_element: T_LIST . '(' $@66 assignment_list ')'
 
     '('  shift, and go to state 547
 
 
-state 458
+State 458
 
   424 assignment_list_element: variable .
 
     $default  reduce using rule 424 (assignment_list_element)
 
 
-state 459
+State 459
 
   216 expr_without_variable: T_LIST '(' $@39 assignment_list . ')' '=' expr
   422 assignment_list: assignment_list . ',' assignment_list_element
@@ -14337,28 +14337,28 @@ state 459
     ')'  shift, and go to state 549
 
 
-state 460
+State 460
 
   423 assignment_list: assignment_list_element .
 
     $default  reduce using rule 423 (assignment_list)
 
 
-state 461
+State 461
 
   437 non_empty_array_pair_list: '&' w_variable .
 
     $default  reduce using rule 437 (non_empty_array_pair_list)
 
 
-state 462
+State 462
 
   382 w_variable: variable .
 
     $default  reduce using rule 382 (w_variable)
 
 
-state 463
+State 463
 
   432 non_empty_array_pair_list: expr T_DOUBLE_ARROW . expr
   436                          | expr T_DOUBLE_ARROW . '&' w_variable
@@ -14437,14 +14437,14 @@ state 463
     class_constant                     go to state 110
 
 
-state 464
+State 464
 
   290 expr_without_variable: T_ARRAY '(' array_pair_list ')' .
 
     $default  reduce using rule 290 (expr_without_variable)
 
 
-state 465
+State 465
 
   374 possible_comma: ',' .
   430 non_empty_array_pair_list: non_empty_array_pair_list ',' . expr T_DOUBLE_ARROW expr
@@ -14528,14 +14528,14 @@ state 465
     class_constant                     go to state 110
 
 
-state 466
+State 466
 
   429 array_pair_list: non_empty_array_pair_list possible_comma .
 
     $default  reduce using rule 429 (array_pair_list)
 
 
-state 467
+State 467
 
   444 encaps_var: T_VARIABLE '[' $@67 . encaps_var_offset ']'
 
@@ -14546,14 +14546,14 @@ state 467
     encaps_var_offset  go to state 557
 
 
-state 468
+State 468
 
   445 encaps_var: T_VARIABLE T_OBJECT_OPERATOR T_STRING .
 
     $default  reduce using rule 445 (encaps_var)
 
 
-state 469
+State 469
 
   447 encaps_var: T_DOLLAR_OPEN_CURLY_BRACES T_STRING_VARNAME '[' . expr ']' '}'
 
@@ -14630,21 +14630,21 @@ state 469
     class_constant                     go to state 110
 
 
-state 470
+State 470
 
   446 encaps_var: T_DOLLAR_OPEN_CURLY_BRACES expr '}' .
 
     $default  reduce using rule 446 (encaps_var)
 
 
-state 471
+State 471
 
   448 encaps_var: T_CURLY_OPEN variable '}' .
 
     $default  reduce using rule 448 (encaps_var)
 
 
-state 472
+State 472
 
   305 function_call: T_NAMESPACE T_NS_SEPARATOR namespace_name '(' . $@52 function_call_parameter_list ')'
 
@@ -14653,7 +14653,7 @@ state 472
     $@52  go to state 559
 
 
-state 473
+State 473
 
     3 top_statement_list: top_statement_list . $@1 top_statement
    15 top_statement: T_NAMESPACE '{' $@3 top_statement_list . '}'
@@ -14665,7 +14665,7 @@ state 473
     $@1  go to state 4
 
 
-state 474
+State 474
 
    13 top_statement: T_NAMESPACE namespace_name '{' $@2 . top_statement_list '}'
 
@@ -14674,7 +14674,7 @@ state 474
     top_statement_list  go to state 561
 
 
-state 475
+State 475
 
   307 function_call: T_NS_SEPARATOR namespace_name '(' $@53 . function_call_parameter_list ')'
 
@@ -14756,49 +14756,49 @@ state 475
     class_constant                          go to state 110
 
 
-state 476
+State 476
 
    32 inner_statement: T_HALT_COMPILER . '(' ')' ';'
 
     '('  shift, and go to state 563
 
 
-state 477
+State 477
 
    27 inner_statement_list: inner_statement_list $@4 inner_statement .
 
     $default  reduce using rule 27 (inner_statement_list)
 
 
-state 478
+State 478
 
    29 inner_statement: statement .
 
     $default  reduce using rule 29 (inner_statement)
 
 
-state 479
+State 479
 
    30 inner_statement: function_declaration_statement .
 
     $default  reduce using rule 30 (inner_statement)
 
 
-state 480
+State 480
 
    31 inner_statement: class_declaration_statement .
 
     $default  reduce using rule 31 (inner_statement)
 
 
-state 481
+State 481
 
   409 compound_variable: '$' '{' expr '}' .
 
     $default  reduce using rule 409 (compound_variable)
 
 
-state 482
+State 482
 
   168 non_empty_function_call_parameter_list: '&' . w_variable
 
@@ -14824,14 +14824,14 @@ state 482
     simple_indirect_reference          go to state 108
 
 
-state 483
+State 483
 
   303 function_call: namespace_name '(' $@51 function_call_parameter_list . ')'
 
     ')'  shift, and go to state 565
 
 
-state 484
+State 484
 
   164 function_call_parameter_list: non_empty_function_call_parameter_list .
   169 non_empty_function_call_parameter_list: non_empty_function_call_parameter_list . ',' expr_without_variable
@@ -14843,7 +14843,7 @@ state 484
     $default  reduce using rule 164 (function_call_parameter_list)
 
 
-state 485
+State 485
 
   166 non_empty_function_call_parameter_list: expr_without_variable .
   380 expr: expr_without_variable .
@@ -14853,7 +14853,7 @@ state 485
     $default  reduce using rule 380 (expr)
 
 
-state 486
+State 486
 
   167 non_empty_function_call_parameter_list: variable .
   217 expr_without_variable: variable . '=' expr
@@ -14893,7 +14893,7 @@ state 486
     $default  reduce using rule 381 (r_variable)
 
 
-state 487
+State 487
 
    24 constant_declaration: constant_declaration ',' T_STRING '=' . static_scalar
 
@@ -14923,14 +14923,14 @@ state 487
     static_class_constant  go to state 442
 
 
-state 488
+State 488
 
   323 fully_qualified_class_name: T_NAMESPACE . T_NS_SEPARATOR namespace_name
 
     T_NS_SEPARATOR  shift, and go to state 568
 
 
-state 489
+State 489
 
   324 fully_qualified_class_name: T_NS_SEPARATOR . namespace_name
 
@@ -14939,7 +14939,7 @@ state 489
     namespace_name  go to state 569
 
 
-state 490
+State 490
 
     6 namespace_name: namespace_name . T_NS_SEPARATOR T_STRING
   322 fully_qualified_class_name: namespace_name .
@@ -14949,14 +14949,14 @@ state 490
     $default  reduce using rule 322 (fully_qualified_class_name)
 
 
-state 491
+State 491
 
   108 extends_from: T_EXTENDS fully_qualified_class_name .
 
     $default  reduce using rule 108 (extends_from)
 
 
-state 492
+State 492
 
   101 unticked_class_declaration_statement: class_entry_type T_STRING extends_from $@30 . implements_list '{' class_statement_list '}'
 
@@ -14967,7 +14967,7 @@ state 492
     implements_list  go to state 571
 
 
-state 493
+State 493
 
   111 interface_extends_list: T_EXTENDS . interface_list
 
@@ -14980,21 +14980,21 @@ state 493
     fully_qualified_class_name  go to state 573
 
 
-state 494
+State 494
 
   103 unticked_class_declaration_statement: interface_entry T_STRING $@31 interface_extends_list . '{' class_statement_list '}'
 
     '{'  shift, and go to state 574
 
 
-state 495
+State 495
 
    99 unticked_function_declaration_statement: function is_reference T_STRING $@29 . '(' parameter_list ')' '{' inner_statement_list '}'
 
     '('  shift, and go to state 575
 
 
-state 496
+State 496
 
   294 expr_without_variable: function is_reference '(' @50 . parameter_list ')' lexical_vars '{' inner_statement_list '}'
 
@@ -15013,7 +15013,7 @@ state 496
     fully_qualified_class_name  go to state 580
 
 
-state 497
+State 497
 
   309 function_call: class_name T_PAAMAYIM_NEKUDOTAYIM T_STRING '(' . $@54 function_call_parameter_list ')'
 
@@ -15022,7 +15022,7 @@ state 497
     $@54  go to state 581
 
 
-state 498
+State 498
 
   311 function_call: class_name T_PAAMAYIM_NEKUDOTAYIM variable_without_objects '(' . $@55 function_call_parameter_list ')'
 
@@ -15031,7 +15031,7 @@ state 498
     $@55  go to state 582
 
 
-state 499
+State 499
 
   396 variable_without_objects: simple_indirect_reference reference_variable .
   405 reference_variable: reference_variable . '[' dim_offset ']'
@@ -15043,7 +15043,7 @@ state 499
     $default  reduce using rule 396 (variable_without_objects)
 
 
-state 500
+State 500
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -15103,7 +15103,7 @@ state 500
     $default  reduce using rule 244 (expr_without_variable)
 
 
-state 501
+State 501
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -15161,7 +15161,7 @@ state 501
     $default  reduce using rule 246 (expr_without_variable)
 
 
-state 502
+State 502
 
   277 expr_without_variable: expr '?' ':' $@48 . expr
 
@@ -15238,7 +15238,7 @@ state 502
     class_constant                     go to state 110
 
 
-state 503
+State 503
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -15298,7 +15298,7 @@ state 503
     T_INSTANCEOF           shift, and go to state 247
 
 
-state 504
+State 504
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   240                      | expr T_BOOLEAN_OR $@42 expr .
@@ -15354,7 +15354,7 @@ state 504
     $default  reduce using rule 240 (expr_without_variable)
 
 
-state 505
+State 505
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -15409,7 +15409,7 @@ state 505
     $default  reduce using rule 242 (expr_without_variable)
 
 
-state 506
+State 506
 
   220 expr_without_variable: variable '=' '&' T_NEW . class_name_reference $@40 ctor_arguments
 
@@ -15432,21 +15432,21 @@ state 506
     simple_indirect_reference     go to state 151
 
 
-state 507
+State 507
 
   218 expr_without_variable: variable '=' '&' variable .
 
     $default  reduce using rule 218 (expr_without_variable)
 
 
-state 508
+State 508
 
   317 function_call: variable_without_objects '(' $@58 function_call_parameter_list . ')'
 
     ')'  shift, and go to state 586
 
 
-state 509
+State 509
 
   313 function_call: variable_class_name T_PAAMAYIM_NEKUDOTAYIM T_STRING '(' . $@56 function_call_parameter_list ')'
 
@@ -15455,7 +15455,7 @@ state 509
     $@56  go to state 587
 
 
-state 510
+State 510
 
   315 function_call: variable_class_name T_PAAMAYIM_NEKUDOTAYIM variable_without_objects '(' . $@57 function_call_parameter_list ')'
 
@@ -15464,14 +15464,14 @@ state 510
     $@57  go to state 588
 
 
-state 511
+State 511
 
   418 variable_name: T_STRING .
 
     $default  reduce using rule 418 (variable_name)
 
 
-state 512
+State 512
 
   419 variable_name: '{' . expr '}'
 
@@ -15548,7 +15548,7 @@ state 512
     class_constant                     go to state 110
 
 
-state 513
+State 513
 
   414 object_property: variable_without_objects . $@65
 
@@ -15557,7 +15557,7 @@ state 513
     $@65  go to state 590
 
 
-state 514
+State 514
 
   386 variable: base_variable_with_function_calls T_OBJECT_OPERATOR $@61 object_property . $@62 method_or_not variable_properties
 
@@ -15566,7 +15566,7 @@ state 514
     $@62  go to state 591
 
 
-state 515
+State 515
 
   412 object_property: object_dim_list .
   415 object_dim_list: object_dim_list . '[' dim_offset ']'
@@ -15578,35 +15578,35 @@ state 515
     $default  reduce using rule 412 (object_property)
 
 
-state 516
+State 516
 
   417 object_dim_list: variable_name .
 
     $default  reduce using rule 417 (object_dim_list)
 
 
-state 517
+State 517
 
   405 reference_variable: reference_variable '[' dim_offset ']' .
 
     $default  reduce using rule 405 (reference_variable)
 
 
-state 518
+State 518
 
   406 reference_variable: reference_variable '{' expr '}' .
 
     $default  reduce using rule 406 (reference_variable)
 
 
-state 519
+State 519
 
   341 ctor_arguments: '(' function_call_parameter_list . ')'
 
     ')'  shift, and go to state 594
 
 
-state 520
+State 520
 
   329 dynamic_class_name_reference: base_variable T_OBJECT_OPERATOR $@59 object_property . $@60 dynamic_class_name_variable_properties
 
@@ -15615,7 +15615,7 @@ state 520
     $@60  go to state 595
 
 
-state 521
+State 521
 
    41 unticked_statement: T_IF '(' expr ')' ':' . $@7 inner_statement_list $@8 new_elseif_list new_else_single T_ENDIF ';'
 
@@ -15624,7 +15624,7 @@ state 521
     $@7  go to state 596
 
 
-state 522
+State 522
 
    38 unticked_statement: T_IF '(' expr ')' $@5 . statement $@6 elseif_list else_single
 
@@ -15722,7 +15722,7 @@ state 522
     class_constant                     go to state 110
 
 
-state 523
+State 523
 
    47 unticked_statement: T_DO $@11 statement T_WHILE '(' . $@12 expr ')' ';'
 
@@ -15731,7 +15731,7 @@ state 523
     $@12  go to state 598
 
 
-state 524
+State 524
 
    44 unticked_statement: T_WHILE '(' $@9 expr ')' . $@10 while_statement
 
@@ -15740,7 +15740,7 @@ state 524
     $@10  go to state 599
 
 
-state 525
+State 525
 
    51 unticked_statement: T_FOR '(' for_expr ';' $@13 . for_expr ';' $@14 for_expr ')' $@15 for_statement
 
@@ -15821,7 +15821,7 @@ state 525
     class_constant                     go to state 110
 
 
-state 526
+State 526
 
   213 non_empty_for_expr: non_empty_for_expr ',' $@38 . expr
 
@@ -15898,7 +15898,7 @@ state 526
     class_constant                     go to state 110
 
 
-state 527
+State 527
 
    72 unticked_statement: T_FOREACH '(' expr_without_variable T_AS $@19 . variable foreach_optional_arg ')' $@20 foreach_statement
 
@@ -15923,7 +15923,7 @@ state 527
     simple_indirect_reference          go to state 108
 
 
-state 528
+State 528
 
    69 unticked_statement: T_FOREACH '(' variable T_AS $@17 . foreach_variable foreach_optional_arg ')' $@18 foreach_statement
 
@@ -15950,7 +15950,7 @@ state 528
     simple_indirect_reference          go to state 108
 
 
-state 529
+State 529
 
   126 declare_list: T_STRING '=' . static_scalar
 
@@ -15980,14 +15980,14 @@ state 529
     static_class_constant  go to state 442
 
 
-state 530
+State 530
 
   127 declare_list: declare_list ',' . T_STRING '=' static_scalar
 
     T_STRING  shift, and go to state 607
 
 
-state 531
+State 531
 
    74 unticked_statement: T_DECLARE $@21 '(' declare_list ')' . declare_statement
 
@@ -16087,7 +16087,7 @@ state 531
     class_constant                     go to state 110
 
 
-state 532
+State 532
 
    53 unticked_statement: T_SWITCH '(' expr ')' $@16 . switch_case_list
 
@@ -16097,21 +16097,21 @@ state 532
     switch_case_list  go to state 613
 
 
-state 533
+State 533
 
   358 static_scalar: '+' static_scalar .
 
     $default  reduce using rule 358 (static_scalar)
 
 
-state 534
+State 534
 
   359 static_scalar: '-' static_scalar .
 
     $default  reduce using rule 359 (static_scalar)
 
 
-state 535
+State 535
 
   360 static_scalar: T_ARRAY '(' . static_array_pair_list ')'
 
@@ -16145,14 +16145,14 @@ state 535
     non_empty_static_array_pair_list  go to state 616
 
 
-state 536
+State 536
 
   352 common_scalar: T_START_HEREDOC T_ENCAPSED_AND_WHITESPACE . T_END_HEREDOC
 
     T_END_HEREDOC  shift, and go to state 332
 
 
-state 537
+State 537
 
   320 class_name: T_NAMESPACE T_NS_SEPARATOR . namespace_name
   356 static_scalar: T_NAMESPACE T_NS_SEPARATOR . namespace_name
@@ -16162,7 +16162,7 @@ state 537
     namespace_name  go to state 617
 
 
-state 538
+State 538
 
     6 namespace_name: namespace_name . T_NS_SEPARATOR T_STRING
   321 class_name: T_NS_SEPARATOR namespace_name .
@@ -16174,35 +16174,35 @@ state 538
     $default                reduce using rule 357 (static_scalar)
 
 
-state 539
+State 539
 
   362 static_class_constant: class_name T_PAAMAYIM_NEKUDOTAYIM . T_STRING
 
     T_STRING  shift, and go to state 618
 
 
-state 540
+State 540
 
    81 unticked_statement: T_TRY $@22 '{' inner_statement_list '}' . T_CATCH '(' $@23 fully_qualified_class_name $@24 T_VARIABLE ')' $@25 '{' inner_statement_list '}' $@26 additional_catches
 
     T_CATCH  shift, and go to state 619
 
 
-state 541
+State 541
 
    23 use_declaration: T_NS_SEPARATOR namespace_name T_AS T_STRING .
 
     $default  reduce using rule 23 (use_declaration)
 
 
-state 542
+State 542
 
   176 global_var: '$' '{' expr '}' .
 
     $default  reduce using rule 176 (global_var)
 
 
-state 543
+State 543
 
   178 static_var_list: static_var_list ',' T_VARIABLE '=' . static_scalar
 
@@ -16232,21 +16232,21 @@ state 543
     static_class_constant  go to state 442
 
 
-state 544
+State 544
 
    92 unset_variables: unset_variables ',' unset_variable .
 
     $default  reduce using rule 92 (unset_variables)
 
 
-state 545
+State 545
 
    66 unticked_statement: T_UNSET '(' unset_variables ')' ';' .
 
     $default  reduce using rule 66 (unticked_statement)
 
 
-state 546
+State 546
 
   461 isset_variables: isset_variables ',' $@68 . variable
 
@@ -16271,7 +16271,7 @@ state 546
     simple_indirect_reference          go to state 108
 
 
-state 547
+State 547
 
   426 assignment_list_element: T_LIST '(' . $@66 assignment_list ')'
 
@@ -16280,7 +16280,7 @@ state 547
     $@66  go to state 622
 
 
-state 548
+State 548
 
   422 assignment_list: assignment_list ',' . assignment_list_element
 
@@ -16309,14 +16309,14 @@ state 548
     assignment_list_element            go to state 623
 
 
-state 549
+State 549
 
   216 expr_without_variable: T_LIST '(' $@39 assignment_list ')' . '=' expr
 
     '='  shift, and go to state 624
 
 
-state 550
+State 550
 
   436 non_empty_array_pair_list: expr T_DOUBLE_ARROW '&' . w_variable
 
@@ -16342,7 +16342,7 @@ state 550
     simple_indirect_reference          go to state 108
 
 
-state 551
+State 551
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -16403,7 +16403,7 @@ state 551
     $default  reduce using rule 432 (non_empty_array_pair_list)
 
 
-state 552
+State 552
 
   435 non_empty_array_pair_list: non_empty_array_pair_list ',' '&' . w_variable
 
@@ -16429,7 +16429,7 @@ state 552
     simple_indirect_reference          go to state 108
 
 
-state 553
+State 553
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -16493,35 +16493,35 @@ state 553
     $default  reduce using rule 431 (non_empty_array_pair_list)
 
 
-state 554
+State 554
 
   449 encaps_var_offset: T_STRING .
 
     $default  reduce using rule 449 (encaps_var_offset)
 
 
-state 555
+State 555
 
   451 encaps_var_offset: T_VARIABLE .
 
     $default  reduce using rule 451 (encaps_var_offset)
 
 
-state 556
+State 556
 
   450 encaps_var_offset: T_NUM_STRING .
 
     $default  reduce using rule 450 (encaps_var_offset)
 
 
-state 557
+State 557
 
   444 encaps_var: T_VARIABLE '[' $@67 encaps_var_offset . ']'
 
     ']'  shift, and go to state 628
 
 
-state 558
+State 558
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -16581,7 +16581,7 @@ state 558
     ']'                    shift, and go to state 629
 
 
-state 559
+State 559
 
   305 function_call: T_NAMESPACE T_NS_SEPARATOR namespace_name '(' $@52 . function_call_parameter_list ')'
 
@@ -16663,14 +16663,14 @@ state 559
     class_constant                          go to state 110
 
 
-state 560
+State 560
 
    15 top_statement: T_NAMESPACE '{' $@3 top_statement_list '}' .
 
     $default  reduce using rule 15 (top_statement)
 
 
-state 561
+State 561
 
     3 top_statement_list: top_statement_list . $@1 top_statement
    13 top_statement: T_NAMESPACE namespace_name '{' $@2 top_statement_list . '}'
@@ -16682,35 +16682,35 @@ state 561
     $@1  go to state 4
 
 
-state 562
+State 562
 
   307 function_call: T_NS_SEPARATOR namespace_name '(' $@53 function_call_parameter_list . ')'
 
     ')'  shift, and go to state 632
 
 
-state 563
+State 563
 
    32 inner_statement: T_HALT_COMPILER '(' . ')' ';'
 
     ')'  shift, and go to state 633
 
 
-state 564
+State 564
 
   168 non_empty_function_call_parameter_list: '&' w_variable .
 
     $default  reduce using rule 168 (non_empty_function_call_parameter_list)
 
 
-state 565
+State 565
 
   303 function_call: namespace_name '(' $@51 function_call_parameter_list ')' .
 
     $default  reduce using rule 303 (function_call)
 
 
-state 566
+State 566
 
   169 non_empty_function_call_parameter_list: non_empty_function_call_parameter_list ',' . expr_without_variable
   170                                       | non_empty_function_call_parameter_list ',' . variable
@@ -16790,14 +16790,14 @@ state 566
     class_constant                     go to state 110
 
 
-state 567
+State 567
 
    24 constant_declaration: constant_declaration ',' T_STRING '=' static_scalar .
 
     $default  reduce using rule 24 (constant_declaration)
 
 
-state 568
+State 568
 
   323 fully_qualified_class_name: T_NAMESPACE T_NS_SEPARATOR . namespace_name
 
@@ -16806,7 +16806,7 @@ state 568
     namespace_name  go to state 637
 
 
-state 569
+State 569
 
     6 namespace_name: namespace_name . T_NS_SEPARATOR T_STRING
   324 fully_qualified_class_name: T_NS_SEPARATOR namespace_name .
@@ -16816,7 +16816,7 @@ state 569
     $default  reduce using rule 324 (fully_qualified_class_name)
 
 
-state 570
+State 570
 
   113 implements_list: T_IMPLEMENTS . interface_list
 
@@ -16829,14 +16829,14 @@ state 570
     fully_qualified_class_name  go to state 573
 
 
-state 571
+State 571
 
   101 unticked_class_declaration_statement: class_entry_type T_STRING extends_from $@30 implements_list . '{' class_statement_list '}'
 
     '{'  shift, and go to state 639
 
 
-state 572
+State 572
 
   111 interface_extends_list: T_EXTENDS interface_list .
   115 interface_list: interface_list . ',' fully_qualified_class_name
@@ -16846,14 +16846,14 @@ state 572
     $default  reduce using rule 111 (interface_extends_list)
 
 
-state 573
+State 573
 
   114 interface_list: fully_qualified_class_name .
 
     $default  reduce using rule 114 (interface_list)
 
 
-state 574
+State 574
 
   103 unticked_class_declaration_statement: interface_entry T_STRING $@31 interface_extends_list '{' . class_statement_list '}'
 
@@ -16862,7 +16862,7 @@ state 574
     class_statement_list  go to state 641
 
 
-state 575
+State 575
 
    99 unticked_function_declaration_statement: function is_reference T_STRING $@29 '(' . parameter_list ')' '{' inner_statement_list '}'
 
@@ -16881,21 +16881,21 @@ state 575
     fully_qualified_class_name  go to state 580
 
 
-state 576
+State 576
 
   163 optional_class_type: T_ARRAY .
 
     $default  reduce using rule 163 (optional_class_type)
 
 
-state 577
+State 577
 
   294 expr_without_variable: function is_reference '(' @50 parameter_list . ')' lexical_vars '{' inner_statement_list '}'
 
     ')'  shift, and go to state 643
 
 
-state 578
+State 578
 
   151 parameter_list: non_empty_parameter_list .
   157 non_empty_parameter_list: non_empty_parameter_list . ',' optional_class_type T_VARIABLE
@@ -16908,7 +16908,7 @@ state 578
     $default  reduce using rule 151 (parameter_list)
 
 
-state 579
+State 579
 
   153 non_empty_parameter_list: optional_class_type . T_VARIABLE
   154                         | optional_class_type . '&' T_VARIABLE
@@ -16919,14 +16919,14 @@ state 579
     T_VARIABLE  shift, and go to state 646
 
 
-state 580
+State 580
 
   162 optional_class_type: fully_qualified_class_name .
 
     $default  reduce using rule 162 (optional_class_type)
 
 
-state 581
+State 581
 
   309 function_call: class_name T_PAAMAYIM_NEKUDOTAYIM T_STRING '(' $@54 . function_call_parameter_list ')'
 
@@ -17008,7 +17008,7 @@ state 581
     class_constant                          go to state 110
 
 
-state 582
+State 582
 
   311 function_call: class_name T_PAAMAYIM_NEKUDOTAYIM variable_without_objects '(' $@55 . function_call_parameter_list ')'
 
@@ -17090,7 +17090,7 @@ state 582
     class_constant                          go to state 110
 
 
-state 583
+State 583
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -17147,7 +17147,7 @@ state 583
     $default  reduce using rule 277 (expr_without_variable)
 
 
-state 584
+State 584
 
   275 expr_without_variable: expr '?' $@46 expr ':' . $@47 expr
 
@@ -17156,7 +17156,7 @@ state 584
     $@47  go to state 649
 
 
-state 585
+State 585
 
   220 expr_without_variable: variable '=' '&' T_NEW class_name_reference . $@40 ctor_arguments
 
@@ -17165,14 +17165,14 @@ state 585
     $@40  go to state 650
 
 
-state 586
+State 586
 
   317 function_call: variable_without_objects '(' $@58 function_call_parameter_list ')' .
 
     $default  reduce using rule 317 (function_call)
 
 
-state 587
+State 587
 
   313 function_call: variable_class_name T_PAAMAYIM_NEKUDOTAYIM T_STRING '(' $@56 . function_call_parameter_list ')'
 
@@ -17254,7 +17254,7 @@ state 587
     class_constant                          go to state 110
 
 
-state 588
+State 588
 
   315 function_call: variable_class_name T_PAAMAYIM_NEKUDOTAYIM variable_without_objects '(' $@57 . function_call_parameter_list ')'
 
@@ -17336,7 +17336,7 @@ state 588
     class_constant                          go to state 110
 
 
-state 589
+State 589
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -17396,14 +17396,14 @@ state 589
     '}'                    shift, and go to state 653
 
 
-state 590
+State 590
 
   414 object_property: variable_without_objects $@65 .
 
     $default  reduce using rule 414 (object_property)
 
 
-state 591
+State 591
 
   386 variable: base_variable_with_function_calls T_OBJECT_OPERATOR $@61 object_property $@62 . method_or_not variable_properties
 
@@ -17414,7 +17414,7 @@ state 591
     method_or_not  go to state 655
 
 
-state 592
+State 592
 
   415 object_dim_list: object_dim_list '[' . dim_offset ']'
 
@@ -17494,7 +17494,7 @@ state 592
     class_constant                     go to state 110
 
 
-state 593
+State 593
 
   416 object_dim_list: object_dim_list '{' . expr '}'
 
@@ -17571,14 +17571,14 @@ state 593
     class_constant                     go to state 110
 
 
-state 594
+State 594
 
   341 ctor_arguments: '(' function_call_parameter_list ')' .
 
     $default  reduce using rule 341 (ctor_arguments)
 
 
-state 595
+State 595
 
   329 dynamic_class_name_reference: base_variable T_OBJECT_OPERATOR $@59 object_property $@60 . dynamic_class_name_variable_properties
 
@@ -17587,7 +17587,7 @@ state 595
     dynamic_class_name_variable_properties  go to state 658
 
 
-state 596
+State 596
 
    41 unticked_statement: T_IF '(' expr ')' ':' $@7 . inner_statement_list $@8 new_elseif_list new_else_single T_ENDIF ';'
 
@@ -17596,7 +17596,7 @@ state 596
     inner_statement_list  go to state 659
 
 
-state 597
+State 597
 
    38 unticked_statement: T_IF '(' expr ')' $@5 statement . $@6 elseif_list else_single
 
@@ -17605,7 +17605,7 @@ state 597
     $@6  go to state 660
 
 
-state 598
+State 598
 
    47 unticked_statement: T_DO $@11 statement T_WHILE '(' $@12 . expr ')' ';'
 
@@ -17682,7 +17682,7 @@ state 598
     class_constant                     go to state 110
 
 
-state 599
+State 599
 
    44 unticked_statement: T_WHILE '(' $@9 expr ')' $@10 . while_statement
 
@@ -17782,14 +17782,14 @@ state 599
     class_constant                     go to state 110
 
 
-state 600
+State 600
 
    51 unticked_statement: T_FOR '(' for_expr ';' $@13 for_expr . ';' $@14 for_expr ')' $@15 for_statement
 
     ';'  shift, and go to state 665
 
 
-state 601
+State 601
 
   213 non_empty_for_expr: non_empty_for_expr ',' $@38 expr .
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
@@ -17850,7 +17850,7 @@ state 601
     $default  reduce using rule 213 (non_empty_for_expr)
 
 
-state 602
+State 602
 
    72 unticked_statement: T_FOREACH '(' expr_without_variable T_AS $@19 variable . foreach_optional_arg ')' $@20 foreach_statement
 
@@ -17861,7 +17861,7 @@ state 602
     foreach_optional_arg  go to state 667
 
 
-state 603
+State 603
 
   119 foreach_variable: '&' . variable
 
@@ -17886,7 +17886,7 @@ state 603
     simple_indirect_reference          go to state 108
 
 
-state 604
+State 604
 
    69 unticked_statement: T_FOREACH '(' variable T_AS $@17 foreach_variable . foreach_optional_arg ')' $@18 foreach_statement
 
@@ -17897,28 +17897,28 @@ state 604
     foreach_optional_arg  go to state 669
 
 
-state 605
+State 605
 
   118 foreach_variable: variable .
 
     $default  reduce using rule 118 (foreach_variable)
 
 
-state 606
+State 606
 
   126 declare_list: T_STRING '=' static_scalar .
 
     $default  reduce using rule 126 (declare_list)
 
 
-state 607
+State 607
 
   127 declare_list: declare_list ',' T_STRING . '=' static_scalar
 
     '='  shift, and go to state 670
 
 
-state 608
+State 608
 
   125 declare_statement: ':' . inner_statement_list T_ENDDECLARE ';'
 
@@ -17927,21 +17927,21 @@ state 608
     inner_statement_list  go to state 671
 
 
-state 609
+State 609
 
   124 declare_statement: statement .
 
     $default  reduce using rule 124 (declare_statement)
 
 
-state 610
+State 610
 
    74 unticked_statement: T_DECLARE $@21 '(' declare_list ')' declare_statement .
 
     $default  reduce using rule 74 (unticked_statement)
 
 
-state 611
+State 611
 
   130 switch_case_list: ':' . case_list T_ENDSWITCH ';'
   131                 | ':' . ';' case_list T_ENDSWITCH ';'
@@ -17953,7 +17953,7 @@ state 611
     case_list  go to state 673
 
 
-state 612
+State 612
 
   128 switch_case_list: '{' . case_list '}'
   129                 | '{' . ';' case_list '}'
@@ -17965,14 +17965,14 @@ state 612
     case_list  go to state 675
 
 
-state 613
+State 613
 
    53 unticked_statement: T_SWITCH '(' expr ')' $@16 switch_case_list .
 
     $default  reduce using rule 53 (unticked_statement)
 
 
-state 614
+State 614
 
   377 non_empty_static_array_pair_list: static_scalar . T_DOUBLE_ARROW static_scalar
   378                                 | static_scalar .
@@ -17982,14 +17982,14 @@ state 614
     $default  reduce using rule 378 (non_empty_static_array_pair_list)
 
 
-state 615
+State 615
 
   360 static_scalar: T_ARRAY '(' static_array_pair_list . ')'
 
     ')'  shift, and go to state 677
 
 
-state 616
+State 616
 
   372 static_array_pair_list: non_empty_static_array_pair_list . possible_comma
   375 non_empty_static_array_pair_list: non_empty_static_array_pair_list . ',' static_scalar T_DOUBLE_ARROW static_scalar
@@ -18002,7 +18002,7 @@ state 616
     possible_comma  go to state 679
 
 
-state 617
+State 617
 
     6 namespace_name: namespace_name . T_NS_SEPARATOR T_STRING
   320 class_name: T_NAMESPACE T_NS_SEPARATOR namespace_name .
@@ -18014,35 +18014,35 @@ state 617
     $default                reduce using rule 356 (static_scalar)
 
 
-state 618
+State 618
 
   362 static_class_constant: class_name T_PAAMAYIM_NEKUDOTAYIM T_STRING .
 
     $default  reduce using rule 362 (static_class_constant)
 
 
-state 619
+State 619
 
    81 unticked_statement: T_TRY $@22 '{' inner_statement_list '}' T_CATCH . '(' $@23 fully_qualified_class_name $@24 T_VARIABLE ')' $@25 '{' inner_statement_list '}' $@26 additional_catches
 
     '('  shift, and go to state 680
 
 
-state 620
+State 620
 
   178 static_var_list: static_var_list ',' T_VARIABLE '=' static_scalar .
 
     $default  reduce using rule 178 (static_var_list)
 
 
-state 621
+State 621
 
   461 isset_variables: isset_variables ',' $@68 variable .
 
     $default  reduce using rule 461 (isset_variables)
 
 
-state 622
+State 622
 
   426 assignment_list_element: T_LIST '(' $@66 . assignment_list ')'
 
@@ -18072,14 +18072,14 @@ state 622
     assignment_list_element            go to state 460
 
 
-state 623
+State 623
 
   422 assignment_list: assignment_list ',' assignment_list_element .
 
     $default  reduce using rule 422 (assignment_list)
 
 
-state 624
+State 624
 
   216 expr_without_variable: T_LIST '(' $@39 assignment_list ')' '=' . expr
 
@@ -18156,21 +18156,21 @@ state 624
     class_constant                     go to state 110
 
 
-state 625
+State 625
 
   436 non_empty_array_pair_list: expr T_DOUBLE_ARROW '&' w_variable .
 
     $default  reduce using rule 436 (non_empty_array_pair_list)
 
 
-state 626
+State 626
 
   435 non_empty_array_pair_list: non_empty_array_pair_list ',' '&' w_variable .
 
     $default  reduce using rule 435 (non_empty_array_pair_list)
 
 
-state 627
+State 627
 
   430 non_empty_array_pair_list: non_empty_array_pair_list ',' expr T_DOUBLE_ARROW . expr
   434                          | non_empty_array_pair_list ',' expr T_DOUBLE_ARROW . '&' w_variable
@@ -18249,49 +18249,49 @@ state 627
     class_constant                     go to state 110
 
 
-state 628
+State 628
 
   444 encaps_var: T_VARIABLE '[' $@67 encaps_var_offset ']' .
 
     $default  reduce using rule 444 (encaps_var)
 
 
-state 629
+State 629
 
   447 encaps_var: T_DOLLAR_OPEN_CURLY_BRACES T_STRING_VARNAME '[' expr ']' . '}'
 
     '}'  shift, and go to state 685
 
 
-state 630
+State 630
 
   305 function_call: T_NAMESPACE T_NS_SEPARATOR namespace_name '(' $@52 function_call_parameter_list . ')'
 
     ')'  shift, and go to state 686
 
 
-state 631
+State 631
 
    13 top_statement: T_NAMESPACE namespace_name '{' $@2 top_statement_list '}' .
 
     $default  reduce using rule 13 (top_statement)
 
 
-state 632
+State 632
 
   307 function_call: T_NS_SEPARATOR namespace_name '(' $@53 function_call_parameter_list ')' .
 
     $default  reduce using rule 307 (function_call)
 
 
-state 633
+State 633
 
    32 inner_statement: T_HALT_COMPILER '(' ')' . ';'
 
     ';'  shift, and go to state 687
 
 
-state 634
+State 634
 
   171 non_empty_function_call_parameter_list: non_empty_function_call_parameter_list ',' '&' . w_variable
 
@@ -18317,7 +18317,7 @@ state 634
     simple_indirect_reference          go to state 108
 
 
-state 635
+State 635
 
   169 non_empty_function_call_parameter_list: non_empty_function_call_parameter_list ',' expr_without_variable .
   380 expr: expr_without_variable .
@@ -18327,7 +18327,7 @@ state 635
     $default  reduce using rule 380 (expr)
 
 
-state 636
+State 636
 
   170 non_empty_function_call_parameter_list: non_empty_function_call_parameter_list ',' variable .
   217 expr_without_variable: variable . '=' expr
@@ -18367,7 +18367,7 @@ state 636
     $default  reduce using rule 381 (r_variable)
 
 
-state 637
+State 637
 
     6 namespace_name: namespace_name . T_NS_SEPARATOR T_STRING
   323 fully_qualified_class_name: T_NAMESPACE T_NS_SEPARATOR namespace_name .
@@ -18377,7 +18377,7 @@ state 637
     $default  reduce using rule 323 (fully_qualified_class_name)
 
 
-state 638
+State 638
 
   113 implements_list: T_IMPLEMENTS interface_list .
   115 interface_list: interface_list . ',' fully_qualified_class_name
@@ -18387,7 +18387,7 @@ state 638
     $default  reduce using rule 113 (implements_list)
 
 
-state 639
+State 639
 
   101 unticked_class_declaration_statement: class_entry_type T_STRING extends_from $@30 implements_list '{' . class_statement_list '}'
 
@@ -18396,7 +18396,7 @@ state 639
     class_statement_list  go to state 689
 
 
-state 640
+State 640
 
   115 interface_list: interface_list ',' . fully_qualified_class_name
 
@@ -18408,7 +18408,7 @@ state 640
     fully_qualified_class_name  go to state 690
 
 
-state 641
+State 641
 
   103 unticked_class_declaration_statement: interface_entry T_STRING $@31 interface_extends_list '{' class_statement_list . '}'
   181 class_statement_list: class_statement_list . class_statement
@@ -18433,14 +18433,14 @@ state 641
     class_constant_declaration  go to state 705
 
 
-state 642
+State 642
 
    99 unticked_function_declaration_statement: function is_reference T_STRING $@29 '(' parameter_list . ')' '{' inner_statement_list '}'
 
     ')'  shift, and go to state 706
 
 
-state 643
+State 643
 
   294 expr_without_variable: function is_reference '(' @50 parameter_list ')' . lexical_vars '{' inner_statement_list '}'
 
@@ -18451,7 +18451,7 @@ state 643
     lexical_vars  go to state 708
 
 
-state 644
+State 644
 
   157 non_empty_parameter_list: non_empty_parameter_list ',' . optional_class_type T_VARIABLE
   158                         | non_empty_parameter_list ',' . optional_class_type '&' T_VARIABLE
@@ -18470,7 +18470,7 @@ state 644
     fully_qualified_class_name  go to state 580
 
 
-state 645
+State 645
 
   154 non_empty_parameter_list: optional_class_type '&' . T_VARIABLE
   155                         | optional_class_type '&' . T_VARIABLE '=' static_scalar
@@ -18478,7 +18478,7 @@ state 645
     T_VARIABLE  shift, and go to state 710
 
 
-state 646
+State 646
 
   153 non_empty_parameter_list: optional_class_type T_VARIABLE .
   156                         | optional_class_type T_VARIABLE . '=' static_scalar
@@ -18488,21 +18488,21 @@ state 646
     $default  reduce using rule 153 (non_empty_parameter_list)
 
 
-state 647
+State 647
 
   309 function_call: class_name T_PAAMAYIM_NEKUDOTAYIM T_STRING '(' $@54 function_call_parameter_list . ')'
 
     ')'  shift, and go to state 712
 
 
-state 648
+State 648
 
   311 function_call: class_name T_PAAMAYIM_NEKUDOTAYIM variable_without_objects '(' $@55 function_call_parameter_list . ')'
 
     ')'  shift, and go to state 713
 
 
-state 649
+State 649
 
   275 expr_without_variable: expr '?' $@46 expr ':' $@47 . expr
 
@@ -18579,7 +18579,7 @@ state 649
     class_constant                     go to state 110
 
 
-state 650
+State 650
 
   220 expr_without_variable: variable '=' '&' T_NEW class_name_reference $@40 . ctor_arguments
 
@@ -18590,28 +18590,28 @@ state 650
     ctor_arguments  go to state 715
 
 
-state 651
+State 651
 
   313 function_call: variable_class_name T_PAAMAYIM_NEKUDOTAYIM T_STRING '(' $@56 function_call_parameter_list . ')'
 
     ')'  shift, and go to state 716
 
 
-state 652
+State 652
 
   315 function_call: variable_class_name T_PAAMAYIM_NEKUDOTAYIM variable_without_objects '(' $@57 function_call_parameter_list . ')'
 
     ')'  shift, and go to state 717
 
 
-state 653
+State 653
 
   419 variable_name: '{' expr '}' .
 
     $default  reduce using rule 419 (variable_name)
 
 
-state 654
+State 654
 
   393 method_or_not: '(' . $@64 function_call_parameter_list ')'
 
@@ -18620,7 +18620,7 @@ state 654
     $@64  go to state 718
 
 
-state 655
+State 655
 
   386 variable: base_variable_with_function_calls T_OBJECT_OPERATOR $@61 object_property $@62 method_or_not . variable_properties
 
@@ -18629,14 +18629,14 @@ state 655
     variable_properties  go to state 719
 
 
-state 656
+State 656
 
   415 object_dim_list: object_dim_list '[' dim_offset . ']'
 
     ']'  shift, and go to state 720
 
 
-state 657
+State 657
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -18696,7 +18696,7 @@ state 657
     '}'                    shift, and go to state 721
 
 
-state 658
+State 658
 
   329 dynamic_class_name_reference: base_variable T_OBJECT_OPERATOR $@59 object_property $@60 dynamic_class_name_variable_properties .
   331 dynamic_class_name_variable_properties: dynamic_class_name_variable_properties . dynamic_class_name_variable_property
@@ -18708,7 +18708,7 @@ state 658
     dynamic_class_name_variable_property  go to state 723
 
 
-state 659
+State 659
 
    27 inner_statement_list: inner_statement_list . $@4 inner_statement
    41 unticked_statement: T_IF '(' expr ')' ':' $@7 inner_statement_list . $@8 new_elseif_list new_else_single T_ENDIF ';'
@@ -18722,7 +18722,7 @@ state 659
     $@8  go to state 724
 
 
-state 660
+State 660
 
    38 unticked_statement: T_IF '(' expr ')' $@5 statement $@6 . elseif_list else_single
 
@@ -18731,7 +18731,7 @@ state 660
     elseif_list  go to state 725
 
 
-state 661
+State 661
 
    47 unticked_statement: T_DO $@11 statement T_WHILE '(' $@12 expr . ')' ';'
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
@@ -18791,7 +18791,7 @@ state 661
     ')'                    shift, and go to state 726
 
 
-state 662
+State 662
 
   140 while_statement: ':' . inner_statement_list T_ENDWHILE ';'
 
@@ -18800,21 +18800,21 @@ state 662
     inner_statement_list  go to state 727
 
 
-state 663
+State 663
 
   139 while_statement: statement .
 
     $default  reduce using rule 139 (while_statement)
 
 
-state 664
+State 664
 
    44 unticked_statement: T_WHILE '(' $@9 expr ')' $@10 while_statement .
 
     $default  reduce using rule 44 (unticked_statement)
 
 
-state 665
+State 665
 
    51 unticked_statement: T_FOR '(' for_expr ';' $@13 for_expr ';' . $@14 for_expr ')' $@15 for_statement
 
@@ -18823,7 +18823,7 @@ state 665
     $@14  go to state 728
 
 
-state 666
+State 666
 
   117 foreach_optional_arg: T_DOUBLE_ARROW . foreach_variable
 
@@ -18850,28 +18850,28 @@ state 666
     simple_indirect_reference          go to state 108
 
 
-state 667
+State 667
 
    72 unticked_statement: T_FOREACH '(' expr_without_variable T_AS $@19 variable foreach_optional_arg . ')' $@20 foreach_statement
 
     ')'  shift, and go to state 730
 
 
-state 668
+State 668
 
   119 foreach_variable: '&' variable .
 
     $default  reduce using rule 119 (foreach_variable)
 
 
-state 669
+State 669
 
    69 unticked_statement: T_FOREACH '(' variable T_AS $@17 foreach_variable foreach_optional_arg . ')' $@18 foreach_statement
 
     ')'  shift, and go to state 731
 
 
-state 670
+State 670
 
   127 declare_list: declare_list ',' T_STRING '=' . static_scalar
 
@@ -18901,7 +18901,7 @@ state 670
     static_class_constant  go to state 442
 
 
-state 671
+State 671
 
    27 inner_statement_list: inner_statement_list . $@4 inner_statement
   125 declare_statement: ':' inner_statement_list . T_ENDDECLARE ';'
@@ -18913,7 +18913,7 @@ state 671
     $@4  go to state 347
 
 
-state 672
+State 672
 
   131 switch_case_list: ':' ';' . case_list T_ENDSWITCH ';'
 
@@ -18922,7 +18922,7 @@ state 672
     case_list  go to state 734
 
 
-state 673
+State 673
 
   130 switch_case_list: ':' case_list . T_ENDSWITCH ';'
   134 case_list: case_list . T_CASE expr case_separator $@32 inner_statement_list
@@ -18933,7 +18933,7 @@ state 673
     T_DEFAULT    shift, and go to state 737
 
 
-state 674
+State 674
 
   129 switch_case_list: '{' ';' . case_list '}'
 
@@ -18942,7 +18942,7 @@ state 674
     case_list  go to state 738
 
 
-state 675
+State 675
 
   128 switch_case_list: '{' case_list . '}'
   134 case_list: case_list . T_CASE expr case_separator $@32 inner_statement_list
@@ -18953,7 +18953,7 @@ state 675
     '}'        shift, and go to state 739
 
 
-state 676
+State 676
 
   377 non_empty_static_array_pair_list: static_scalar T_DOUBLE_ARROW . static_scalar
 
@@ -18983,14 +18983,14 @@ state 676
     static_class_constant  go to state 442
 
 
-state 677
+State 677
 
   360 static_scalar: T_ARRAY '(' static_array_pair_list ')' .
 
     $default  reduce using rule 360 (static_scalar)
 
 
-state 678
+State 678
 
   374 possible_comma: ',' .
   375 non_empty_static_array_pair_list: non_empty_static_array_pair_list ',' . static_scalar T_DOUBLE_ARROW static_scalar
@@ -19024,14 +19024,14 @@ state 678
     static_class_constant  go to state 442
 
 
-state 679
+State 679
 
   372 static_array_pair_list: non_empty_static_array_pair_list possible_comma .
 
     $default  reduce using rule 372 (static_array_pair_list)
 
 
-state 680
+State 680
 
    81 unticked_statement: T_TRY $@22 '{' inner_statement_list '}' T_CATCH '(' . $@23 fully_qualified_class_name $@24 T_VARIABLE ')' $@25 '{' inner_statement_list '}' $@26 additional_catches
 
@@ -19040,7 +19040,7 @@ state 680
     $@23  go to state 742
 
 
-state 681
+State 681
 
   422 assignment_list: assignment_list . ',' assignment_list_element
   426 assignment_list_element: T_LIST '(' $@66 assignment_list . ')'
@@ -19049,7 +19049,7 @@ state 681
     ')'  shift, and go to state 743
 
 
-state 682
+State 682
 
   216 expr_without_variable: T_LIST '(' $@39 assignment_list ')' '=' expr .
   240                      | expr . T_BOOLEAN_OR $@42 expr
@@ -19107,7 +19107,7 @@ state 682
     $default  reduce using rule 216 (expr_without_variable)
 
 
-state 683
+State 683
 
   434 non_empty_array_pair_list: non_empty_array_pair_list ',' expr T_DOUBLE_ARROW '&' . w_variable
 
@@ -19133,7 +19133,7 @@ state 683
     simple_indirect_reference          go to state 108
 
 
-state 684
+State 684
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -19194,35 +19194,35 @@ state 684
     $default  reduce using rule 430 (non_empty_array_pair_list)
 
 
-state 685
+State 685
 
   447 encaps_var: T_DOLLAR_OPEN_CURLY_BRACES T_STRING_VARNAME '[' expr ']' '}' .
 
     $default  reduce using rule 447 (encaps_var)
 
 
-state 686
+State 686
 
   305 function_call: T_NAMESPACE T_NS_SEPARATOR namespace_name '(' $@52 function_call_parameter_list ')' .
 
     $default  reduce using rule 305 (function_call)
 
 
-state 687
+State 687
 
    32 inner_statement: T_HALT_COMPILER '(' ')' ';' .
 
     $default  reduce using rule 32 (inner_statement)
 
 
-state 688
+State 688
 
   171 non_empty_function_call_parameter_list: non_empty_function_call_parameter_list ',' '&' w_variable .
 
     $default  reduce using rule 171 (non_empty_function_call_parameter_list)
 
 
-state 689
+State 689
 
   101 unticked_class_declaration_statement: class_entry_type T_STRING extends_from $@30 implements_list '{' class_statement_list . '}'
   181 class_statement_list: class_statement_list . class_statement
@@ -19247,84 +19247,84 @@ state 689
     class_constant_declaration  go to state 705
 
 
-state 690
+State 690
 
   115 interface_list: interface_list ',' fully_qualified_class_name .
 
     $default  reduce using rule 115 (interface_list)
 
 
-state 691
+State 691
 
   207 class_constant_declaration: T_CONST . T_STRING '=' static_scalar
 
     T_STRING  shift, and go to state 746
 
 
-state 692
+State 692
 
   196 member_modifier: T_PUBLIC .
 
     $default  reduce using rule 196 (member_modifier)
 
 
-state 693
+State 693
 
   197 member_modifier: T_PROTECTED .
 
     $default  reduce using rule 197 (member_modifier)
 
 
-state 694
+State 694
 
   198 member_modifier: T_PRIVATE .
 
     $default  reduce using rule 198 (member_modifier)
 
 
-state 695
+State 695
 
   201 member_modifier: T_FINAL .
 
     $default  reduce using rule 201 (member_modifier)
 
 
-state 696
+State 696
 
   200 member_modifier: T_ABSTRACT .
 
     $default  reduce using rule 200 (member_modifier)
 
 
-state 697
+State 697
 
   199 member_modifier: T_STATIC .
 
     $default  reduce using rule 199 (member_modifier)
 
 
-state 698
+State 698
 
   191 variable_modifiers: T_VAR .
 
     $default  reduce using rule 191 (variable_modifiers)
 
 
-state 699
+State 699
 
   103 unticked_class_declaration_statement: interface_entry T_STRING $@31 interface_extends_list '{' class_statement_list '}' .
 
     $default  reduce using rule 103 (unticked_class_declaration_statement)
 
 
-state 700
+State 700
 
   181 class_statement_list: class_statement_list class_statement .
 
     $default  reduce using rule 181 (class_statement_list)
 
 
-state 701
+State 701
 
   184 class_statement: variable_modifiers . $@36 class_variable_declaration ';'
 
@@ -19333,7 +19333,7 @@ state 701
     $@36  go to state 747
 
 
-state 702
+State 702
 
   187 class_statement: method_modifiers . function is_reference T_STRING $@37 '(' parameter_list ')' method_body
 
@@ -19342,7 +19342,7 @@ state 702
     function  go to state 748
 
 
-state 703
+State 703
 
   190 variable_modifiers: non_empty_member_modifiers .
   193 method_modifiers: non_empty_member_modifiers .
@@ -19361,14 +19361,14 @@ state 703
     member_modifier  go to state 749
 
 
-state 704
+State 704
 
   194 non_empty_member_modifiers: member_modifier .
 
     $default  reduce using rule 194 (non_empty_member_modifiers)
 
 
-state 705
+State 705
 
   185 class_statement: class_constant_declaration . ';'
   206 class_constant_declaration: class_constant_declaration . ',' T_STRING '=' static_scalar
@@ -19377,28 +19377,28 @@ state 705
     ';'  shift, and go to state 751
 
 
-state 706
+State 706
 
    99 unticked_function_declaration_statement: function is_reference T_STRING $@29 '(' parameter_list ')' . '{' inner_statement_list '}'
 
     '{'  shift, and go to state 752
 
 
-state 707
+State 707
 
   297 lexical_vars: T_USE . '(' lexical_var_list ')'
 
     '('  shift, and go to state 753
 
 
-state 708
+State 708
 
   294 expr_without_variable: function is_reference '(' @50 parameter_list ')' lexical_vars . '{' inner_statement_list '}'
 
     '{'  shift, and go to state 754
 
 
-state 709
+State 709
 
   157 non_empty_parameter_list: non_empty_parameter_list ',' optional_class_type . T_VARIABLE
   158                         | non_empty_parameter_list ',' optional_class_type . '&' T_VARIABLE
@@ -19409,7 +19409,7 @@ state 709
     T_VARIABLE  shift, and go to state 756
 
 
-state 710
+State 710
 
   154 non_empty_parameter_list: optional_class_type '&' T_VARIABLE .
   155                         | optional_class_type '&' T_VARIABLE . '=' static_scalar
@@ -19419,7 +19419,7 @@ state 710
     $default  reduce using rule 154 (non_empty_parameter_list)
 
 
-state 711
+State 711
 
   156 non_empty_parameter_list: optional_class_type T_VARIABLE '=' . static_scalar
 
@@ -19449,21 +19449,21 @@ state 711
     static_class_constant  go to state 442
 
 
-state 712
+State 712
 
   309 function_call: class_name T_PAAMAYIM_NEKUDOTAYIM T_STRING '(' $@54 function_call_parameter_list ')' .
 
     $default  reduce using rule 309 (function_call)
 
 
-state 713
+State 713
 
   311 function_call: class_name T_PAAMAYIM_NEKUDOTAYIM variable_without_objects '(' $@55 function_call_parameter_list ')' .
 
     $default  reduce using rule 311 (function_call)
 
 
-state 714
+State 714
 
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
   242                      | expr . T_BOOLEAN_AND $@43 expr
@@ -19520,28 +19520,28 @@ state 714
     $default  reduce using rule 275 (expr_without_variable)
 
 
-state 715
+State 715
 
   220 expr_without_variable: variable '=' '&' T_NEW class_name_reference $@40 ctor_arguments .
 
     $default  reduce using rule 220 (expr_without_variable)
 
 
-state 716
+State 716
 
   313 function_call: variable_class_name T_PAAMAYIM_NEKUDOTAYIM T_STRING '(' $@56 function_call_parameter_list ')' .
 
     $default  reduce using rule 313 (function_call)
 
 
-state 717
+State 717
 
   315 function_call: variable_class_name T_PAAMAYIM_NEKUDOTAYIM variable_without_objects '(' $@57 function_call_parameter_list ')' .
 
     $default  reduce using rule 315 (function_call)
 
 
-state 718
+State 718
 
   393 method_or_not: '(' $@64 . function_call_parameter_list ')'
 
@@ -19623,7 +19623,7 @@ state 718
     class_constant                          go to state 110
 
 
-state 719
+State 719
 
   386 variable: base_variable_with_function_calls T_OBJECT_OPERATOR $@61 object_property $@62 method_or_not variable_properties .
   388 variable_properties: variable_properties . variable_property
@@ -19635,21 +19635,21 @@ state 719
     variable_property  go to state 761
 
 
-state 720
+State 720
 
   415 object_dim_list: object_dim_list '[' dim_offset ']' .
 
     $default  reduce using rule 415 (object_dim_list)
 
 
-state 721
+State 721
 
   416 object_dim_list: object_dim_list '{' expr '}' .
 
     $default  reduce using rule 416 (object_dim_list)
 
 
-state 722
+State 722
 
   333 dynamic_class_name_variable_property: T_OBJECT_OPERATOR . object_property
 
@@ -19667,14 +19667,14 @@ state 722
     simple_indirect_reference  go to state 362
 
 
-state 723
+State 723
 
   331 dynamic_class_name_variable_properties: dynamic_class_name_variable_properties dynamic_class_name_variable_property .
 
     $default  reduce using rule 331 (dynamic_class_name_variable_properties)
 
 
-state 724
+State 724
 
    41 unticked_statement: T_IF '(' expr ')' ':' $@7 inner_statement_list $@8 . new_elseif_list new_else_single T_ENDIF ';'
 
@@ -19683,7 +19683,7 @@ state 724
     new_elseif_list  go to state 763
 
 
-state 725
+State 725
 
    38 unticked_statement: T_IF '(' expr ')' $@5 statement $@6 elseif_list . else_single
   143 elseif_list: elseif_list . T_ELSEIF '(' expr ')' $@34 statement
@@ -19698,14 +19698,14 @@ state 725
     else_single  go to state 766
 
 
-state 726
+State 726
 
    47 unticked_statement: T_DO $@11 statement T_WHILE '(' $@12 expr ')' . ';'
 
     ';'  shift, and go to state 767
 
 
-state 727
+State 727
 
    27 inner_statement_list: inner_statement_list . $@4 inner_statement
   140 while_statement: ':' inner_statement_list . T_ENDWHILE ';'
@@ -19717,7 +19717,7 @@ state 727
     $@4  go to state 347
 
 
-state 728
+State 728
 
    51 unticked_statement: T_FOR '(' for_expr ';' $@13 for_expr ';' $@14 . for_expr ')' $@15 for_statement
 
@@ -19798,14 +19798,14 @@ state 728
     class_constant                     go to state 110
 
 
-state 729
+State 729
 
   117 foreach_optional_arg: T_DOUBLE_ARROW foreach_variable .
 
     $default  reduce using rule 117 (foreach_optional_arg)
 
 
-state 730
+State 730
 
    72 unticked_statement: T_FOREACH '(' expr_without_variable T_AS $@19 variable foreach_optional_arg ')' . $@20 foreach_statement
 
@@ -19814,7 +19814,7 @@ state 730
     $@20  go to state 770
 
 
-state 731
+State 731
 
    69 unticked_statement: T_FOREACH '(' variable T_AS $@17 foreach_variable foreach_optional_arg ')' . $@18 foreach_statement
 
@@ -19823,21 +19823,21 @@ state 731
     $@18  go to state 771
 
 
-state 732
+State 732
 
   127 declare_list: declare_list ',' T_STRING '=' static_scalar .
 
     $default  reduce using rule 127 (declare_list)
 
 
-state 733
+State 733
 
   125 declare_statement: ':' inner_statement_list T_ENDDECLARE . ';'
 
     ';'  shift, and go to state 772
 
 
-state 734
+State 734
 
   131 switch_case_list: ':' ';' case_list . T_ENDSWITCH ';'
   134 case_list: case_list . T_CASE expr case_separator $@32 inner_statement_list
@@ -19848,14 +19848,14 @@ state 734
     T_DEFAULT    shift, and go to state 737
 
 
-state 735
+State 735
 
   130 switch_case_list: ':' case_list T_ENDSWITCH . ';'
 
     ';'  shift, and go to state 774
 
 
-state 736
+State 736
 
   134 case_list: case_list T_CASE . expr case_separator $@32 inner_statement_list
 
@@ -19932,7 +19932,7 @@ state 736
     class_constant                     go to state 110
 
 
-state 737
+State 737
 
   136 case_list: case_list T_DEFAULT . case_separator $@33 inner_statement_list
 
@@ -19942,7 +19942,7 @@ state 737
     case_separator  go to state 778
 
 
-state 738
+State 738
 
   129 switch_case_list: '{' ';' case_list . '}'
   134 case_list: case_list . T_CASE expr case_separator $@32 inner_statement_list
@@ -19953,21 +19953,21 @@ state 738
     '}'        shift, and go to state 779
 
 
-state 739
+State 739
 
   128 switch_case_list: '{' case_list '}' .
 
     $default  reduce using rule 128 (switch_case_list)
 
 
-state 740
+State 740
 
   377 non_empty_static_array_pair_list: static_scalar T_DOUBLE_ARROW static_scalar .
 
     $default  reduce using rule 377 (non_empty_static_array_pair_list)
 
 
-state 741
+State 741
 
   375 non_empty_static_array_pair_list: non_empty_static_array_pair_list ',' static_scalar . T_DOUBLE_ARROW static_scalar
   376                                 | non_empty_static_array_pair_list ',' static_scalar .
@@ -19977,7 +19977,7 @@ state 741
     $default  reduce using rule 376 (non_empty_static_array_pair_list)
 
 
-state 742
+State 742
 
    81 unticked_statement: T_TRY $@22 '{' inner_statement_list '}' T_CATCH '(' $@23 . fully_qualified_class_name $@24 T_VARIABLE ')' $@25 '{' inner_statement_list '}' $@26 additional_catches
 
@@ -19989,35 +19989,35 @@ state 742
     fully_qualified_class_name  go to state 781
 
 
-state 743
+State 743
 
   426 assignment_list_element: T_LIST '(' $@66 assignment_list ')' .
 
     $default  reduce using rule 426 (assignment_list_element)
 
 
-state 744
+State 744
 
   434 non_empty_array_pair_list: non_empty_array_pair_list ',' expr T_DOUBLE_ARROW '&' w_variable .
 
     $default  reduce using rule 434 (non_empty_array_pair_list)
 
 
-state 745
+State 745
 
   101 unticked_class_declaration_statement: class_entry_type T_STRING extends_from $@30 implements_list '{' class_statement_list '}' .
 
     $default  reduce using rule 101 (unticked_class_declaration_statement)
 
 
-state 746
+State 746
 
   207 class_constant_declaration: T_CONST T_STRING . '=' static_scalar
 
     '='  shift, and go to state 782
 
 
-state 747
+State 747
 
   184 class_statement: variable_modifiers $@36 . class_variable_declaration ';'
 
@@ -20026,7 +20026,7 @@ state 747
     class_variable_declaration  go to state 784
 
 
-state 748
+State 748
 
   187 class_statement: method_modifiers function . is_reference T_STRING $@37 '(' parameter_list ')' method_body
 
@@ -20037,28 +20037,28 @@ state 748
     is_reference  go to state 785
 
 
-state 749
+State 749
 
   195 non_empty_member_modifiers: non_empty_member_modifiers member_modifier .
 
     $default  reduce using rule 195 (non_empty_member_modifiers)
 
 
-state 750
+State 750
 
   206 class_constant_declaration: class_constant_declaration ',' . T_STRING '=' static_scalar
 
     T_STRING  shift, and go to state 786
 
 
-state 751
+State 751
 
   185 class_statement: class_constant_declaration ';' .
 
     $default  reduce using rule 185 (class_statement)
 
 
-state 752
+State 752
 
    99 unticked_function_declaration_statement: function is_reference T_STRING $@29 '(' parameter_list ')' '{' . inner_statement_list '}'
 
@@ -20067,7 +20067,7 @@ state 752
     inner_statement_list  go to state 787
 
 
-state 753
+State 753
 
   297 lexical_vars: T_USE '(' . lexical_var_list ')'
 
@@ -20077,7 +20077,7 @@ state 753
     lexical_var_list  go to state 790
 
 
-state 754
+State 754
 
   294 expr_without_variable: function is_reference '(' @50 parameter_list ')' lexical_vars '{' . inner_statement_list '}'
 
@@ -20086,7 +20086,7 @@ state 754
     inner_statement_list  go to state 791
 
 
-state 755
+State 755
 
   158 non_empty_parameter_list: non_empty_parameter_list ',' optional_class_type '&' . T_VARIABLE
   159                         | non_empty_parameter_list ',' optional_class_type '&' . T_VARIABLE '=' static_scalar
@@ -20094,7 +20094,7 @@ state 755
     T_VARIABLE  shift, and go to state 792
 
 
-state 756
+State 756
 
   157 non_empty_parameter_list: non_empty_parameter_list ',' optional_class_type T_VARIABLE .
   160                         | non_empty_parameter_list ',' optional_class_type T_VARIABLE . '=' static_scalar
@@ -20104,7 +20104,7 @@ state 756
     $default  reduce using rule 157 (non_empty_parameter_list)
 
 
-state 757
+State 757
 
   155 non_empty_parameter_list: optional_class_type '&' T_VARIABLE '=' . static_scalar
 
@@ -20134,21 +20134,21 @@ state 757
     static_class_constant  go to state 442
 
 
-state 758
+State 758
 
   156 non_empty_parameter_list: optional_class_type T_VARIABLE '=' static_scalar .
 
     $default  reduce using rule 156 (non_empty_parameter_list)
 
 
-state 759
+State 759
 
   393 method_or_not: '(' $@64 function_call_parameter_list . ')'
 
     ')'  shift, and go to state 795
 
 
-state 760
+State 760
 
   391 variable_property: T_OBJECT_OPERATOR . object_property $@63 method_or_not
 
@@ -20166,21 +20166,21 @@ state 760
     simple_indirect_reference  go to state 362
 
 
-state 761
+State 761
 
   388 variable_properties: variable_properties variable_property .
 
     $default  reduce using rule 388 (variable_properties)
 
 
-state 762
+State 762
 
   333 dynamic_class_name_variable_property: T_OBJECT_OPERATOR object_property .
 
     $default  reduce using rule 333 (dynamic_class_name_variable_property)
 
 
-state 763
+State 763
 
    41 unticked_statement: T_IF '(' expr ')' ':' $@7 inner_statement_list $@8 new_elseif_list . new_else_single T_ENDIF ';'
   146 new_elseif_list: new_elseif_list . T_ELSEIF '(' expr ')' ':' $@35 inner_statement_list
@@ -20193,14 +20193,14 @@ state 763
     new_else_single  go to state 799
 
 
-state 764
+State 764
 
   143 elseif_list: elseif_list T_ELSEIF . '(' expr ')' $@34 statement
 
     '('  shift, and go to state 800
 
 
-state 765
+State 765
 
   148 else_single: T_ELSE . statement
 
@@ -20298,35 +20298,35 @@ state 765
     class_constant                     go to state 110
 
 
-state 766
+State 766
 
    38 unticked_statement: T_IF '(' expr ')' $@5 statement $@6 elseif_list else_single .
 
     $default  reduce using rule 38 (unticked_statement)
 
 
-state 767
+State 767
 
    47 unticked_statement: T_DO $@11 statement T_WHILE '(' $@12 expr ')' ';' .
 
     $default  reduce using rule 47 (unticked_statement)
 
 
-state 768
+State 768
 
   140 while_statement: ':' inner_statement_list T_ENDWHILE . ';'
 
     ';'  shift, and go to state 802
 
 
-state 769
+State 769
 
    51 unticked_statement: T_FOR '(' for_expr ';' $@13 for_expr ';' $@14 for_expr . ')' $@15 for_statement
 
     ')'  shift, and go to state 803
 
 
-state 770
+State 770
 
    72 unticked_statement: T_FOREACH '(' expr_without_variable T_AS $@19 variable foreach_optional_arg ')' $@20 . foreach_statement
 
@@ -20426,7 +20426,7 @@ state 770
     class_constant                     go to state 110
 
 
-state 771
+State 771
 
    69 unticked_statement: T_FOREACH '(' variable T_AS $@17 foreach_variable foreach_optional_arg ')' $@18 . foreach_statement
 
@@ -20526,28 +20526,28 @@ state 771
     class_constant                     go to state 110
 
 
-state 772
+State 772
 
   125 declare_statement: ':' inner_statement_list T_ENDDECLARE ';' .
 
     $default  reduce using rule 125 (declare_statement)
 
 
-state 773
+State 773
 
   131 switch_case_list: ':' ';' case_list T_ENDSWITCH . ';'
 
     ';'  shift, and go to state 808
 
 
-state 774
+State 774
 
   130 switch_case_list: ':' case_list T_ENDSWITCH ';' .
 
     $default  reduce using rule 130 (switch_case_list)
 
 
-state 775
+State 775
 
   134 case_list: case_list T_CASE expr . case_separator $@32 inner_statement_list
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
@@ -20610,21 +20610,21 @@ state 775
     case_separator  go to state 809
 
 
-state 776
+State 776
 
   137 case_separator: ':' .
 
     $default  reduce using rule 137 (case_separator)
 
 
-state 777
+State 777
 
   138 case_separator: ';' .
 
     $default  reduce using rule 138 (case_separator)
 
 
-state 778
+State 778
 
   136 case_list: case_list T_DEFAULT case_separator . $@33 inner_statement_list
 
@@ -20633,14 +20633,14 @@ state 778
     $@33  go to state 810
 
 
-state 779
+State 779
 
   129 switch_case_list: '{' ';' case_list '}' .
 
     $default  reduce using rule 129 (switch_case_list)
 
 
-state 780
+State 780
 
   375 non_empty_static_array_pair_list: non_empty_static_array_pair_list ',' static_scalar T_DOUBLE_ARROW . static_scalar
 
@@ -20670,7 +20670,7 @@ state 780
     static_class_constant  go to state 442
 
 
-state 781
+State 781
 
    81 unticked_statement: T_TRY $@22 '{' inner_statement_list '}' T_CATCH '(' $@23 fully_qualified_class_name . $@24 T_VARIABLE ')' $@25 '{' inner_statement_list '}' $@26 additional_catches
 
@@ -20679,7 +20679,7 @@ state 781
     $@24  go to state 812
 
 
-state 782
+State 782
 
   207 class_constant_declaration: T_CONST T_STRING '=' . static_scalar
 
@@ -20709,7 +20709,7 @@ state 782
     static_class_constant  go to state 442
 
 
-state 783
+State 783
 
   204 class_variable_declaration: T_VARIABLE .
   205                           | T_VARIABLE . '=' static_scalar
@@ -20719,7 +20719,7 @@ state 783
     $default  reduce using rule 204 (class_variable_declaration)
 
 
-state 784
+State 784
 
   184 class_statement: variable_modifiers $@36 class_variable_declaration . ';'
   202 class_variable_declaration: class_variable_declaration . ',' T_VARIABLE
@@ -20729,21 +20729,21 @@ state 784
     ';'  shift, and go to state 816
 
 
-state 785
+State 785
 
   187 class_statement: method_modifiers function is_reference . T_STRING $@37 '(' parameter_list ')' method_body
 
     T_STRING  shift, and go to state 817
 
 
-state 786
+State 786
 
   206 class_constant_declaration: class_constant_declaration ',' T_STRING . '=' static_scalar
 
     '='  shift, and go to state 818
 
 
-state 787
+State 787
 
    27 inner_statement_list: inner_statement_list . $@4 inner_statement
    99 unticked_function_declaration_statement: function is_reference T_STRING $@29 '(' parameter_list ')' '{' inner_statement_list . '}'
@@ -20755,21 +20755,21 @@ state 787
     $@4  go to state 347
 
 
-state 788
+State 788
 
   301 lexical_var_list: '&' . T_VARIABLE
 
     T_VARIABLE  shift, and go to state 820
 
 
-state 789
+State 789
 
   300 lexical_var_list: T_VARIABLE .
 
     $default  reduce using rule 300 (lexical_var_list)
 
 
-state 790
+State 790
 
   297 lexical_vars: T_USE '(' lexical_var_list . ')'
   298 lexical_var_list: lexical_var_list . ',' T_VARIABLE
@@ -20779,7 +20779,7 @@ state 790
     ')'  shift, and go to state 822
 
 
-state 791
+State 791
 
    27 inner_statement_list: inner_statement_list . $@4 inner_statement
   294 expr_without_variable: function is_reference '(' @50 parameter_list ')' lexical_vars '{' inner_statement_list . '}'
@@ -20791,7 +20791,7 @@ state 791
     $@4  go to state 347
 
 
-state 792
+State 792
 
   158 non_empty_parameter_list: non_empty_parameter_list ',' optional_class_type '&' T_VARIABLE .
   159                         | non_empty_parameter_list ',' optional_class_type '&' T_VARIABLE . '=' static_scalar
@@ -20801,7 +20801,7 @@ state 792
     $default  reduce using rule 158 (non_empty_parameter_list)
 
 
-state 793
+State 793
 
   160 non_empty_parameter_list: non_empty_parameter_list ',' optional_class_type T_VARIABLE '=' . static_scalar
 
@@ -20831,21 +20831,21 @@ state 793
     static_class_constant  go to state 442
 
 
-state 794
+State 794
 
   155 non_empty_parameter_list: optional_class_type '&' T_VARIABLE '=' static_scalar .
 
     $default  reduce using rule 155 (non_empty_parameter_list)
 
 
-state 795
+State 795
 
   393 method_or_not: '(' $@64 function_call_parameter_list ')' .
 
     $default  reduce using rule 393 (method_or_not)
 
 
-state 796
+State 796
 
   391 variable_property: T_OBJECT_OPERATOR object_property . $@63 method_or_not
 
@@ -20854,28 +20854,28 @@ state 796
     $@63  go to state 826
 
 
-state 797
+State 797
 
   146 new_elseif_list: new_elseif_list T_ELSEIF . '(' expr ')' ':' $@35 inner_statement_list
 
     '('  shift, and go to state 827
 
 
-state 798
+State 798
 
   150 new_else_single: T_ELSE . ':' inner_statement_list
 
     ':'  shift, and go to state 828
 
 
-state 799
+State 799
 
    41 unticked_statement: T_IF '(' expr ')' ':' $@7 inner_statement_list $@8 new_elseif_list new_else_single . T_ENDIF ';'
 
     T_ENDIF  shift, and go to state 829
 
 
-state 800
+State 800
 
   143 elseif_list: elseif_list T_ELSEIF '(' . expr ')' $@34 statement
 
@@ -20952,21 +20952,21 @@ state 800
     class_constant                     go to state 110
 
 
-state 801
+State 801
 
   148 else_single: T_ELSE statement .
 
     $default  reduce using rule 148 (else_single)
 
 
-state 802
+State 802
 
   140 while_statement: ':' inner_statement_list T_ENDWHILE ';' .
 
     $default  reduce using rule 140 (while_statement)
 
 
-state 803
+State 803
 
    51 unticked_statement: T_FOR '(' for_expr ';' $@13 for_expr ';' $@14 for_expr ')' . $@15 for_statement
 
@@ -20975,7 +20975,7 @@ state 803
     $@15  go to state 831
 
 
-state 804
+State 804
 
   123 foreach_statement: ':' . inner_statement_list T_ENDFOREACH ';'
 
@@ -20984,35 +20984,35 @@ state 804
     inner_statement_list  go to state 832
 
 
-state 805
+State 805
 
   122 foreach_statement: statement .
 
     $default  reduce using rule 122 (foreach_statement)
 
 
-state 806
+State 806
 
    72 unticked_statement: T_FOREACH '(' expr_without_variable T_AS $@19 variable foreach_optional_arg ')' $@20 foreach_statement .
 
     $default  reduce using rule 72 (unticked_statement)
 
 
-state 807
+State 807
 
    69 unticked_statement: T_FOREACH '(' variable T_AS $@17 foreach_variable foreach_optional_arg ')' $@18 foreach_statement .
 
     $default  reduce using rule 69 (unticked_statement)
 
 
-state 808
+State 808
 
   131 switch_case_list: ':' ';' case_list T_ENDSWITCH ';' .
 
     $default  reduce using rule 131 (switch_case_list)
 
 
-state 809
+State 809
 
   134 case_list: case_list T_CASE expr case_separator . $@32 inner_statement_list
 
@@ -21021,7 +21021,7 @@ state 809
     $@32  go to state 833
 
 
-state 810
+State 810
 
   136 case_list: case_list T_DEFAULT case_separator $@33 . inner_statement_list
 
@@ -21030,28 +21030,28 @@ state 810
     inner_statement_list  go to state 834
 
 
-state 811
+State 811
 
   375 non_empty_static_array_pair_list: non_empty_static_array_pair_list ',' static_scalar T_DOUBLE_ARROW static_scalar .
 
     $default  reduce using rule 375 (non_empty_static_array_pair_list)
 
 
-state 812
+State 812
 
    81 unticked_statement: T_TRY $@22 '{' inner_statement_list '}' T_CATCH '(' $@23 fully_qualified_class_name $@24 . T_VARIABLE ')' $@25 '{' inner_statement_list '}' $@26 additional_catches
 
     T_VARIABLE  shift, and go to state 835
 
 
-state 813
+State 813
 
   207 class_constant_declaration: T_CONST T_STRING '=' static_scalar .
 
     $default  reduce using rule 207 (class_constant_declaration)
 
 
-state 814
+State 814
 
   205 class_variable_declaration: T_VARIABLE '=' . static_scalar
 
@@ -21081,7 +21081,7 @@ state 814
     static_class_constant  go to state 442
 
 
-state 815
+State 815
 
   202 class_variable_declaration: class_variable_declaration ',' . T_VARIABLE
   203                           | class_variable_declaration ',' . T_VARIABLE '=' static_scalar
@@ -21089,14 +21089,14 @@ state 815
     T_VARIABLE  shift, and go to state 837
 
 
-state 816
+State 816
 
   184 class_statement: variable_modifiers $@36 class_variable_declaration ';' .
 
     $default  reduce using rule 184 (class_statement)
 
 
-state 817
+State 817
 
   187 class_statement: method_modifiers function is_reference T_STRING . $@37 '(' parameter_list ')' method_body
 
@@ -21105,7 +21105,7 @@ state 817
     $@37  go to state 838
 
 
-state 818
+State 818
 
   206 class_constant_declaration: class_constant_declaration ',' T_STRING '=' . static_scalar
 
@@ -21135,21 +21135,21 @@ state 818
     static_class_constant  go to state 442
 
 
-state 819
+State 819
 
    99 unticked_function_declaration_statement: function is_reference T_STRING $@29 '(' parameter_list ')' '{' inner_statement_list '}' .
 
     $default  reduce using rule 99 (unticked_function_declaration_statement)
 
 
-state 820
+State 820
 
   301 lexical_var_list: '&' T_VARIABLE .
 
     $default  reduce using rule 301 (lexical_var_list)
 
 
-state 821
+State 821
 
   298 lexical_var_list: lexical_var_list ',' . T_VARIABLE
   299                 | lexical_var_list ',' . '&' T_VARIABLE
@@ -21158,21 +21158,21 @@ state 821
     T_VARIABLE  shift, and go to state 841
 
 
-state 822
+State 822
 
   297 lexical_vars: T_USE '(' lexical_var_list ')' .
 
     $default  reduce using rule 297 (lexical_vars)
 
 
-state 823
+State 823
 
   294 expr_without_variable: function is_reference '(' @50 parameter_list ')' lexical_vars '{' inner_statement_list '}' .
 
     $default  reduce using rule 294 (expr_without_variable)
 
 
-state 824
+State 824
 
   159 non_empty_parameter_list: non_empty_parameter_list ',' optional_class_type '&' T_VARIABLE '=' . static_scalar
 
@@ -21202,14 +21202,14 @@ state 824
     static_class_constant  go to state 442
 
 
-state 825
+State 825
 
   160 non_empty_parameter_list: non_empty_parameter_list ',' optional_class_type T_VARIABLE '=' static_scalar .
 
     $default  reduce using rule 160 (non_empty_parameter_list)
 
 
-state 826
+State 826
 
   391 variable_property: T_OBJECT_OPERATOR object_property $@63 . method_or_not
 
@@ -21220,7 +21220,7 @@ state 826
     method_or_not  go to state 843
 
 
-state 827
+State 827
 
   146 new_elseif_list: new_elseif_list T_ELSEIF '(' . expr ')' ':' $@35 inner_statement_list
 
@@ -21297,7 +21297,7 @@ state 827
     class_constant                     go to state 110
 
 
-state 828
+State 828
 
   150 new_else_single: T_ELSE ':' . inner_statement_list
 
@@ -21306,14 +21306,14 @@ state 828
     inner_statement_list  go to state 845
 
 
-state 829
+State 829
 
    41 unticked_statement: T_IF '(' expr ')' ':' $@7 inner_statement_list $@8 new_elseif_list new_else_single T_ENDIF . ';'
 
     ';'  shift, and go to state 846
 
 
-state 830
+State 830
 
   143 elseif_list: elseif_list T_ELSEIF '(' expr . ')' $@34 statement
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
@@ -21373,7 +21373,7 @@ state 830
     ')'                    shift, and go to state 847
 
 
-state 831
+State 831
 
    51 unticked_statement: T_FOR '(' for_expr ';' $@13 for_expr ';' $@14 for_expr ')' $@15 . for_statement
 
@@ -21473,7 +21473,7 @@ state 831
     class_constant                     go to state 110
 
 
-state 832
+State 832
 
    27 inner_statement_list: inner_statement_list . $@4 inner_statement
   123 foreach_statement: ':' inner_statement_list . T_ENDFOREACH ';'
@@ -21485,7 +21485,7 @@ state 832
     $@4  go to state 347
 
 
-state 833
+State 833
 
   134 case_list: case_list T_CASE expr case_separator $@32 . inner_statement_list
 
@@ -21494,7 +21494,7 @@ state 833
     inner_statement_list  go to state 852
 
 
-state 834
+State 834
 
    27 inner_statement_list: inner_statement_list . $@4 inner_statement
   136 case_list: case_list T_DEFAULT case_separator $@33 inner_statement_list .
@@ -21508,21 +21508,21 @@ state 834
     $@4  go to state 347
 
 
-state 835
+State 835
 
    81 unticked_statement: T_TRY $@22 '{' inner_statement_list '}' T_CATCH '(' $@23 fully_qualified_class_name $@24 T_VARIABLE . ')' $@25 '{' inner_statement_list '}' $@26 additional_catches
 
     ')'  shift, and go to state 853
 
 
-state 836
+State 836
 
   205 class_variable_declaration: T_VARIABLE '=' static_scalar .
 
     $default  reduce using rule 205 (class_variable_declaration)
 
 
-state 837
+State 837
 
   202 class_variable_declaration: class_variable_declaration ',' T_VARIABLE .
   203                           | class_variable_declaration ',' T_VARIABLE . '=' static_scalar
@@ -21532,49 +21532,49 @@ state 837
     $default  reduce using rule 202 (class_variable_declaration)
 
 
-state 838
+State 838
 
   187 class_statement: method_modifiers function is_reference T_STRING $@37 . '(' parameter_list ')' method_body
 
     '('  shift, and go to state 855
 
 
-state 839
+State 839
 
   206 class_constant_declaration: class_constant_declaration ',' T_STRING '=' static_scalar .
 
     $default  reduce using rule 206 (class_constant_declaration)
 
 
-state 840
+State 840
 
   299 lexical_var_list: lexical_var_list ',' '&' . T_VARIABLE
 
     T_VARIABLE  shift, and go to state 856
 
 
-state 841
+State 841
 
   298 lexical_var_list: lexical_var_list ',' T_VARIABLE .
 
     $default  reduce using rule 298 (lexical_var_list)
 
 
-state 842
+State 842
 
   159 non_empty_parameter_list: non_empty_parameter_list ',' optional_class_type '&' T_VARIABLE '=' static_scalar .
 
     $default  reduce using rule 159 (non_empty_parameter_list)
 
 
-state 843
+State 843
 
   391 variable_property: T_OBJECT_OPERATOR object_property $@63 method_or_not .
 
     $default  reduce using rule 391 (variable_property)
 
 
-state 844
+State 844
 
   146 new_elseif_list: new_elseif_list T_ELSEIF '(' expr . ')' ':' $@35 inner_statement_list
   240 expr_without_variable: expr . T_BOOLEAN_OR $@42 expr
@@ -21634,7 +21634,7 @@ state 844
     ')'                    shift, and go to state 857
 
 
-state 845
+State 845
 
    27 inner_statement_list: inner_statement_list . $@4 inner_statement
   150 new_else_single: T_ELSE ':' inner_statement_list .
@@ -21645,14 +21645,14 @@ state 845
     $@4  go to state 347
 
 
-state 846
+State 846
 
    41 unticked_statement: T_IF '(' expr ')' ':' $@7 inner_statement_list $@8 new_elseif_list new_else_single T_ENDIF ';' .
 
     $default  reduce using rule 41 (unticked_statement)
 
 
-state 847
+State 847
 
   143 elseif_list: elseif_list T_ELSEIF '(' expr ')' . $@34 statement
 
@@ -21661,7 +21661,7 @@ state 847
     $@34  go to state 858
 
 
-state 848
+State 848
 
   121 for_statement: ':' . inner_statement_list T_ENDFOR ';'
 
@@ -21670,28 +21670,28 @@ state 848
     inner_statement_list  go to state 859
 
 
-state 849
+State 849
 
   120 for_statement: statement .
 
     $default  reduce using rule 120 (for_statement)
 
 
-state 850
+State 850
 
    51 unticked_statement: T_FOR '(' for_expr ';' $@13 for_expr ';' $@14 for_expr ')' $@15 for_statement .
 
     $default  reduce using rule 51 (unticked_statement)
 
 
-state 851
+State 851
 
   123 foreach_statement: ':' inner_statement_list T_ENDFOREACH . ';'
 
     ';'  shift, and go to state 860
 
 
-state 852
+State 852
 
    27 inner_statement_list: inner_statement_list . $@4 inner_statement
   134 case_list: case_list T_CASE expr case_separator $@32 inner_statement_list .
@@ -21705,7 +21705,7 @@ state 852
     $@4  go to state 347
 
 
-state 853
+State 853
 
    81 unticked_statement: T_TRY $@22 '{' inner_statement_list '}' T_CATCH '(' $@23 fully_qualified_class_name $@24 T_VARIABLE ')' . $@25 '{' inner_statement_list '}' $@26 additional_catches
 
@@ -21714,7 +21714,7 @@ state 853
     $@25  go to state 861
 
 
-state 854
+State 854
 
   203 class_variable_declaration: class_variable_declaration ',' T_VARIABLE '=' . static_scalar
 
@@ -21744,7 +21744,7 @@ state 854
     static_class_constant  go to state 442
 
 
-state 855
+State 855
 
   187 class_statement: method_modifiers function is_reference T_STRING $@37 '(' . parameter_list ')' method_body
 
@@ -21763,21 +21763,21 @@ state 855
     fully_qualified_class_name  go to state 580
 
 
-state 856
+State 856
 
   299 lexical_var_list: lexical_var_list ',' '&' T_VARIABLE .
 
     $default  reduce using rule 299 (lexical_var_list)
 
 
-state 857
+State 857
 
   146 new_elseif_list: new_elseif_list T_ELSEIF '(' expr ')' . ':' $@35 inner_statement_list
 
     ':'  shift, and go to state 864
 
 
-state 858
+State 858
 
   143 elseif_list: elseif_list T_ELSEIF '(' expr ')' $@34 . statement
 
@@ -21875,7 +21875,7 @@ state 858
     class_constant                     go to state 110
 
 
-state 859
+State 859
 
    27 inner_statement_list: inner_statement_list . $@4 inner_statement
   121 for_statement: ':' inner_statement_list . T_ENDFOR ';'
@@ -21887,35 +21887,35 @@ state 859
     $@4  go to state 347
 
 
-state 860
+State 860
 
   123 foreach_statement: ':' inner_statement_list T_ENDFOREACH ';' .
 
     $default  reduce using rule 123 (foreach_statement)
 
 
-state 861
+State 861
 
    81 unticked_statement: T_TRY $@22 '{' inner_statement_list '}' T_CATCH '(' $@23 fully_qualified_class_name $@24 T_VARIABLE ')' $@25 . '{' inner_statement_list '}' $@26 additional_catches
 
     '{'  shift, and go to state 867
 
 
-state 862
+State 862
 
   203 class_variable_declaration: class_variable_declaration ',' T_VARIABLE '=' static_scalar .
 
     $default  reduce using rule 203 (class_variable_declaration)
 
 
-state 863
+State 863
 
   187 class_statement: method_modifiers function is_reference T_STRING $@37 '(' parameter_list . ')' method_body
 
     ')'  shift, and go to state 868
 
 
-state 864
+State 864
 
   146 new_elseif_list: new_elseif_list T_ELSEIF '(' expr ')' ':' . $@35 inner_statement_list
 
@@ -21924,21 +21924,21 @@ state 864
     $@35  go to state 869
 
 
-state 865
+State 865
 
   143 elseif_list: elseif_list T_ELSEIF '(' expr ')' $@34 statement .
 
     $default  reduce using rule 143 (elseif_list)
 
 
-state 866
+State 866
 
   121 for_statement: ':' inner_statement_list T_ENDFOR . ';'
 
     ';'  shift, and go to state 870
 
 
-state 867
+State 867
 
    81 unticked_statement: T_TRY $@22 '{' inner_statement_list '}' T_CATCH '(' $@23 fully_qualified_class_name $@24 T_VARIABLE ')' $@25 '{' . inner_statement_list '}' $@26 additional_catches
 
@@ -21947,7 +21947,7 @@ state 867
     inner_statement_list  go to state 871
 
 
-state 868
+State 868
 
   187 class_statement: method_modifiers function is_reference T_STRING $@37 '(' parameter_list ')' . method_body
 
@@ -21957,7 +21957,7 @@ state 868
     method_body  go to state 874
 
 
-state 869
+State 869
 
   146 new_elseif_list: new_elseif_list T_ELSEIF '(' expr ')' ':' $@35 . inner_statement_list
 
@@ -21966,14 +21966,14 @@ state 869
     inner_statement_list  go to state 875
 
 
-state 870
+State 870
 
   121 for_statement: ':' inner_statement_list T_ENDFOR ';' .
 
     $default  reduce using rule 121 (for_statement)
 
 
-state 871
+State 871
 
    27 inner_statement_list: inner_statement_list . $@4 inner_statement
    81 unticked_statement: T_TRY $@22 '{' inner_statement_list '}' T_CATCH '(' $@23 fully_qualified_class_name $@24 T_VARIABLE ')' $@25 '{' inner_statement_list . '}' $@26 additional_catches
@@ -21985,14 +21985,14 @@ state 871
     $@4  go to state 347
 
 
-state 872
+State 872
 
   188 method_body: ';' .
 
     $default  reduce using rule 188 (method_body)
 
 
-state 873
+State 873
 
   189 method_body: '{' . inner_statement_list '}'
 
@@ -22001,14 +22001,14 @@ state 873
     inner_statement_list  go to state 877
 
 
-state 874
+State 874
 
   187 class_statement: method_modifiers function is_reference T_STRING $@37 '(' parameter_list ')' method_body .
 
     $default  reduce using rule 187 (class_statement)
 
 
-state 875
+State 875
 
    27 inner_statement_list: inner_statement_list . $@4 inner_statement
   146 new_elseif_list: new_elseif_list T_ELSEIF '(' expr ')' ':' $@35 inner_statement_list .
@@ -22021,7 +22021,7 @@ state 875
     $@4  go to state 347
 
 
-state 876
+State 876
 
    81 unticked_statement: T_TRY $@22 '{' inner_statement_list '}' T_CATCH '(' $@23 fully_qualified_class_name $@24 T_VARIABLE ')' $@25 '{' inner_statement_list '}' . $@26 additional_catches
 
@@ -22030,7 +22030,7 @@ state 876
     $@26  go to state 878
 
 
-state 877
+State 877
 
    27 inner_statement_list: inner_statement_list . $@4 inner_statement
   189 method_body: '{' inner_statement_list . '}'
@@ -22042,7 +22042,7 @@ state 877
     $@4  go to state 347
 
 
-state 878
+State 878
 
    81 unticked_statement: T_TRY $@22 '{' inner_statement_list '}' T_CATCH '(' $@23 fully_qualified_class_name $@24 T_VARIABLE ')' $@25 '{' inner_statement_list '}' $@26 . additional_catches
 
@@ -22055,28 +22055,28 @@ state 878
     additional_catch              go to state 883
 
 
-state 879
+State 879
 
   189 method_body: '{' inner_statement_list '}' .
 
     $default  reduce using rule 189 (method_body)
 
 
-state 880
+State 880
 
    90 additional_catch: T_CATCH . '(' fully_qualified_class_name @27 T_VARIABLE ')' $@28 '{' inner_statement_list '}'
 
     '('  shift, and go to state 884
 
 
-state 881
+State 881
 
    81 unticked_statement: T_TRY $@22 '{' inner_statement_list '}' T_CATCH '(' $@23 fully_qualified_class_name $@24 T_VARIABLE ')' $@25 '{' inner_statement_list '}' $@26 additional_catches .
 
     $default  reduce using rule 81 (unticked_statement)
 
 
-state 882
+State 882
 
    84 additional_catches: non_empty_additional_catches .
    87 non_empty_additional_catches: non_empty_additional_catches . additional_catch
@@ -22088,14 +22088,14 @@ state 882
     additional_catch  go to state 885
 
 
-state 883
+State 883
 
    86 non_empty_additional_catches: additional_catch .
 
     $default  reduce using rule 86 (non_empty_additional_catches)
 
 
-state 884
+State 884
 
    90 additional_catch: T_CATCH '(' . fully_qualified_class_name @27 T_VARIABLE ')' $@28 '{' inner_statement_list '}'
 
@@ -22107,14 +22107,14 @@ state 884
     fully_qualified_class_name  go to state 886
 
 
-state 885
+State 885
 
    87 non_empty_additional_catches: non_empty_additional_catches additional_catch .
 
     $default  reduce using rule 87 (non_empty_additional_catches)
 
 
-state 886
+State 886
 
    90 additional_catch: T_CATCH '(' fully_qualified_class_name . @27 T_VARIABLE ')' $@28 '{' inner_statement_list '}'
 
@@ -22123,21 +22123,21 @@ state 886
     @27  go to state 887
 
 
-state 887
+State 887
 
    90 additional_catch: T_CATCH '(' fully_qualified_class_name @27 . T_VARIABLE ')' $@28 '{' inner_statement_list '}'
 
     T_VARIABLE  shift, and go to state 888
 
 
-state 888
+State 888
 
    90 additional_catch: T_CATCH '(' fully_qualified_class_name @27 T_VARIABLE . ')' $@28 '{' inner_statement_list '}'
 
     ')'  shift, and go to state 889
 
 
-state 889
+State 889
 
    90 additional_catch: T_CATCH '(' fully_qualified_class_name @27 T_VARIABLE ')' . $@28 '{' inner_statement_list '}'
 
@@ -22146,14 +22146,14 @@ state 889
     $@28  go to state 890
 
 
-state 890
+State 890
 
    90 additional_catch: T_CATCH '(' fully_qualified_class_name @27 T_VARIABLE ')' $@28 . '{' inner_statement_list '}'
 
     '{'  shift, and go to state 891
 
 
-state 891
+State 891
 
    90 additional_catch: T_CATCH '(' fully_qualified_class_name @27 T_VARIABLE ')' $@28 '{' . inner_statement_list '}'
 
@@ -22162,7 +22162,7 @@ state 891
     inner_statement_list  go to state 892
 
 
-state 892
+State 892
 
    27 inner_statement_list: inner_statement_list . $@4 inner_statement
    90 additional_catch: T_CATCH '(' fully_qualified_class_name @27 T_VARIABLE ')' $@28 '{' inner_statement_list . '}'
@@ -22174,7 +22174,7 @@ state 892
     $@4  go to state 347
 
 
-state 893
+State 893
 
    90 additional_catch: T_CATCH '(' fully_qualified_class_name @27 T_VARIABLE ')' $@28 '{' inner_statement_list '}' .
 
