@@ -1,9 +1,65 @@
 PHP                                                                        NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+04 Jul 2013, PHP 5.4.17
+
+- Core:
+  . Fixed bug #64988 (Class loading order affects E_STRICT warning). (Laruence)
+  . Fixed bug #64966 (segfault in zend_do_fcall_common_helper_SPEC). (Laruence)
+  . Fixed bug #64960 (Segfault in gc_zval_possible_root). (Laruence)
+  . Fixed bug #64936 (doc comments picked up from previous scanner run). (Stas,
+    Jonathan Oddy)
+  . Fixed bug #64934 (Apache2 TS crash with get_browser()). (Anatol)
+  . Fixed bug #64166 (quoted-printable-encode stream filter incorrectly 
+    discarding whitespace). (Michael M Slusarz)
+
+- DateTime:
+  . Fixed bug #53437 (Crash when using unserialized DatePeriod instance).
+    (Gustavo, Derick, Anatol)
+
+- FPM:
+  . Fixed Bug #64915 (error_log ignored when daemonize=0). (Remi)
+  . Implemented FR #64764 (add support for FPM init.d script). (Lior Kaplan)
+
+- PDO:
+  . Fixed bug #63176 (Segmentation fault when instantiate 2 persistent PDO to 
+    the same db server). (Laruence)
+
+- PDO_DBlib:
+  . Fixed bug #63638 (Cannot connect to SQL Server 2008 with PDO dblib). 
+    (Stanley Sufficool)
+  . Fixed bug #64338 (pdo_dblib can't connect to Azure SQL). (Stanley 
+    Sufficool)
+  . Fixed bug #64808 (FreeTDS PDO getColumnMeta on a prepared but not executed 
+    statement crashes). (Stanley Sufficool)
+
+- PDO_firebird:
+  . Fixed bug #64037 (Firebird return wrong value for numeric field).
+    (Matheus Degiovani, Matteo)
+  . Fixed bug #62024 (Cannot insert second row with null using parametrized
+    query). (patch by james@kenjim.com, Matheus Degiovani, Matteo)
+
+- PDO_mysql:
+  . Fixed bug #48724 (getColumnMeta() doesn't return native_type for BIT, 
+    TINYINT and YEAR). (Antony, Daniel Beardsley)
+
+- PDO_pgsql:
+  . Fixed Bug #64949 (Buffer overflow in _pdo_pgsql_error). (Remi)
+
+- pgsql:
+  . Fixed bug #64609 (pg_convert enum type support). (Matteo)
+
+- Readline:
+  . Implement FR #55694 (Expose additional readline variable to prevent 
+    default filename completion). (Hartmel)
+
+- SPL:
+  . Fixed bug #64997 (Segfault while using RecursiveIteratorIterator on
+    64-bits systems). (Laruence)
+
 06 Jun 2013, PHP 5.4.16
 
 - Core:
-  . Fixed bug #64879 (Heap based buffer overflow in quoted_printable_encode, 
+  . Fixed bug #64879 (Heap based buffer overflow in quoted_printable_encode,
     CVE 2013-2110). (Stas)
   . Fixed bug #64853 (Use of no longer available ini directives causes crash on
     TS build). (Anatol)
@@ -28,7 +84,7 @@ PHP                                                                        NEWS
     Type=notify in the systemd unit file. (Remi)
 
 - MySQLi
- . Fixed bug #64726 (Segfault when calling fetch_object on a use_result and DB
+  . Fixed bug #64726 (Segfault when calling fetch_object on a use_result and DB
     pointer has closed). (Laruence)
 
 - Phar
@@ -144,9 +200,6 @@ PHP                                                                        NEWS
     (CVE-2013-1635). (Dmitry)
   . Disabled external entities loading (CVE-2013-1643, CVE-2013-1824).
     (Dmitry)
-
-- Phar:
-  . Fixed timestamp update on Phar contents modification. (Dmitry)
 
 - SPL:
   . Fixed bug #64264 (SPLFixedArray toArray problem). (Laruence)
