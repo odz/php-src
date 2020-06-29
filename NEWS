@@ -1,5 +1,49 @@
 PHP                                                                        NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+22 Nov 2012, PHP 5.3.19
+
+- Core
+  . Fixed bug #63241 (PHP fails to open Windows deduplicated files).
+    (daniel dot stelter-gliese at innogames dot de)
+  . Fixed bug #62444 (Handle leak in is_readable on windows). 
+    (krazyest at seznam dot cz)
+
+- Libxml
+  . Fixed bug #63389 (Missing context check on libxml_set_streams_context()
+    causes memleak). (Laruence)
+
+- Mbstring:
+  . Fixed bug #63447 (max_input_vars doesn't filter variables when
+    mbstring.encoding_translation = On). (Laruence)
+
+- MySQL:
+  . Fixed compilation failure on mixed 32/64 bit systems. (Andrey)
+
+- OCI8:
+  . Fixed bug #63265 (Add ORA-00028 to the PHP_OCI_HANDLE_ERROR macro)
+    (Chris Jones)
+
+- PCRE:
+  . Fixed bug #63055 (Segfault in zend_gc with SF2 testsuite).
+    (Dmitry, Laruence)
+  . Fixed bug #63284 (Upgrade PCRE to 8.31). (Anatoliy)
+
+- PDO:
+  . Fixed bug #63235 (buffer overflow in use of SQLGetDiagRec).
+    (Martin Osvald, Remi)
+
+- PDO_pgsql:
+  . Fixed bug #62593 (Emulate prepares behave strangely with PARAM_BOOL).
+    (Will Fitch)
+
+- Streams:
+  . Fixed bug #63240 (stream_get_line() return contains delimiter string).
+    (Tjerk, Gustavo)
+
+- Phar:
+  . Fixed bug #63297 (Phar fails to write an openssl based signature).
+    (Anatoliy)
+
 18 Oct 2012, PHP 5.3.18
 
 - Core:
@@ -30,6 +74,9 @@ PHP                                                                        NEWS
 - Intl:
   . Fix bug #62915 (defective cloning in several intl classes). (Gustavo)
 
+- OCI8:
+  . Fixed bug #60901 (Improve "tail" syntax for AIX installation) (Chris Jones)
+
 - SOAP
   . Fixed bug #50997 (SOAP Error when trying to submit 2nd Element of a choice).
     (Dmitry)
@@ -53,9 +100,13 @@ PHP                                                                        NEWS
 
 - CURL:
   . Fixed bug #62839 (curl_copy_handle segfault with CURLOPT_FILE). (Pierrick)
-
-- Intl:
-  . Fix null pointer dereferences in some classes of ext/intl. (Gustavo)
+   . Fixed bug #62499 (curl_setopt($ch, CURLOPT_COOKIEFILE, "") returns false).
+     (r.hampartsumyan@gmail.com, Laruence)
+  
+ - DateTime:
+   . Fixed bug #62852 (Unserialize invalid DateTime causes crash).
+     (reeze.xia@gmail.com)
+   . Fixed bug #62500 (Segfault in DateInterval class when extended). (Laruence)
 
 - MySQLnd:
   . Fixed bug #62885 (mysqli_poll - Segmentation fault). (Laruence)
@@ -1348,6 +1399,7 @@ PHP                                                                        NEWS
 
 - GD extension:
   . Fixed bug #53492 (fix crash if anti-aliasing steps are invalid). (Pierre)
+  . Fixed potential memory leak on a png error (Rasmus, Paul Saab)
 
 - GMP extension:
   . Fixed bug #52906 (gmp_mod returns negative result when non-negative is 
