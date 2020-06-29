@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: SAPI.c,v 1.155.2.9 2003/02/11 23:30:13 moriyoshi Exp $ */
+/* $Id: SAPI.c,v 1.155.2.12 2003/08/11 19:40:52 helly Exp $ */
 
 #include <ctype.h>
 #include <sys/stat.h>
@@ -386,16 +386,6 @@ SAPI_API void sapi_deactivate(TSRMLS_D)
 	zend_llist_destroy(&SG(sapi_headers).headers);
 	if (SG(request_info).post_data) {
 		efree(SG(request_info).post_data);
-	}  else 	if (SG(server_context)) {
-		if(sapi_module.read_post) { 
-			/* make sure we've consumed all request input data */
-			char dummy[SAPI_POST_BLOCK_SIZE];
-			int read_bytes;
-
-			while((read_bytes = sapi_module.read_post(dummy, sizeof(dummy)-1 TSRMLS_CC)) > 0) {
-				SG(read_post_bytes) += read_bytes;
-			}
-		}
 	}
 	if (SG(request_info).raw_post_data) {
 		efree(SG(request_info).raw_post_data);
@@ -456,6 +446,12 @@ static int sapi_extract_response_code(const char *header_line)
 
 static void sapi_update_response_code(int ncode TSRMLS_DC)
 {
+	/* if the status code did not change, we do not want
+	   to change the status line, and no need to change the code */
+	if (SG(sapi_headers).http_response_code == ncode) {
+		return;
+	}
+
 	if (SG(sapi_headers).http_status_line) {
 		efree(SG(sapi_headers).http_status_line);
 		SG(sapi_headers).http_status_line = NULL;
@@ -579,8 +575,9 @@ SAPI_API int sapi_header_op(sapi_header_op_enum op, void *arg TSRMLS_DC)
 				efree(mimetype);
 				SG(sapi_headers).send_default_content_type = 0;
 			} else if (!STRCASECMP(header_line, "Location")) {
-				if (SG(sapi_headers).http_response_code < 300 ||
-					SG(sapi_headers).http_response_code > 307) {
+				if ((SG(sapi_headers).http_response_code < 300 ||
+					SG(sapi_headers).http_response_code > 307) &&
+					SG(sapi_headers).http_response_code != 201) {
 					/* Return a Found Redirect if one is not already specified */
 					sapi_update_response_code(302 TSRMLS_CC);
 				}

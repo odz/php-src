@@ -78,6 +78,8 @@ ZEND_API int zend_ini_startup(TSRMLS_D)
 ZEND_API int zend_ini_shutdown(TSRMLS_D)
 {
 	zend_hash_destroy(EG(ini_directives));
+	free(EG(ini_directives));
+	
 	return SUCCESS;
 }
 

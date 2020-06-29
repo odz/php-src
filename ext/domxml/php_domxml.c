@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_domxml.c,v 1.218.2.23 2003/05/13 14:42:23 chregu Exp $ */
+/* $Id: php_domxml.c,v 1.218.2.28 2003/08/07 16:44:11 zeev Exp $ */
 
 /* TODO
  * - Support Notation Nodes
@@ -720,7 +720,7 @@ static void php_free_xml_doc(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 	xmlDoc *doc = (xmlDoc *) rsrc->ptr;
 
 	if (doc) {
-		node_list_wrapper_dtor(doc->children, 0 TSRMLS_CC);
+		node_list_wrapper_dtor(doc->children, 1 TSRMLS_CC);
 		node_wrapper_dtor((xmlNodePtr) doc);
 		xmlFreeDoc(doc);
 	}
@@ -736,8 +736,8 @@ static void php_free_xml_node(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 		/* Attribute Nodes ccontain accessible children 
 		attr_list_wrapper_dtor(node->properties); */
 		xmlSetTreeDoc(node, NULL);
-		node_list_wrapper_dtor((xmlNodePtr) node->properties, 0 TSRMLS_CC);
-		node_list_wrapper_dtor(node->children, 0 TSRMLS_CC);
+		node_list_wrapper_dtor((xmlNodePtr) node->properties, 1 TSRMLS_CC);
+		node_list_wrapper_dtor(node->children, 1 TSRMLS_CC);
 		node_wrapper_dtor(node);
 		xmlFreeNode(node);
 	} else {
@@ -750,7 +750,7 @@ static void php_free_xml_attr(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 	xmlNodePtr node = (xmlNodePtr) rsrc->ptr;
 	if (node->parent == NULL) {
 		/* Attribute Nodes contain accessible children */
-		node_list_wrapper_dtor(node->children, 0 TSRMLS_CC);
+		node_list_wrapper_dtor(node->children, 1 TSRMLS_CC);
 		node_wrapper_dtor(node);
 		xmlFreeProp((xmlAttrPtr) node);
 	} else {
@@ -818,7 +818,7 @@ static void php_free_xslt_stylesheet(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 	}
 }
 
-void *php_xsltstylesheet_get_object(zval *wrapper, int rsrc_type1, int rsrc_type2 TSRMLS_DC)
+static void *php_xsltstylesheet_get_object(zval *wrapper, int rsrc_type1, int rsrc_type2 TSRMLS_DC)
 {
 	void *obj;
 	zval **handle;
@@ -858,7 +858,7 @@ static void php_xsltstylesheet_set_object(zval *wrapper, void *obj, int rsrc_typ
 
 	MAKE_STD_ZVAL(addr);
 	Z_TYPE_P(addr) = IS_LONG;
-	Z_LVAL_P(addr) = (int) obj;
+	Z_LVAL_P(addr) = (long) obj;
 
 	zend_hash_index_update(Z_OBJPROP_P(wrapper), 0, &handle, sizeof(zval *), NULL);
 	zend_hash_index_update(Z_OBJPROP_P(wrapper), 1, &addr, sizeof(zval *), NULL);
@@ -867,8 +867,9 @@ static void php_xsltstylesheet_set_object(zval *wrapper, void *obj, int rsrc_typ
 }
 #endif  /* HAVE_DOMXSLT */
 
-
-void *php_xpath_get_object(zval *wrapper, int rsrc_type1, int rsrc_type2 TSRMLS_DC)
+/* Not used? */
+/*
+static void *php_xpath_get_object(zval *wrapper, int rsrc_type1, int rsrc_type2 TSRMLS_DC)
 {
 	void *obj;
 	zval **handle;
@@ -897,6 +898,7 @@ void *php_xpath_get_object(zval *wrapper, int rsrc_type1, int rsrc_type2 TSRMLS_
 
 	return obj;
 }
+*/
 
 static zval *php_xpathobject_new(xmlXPathObjectPtr obj, int *found TSRMLS_DC)
 {
@@ -907,7 +909,7 @@ static zval *php_xpathobject_new(xmlXPathObjectPtr obj, int *found TSRMLS_DC)
 	return (wrapper);
 }
 
-void *php_xpath_get_context(zval *wrapper, int rsrc_type1, int rsrc_type2 TSRMLS_DC)
+static void *php_xpath_get_context(zval *wrapper, int rsrc_type1, int rsrc_type2 TSRMLS_DC)
 {
 	void *obj;
 	zval **handle;
@@ -972,7 +974,7 @@ static void php_xpath_set_context(zval *wrapper, void *obj, int rsrc_type TSRMLS
 
 	MAKE_STD_ZVAL(addr);
 	Z_TYPE_P(addr) = IS_LONG;
-	Z_LVAL_P(addr) = (int) obj;
+	Z_LVAL_P(addr) = (long) obj;
 
 	zend_hash_index_update(Z_OBJPROP_P(wrapper), 0, &handle, sizeof(zval *), NULL);
 	zend_hash_index_update(Z_OBJPROP_P(wrapper), 1, &addr, sizeof(zval *), NULL);
@@ -1027,7 +1029,7 @@ static void php_xmlparser_set_object(zval *wrapper, void *obj, int rsrc_type TSR
 
 	MAKE_STD_ZVAL(addr);
 	Z_TYPE_P(addr) = IS_LONG;
-	Z_LVAL_P(addr) = (int) obj;
+	Z_LVAL_P(addr) = (long) obj;
 
 	zend_hash_index_update(Z_OBJPROP_P(wrapper), 0, &handle, sizeof(zval *), NULL);
 	zend_hash_index_update(Z_OBJPROP_P(wrapper), 1, &addr, sizeof(zval *), NULL);
@@ -1101,7 +1103,7 @@ static char **php_xmlparser_make_params(zval *idvars TSRMLS_DC)
 /* }}} */
 /* end parser stuff */
 
-void *php_dom_get_object(zval *wrapper, int rsrc_type1, int rsrc_type2 TSRMLS_DC)
+static void *php_dom_get_object(zval *wrapper, int rsrc_type1, int rsrc_type2 TSRMLS_DC)
 {
 	void *obj;
 	zval **handle;
@@ -1144,7 +1146,7 @@ static void php_dom_set_object(zval *wrapper, void *obj, int rsrc_type TSRMLS_DC
 
 	MAKE_STD_ZVAL(addr);
 	Z_TYPE_P(addr) = IS_LONG;
-	Z_LVAL_P(addr) = (int) obj;
+	Z_LVAL_P(addr) = (long) obj;
 
 	zend_hash_index_update(Z_OBJPROP_P(wrapper), 0, &handle, sizeof(zval *), NULL);
 	zend_hash_index_update(Z_OBJPROP_P(wrapper), 1, &addr, sizeof(zval *), NULL);
@@ -1475,8 +1477,8 @@ static void domxml_error_validate(void *ctx, const char *msg, ...)
 	
 }
 
-xmlDocPtr php_dom_xmlSAXParse(xmlSAXHandlerPtr sax, const char *buffer, int size, int recovery, void *data) {
-
+static xmlDocPtr php_dom_xmlSAXParse(xmlSAXHandlerPtr sax, const char *buffer, int size, int recovery, void *data)
+{
     xmlDocPtr ret;
     xmlParserCtxtPtr ctxt;
     domxml_ErrorCtxt errorCtxt;
@@ -2384,6 +2386,7 @@ PHP_FUNCTION(domxml_node_replace_node)
 {
 	zval *id, *rv = NULL, *node;
 	xmlNodePtr repnode, nodep, old_repnode;
+	xmlDocPtr tmpdoc;
 	int ret;
 
 	DOMXML_GET_THIS_OBJ(nodep, id, le_domxmlnodep);
@@ -2394,7 +2397,17 @@ PHP_FUNCTION(domxml_node_replace_node)
 
 	DOMXML_GET_OBJ(repnode, node, le_domxmlnodep);
 
+	tmpdoc = repnode->doc;
+
 	old_repnode = xmlReplaceNode(nodep, repnode);
+
+	/* ReplaceNode will change the doc for only the first node 
+	so check if doc was changed */
+	if (tmpdoc != repnode->doc) {
+		/* Set doc back to old doc otherwise libxml wont change all sub nodes */
+		repnode->doc = tmpdoc;
+		xmlSetTreeDoc(repnode, old_repnode->doc);
+	}
 
 	DOMXML_RET_OBJ(rv, old_repnode, &ret);
 }
@@ -3107,7 +3120,8 @@ struct _idsIterator {
 	    xmlNode *element;
 };
 
-static void idsHashScanner(void *payload, void *data, xmlChar *name) {
+static void idsHashScanner(void *payload, void *data, xmlChar *name)
+{
 	idsIterator *priv = (idsIterator *)data;
 
 	if (priv->element == NULL && xmlStrEqual (name, priv->elementId))
@@ -4340,10 +4354,10 @@ PHP_FUNCTION(domxml_doc_free_doc)
 		RETURN_FALSE;
 	}
 
+	/* No need to do this as php_free_xml_doc will kill the children
 	node_list_wrapper_dtor(docp->children, 1 TSRMLS_CC);
 	node_list_wrapper_dtor((xmlNodePtr) docp->properties, 1 TSRMLS_CC);
-	/* Attribute Nodes ccontain accessible children 
-	attr_list_wrapper_dtor(docp->properties); */
+	*/
 	node_wrapper_free(docp TSRMLS_CC);
 
 	RETURN_TRUE;
@@ -4702,9 +4716,7 @@ static int node_namespace(zval **attributes, xmlNode *nodep TSRMLS_DC)
 /* }}} */
 #endif
 
-/* We don't have a type zval. **attributes is also very unusual. */
-
-/* {{{ proto int node_attributes(zval **attributes, int node)
+/* {{{ int node_attributes(zval **attributes, int node)
    Returns list of children nodes */
 static int node_attributes(zval **attributes, xmlNode *nodep TSRMLS_DC)
 {

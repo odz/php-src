@@ -7,8 +7,8 @@
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.0 of the PHP license,       |
 // | that is bundled with this package in the file LICENSE, and is        |
-// | available at through the world-wide-web at                           |
-// | http://www.php.net/license/2_02.txt.                                 |
+// | available through the world-wide-web at the following url:           |
+// | http://www.php.net/license/3_0.txt.                                  |
 // | If you did not receive a copy of the PHP license and are unable to   |
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
@@ -18,7 +18,7 @@
 // |          Tomas V.V.Cox <cox@idecnet.com>                             |
 // +----------------------------------------------------------------------+
 //
-// $Id: PEAR.php,v 1.50.2.4 2003/04/11 23:48:37 ssb Exp $
+// $Id: PEAR.php,v 1.50.2.8 2003/08/06 01:58:29 cox Exp $
 //
 
 define('PEAR_ERROR_RETURN',     1);
@@ -63,7 +63,7 @@ ini_set('track_errors', true);
  * destructor, use error_log(), syslog() or something similar.
  *
  * IMPORTANT! To use the emulated destructors you need to create the
- * objects by reference, ej: $obj =& new PEAR_child;
+ * objects by reference: $obj =& new PEAR_child;
  *
  * @since PHP 4.0.2
  * @author Stig Bakken <ssb@php.net>
@@ -224,7 +224,9 @@ class PEAR
      *
      * @param   mixed $data   the value to test
      * @param   int   $code   if $data is an error object, return true
-     *                        only if $obj->getCode() == $code
+     *                        only if $code is a string and
+     *                        $obj->getMessage() == $code or
+     *                        $code is an integer and $obj->getCode() == $code
      * @access  public
      * @return  bool    true if parameter is an error
      */
@@ -475,7 +477,7 @@ class PEAR
      * @see PEAR::setErrorHandling
      * @since PHP 4.0.5
      */
-    function &raiseError($message = null,
+    function raiseError($message = null,
                          $code = null,
                          $mode = null,
                          $options = null,
@@ -619,6 +621,10 @@ class PEAR
     function loadExtension($ext)
     {
         if (!extension_loaded($ext)) {
+            // if either returns true dl() will produce a FATAL error, stop that
+            if ((ini_get('enable_dl') != 1) || (ini_get('safe_mode') == 1)) {
+                return false;
+            }
             if (OS_WINDOWS) {
                 $suffix = '.dll';
             } elseif (PHP_OS == 'HP-UX') {
@@ -763,7 +769,7 @@ class PEAR_Error
                       is_object($this->callback[0]) &&
                       is_string($this->callback[1]) &&
                       strlen($this->callback[1])) {
-                      @call_user_func($this->callback, $this);
+                      call_user_func($this->callback, $this);
             }
         }
         if (PEAR_ZE2 && $this->mode & PEAR_ERROR_EXCEPTION) {

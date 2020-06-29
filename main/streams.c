@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: streams.c,v 1.125.2.67 2003/05/28 10:15:00 wez Exp $ */
+/* $Id: streams.c,v 1.125.2.73 2003/07/29 18:26:59 iliaa Exp $ */
 
 #define _GNU_SOURCE
 #include "php.h"
@@ -378,7 +378,7 @@ fprintf(stderr, "stream_free: %s:%p[%s] preserve_handle=%d release_cast=%d remov
 			stream->readbuf = NULL;
 		}
 		
-		if (stream->is_persistent) {
+		if (stream->is_persistent && (close_options & PHP_STREAM_FREE_PERSISTENT)) {
 			/* we don't work with *stream but need its value for comparison */
 			zend_hash_apply_with_argument(&EG(persistent_list), (apply_func_arg_t) _php_stream_free_persistent, stream TSRMLS_CC);
 		}
@@ -2728,6 +2728,45 @@ PHPAPI FILE * _php_stream_open_wrapper_as_file(char *path, char *mode, int optio
 
 
 
+/* {{{ php_stream_open_wrapper_as_file_handle */
+PHPAPI zend_bool _php_stream_open_wrapper_as_file_handle(char *path, char *mode, int options, zend_file_handle *fh STREAMS_DC TSRMLS_DC)
+{
+	php_stream *stream = NULL;
+	int is_sock = 0;
+
+	stream = php_stream_open_wrapper_rel(path, mode, options|STREAM_WILL_CAST, &fh->opened_path);
+
+	if (stream == NULL)
+		return FAILURE;
+
+	if ((options & STREAM_OPEN_FOR_INCLUDE) 
+			&& php_stream_is(stream, PHP_STREAM_IS_SOCKET)) {
+		is_sock = 1;
+	}
+
+	if (php_stream_can_cast(stream, PHP_STREAM_AS_FD) == SUCCESS &&
+			php_stream_cast(stream, PHP_STREAM_AS_FD | PHP_STREAM_CAST_TRY_HARD 
+				| PHP_STREAM_CAST_RELEASE, (void **) &fh->handle.fd, 
+				REPORT_ERRORS) == SUCCESS) {
+		if (is_sock) {
+			fh->type = ZEND_HANDLE_SOCKET_FD;
+		} else {
+			fh->type = ZEND_HANDLE_FD;
+		}
+	} else if (php_stream_cast(stream, PHP_STREAM_AS_STDIO
+				|PHP_STREAM_CAST_TRY_HARD | PHP_STREAM_CAST_RELEASE,
+				(void**) &fh->handle.fp, REPORT_ERRORS) == SUCCESS) {
+		fh->type = ZEND_HANDLE_FP;
+	} else {
+		php_stream_close(stream);
+		if (fh->opened_path)
+			efree(fh->opened_path);
+		fh->opened_path = NULL;
+		return FAILURE;
+	}
+	return SUCCESS;
+}
+/* }}} */
 
 /* {{{ php_stream_make_seekable */
 PHPAPI int _php_stream_make_seekable(php_stream *origstream, php_stream **newstream, int flags STREAMS_DC TSRMLS_DC)
@@ -2780,7 +2819,14 @@ PHPAPI void php_stream_notification_notify(php_stream_context *context, int noti
 
 PHPAPI void php_stream_context_free(php_stream_context *context)
 {
-	zval_ptr_dtor(&context->options);
+	if (context->options) {
+		zval_ptr_dtor(&context->options);
+		context->options = NULL;
+	}
+	if (context->notifier) {
+		php_stream_notification_free(context->notifier);
+		context->notifier = NULL;
+	}
 	efree(context);
 }
 
@@ -2789,6 +2835,7 @@ PHPAPI php_stream_context *php_stream_context_alloc(void)
 	php_stream_context *context;
 	
 	context = ecalloc(1, sizeof(php_stream_context));
+	context->notifier = NULL;
 	MAKE_STD_ZVAL(context->options);
 	array_init(context->options);
 
@@ -2802,6 +2849,9 @@ PHPAPI php_stream_notifier *php_stream_notification_alloc(void)
 
 PHPAPI void php_stream_notification_free(php_stream_notifier *notifier)
 {
+	if (notifier->dtor) {
+		notifier->dtor(notifier);
+	}
 	efree(notifier);
 }
 

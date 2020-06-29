@@ -31,7 +31,7 @@
 **  This code is in the public domain and has no copyright.
 */
 
-/* $Id: parsedate.y,v 1.34.2.1 2003/03/31 14:40:46 ddhill Exp $ */
+/* $Id: parsedate.y,v 1.34.2.2 2003/07/28 04:02:55 iliaa Exp $ */
 
 #include "php.h"
 
@@ -184,7 +184,7 @@ typedef union _date_ll {
 
 
 
-#define	YYFINAL		62
+#define	YYFINAL		67
 #define	YYFLAG		-32768
 #define	YYNTBASE	22
 
@@ -225,10 +225,10 @@ static const char yytranslate[] = {     0,
 static const short yyprhs[] = {     0,
      0,     1,     4,     6,     8,    10,    12,    14,    16,    19,
     24,    29,    36,    43,    45,    47,    50,    52,    55,    58,
-    62,    68,    72,    76,    80,    83,    88,    91,    95,    98,
-   100,   103,   106,   108,   111,   114,   116,   119,   122,   124,
-   127,   130,   132,   135,   138,   140,   143,   146,   148,   150,
-   151
+    62,    71,    77,    81,    85,    89,    92,    97,   100,   104,
+   107,   109,   112,   115,   117,   120,   123,   125,   128,   131,
+   133,   136,   139,   141,   144,   147,   149,   152,   155,   157,
+   159,   160
 };
 
 static const short yyrhs[] = {    -1,
@@ -238,16 +238,17 @@ static const short yyrhs[] = {    -1,
     16,    19,    16,    31,     0,    16,    19,    16,    19,    16,
     15,     0,    18,     0,     6,     0,    18,     7,     0,     4,
      0,     4,    20,     0,    16,     4,     0,    16,    21,    16,
-     0,    16,    21,    16,    21,    16,     0,    16,    15,    15,
-     0,    16,    12,    15,     0,    12,    16,    16,     0,    12,
-    16,     0,    12,    16,    20,    16,     0,    16,    12,     0,
-    16,    12,    16,     0,    29,     3,     0,    29,     0,    16,
-    17,     0,    15,    17,     0,    17,     0,    16,    13,     0,
-    15,    13,     0,    13,     0,    16,     5,     0,    15,     5,
-     0,     5,     0,    16,     8,     0,    15,     8,     0,     8,
-     0,    16,    11,     0,    15,    11,     0,    11,     0,    16,
-    14,     0,    15,    14,     0,    14,     0,    16,     0,     0,
-    10,     0
+     0,    12,    16,    16,    19,    16,    19,    16,    16,     0,
+    16,    21,    16,    21,    16,     0,    16,    15,    15,     0,
+    16,    12,    15,     0,    12,    16,    16,     0,    12,    16,
+     0,    12,    16,    20,    16,     0,    16,    12,     0,    16,
+    12,    16,     0,    29,     3,     0,    29,     0,    16,    17,
+     0,    15,    17,     0,    17,     0,    16,    13,     0,    15,
+    13,     0,    13,     0,    16,     5,     0,    15,     5,     0,
+     5,     0,    16,     8,     0,    15,     8,     0,     8,     0,
+    16,    11,     0,    15,    11,     0,    11,     0,    16,    14,
+     0,    15,    14,     0,    14,     0,    16,     0,     0,    10,
+     0
 };
 
 #endif
@@ -256,10 +257,10 @@ static const short yyrhs[] = {    -1,
 static const short yyrline[] = { 0,
    168,   169,   172,   175,   178,   181,   184,   187,   190,   196,
    202,   211,   217,   233,   236,   239,   245,   249,   253,   259,
-   263,   281,   287,   293,   298,   302,   307,   311,   318,   332,
-   335,   338,   341,   344,   347,   350,   353,   356,   359,   362,
-   365,   368,   371,   374,   377,   380,   383,   386,   391,   426,
-   430
+   263,   274,   292,   298,   304,   309,   313,   318,   322,   329,
+   343,   346,   349,   352,   355,   358,   361,   364,   367,   370,
+   373,   376,   379,   382,   385,   388,   391,   394,   397,   402,
+   437,   441
 };
 #endif
 
@@ -277,33 +278,33 @@ static const char * const yytname[] = {   "$","error","$undefined.","tAGO","tDAY
 static const short yyr1[] = {     0,
     22,    22,    23,    23,    23,    23,    23,    23,    24,    24,
     24,    24,    24,    25,    25,    25,    26,    26,    26,    27,
-    27,    27,    27,    27,    27,    27,    27,    27,    28,    28,
-    29,    29,    29,    29,    29,    29,    29,    29,    29,    29,
-    29,    29,    29,    29,    29,    29,    29,    29,    30,    31,
-    31
+    27,    27,    27,    27,    27,    27,    27,    27,    27,    28,
+    28,    29,    29,    29,    29,    29,    29,    29,    29,    29,
+    29,    29,    29,    29,    29,    29,    29,    29,    29,    30,
+    31,    31
 };
 
 static const short yyr2[] = {     0,
      0,     2,     1,     1,     1,     1,     1,     1,     2,     4,
      4,     6,     6,     1,     1,     2,     1,     2,     2,     3,
-     5,     3,     3,     3,     2,     4,     2,     3,     2,     1,
-     2,     2,     1,     2,     2,     1,     2,     2,     1,     2,
-     2,     1,     2,     2,     1,     2,     2,     1,     1,     0,
-     1
+     8,     5,     3,     3,     3,     2,     4,     2,     3,     2,
+     1,     2,     2,     1,     2,     2,     1,     2,     2,     1,
+     2,     2,     1,     2,     2,     1,     2,     2,     1,     1,
+     0,     1
 };
 
 static const short yydefact[] = {     1,
-     0,    17,    39,    15,    42,    45,     0,    36,    48,     0,
-    49,    33,    14,     2,     3,     4,     6,     5,     7,    30,
-     8,    18,    25,    38,    41,    44,    35,    47,    32,    19,
-    37,    40,     9,    43,    27,    34,    46,     0,    31,     0,
-     0,    16,    29,    24,     0,    23,    28,    22,    50,    20,
-    26,    51,    11,     0,    10,     0,    50,    21,    13,    12,
-     0,     0
+     0,    17,    40,    15,    43,    46,     0,    37,    49,     0,
+    50,    34,    14,     2,     3,     4,     6,     5,     7,    31,
+     8,    18,    26,    39,    42,    45,    36,    48,    33,    19,
+    38,    41,     9,    44,    28,    35,    47,     0,    32,     0,
+     0,    16,    30,    25,     0,    24,    29,    23,    51,    20,
+     0,    27,    52,    11,     0,    10,     0,     0,    51,    22,
+     0,    13,    12,     0,    21,     0,     0
 };
 
 static const short yydefgoto[] = {     1,
-    14,    15,    16,    17,    18,    19,    20,    21,    55
+    14,    15,    16,    17,    18,    19,    20,    21,    56
 };
 
 static const short yypact[] = {-32768,
@@ -311,35 +312,35 @@ static const short yypact[] = {-32768,
     15,-32768,    14,-32768,-32768,-32768,-32768,-32768,-32768,    19,
 -32768,-32768,    29,-32768,-32768,-32768,-32768,-32768,-32768,-32768,
 -32768,-32768,-32768,-32768,    -6,-32768,-32768,     9,-32768,    17,
-    23,-32768,-32768,-32768,    24,-32768,-32768,-32768,    27,    10,
--32768,-32768,-32768,    32,-32768,    34,    -8,-32768,-32768,-32768,
-    51,-32768
+    23,-32768,-32768,    12,    24,-32768,-32768,-32768,    27,    31,
+    32,-32768,-32768,-32768,    34,-32768,    35,    36,    -8,-32768,
+    37,-32768,-32768,    38,-32768,    56,-32768
 };
 
 static const short yypgoto[] = {-32768,
--32768,-32768,-32768,-32768,-32768,-32768,-32768,-32768,    -5
+-32768,-32768,-32768,-32768,-32768,-32768,-32768,-32768,    -2
 };
 
 
-#define	YYLAST		52
+#define	YYLAST		57
 
 
-static const short yytable[] = {    61,
-    22,    52,    23,     2,     3,     4,    59,     5,    46,    47,
+static const short yytable[] = {    66,
+    22,    53,    23,     2,     3,     4,    62,     5,    46,    47,
      6,     7,     8,     9,    10,    11,    12,    13,    30,    31,
     42,    43,    32,    48,    33,    34,    35,    36,    37,    38,
-    56,    39,    49,    40,    24,    41,    52,    25,    50,    51,
-    26,    53,    27,    28,    44,    54,    29,    57,    45,    58,
-    62,    60
+    51,    39,    49,    40,    24,    41,    53,    25,    50,    52,
+    26,    54,    27,    28,    44,    55,    29,    58,    45,    59,
+    60,    57,    64,    65,    61,    67,    63
 };
 
 static const short yycheck[] = {     0,
     20,    10,    16,     4,     5,     6,    15,     8,    15,    16,
     11,    12,    13,    14,    15,    16,    17,    18,     4,     5,
      7,     3,     8,    15,    10,    11,    12,    13,    14,    15,
-    21,    17,    16,    19,     5,    21,    10,     8,    16,    16,
+    19,    17,    16,    19,     5,    21,    10,     8,    16,    16,
     11,    15,    13,    14,    16,    19,    17,    16,    20,    16,
-     0,    57
+    16,    21,    16,    16,    19,     0,    59
 };
 #define YYPURE 1
 
@@ -1003,6 +1004,19 @@ case 20:
     break;}
 case 21:
 {
+		((struct date_yy *)parm)->yyYear = yyvsp[0].Number;
+		((struct date_yy *)parm)->yyMonth = yyvsp[-7].Number;
+		((struct date_yy *)parm)->yyDay = yyvsp[-6].Number;
+
+		((struct date_yy *)parm)->yyHour = yyvsp[-5].Number;
+		((struct date_yy *)parm)->yyMinutes = yyvsp[-3].Number;
+		((struct date_yy *)parm)->yySeconds = yyvsp[-1].Number;
+
+		((struct date_yy *)parm)->yyHaveTime = 1;
+	;
+    break;}
+case 22:
+{
 	  /* Interpret as YYYY/MM/DD if $1 >= 1000, otherwise as MM/DD/YY.
 	     The goal in recognizing YYYY/MM/DD is solely to support legacy
 	     machine-generated dates like those in an RCS log listing.  If
@@ -1021,7 +1035,7 @@ case 21:
 	    }
 	;
     break;}
-case 22:
+case 23:
 {
 	    /* ISO 8601 format.  yyyy-mm-dd.  */
 	    ((struct date_yy *)parm)->yyYear = yyvsp[-2].Number;
@@ -1029,7 +1043,7 @@ case 22:
 	    ((struct date_yy *)parm)->yyDay = -yyvsp[0].Number;
 	;
     break;}
-case 23:
+case 24:
 {
 	    /* e.g. 17-JUN-1992.  */
 	    ((struct date_yy *)parm)->yyDay = yyvsp[-2].Number;
@@ -1037,40 +1051,40 @@ case 23:
 	    ((struct date_yy *)parm)->yyYear = -yyvsp[0].Number;
 	;
     break;}
-case 24:
+case 25:
 {
 	    ((struct date_yy *)parm)->yyMonth = yyvsp[-2].Number;
 	    ((struct date_yy *)parm)->yyDay = yyvsp[-1].Number;
 		((struct date_yy *)parm)->yyYear = yyvsp[0].Number;
 	;
     break;}
-case 25:
+case 26:
 {
 	    ((struct date_yy *)parm)->yyMonth = yyvsp[-1].Number;
 	    ((struct date_yy *)parm)->yyDay = yyvsp[0].Number;
 	;
     break;}
-case 26:
+case 27:
 {
 	    ((struct date_yy *)parm)->yyMonth = yyvsp[-3].Number;
 	    ((struct date_yy *)parm)->yyDay = yyvsp[-2].Number;
 	    ((struct date_yy *)parm)->yyYear = yyvsp[0].Number;
 	;
     break;}
-case 27:
+case 28:
 {
 	    ((struct date_yy *)parm)->yyMonth = yyvsp[0].Number;
 	    ((struct date_yy *)parm)->yyDay = yyvsp[-1].Number;
 	;
     break;}
-case 28:
+case 29:
 {
 	    ((struct date_yy *)parm)->yyMonth = yyvsp[-1].Number;
 	    ((struct date_yy *)parm)->yyDay = yyvsp[-2].Number;
 	    ((struct date_yy *)parm)->yyYear = yyvsp[0].Number;
 	;
     break;}
-case 29:
+case 30:
 {
 	    ((struct date_yy *)parm)->yyRelSeconds =
 			-((struct date_yy *)parm)->yyRelSeconds;
@@ -1086,11 +1100,6 @@ case 29:
 			-((struct date_yy *)parm)->yyRelYear;
 	;
     break;}
-case 31:
-{
-	    ((struct date_yy *)parm)->yyRelYear += yyvsp[-1].Number * yyvsp[0].Number;
-	;
-    break;}
 case 32:
 {
 	    ((struct date_yy *)parm)->yyRelYear += yyvsp[-1].Number * yyvsp[0].Number;
@@ -1098,12 +1107,12 @@ case 32:
     break;}
 case 33:
 {
-	    ((struct date_yy *)parm)->yyRelYear += yyvsp[0].Number;
+	    ((struct date_yy *)parm)->yyRelYear += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 34:
 {
-	    ((struct date_yy *)parm)->yyRelMonth += yyvsp[-1].Number * yyvsp[0].Number;
+	    ((struct date_yy *)parm)->yyRelYear += yyvsp[0].Number;
 	;
     break;}
 case 35:
@@ -1113,12 +1122,12 @@ case 35:
     break;}
 case 36:
 {
-	    ((struct date_yy *)parm)->yyRelMonth += yyvsp[0].Number;
+	    ((struct date_yy *)parm)->yyRelMonth += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 37:
 {
-	    ((struct date_yy *)parm)->yyRelDay += yyvsp[-1].Number * yyvsp[0].Number;
+	    ((struct date_yy *)parm)->yyRelMonth += yyvsp[0].Number;
 	;
     break;}
 case 38:
@@ -1128,12 +1137,12 @@ case 38:
     break;}
 case 39:
 {
-	    ((struct date_yy *)parm)->yyRelDay += yyvsp[0].Number;
+	    ((struct date_yy *)parm)->yyRelDay += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 40:
 {
-	    ((struct date_yy *)parm)->yyRelHour += yyvsp[-1].Number * yyvsp[0].Number;
+	    ((struct date_yy *)parm)->yyRelDay += yyvsp[0].Number;
 	;
     break;}
 case 41:
@@ -1143,12 +1152,12 @@ case 41:
     break;}
 case 42:
 {
-	    ((struct date_yy *)parm)->yyRelHour += yyvsp[0].Number;
+	    ((struct date_yy *)parm)->yyRelHour += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 43:
 {
-	    ((struct date_yy *)parm)->yyRelMinutes += yyvsp[-1].Number * yyvsp[0].Number;
+	    ((struct date_yy *)parm)->yyRelHour += yyvsp[0].Number;
 	;
     break;}
 case 44:
@@ -1158,12 +1167,12 @@ case 44:
     break;}
 case 45:
 {
-	    ((struct date_yy *)parm)->yyRelMinutes += yyvsp[0].Number;
+	    ((struct date_yy *)parm)->yyRelMinutes += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 46:
 {
-	    ((struct date_yy *)parm)->yyRelSeconds += yyvsp[-1].Number * yyvsp[0].Number;
+	    ((struct date_yy *)parm)->yyRelMinutes += yyvsp[0].Number;
 	;
     break;}
 case 47:
@@ -1173,10 +1182,15 @@ case 47:
     break;}
 case 48:
 {
-	    ((struct date_yy *)parm)->yyRelSeconds += yyvsp[0].Number;
+	    ((struct date_yy *)parm)->yyRelSeconds += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 49:
+{
+	    ((struct date_yy *)parm)->yyRelSeconds += yyvsp[0].Number;
+	;
+    break;}
+case 50:
 {
 	    if (((struct date_yy *)parm)->yyHaveTime && 
 			((struct date_yy *)parm)->yyHaveDate && 
@@ -1210,12 +1224,12 @@ case 49:
 	      }
 	  ;
     break;}
-case 50:
+case 51:
 {
 	    yyval.Meridian = MER24;
 	  ;
     break;}
-case 51:
+case 52:
 {
 	    yyval.Meridian = yyvsp[0].Meridian;
 	  ;

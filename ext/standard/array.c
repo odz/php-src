@@ -21,7 +21,8 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: array.c,v 1.199.2.19 2003/05/11 06:39:42 moriyoshi Exp $ */
+
+/* $Id: array.c,v 1.199.2.26 2003/08/13 01:37:58 sniper Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -1428,7 +1429,7 @@ PHP_FUNCTION(range)
 	/* allocate an array for return */
 	array_init(return_value);
 
-	if (Z_TYPE_PP(zlow)==IS_STRING && Z_TYPE_PP(zhigh)==IS_STRING) {
+	if (Z_TYPE_PP(zlow) == IS_STRING && Z_TYPE_PP(zhigh) == IS_STRING && Z_STRLEN_PP(zlow) == 1 && Z_STRLEN_PP(zhigh) == 1) {
 		unsigned char low, high;
 		low = *((unsigned char *)Z_STRVAL_PP(zlow));
 		high = *((unsigned char *)Z_STRVAL_PP(zhigh));
@@ -1476,7 +1477,7 @@ static void array_data_shuffle(zval *array TSRMLS_DC)
 
 	n_elems = zend_hash_num_elements(Z_ARRVAL_P(array));
 	
-	if (n_elems <= 1) {
+	if (n_elems < 1) {
 		return;
 	}
 
@@ -2001,7 +2002,7 @@ PHPAPI int php_array_merge(HashTable *dest, HashTable *src, int recursive TSRMLS
 				if (recursive &&
 					zend_hash_find(dest, string_key, string_key_len,
 								   (void **)&dest_entry) == SUCCESS) {
-					if (*src_entry == *dest_entry) {
+					if (*src_entry == *dest_entry && ((*dest_entry)->refcount % 2)) {
 						zend_error(E_WARNING, "%s(): recursion detected",
 								   get_active_function_name(TSRMLS_C));
 						return 0;
@@ -2983,7 +2984,7 @@ PHP_FUNCTION(array_multisort)
 
 	/* If all arrays are empty or have only one entry,
 	   we don't need to do anything. */
-	if (array_size <= 1) {
+	if (array_size < 1) {
 		for (k = 0; k < MULTISORT_LAST; k++)
 			efree(ARRAYG(multisort_flags)[k]);
 		efree(arrays);
@@ -3208,7 +3209,9 @@ PHP_FUNCTION(array_reduce)
 
 	if (ZEND_NUM_ARGS() > 2) {
 		result = *initial;
-		zval_add_ref(&result);
+	} else {
+		MAKE_STD_ZVAL(result);
+		ZVAL_NULL(result);
 	}
 
 	/* (zval **)input points to an element of argument stack

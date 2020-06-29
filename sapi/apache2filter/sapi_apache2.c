@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sapi_apache2.c,v 1.91.2.15 2003/05/23 02:42:22 iliaa Exp $ */
+/* $Id: sapi_apache2.c,v 1.91.2.20 2003/08/03 19:31:13 thetaphi Exp $ */
 
 #include <fcntl.h>
 
@@ -86,7 +86,7 @@ php_apache_sapi_ub_write(const char *str, uint str_length TSRMLS_DC)
 	APR_BRIGADE_INSERT_TAIL(bb, b);
 #endif
 	
-	if (ap_pass_brigade(f->next, bb) != APR_SUCCESS) {
+	if (ap_pass_brigade(f->next, bb) != APR_SUCCESS || ctx->r->connection->aborted) {
 		php_handle_aborted_connection();
 	}
 	
@@ -229,6 +229,7 @@ php_apache_sapi_flush(void *server_context)
 	apr_bucket_alloc_t *ba;
 	apr_bucket *b;
 	ap_filter_t *f; /* output filters */
+	TSRMLS_FETCH();
 
 	ctx = server_context;
 
@@ -236,7 +237,9 @@ php_apache_sapi_flush(void *server_context)
 	 * then don't bother flushing. */
 	if (!server_context)
 		return;
-    
+
+	ctx->r->status = SG(sapi_headers).http_response_code;
+
 	f = ctx->f;
 
 	/* Send a flush bucket down the filter chain. The current default
@@ -248,7 +251,7 @@ php_apache_sapi_flush(void *server_context)
 	bb = apr_brigade_create(ctx->r->pool, ba);
 	b = apr_bucket_flush_create(ba);
 	APR_BRIGADE_INSERT_TAIL(bb, b);
-	if (ap_pass_brigade(f->next, bb) != APR_SUCCESS) {
+	if (ap_pass_brigade(f->next, bb) != APR_SUCCESS || ctx->r->connection->aborted) {
 		php_handle_aborted_connection();
 	}
 }
@@ -435,10 +438,16 @@ static int php_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 		return ap_pass_brigade(f->next, bb);
 	}
 
-	/* setup standard CGI variables */
-	ap_add_common_vars(f->r);
-	ap_add_cgi_vars(f->r);
-
+	/* Setup the CGI variables if this is the main request.. */
+	if (f->r->main == NULL || 
+		/* .. or if the sub-request envinronment differs from the main-request. */
+		f->r->subprocess_env != f->r->main->subprocess_env
+	) {
+		/* setup standard CGI variables */
+		ap_add_common_vars(f->r);
+		ap_add_cgi_vars(f->r);
+	}
+	
 	ctx = SG(server_context);
 	if (ctx == NULL) {
 		ap_log_rerror(APLOG_MARK, APLOG_ERR|APLOG_NOERRNO, 0, f->r,
@@ -452,7 +461,7 @@ static int php_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 	}
 
 	for (b = APR_BRIGADE_FIRST(bb); b != APR_BRIGADE_SENTINEL(bb); b = APR_BUCKET_NEXT(b)) {
-		zend_file_handle zfd;
+		zend_file_handle zfd = {0};
 
 		if (!ctx->request_processed && APR_BUCKET_IS_FILE(b)) {
 			const char *path;
@@ -471,7 +480,7 @@ static int php_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 				rv = ap_pass_brigade(f->next, prebb);
 				/* XXX: destroy the prebb, since we know we're
 				 * done with it? */
-				if (rv != APR_SUCCESS) {
+				if (rv != APR_SUCCESS || ctx->r->connection->aborted) {
 					php_handle_aborted_connection();
 				}
 			}

@@ -18,7 +18,7 @@
    |          Jade Nicoletti <nicoletti@nns.ch>                           |
    +----------------------------------------------------------------------+
  */
-/* $Id: zlib.c,v 1.153.2.10 2003/05/21 17:00:57 rasmus Exp $ */
+/* $Id: zlib.c,v 1.153.2.13 2003/08/11 01:57:10 sniper Exp $ */
 #define IS_EXT_MODULE
 
 #ifdef HAVE_CONFIG_H
@@ -330,7 +330,6 @@ PHP_FUNCTION(gzopen)
 {
 	pval **arg1, **arg2, **arg3;
 	php_stream *stream;
-	char *p;
 	int use_include_path = 0;
 	
 	switch(ZEND_NUM_ARGS()) {
@@ -351,13 +350,12 @@ PHP_FUNCTION(gzopen)
 	}
 	convert_to_string_ex(arg1);
 	convert_to_string_ex(arg2);
-	p = estrndup(Z_STRVAL_PP(arg2),Z_STRLEN_PP(arg2));
 	
-	stream = php_stream_gzopen(NULL, Z_STRVAL_PP(arg1), p, use_include_path|ENFORCE_SAFE_MODE|REPORT_ERRORS, NULL, NULL STREAMS_CC TSRMLS_CC);
+	stream = php_stream_gzopen(NULL, Z_STRVAL_PP(arg1), Z_STRVAL_PP(arg2), use_include_path|ENFORCE_SAFE_MODE|REPORT_ERRORS, NULL, NULL STREAMS_CC TSRMLS_CC);
+
 	if (!stream) {
 		RETURN_FALSE;
 	}
-	efree(p);
 	php_stream_to_zval(stream, return_value);
 }	
 /* }}} */
@@ -980,7 +978,7 @@ PHP_FUNCTION(ob_gzhandler)
 					if (sapi_add_header("Content-Encoding: gzip", sizeof("Content-Encoding: gzip") - 1, 1)==FAILURE) {
 						return_original = 1;
 					}
-					if (sapi_add_header("Vary: Accept-Encoding", sizeof("Vary: Accept-Encoding") - 1, 1)==FAILURE) {
+					if (sapi_add_header_ex("Vary: Accept-Encoding", sizeof("Vary: Accept-Encoding") - 1, 1, 0 TSRMLS_CC)==FAILURE) {
 						return_original = 1;
 					}
 					break;
@@ -988,7 +986,7 @@ PHP_FUNCTION(ob_gzhandler)
 					if (sapi_add_header("Content-Encoding: deflate", sizeof("Content-Encoding: deflate") - 1, 1)==FAILURE) {
 						return_original = 1;
 					}
-					if (sapi_add_header("Vary: Accept-Encoding", sizeof("Vary: Accept-Encoding") - 1, 1)==FAILURE) {
+					if (sapi_add_header_ex("Vary: Accept-Encoding", sizeof("Vary: Accept-Encoding") - 1, 0, 0 TSRMLS_CC)==FAILURE) {
 						return_original = 1;
 					}
 					break;

@@ -1690,6 +1690,10 @@ void zend_do_fetch_property(znode *result, znode *object, znode *property TSRMLS
 	zend_op opline;
 	zend_llist *fetch_list_ptr;
 
+	if (property->op_type == IS_CONST
+		&& property->u.constant.type != IS_STRING) {
+		zend_error(E_COMPILE_ERROR, "Property name must be a string");
+	}
 	init_op(&opline TSRMLS_CC);
 	opline.opcode = ZEND_FETCH_OBJ_W;	/* the backpatching routine assumes W */
 	opline.result.op_type = IS_VAR;
@@ -2450,6 +2454,7 @@ int zendlex(znode *zendlval TSRMLS_DC)
 {
 	int retval;
 
+again:
 	if (CG(increment_lineno)) {
 		CG(zend_lineno)++;
 		CG(increment_lineno) = 0;
@@ -2461,8 +2466,8 @@ int zendlex(znode *zendlval TSRMLS_DC)
 		case T_COMMENT:
 		case T_OPEN_TAG:
 		case T_WHITESPACE:
-			retval = zendlex(zendlval TSRMLS_CC);
-			break;
+			goto again;
+
 		case T_CLOSE_TAG:
 			if (LANG_SCNG(yy_text)[LANG_SCNG(yy_leng)-1]=='\n'
 				|| (LANG_SCNG(yy_text)[LANG_SCNG(yy_leng)-2]=='\r' && LANG_SCNG(yy_text)[LANG_SCNG(yy_leng)-1])) {

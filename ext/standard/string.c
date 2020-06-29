@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: string.c,v 1.333.2.29 2003/05/26 20:56:01 msopacua Exp $ */
+/* $Id: string.c,v 1.333.2.33 2003/07/12 09:33:58 moriyoshi Exp $ */
 
 /* Synced with php 3.0 revision 1.193 1999-06-16 [ssb] */
 
@@ -1102,11 +1102,17 @@ PHPAPI char *php_basename(char *s, size_t len, char *suffix, size_t sufflen)
 		p = c + 1;       /* Save pointer to overwritten char */
 	}
 
-	if ((c = strrchr(s, '/'))
 #ifdef PHP_WIN32
-		|| ((c = strrchr(s, '\\')) && !IsDBCSLeadByte(*(c-1)))
+	if ((c = strrchr(s, '/')) || ((c = strrchr(s, '\\')) && !IsDBCSLeadByte(*(c-1)))) {
+		if (*c == '/') {
+			char *c2 = strrchr(s, '\\');
+			if (c2 && !IsDBCSLeadByte(*(c2-1)) && c2 > c) {
+				c = c2;
+			}
+		}
+#else 
+	if ((c = strrchr(s, '/'))) {
 #endif
-		) {
 		ret = estrdup(c + 1);
 	} else {
 		ret = estrdup(s);
@@ -2629,6 +2635,9 @@ static void php_str_replace_in_subject(zval *search, zval *replace, zval **subje
 			convert_to_string(*search_entry);
 			if (Z_STRLEN_PP(search_entry) == 0) {
 				zend_hash_move_forward(Z_ARRVAL_P(search));
+				if (Z_TYPE_P(replace) == IS_ARRAY) {
+					zend_hash_move_forward(Z_ARRVAL_P(replace));
+				}
 				continue;
 			}
 
@@ -3343,6 +3352,7 @@ PHPAPI size_t php_strip_tags(char *rbuf, int len, int *stateptr, char *allow, in
 					lc = '<';
 					state = 1;
 					if (allow) {
+						tp = ((tp-tbuf) >= PHP_TAG_BUF_SIZE ? tbuf: tp);
 						*(tp++) = '<';
 					}
 				} else if (state == 1) {
@@ -3357,6 +3367,7 @@ PHPAPI size_t php_strip_tags(char *rbuf, int len, int *stateptr, char *allow, in
 						br++;
 					}
 				} else if (allow && state == 1) {
+					tp = ((tp-tbuf) >= PHP_TAG_BUF_SIZE ? tbuf: tp);
 					*(tp++) = c;
 				} else if (state == 0) {
 					*(rp++) = c;
@@ -3370,6 +3381,7 @@ PHPAPI size_t php_strip_tags(char *rbuf, int len, int *stateptr, char *allow, in
 						br--;
 					}
 				} else if (allow && state == 1) {
+					tp = ((tp-tbuf) >= PHP_TAG_BUF_SIZE ? tbuf: tp);
 					*(tp++) = c;
 				} else if (state == 0) {
 					*(rp++) = c;
@@ -3387,6 +3399,7 @@ PHPAPI size_t php_strip_tags(char *rbuf, int len, int *stateptr, char *allow, in
 						lc = '>';
 						state = 0;
 						if (allow) {
+							tp = ((tp-tbuf) >= PHP_TAG_BUF_SIZE ? tbuf: tp);
 							*(tp++) = '>';
 							*tp='\0';
 							if (php_tag_find(tbuf, tp-tbuf, allow)) {
@@ -3433,6 +3446,7 @@ PHPAPI size_t php_strip_tags(char *rbuf, int len, int *stateptr, char *allow, in
 				} else if (state == 0) {
 					*(rp++) = c;
 				} else if (allow && state == 1) {
+					tp = ((tp-tbuf) >= PHP_TAG_BUF_SIZE ? tbuf: tp);
 					*(tp++) = c;
 				}
 				break;
@@ -3446,11 +3460,8 @@ PHPAPI size_t php_strip_tags(char *rbuf, int len, int *stateptr, char *allow, in
 					if (state == 0) {
 						*(rp++) = c;
 					} else if (allow && state == 1) {
+						tp = ((tp-tbuf) >= PHP_TAG_BUF_SIZE ? tbuf: tp);
 						*(tp++) = c;
-						if ( (tp-tbuf) >= PHP_TAG_BUF_SIZE ) {
-							/* prevent buffer overflows */
-							tp = tbuf;
-						}
 					}
 				}
 				break;
@@ -3465,7 +3476,7 @@ PHPAPI size_t php_strip_tags(char *rbuf, int len, int *stateptr, char *allow, in
 
 			case '?':
 
-				if (state == 1 && *(p-1)=='<') { 
+				if (state == 1 && *(p-1) == '<') { 
 					br=0;
 					state=2;
 					break;
@@ -3503,10 +3514,8 @@ reg_char:
 				if (state == 0) {
 					*(rp++) = c;
 				} else if (allow && state == 1) {
+					tp = ((tp-tbuf) >= PHP_TAG_BUF_SIZE ? tbuf: tp);
 					*(tp++) = c;
-					if ( (tp-tbuf) >= PHP_TAG_BUF_SIZE ) { /* no buffer overflows */
-						tp = tbuf;
-					}
 				} 
 				break;
 		}
@@ -4024,7 +4033,7 @@ PHP_FUNCTION(str_shuffle)
 }
 /* }}} */
 
-/* {{{ proto void str_word_count(string str, [int format])
+/* {{{ proto mixed str_word_count(string str, [int format])
    	Counts the number of words inside a string. If format of 1 is specified,
    	then the function will return an array containing all the words
    	found inside the string. If format of 2 is specified, then the function

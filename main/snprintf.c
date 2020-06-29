@@ -1,3 +1,23 @@
+/*
+  +----------------------------------------------------------------------+
+  | PHP Version 4                                                        |
+  +----------------------------------------------------------------------+
+  | Copyright (c) 1997-2003 The PHP Group                                |
+  +----------------------------------------------------------------------+
+  | This source file is subject to version 2.02 of the PHP license,      |
+  | that is bundled with this package in the file LICENSE, and is        |
+  | available at through the world-wide-web at                           |
+  | http://www.php.net/license/2_02.txt.                                 |
+  | If you did not receive a copy of the PHP license and are unable to   |
+  | obtain it through the world-wide-web, please send a note to          |
+  | license@php.net so we can mail you a copy immediately.               |
+  +----------------------------------------------------------------------+
+  | Author:                                                              |
+  +----------------------------------------------------------------------+
+*/
+
+/* $Id: snprintf.c,v 1.17.4.8 2003/08/08 20:23:07 helly Exp $ */
+
 /* ====================================================================
  * Copyright (c) 1995-1998 The Apache Group.  All rights reserved.
  *
@@ -132,6 +152,8 @@ ap_php_conv_10(register wide_int num, register bool_int is_unsigned,
 	return (p);
 }
 
+/* If you change this value then also change bug24640.phpt.
+ */
 #define	NDIG	80
 
 
@@ -271,6 +293,7 @@ char *
 ap_php_cvt(double arg, int ndigits, int *decpt, int *sign, int eflag, char *buf)
 {
 	register int r2;
+	int mvl;
 	double fi, fj;
 	register char *p, *p1;
 
@@ -290,8 +313,13 @@ ap_php_cvt(double arg, int ndigits, int *decpt, int *sign, int eflag, char *buf)
 	 */
 	if (fi != 0) {
 		p1 = &buf[NDIG];
-		while (p1 > &buf[0] && fi != 0) {
+		while (fi != 0) {
 			fj = modf(fi / 10, &fi);
+			if (p1 <= &buf[0]) {
+				mvl = NDIG - ndigits;
+				memmove(&buf[mvl], &buf[0], NDIG-mvl-1);
+				p1 += mvl;
+			}
 			*--p1 = (int) ((fj + .03) * 10) + '0';
 			r2++;
 		}
@@ -314,9 +342,17 @@ ap_php_cvt(double arg, int ndigits, int *decpt, int *sign, int eflag, char *buf)
 		buf[0] = '\0';
 		return (buf);
 	}
-	while (p <= p1 && p < &buf[NDIG]) {
+	if (p <= p1 && p < &buf[NDIG]) {
 		arg = modf(arg * 10, &fj);
-		*p++ = (int) fj + '0';
+		if ((int)fj==10) {
+			*p++ = '1';
+			fj = 0;
+			*decpt = ++r2;
+		}
+		while (p <= p1 && p < &buf[NDIG]) {
+			*p++ = (int) fj + '0';
+			arg = modf(arg * 10, &fj);
+		}
 	}
 	if (p1 >= &buf[NDIG]) {
 		buf[NDIG - 1] = '\0';
@@ -384,6 +420,9 @@ ap_php_gcvt(double number, int ndigit, char *buf, boolean_e altform)
 		*p2++ = '.';
 		for (i = 1; i < ndigit; i++)
 			*p2++ = *p1++;
+		if (*(p2 - 1) == '.') {
+			*p2++ = '0';
+		}	
 		*p2++ = 'e';
 		if (decpt < 0) {
 			decpt = -decpt;

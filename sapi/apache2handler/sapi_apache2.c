@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sapi_apache2.c,v 1.1.2.15 2003/05/23 02:42:22 iliaa Exp $ */
+/* $Id: sapi_apache2.c,v 1.1.2.21 2003/08/06 22:34:20 iliaa Exp $ */
 
 #include <fcntl.h>
 
@@ -86,7 +86,7 @@ php_apache_sapi_ub_write(const char *str, uint str_length TSRMLS_DC)
 						 
 	APR_BRIGADE_INSERT_TAIL(brigade, bucket);
 
-	if (ap_pass_brigade(r->output_filters, brigade) != APR_SUCCESS) {
+	if (ap_pass_brigade(r->output_filters, brigade) != APR_SUCCESS || r->connection->aborted) {
 		php_handle_aborted_connection();
 	}
 	/* Ensure this brigade is empty for the next usage. */
@@ -248,6 +248,7 @@ php_apache_sapi_flush(void *server_context)
 	apr_bucket_brigade *brigade;
 	apr_bucket *bucket;
 	request_rec *r;
+	TSRMLS_FETCH();
 
 	ctx = server_context;
 
@@ -260,10 +261,12 @@ php_apache_sapi_flush(void *server_context)
 	r = ctx->r;
 	brigade = ctx->brigade;
 
+	r->status = SG(sapi_headers).http_response_code;
+
 	/* Send a flush bucket down the filter chain. */
 	bucket = apr_bucket_flush_create(r->connection->bucket_alloc);
 	APR_BRIGADE_INSERT_TAIL(brigade, bucket);
-	if (ap_pass_brigade(r->output_filters, brigade) != APR_SUCCESS) {
+	if (ap_pass_brigade(r->output_filters, brigade) != APR_SUCCESS || r->connection->aborted) {
 		php_handle_aborted_connection();
 	}
 	apr_brigade_cleanup(brigade);
@@ -470,9 +473,24 @@ static int php_handler(request_rec *r)
 		return DECLINED;
 	}
 
-	/* setup standard CGI variables */
-	ap_add_common_vars(r);
-	ap_add_cgi_vars(r);
+	if (r->finfo.filetype == 0) {
+		php_apache_sapi_log_message("script not found or unable to stat");
+		return HTTP_NOT_FOUND;
+	}
+	if (r->finfo.filetype == APR_DIR) {
+		php_apache_sapi_log_message("attempt to invoke directory as script");
+		return HTTP_FORBIDDEN;
+	}
+
+	/* Setup the CGI variables if this is the main request */
+	if (r->main == NULL || 
+		/* .. or if the sub-request envinronment differs from the main-request. */ 
+		r->subprocess_env != r->main->subprocess_env
+	) {
+		/* setup standard CGI variables */
+		ap_add_common_vars(r);
+		ap_add_cgi_vars(r);
+	}
 
 	ctx = SG(server_context);
 	if (ctx == NULL) {
@@ -494,15 +512,6 @@ static int php_handler(request_rec *r)
 		brigade = ctx->brigade;
 	}
 
-	if (r->finfo.filetype == 0) {
-		php_apache_sapi_log_message("script not found or unable to stat");
-		return HTTP_NOT_FOUND;
-	}
-	if (r->finfo.filetype == APR_DIR) {
-		php_apache_sapi_log_message("attempt to invoke directory as script");
-		return HTTP_FORBIDDEN;
-	}
-
 	if (AP2(last_modified)) {
 		ap_update_mtime(r, r->finfo.mtime);
 		ap_set_last_modified(r);
@@ -514,7 +523,7 @@ static int php_handler(request_rec *r)
 		php_get_highlight_struct(&syntax_highlighter_ini);
 		highlight_file((char *)r->filename, &syntax_highlighter_ini TSRMLS_CC);
 	} else {
-		zend_file_handle zfd;
+		zend_file_handle zfd = {0};
 
 		zfd.type = ZEND_HANDLE_FILENAME;
 		zfd.filename = (char *) r->filename;
@@ -544,7 +553,7 @@ static int php_handler(request_rec *r)
 		APR_BRIGADE_INSERT_TAIL(brigade, bucket);
 
 		rv = ap_pass_brigade(r->output_filters, brigade);
-		if (rv != APR_SUCCESS) {
+		if (rv != APR_SUCCESS || r->connection->aborted) {
 			php_handle_aborted_connection();
 		}
 		apr_brigade_cleanup(brigade);

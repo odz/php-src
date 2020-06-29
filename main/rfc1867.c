@@ -16,7 +16,7 @@
    |          Jani Taskinen <sniper@php.net>                              |
    +----------------------------------------------------------------------+
  */
-/* $Id: rfc1867.c,v 1.122.2.10 2003/05/23 21:37:16 pollita Exp $ */
+/* $Id: rfc1867.c,v 1.122.2.12 2003/08/05 01:01:40 iliaa Exp $ */
 
 /*
  *  This product includes software developed by the Apache Group
@@ -521,7 +521,7 @@ static char *substring_conf(char *start, int len, char quote TSRMLS_DC)
 		} else {
 #if HAVE_MBSTRING && !defined(COMPILE_DL_MBSTRING)
 			if (php_mb_encoding_translation(TSRMLS_C)) {
-				size_t j = php_mb_mbchar_bytes(start+i TSRMLS_CC);
+				size_t j = php_mb_gpc_mbchar_bytes(start+i TSRMLS_CC);
 				while (j-- > 0 && i < len) {
 					*resp++ = start[i++];
 				}
@@ -543,6 +543,12 @@ static char *substring_conf(char *start, int len, char quote TSRMLS_DC)
 static char *php_ap_getword_conf(char **line TSRMLS_DC)
 {
 	char *str = *line, *strend, *res, quote;
+
+#if HAVE_MBSTRING && !defined(COMPILE_DL_MBSTRING)
+	if (php_mb_encoding_translation(TSRMLS_C)) {
+		php_mb_gpc_encoding_detector(str, strlen(str), NULL TSRMLS_CC);
+	}
+#endif
 
 	while (*str && isspace(*str)) {
 		++str;
@@ -693,6 +699,9 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 	zval *array_ptr = (zval *) arg;
 	FILE *fp;
 	zend_llist header;
+#if HAVE_MBSTRING && !defined(COMPILE_DL_MBSTRING)
+	int str_len=0;
+#endif
 
 	if (SG(request_info).content_length > SG(post_max_size)) {
 		sapi_module.sapi_error(E_WARNING, "POST Content-Length of %d bytes exceeds the limit of %d bytes", SG(request_info).content_length, SG(post_max_size));
@@ -801,6 +810,14 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 					value = estrdup("");
 				}
 
+#if HAVE_MBSTRING && !defined(COMPILE_DL_MBSTRING)
+				if (php_mb_encoding_translation(TSRMLS_C)) {
+					if (php_mb_gpc_encoding_detector(value, strlen(value), NULL TSRMLS_CC) == SUCCESS) {
+						str_len = strlen(value);
+						php_mb_gpc_encoding_converter(&value , &str_len, NULL, NULL TSRMLS_CC);
+					} 
+				}
+#endif
 				safe_php_register_variable(param, value, array_ptr, 0 TSRMLS_CC);
 				if (!strcasecmp(param, "MAX_FILE_SIZE")) {
 					max_file_size = atol(value);
@@ -927,6 +944,10 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 
 #if HAVE_MBSTRING && !defined(COMPILE_DL_MBSTRING)
 			if (php_mb_encoding_translation(TSRMLS_C)) {
+				if(php_mb_gpc_encoding_detector(filename, strlen(filename), NULL TSRMLS_CC) == SUCCESS) {
+					str_len = strlen(filename);
+					php_mb_gpc_encoding_converter(&filename, &str_len, NULL, NULL TSRMLS_CC);
+				}
 				s = php_mb_strrchr(filename, '\\' TSRMLS_CC);
 			} else {
 				s = strrchr(filename, '\\');

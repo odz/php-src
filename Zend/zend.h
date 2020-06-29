@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend.h,v 1.164.2.7 2003/05/21 07:53:20 zeev Exp $ */
+/* $Id: zend.h,v 1.164.2.9 2003/07/19 13:10:54 sniper Exp $ */
 
 #ifndef ZEND_H
 #define ZEND_H
@@ -134,7 +134,7 @@ char *alloca ();
 # endif
 #endif
 
-#if (HAVE_ALLOCA || (defined (__GNUC__) && __GNUC__ >= 2)) && !(defined(ZTS) && defined(ZEND_WIN32)) && !(defined(ZTS) && defined(NETWARE))
+#if (HAVE_ALLOCA || (defined (__GNUC__) && __GNUC__ >= 2)) && !(defined(ZTS) && defined(ZEND_WIN32)) && !(defined(ZTS) && defined(NETWARE)) && !(defined(ZTS) && defined(HPUX))
 # define do_alloca(p) alloca(p)
 # define free_alloca(p)
 #else
@@ -279,6 +279,7 @@ struct _zend_class_entry {
 	int (*handle_property_set)(zend_property_reference *property_reference, zval *value);
 };
 
+struct _zend_file_handle;
 
 
 typedef struct _zend_utility_functions {
@@ -292,6 +293,7 @@ typedef struct _zend_utility_functions {
 	int (*get_configuration_directive)(char *name, uint name_length, zval *contents);
 	void (*ticks_function)(int ticks);
 	void (*on_timeout)(int seconds TSRMLS_DC);
+	zend_bool (*open_function)(const char *filename, struct _zend_file_handle *);
 } zend_utility_functions;
 
 		
@@ -417,6 +419,7 @@ BEGIN_EXTERN_C()
 extern ZEND_API int (*zend_printf)(const char *format, ...);
 extern ZEND_API zend_write_func_t zend_write;
 extern ZEND_API FILE *(*zend_fopen)(const char *filename, char **opened_path);
+extern ZEND_API zend_bool (*zend_open)(const char *filename, struct _zend_file_handle *fh);
 extern ZEND_API void (*zend_block_interruptions)(void);
 extern ZEND_API void (*zend_unblock_interruptions)(void);
 extern ZEND_API void (*zend_ticks_function)(int ticks);

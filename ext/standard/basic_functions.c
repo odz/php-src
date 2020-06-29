@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: basic_functions.c,v 1.543.2.17 2003/05/21 09:34:12 zeev Exp $ */
+/* $Id: basic_functions.c,v 1.543.2.21 2003/08/11 00:53:26 sniper Exp $ */
 
 #include "php.h"
 #include "php_streams.h"
@@ -937,6 +937,8 @@ static void php_putenv_destructor(putenv_entry *pe)
 	} else {
 # if HAVE_UNSETENV
 		unsetenv(pe->key);
+# elif defined(PHP_WIN32)
+		SetEnvironmentVariable(pe->key, NULL);
 # else
 		char **env;
 
@@ -1055,7 +1057,7 @@ PHP_MINIT_FUNCTION(basic)
 #ifndef PHP_CURL_URL_WRAPPERS
 	php_register_url_stream_wrapper("http", &php_stream_http_wrapper TSRMLS_CC);
 	php_register_url_stream_wrapper("ftp", &php_stream_ftp_wrapper TSRMLS_CC);
-# if HAVE_OPENSSL_EXT
+# ifdef HAVE_OPENSSL_EXT
 	php_register_url_stream_wrapper("https", &php_stream_http_wrapper TSRMLS_CC);
 	php_register_url_stream_wrapper("ftps", &php_stream_ftp_wrapper TSRMLS_CC);
 # endif
@@ -1077,7 +1079,7 @@ PHP_MSHUTDOWN_FUNCTION(basic)
 #ifndef PHP_CURL_URL_WRAPPERS
 	php_unregister_url_stream_wrapper("http" TSRMLS_CC);
 	php_unregister_url_stream_wrapper("ftp" TSRMLS_CC);
-# if HAVE_OPENSSL_EXT
+# ifdef HAVE_OPENSSL_EXT
 	php_unregister_url_stream_wrapper("https" TSRMLS_CC);
 	php_unregister_url_stream_wrapper("ftps" TSRMLS_CC);
 # endif
@@ -1121,10 +1123,6 @@ PHP_RINIT_FUNCTION(basic)
 	}
 #endif
 	BG(user_shutdown_function_names) = NULL;
-
-#if HAVE_CRYPT
-	PHP_RINIT(crypt) (INIT_FUNC_ARGS_PASSTHRU);
-#endif
 
 	PHP_RINIT(lcg) (INIT_FUNC_ARGS_PASSTHRU);
 
@@ -2840,7 +2838,7 @@ static void php_ini_parser_cb_with_sections(zval *arg1, zval *arg2, int callback
 PHP_FUNCTION(parse_ini_file)
 {
 	zval **filename, **process_sections;
-	zend_file_handle fh;
+	zend_file_handle fh = {0};
 	zend_ini_parser_cb_t ini_parser_cb;
 
 	switch (ARG_COUNT(ht)) {

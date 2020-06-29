@@ -99,7 +99,7 @@ if (getenv('TEST_PHP_EXECUTABLE')) {
 		putenv("TEST_PHP_EXECUTABLE=$php");
 	}
 }
-if (!file_exists($php)) {
+if (empty($php) || !file_exists($php)) {
 	error("environment variable TEST_PHP_EXECUTABLE must be set to specify PHP executable!");
 }
 
@@ -134,7 +134,7 @@ $php_info = '<?php echo "
 PHP_SAPI    : " . PHP_SAPI . "
 PHP_VERSION : " . phpversion() . "
 ZEND_VERSION: " . zend_version() . "
-PHP_OS      : " . PHP_OS . "
+PHP_OS      : " . PHP_OS . " - " . php_uname() . "
 INI actual  : " . realpath(get_cfg_var("cfg_file_path")) . "
 More .INIs  : " . (function_exists(\'php_ini_scanned_files\') ? str_replace("\n","", php_ini_scanned_files()) : "** not determined **"); ?>';
 save_text($info_file, $php_info);
@@ -400,7 +400,7 @@ if (!getenv('NO_INTERACTION')) {
 		}
 		
 		$failed_tests_data .= "\n" . $sep . 'BUILD ENVIRONMENT' . $sep;
-		$failed_tests_data .= "OS:\n". PHP_OS. "\n\n";
+		$failed_tests_data .= "OS:\n" . PHP_OS . " - " . php_uname() . "\n\n";
 		$ldd = $automake = $autoconf = $libtool = $compiler = 'N/A';
 
 		if (substr(PHP_OS, 0, 3) != "WIN") {
@@ -567,6 +567,14 @@ TEST $file
 	}
 	fclose($fp);
 
+	/* For GET/POST tests, check if cgi sapi is avaliable and if it is, use it. */
+	if ((!empty($section_text['GET']) || !empty($section_text['POST']))) {
+		if (file_exists("./sapi/cgi/php")) {
+			$old_php = $php;
+			$php = realpath("./sapi/cgi/php") . ' -C ';
+		}
+	}
+
 	$shortname = str_replace($GLOBALS['cwd'].'/', '', $file);
 	$tested = trim($section_text['TEST'])." [$shortname]";
 
@@ -600,15 +608,21 @@ TEST $file
 	if (array_key_exists('SKIPIF', $section_text)) {
 		if (trim($section_text['SKIPIF'])) {
 			save_text($tmp_skipif, $section_text['SKIPIF']);
-			$output = `$php $info_params $tmp_skipif`;
+			$extra = substr(PHP_OS, 0, 3) !== "WIN" ?
+				"unset REQUEST_METHOD;": "";
+				
+			$output = `$extra $php $info_params -f $tmp_skipif`;
 			@unlink($tmp_skipif);
 			if (eregi("^skip", trim($output))) {
 				echo "SKIP $tested";
-				$reason = (ereg("^skip[[:space:]]*(.+)\$", trim($output))) ? ereg_replace("^skip[[:space:]]*(.+)\$", "\\1", trim($output)) : FALSE;
+				$reason = (eregi("^skip[[:space:]]*(.+)\$", trim($output))) ? eregi_replace("^skip[[:space:]]*(.+)\$", "\\1", trim($output)) : FALSE;
 				if ($reason) {
 					echo " (reason: $reason)\n";
 				} else {
 					echo "\n";
+				}
+				if (isset($old_php)) {
+					$php = $old_php;
 				}
 				return 'SKIPPED';
 			}
@@ -616,7 +630,6 @@ TEST $file
 				$reason = (ereg("^info[[:space:]]*(.+)\$", trim($output))) ? ereg_replace("^info[[:space:]]*(.+)\$", "\\1", trim($output)) : FALSE;
 				if ($reason) {
 					$info = " (info: $reason)";
-					$tested .= $info;
 				}
 			}
 			if (eregi("^warn", trim($output))) {
@@ -624,7 +637,6 @@ TEST $file
 				if ($reason) {
 					$warn = true; /* only if there is a reason */
 					$info = " (warn: $reason)";
-					$tested .= $info;
 				}
 			}
 		}
@@ -698,6 +710,11 @@ COMMAND $cmd
 	$output = trim($out);
 	$output = preg_replace('/\r\n/',"\n",$output);
 
+	/* when using CGI, strip the headers from the output */
+	if (isset($old_php) && ($pos = strpos($output, "\n\n")) !== FALSE) {
+		$output = substr($output, ($pos + 2));
+	}
+
 	if (isset($section_text['EXPECTF']) || isset($section_text['EXPECTREGEX'])) {
 		if (isset($section_text['EXPECTF'])) {
 			$wanted = trim($section_text['EXPECTF']);
@@ -723,7 +740,10 @@ COMMAND $cmd
 */
 		if (preg_match("/^$wanted_re\$/s", $output)) {
 			@unlink($tmp_file);
-			echo "PASS $tested\n";
+			echo "PASS $tested$info\n";
+			if (isset($old_php)) {
+				$php = $old_php;
+			}
 			return 'PASSED';
 		}
 
@@ -734,16 +754,19 @@ COMMAND $cmd
 		$ok = (0 == strcmp($output,$wanted));
 		if ($ok) {
 			@unlink($tmp_file);
-			echo "PASS $tested\n";
+			echo "PASS $tested$info\n";
+			if (isset($old_php)) {
+				$php = $old_php;
+			}
 			return 'PASSED';
 		}
 	}
 
 	// Test failed so we need to report details.
 	if ($warn) {
-		echo "WARN $tested\n";
+		echo "WARN $tested$info\n";
 	} else {
-		echo "FAIL $tested\n";
+		echo "FAIL $tested$info\n";
 	}
 
 	$GLOBALS['__PHP_FAILED_TESTS__'][] = array(
@@ -791,6 +814,10 @@ $output
 ");
 		fclose($log);
 		error_report($file,$logname,$tested);
+	}
+
+	if (isset($old_php)) {
+		$php = $old_php;
 	}
 
 	return $warn ? 'WARNED' : 'FAILED';

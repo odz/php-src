@@ -5,19 +5,20 @@
 // +----------------------------------------------------------------------+
 // | Copyright (c) 1997-2003 The PHP Group                                |
 // +----------------------------------------------------------------------+
-// | This source file is subject to version 2.02 of the PHP license,      |
+// | This source file is subject to version 3.0 of the PHP license,       |
 // | that is bundled with this package in the file LICENSE, and is        |
-// | available at through the world-wide-web at                           |
-// | http://www.php.net/license/2_02.txt.                                 |
+// | available through the world-wide-web at the following url:           |
+// | http://www.php.net/license/3_0.txt.                                  |
 // | If you did not receive a copy of the PHP license and are unable to   |
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
 // | Authors: Stig Bakken <ssb@php.net>                                   |
 // |          Tomas V.V.Cox <cox@idecnet.com>                             |
+// |          Martin Jansen <mj@php.net>                                  |
 // +----------------------------------------------------------------------+
 //
-// $Id: Installer.php,v 1.81.2.6 2003/04/11 23:48:38 ssb Exp $
+// $Id: Installer.php,v 1.81.2.11 2003/08/06 01:58:30 cox Exp $
 
 require_once 'PEAR/Common.php';
 require_once 'PEAR/Registry.php';
@@ -40,6 +41,7 @@ define('PEAR_INSTALLER_SKIPPED', -1);
  *
  * @since PHP 4.0.2
  * @author Stig Bakken <ssb@php.net>
+ * @author Martin Jansen <mj@php.net>
  */
 class PEAR_Installer extends PEAR_Common
 {
@@ -115,7 +117,7 @@ class PEAR_Installer extends PEAR_Common
         parent::PEAR_Common();
         $this->setFrontendObject($ui);
         $this->debug = $this->config->get('verbose');
-        $this->registry = &new PEAR_Registry($this->config->get('php_dir'));
+        //$this->registry = &new PEAR_Registry($this->config->get('php_dir'));
     }
 
     // }}}
@@ -259,7 +261,7 @@ class PEAR_Installer extends PEAR_Common
             if (sizeof($subst_from)) {
                 $contents = str_replace($subst_from, $subst_to, $contents);
             }
-            $wp = @fopen($dest_file, "w");
+            $wp = @fopen($dest_file, "wb");
             if (!is_resource($wp)) {
                 return $this->raiseError("failed to create $dest_file: $php_errormsg",
                                          PEAR_INSTALLER_FAILED);
@@ -487,12 +489,11 @@ class PEAR_Installer extends PEAR_Common
                 $options['installroot'] = substr($options['installroot'], 0, -1);
             }
             $php_dir = $this->_prependPath($php_dir, $options['installroot']);
-            $this->registry = &new PEAR_Registry($php_dir);
             $this->installroot = $options['installroot'];
         } else {
-            $registry = &$this->registry;
             $this->installroot = '';
         }
+        $this->registry = &new PEAR_Registry($php_dir);
         $need_download = false;
         //  ==> XXX should be removed later on
         $flag_old_format = false;
@@ -599,12 +600,18 @@ class PEAR_Installer extends PEAR_Common
 
         // Check dependencies -------------------------------------------
         if (isset($pkginfo['release_deps']) && empty($options['nodeps'])) {
-            $error = $this->checkDeps($pkginfo);
-            if ($error) {
+            $dep_errors = '';
+            $error = $this->checkDeps($pkginfo, $dep_errors);
+            if ($error == true) {
                 if (empty($options['soft'])) {
-                    $this->log(0, $error);
+                    $this->log(0, substr($dep_errors, 1));
                 }
-                return $this->raiseError("$pkgname: dependencies failed");
+                return $this->raiseError("$pkgname: Dependencies failed");
+            } else if (!empty($dep_errors)) {
+                // Print optional dependencies
+                if (empty($options['soft'])) {
+                    $this->log(0, $dep_errors);
+                }
             }
         }
 
@@ -708,11 +715,12 @@ class PEAR_Installer extends PEAR_Common
                     $this->rollbackFileTransaction();
                     return $built;
                 }
+                $this->log(1, "\nBuild process completed successfully");
                 foreach ($built as $ext) {
                     $bn = basename($ext['file']);
-                    $this->log(2, "installing $bn");
                     $dest = $this->config->get('ext_dir') . DIRECTORY_SEPARATOR . $bn;
-                    $this->log(3, "+ cp $ext[file] ext_dir");
+                    $this->log(1, "Installing '$bn' at ext_dir ($dest)");
+                    $this->log(3, "+ cp $ext[file] ext_dir ($dest)");
                     $copyto = $this->_prependPath($dest, $this->installroot);
                     if (!@copy($ext['file'], $copyto)) {
                         $this->rollbackFileTransaction();
@@ -766,7 +774,13 @@ class PEAR_Installer extends PEAR_Common
             $this->installroot = '';
         }
         $this->registry = &new PEAR_Registry($php_dir);
-
+        if (empty($options['nodeps'])) {
+            $depchecker = &new PEAR_Dependency($this->registry);
+            $error = $depchecker->checkPackageUninstall($errors, $package);
+            if ($error) {
+                return $this->raiseError($errors . 'uninstall failed');
+            }
+        }
         // Delete the files
         if (PEAR::isError($err = $this->_deletePackageFiles($package))) {
             $this->rollbackFileTransaction();
@@ -784,22 +798,38 @@ class PEAR_Installer extends PEAR_Common
     // }}}
     // {{{ checkDeps()
 
-    function checkDeps(&$pkginfo)
+    /**
+     * Check if the package meets all dependencies
+     *
+     * @param  array   Package information (passed by reference)
+     * @param  string  Error message (passed by reference)
+     * @return boolean False when no error occured, otherwise true
+     */
+    function checkDeps(&$pkginfo, &$errors)
     {
+        if (empty($this->registry)) {
+            $this->registry = &new PEAR_Registry($this->config->get('php_dir'));
+        }
         $depchecker = &new PEAR_Dependency($this->registry);
         $error = $errors = '';
-        $failed_deps = array();
+        $failed_deps = $optional_deps = array();
         if (is_array($pkginfo['release_deps'])) {
             foreach($pkginfo['release_deps'] as $dep) {
                 $code = $depchecker->callCheckMethod($error, $dep);
                 if ($code) {
-                    $failed_deps[] = array($dep, $code, $error);
+                    if (isset($dep['optional']) && $dep['optional'] == 'yes') {
+                        // Ugly hack to adjust the error messages
+                        $error = str_replace('requires ', '', $error);
+                        $error = ucfirst($error);
+                        $error = $error . ' is recommended to utilize some features.';
+                        $optional_deps[] = array($dep, $code, $error);
+                    } else {
+                        $failed_deps[] = array($dep, $code, $error);
+                    }
                 }
             }
             $n = count($failed_deps);
             if ($n > 0) {
-                $depinstaller =& new PEAR_Installer($this->ui);
-                $to_install = array();
                 for ($i = 0; $i < $n; $i++) {
                     if (isset($failed_deps[$i]['type'])) {
                         $type = $failed_deps[$i]['type'];
@@ -824,7 +854,28 @@ class PEAR_Installer extends PEAR_Common
                             break;
                     }
                 }
-                return substr($errors, 1);
+                return true;
+            }
+
+            $count_optional = count($optional_deps);
+            if ($count_optional > 0) {
+                $errors = "Optional dependencies:";
+
+                for ($i = 0; $i < $count_optional; $i++) {
+                    if (isset($optional_deps[$i]['type'])) {
+                        $type = $optional_deps[$i]['type'];
+                    } else {
+                        $type = 'pkg';
+                    }
+                    switch ($optional_deps[$i][1]) {
+                        case PEAR_DEPENDENCY_MISSING:
+                        case PEAR_DEPENDENCY_UPGRADE_MINOR:
+                        default:
+                            $errors .= "\n" . $optional_deps[$i][2];
+                            break;
+                    }
+                }
+                return false;
             }
         }
         return false;

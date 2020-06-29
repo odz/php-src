@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.7 2002/03/12 16:10:13 sas Exp $
+dnl $Id: config.m4,v 1.1 2003/05/17 14:27:07 sterling Exp $
 dnl
 
 PHP_ARG_WITH(bz2, for BZip2 support,

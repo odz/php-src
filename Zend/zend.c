@@ -48,6 +48,7 @@ ZEND_API zend_class_entry zend_standard_class_def;
 ZEND_API int (*zend_printf)(const char *format, ...);
 ZEND_API zend_write_func_t zend_write;
 ZEND_API FILE *(*zend_fopen)(const char *filename, char **opened_path);
+ZEND_API zend_bool (*zend_open)(const char *filename, zend_file_handle *);
 ZEND_API void (*zend_block_interruptions)(void);
 ZEND_API void (*zend_unblock_interruptions)(void);
 ZEND_API void (*zend_ticks_function)(int ticks);
@@ -119,7 +120,7 @@ static void print_hash(HashTable *ht, int indent)
 		ZEND_PUTS("[");
 		switch (zend_hash_get_current_key_ex(ht, &string_key, &str_len, &num_key, 0, &iterator)) {
 			case HASH_KEY_IS_STRING:
-				ZEND_PUTS(string_key);
+				ZEND_WRITE(string_key, str_len-1);
 				break;
 			case HASH_KEY_IS_LONG:
 				zend_printf("%ld", num_key);
@@ -252,6 +253,18 @@ ZEND_API void zend_print_zval_r_ex(zend_write_func_t write_func, zval *expr, int
 			zend_print_variable(expr);
 			break;
 	}
+}
+
+
+static zend_bool zend_open_wrapper(const char *filename, zend_file_handle *fh)
+{
+	fh->handle.fp = zend_fopen(filename, &fh->opened_path);
+
+	if (fh->handle.fp) {
+		fh->type = ZEND_HANDLE_FP;
+		return SUCCESS;
+	}
+	return FAILURE;
 }
 
 
@@ -405,7 +418,6 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 	zend_compiler_globals *compiler_globals;
 	zend_executor_globals *executor_globals;
 	void ***tsrm_ls;
-#ifdef ZTS
 	extern ZEND_API ts_rsrc_id ini_scanner_globals_id;
 	extern ZEND_API ts_rsrc_id language_scanner_globals_id;
 #else
@@ -413,6 +425,7 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 	extern zend_scanner_globals language_scanner_globals;
 #endif
 
+#ifdef ZTS
 	ts_allocate_id(&alloc_globals_id, sizeof(zend_alloc_globals), (ts_allocate_ctor) alloc_globals_ctor, (ts_allocate_dtor) alloc_globals_dtor);
 #else
 	alloc_globals_ctor(&alloc_globals TSRMLS_CC);
@@ -432,6 +445,10 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 	zend_fopen = utility_functions->fopen_function;
 	if (!zend_fopen) {
 		zend_fopen = zend_fopen_wrapper;
+	}
+	zend_open = utility_functions->open_function;
+	if (!zend_open) {
+		zend_open = zend_open_wrapper;
 	}
 	zend_message_dispatcher_p = utility_functions->message_handler;
 	zend_block_interruptions = utility_functions->block_interruptions;
@@ -479,7 +496,6 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 	zend_startup_constants(tsrm_ls);
 	GLOBAL_CONSTANTS_TABLE = EG(zend_constants);
 #else
-	zend_hash_init_ex(CG(auto_globals), 8, NULL, NULL, 1, 0);
 	scanner_globals_ctor(&ini_scanner_globals TSRMLS_CC);
 	scanner_globals_ctor(&language_scanner_globals TSRMLS_CC);
 	zend_startup_constants();
@@ -760,7 +776,7 @@ ZEND_API void zend_error(int type, const char *format, ...)
 			z_error_message->value.str.val[ZEND_ERROR_BUFFER_SIZE - 1] = '\0';
 			z_error_message->value.str.len = strlen(z_error_message->value.str.val);
 #else
-			strncpy(z_error_message->value.str.val, va_arg(format, char *), ZEND_ERROR_BUFFER_SIZE);
+			strncpy(z_error_message->value.str.val, format, ZEND_ERROR_BUFFER_SIZE);
 			z_error_message->value.str.val[ZEND_ERROR_BUFFER_SIZE - 1] = '\0';
 			z_error_message->value.str.len = strlen(z_error_message->value.str.val);
 			/* This is risky... */

@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: file.c,v 1.279.2.23 2003/05/26 19:01:45 wez Exp $ */
+/* $Id: file.c,v 1.279.2.34 2003/07/29 18:26:59 iliaa Exp $ */
 
 /* Synced with php 3.0 revision 1.218 1999-06-16 [ssb] */
 
@@ -134,7 +134,12 @@ PHPAPI int php_le_stream_context(void)
 
 static ZEND_RSRC_DTOR_FUNC(file_context_dtor)
 {
-	php_stream_context_free((php_stream_context*)rsrc->ptr);
+	php_stream_context *context = (php_stream_context*)rsrc->ptr;
+	if (context->options) {
+		zval_ptr_dtor(&context->options);
+		context->options = NULL;
+	}
+	php_stream_context_free(context);
 }
 
 static void file_globals_ctor(php_file_globals *file_globals_p TSRMLS_DC)
@@ -219,13 +224,13 @@ static int flock_values[] = { LOCK_SH, LOCK_EX, LOCK_UN };
 
 PHP_FUNCTION(flock)
 {
-    zval **arg1, **arg2, **arg3;
-    int fd, act, ret, arg_count = ZEND_NUM_ARGS();
+	zval **arg1, **arg2, **arg3;
+	int fd, act, ret, arg_count = ZEND_NUM_ARGS();
 	php_stream *stream;
 
-    if (arg_count < 2 || arg_count > 3 || zend_get_parameters_ex(arg_count, &arg1, &arg2, &arg3) == FAILURE) {
-        WRONG_PARAM_COUNT;
-    }
+	if (arg_count < 2 || arg_count > 3 || zend_get_parameters_ex(arg_count, &arg1, &arg2, &arg3) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
 
 	php_stream_from_zval(stream, arg1);
 
@@ -235,22 +240,22 @@ PHP_FUNCTION(flock)
 
 	convert_to_long_ex(arg2);
 
-    act = Z_LVAL_PP(arg2) & 3;
-    if (act < 1 || act > 3) {
+	act = Z_LVAL_PP(arg2) & 3;
+	if (act < 1 || act > 3) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Illegal operation argument");
 		RETURN_FALSE;
-    }
+	}
 
-    /* flock_values contains all possible actions
-       if (arg2 & 4) we won't block on the lock */
-    act = flock_values[act - 1] | (Z_LVAL_PP(arg2) & 4 ? LOCK_NB : 0);
-    if ((ret=flock(fd, act)) == -1) {
-        RETURN_FALSE;
-    }
+	/* flock_values contains all possible actions
+	   if (arg2 & 4) we won't block on the lock */
+	act = flock_values[act - 1] | (Z_LVAL_PP(arg2) & 4 ? LOCK_NB : 0);
+	if ((ret=flock(fd, act)) == -1) {
+		RETURN_FALSE;
+	}
 	if(ret == -1 && errno == EWOULDBLOCK && arg_count == 3) {
 		ZVAL_LONG(*arg3, 1);
 	}
-    RETURN_TRUE;
+	RETURN_TRUE;
 }
 
 /* }}} */
@@ -584,7 +589,7 @@ PHP_NAMED_FUNCTION(php_if_tmpfile)
 /* }}} */
 
 /* {{{ proto resource stream_get_meta_data(resource fp)
-    Retrieves header/meta data from streams/file pointers */
+   Retrieves header/meta data from streams/file pointers */
 PHP_FUNCTION(stream_get_meta_data)
 {
 	zval **arg1;
@@ -803,8 +808,14 @@ PHP_FUNCTION(stream_select)
 	/* If seconds is not set to null, build the timeval, else we wait indefinitely */
 	if (sec != NULL) {
 		convert_to_long_ex(&sec);
-		tv.tv_sec = Z_LVAL_P(sec);
-		tv.tv_usec = usec;
+
+		if (usec > 999999) {
+			tv.tv_sec = Z_LVAL_P(sec) + (usec / 1000000);
+			tv.tv_usec = usec % 1000000;
+		} else {
+			tv.tv_sec = Z_LVAL_P(sec);
+			tv.tv_usec = usec;
+		}
 		tv_p = &tv;
 	}
 
@@ -870,6 +881,14 @@ static void user_space_stream_notifier(php_stream_context *context, int notifyco
 		zval_ptr_dtor(&retval);
 }
 
+static void user_space_stream_notifier_dtor(php_stream_notifier *notifier)
+{
+	if (notifier && notifier->ptr) {
+		zval_ptr_dtor((zval **)&(notifier->ptr));
+		notifier->ptr = NULL;
+	}
+}
+
 static int parse_context_options(php_stream_context *context, zval *options)
 {
 	HashPosition pos, opos;
@@ -877,17 +896,17 @@ static int parse_context_options(php_stream_context *context, zval *options)
 	char *wkey, *okey;
 	int wkey_len, okey_len;
 	int ret = SUCCESS;
+	ulong num_key;
 	
 	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(options), &pos);
 	while (SUCCESS == zend_hash_get_current_data_ex(Z_ARRVAL_P(options), (void**)&wval, &pos)) {
-		if (HASH_KEY_IS_STRING == zend_hash_get_current_key_ex(Z_ARRVAL_P(options), &wkey, &wkey_len, NULL, 0, &pos)
+		if (HASH_KEY_IS_STRING == zend_hash_get_current_key_ex(Z_ARRVAL_P(options), &wkey, &wkey_len, &num_key, 0, &pos)
 				&& Z_TYPE_PP(wval) == IS_ARRAY) {
 
 			zend_hash_internal_pointer_reset_ex(Z_ARRVAL_PP(wval), &opos);
 			while (SUCCESS == zend_hash_get_current_data_ex(Z_ARRVAL_PP(wval), (void**)&oval, &opos)) {
 
-				if (HASH_KEY_IS_STRING == zend_hash_get_current_key_ex(Z_ARRVAL_PP(wval), &okey, &okey_len, NULL, 0, &opos)) {
-					ZVAL_ADDREF(*oval);
+				if (HASH_KEY_IS_STRING == zend_hash_get_current_key_ex(Z_ARRVAL_PP(wval), &okey, &okey_len, &num_key, 0, &opos)) {
 					php_stream_context_set_option(context, wkey, okey, *oval);
 				}
 				zend_hash_move_forward_ex(Z_ARRVAL_PP(wval), &opos);
@@ -904,10 +923,10 @@ static int parse_context_options(php_stream_context *context, zval *options)
 
 static int parse_context_params(php_stream_context *context, zval *params)
 {
-	int ret = SUCCESS;
+	int ret = FAILURE;
 	zval **tmp;
 
-	if (SUCCESS == zend_hash_find(Z_ARRVAL_P(params), "notification", sizeof("notification"), (void**)&tmp)) {
+	if ((ret = zend_hash_find(Z_ARRVAL_P(params), "notification", sizeof("notification"), (void**)&tmp)) == SUCCESS) {
 		
 		if (context->notifier) {
 			php_stream_notification_free(context->notifier);
@@ -918,11 +937,12 @@ static int parse_context_params(php_stream_context *context, zval *params)
 		context->notifier->func = user_space_stream_notifier;
 		context->notifier->ptr = *tmp;
 		ZVAL_ADDREF(*tmp);
+		context->notifier->dtor = user_space_stream_notifier_dtor;
 	}
-	if (SUCCESS == zend_hash_find(Z_ARRVAL_P(params), "options", sizeof("options"), (void**)&tmp)) {
+	if ((ret = zend_hash_find(Z_ARRVAL_P(params), "options", sizeof("options"), (void**)&tmp)) == SUCCESS) {
 		parse_context_options(context, *tmp);
 	}
-	
+
 	return ret;
 }
 
@@ -933,16 +953,20 @@ static php_stream_context *decode_context_param(zval *contextresource TSRMLS_DC)
 {
 	php_stream_context *context = NULL;
 
-	context = zend_fetch_resource(&contextresource TSRMLS_CC, -1, "Stream-Context", NULL, 1, le_stream_context);
+	context = zend_fetch_resource(&contextresource TSRMLS_CC, -1, NULL, NULL, 1, php_le_stream_context());
 	if (context == NULL) {
 		php_stream *stream;
 
-		php_stream_from_zval_no_verify(stream, &contextresource);
+		stream = zend_fetch_resource(&contextresource TSRMLS_CC, -1, NULL, NULL, 2, php_file_le_stream(), php_file_le_pstream);
 
 		if (stream) {
 			context = stream->context;
-			if (context == NULL)
+			if (context == NULL) {
 				context = stream->context = php_stream_context_alloc();
+				/* Register this magical context so that it'll
+				   get cleaned up later. PHP5 does this more cleanly */
+				ZEND_REGISTER_RESOURCE(NULL, context, php_le_stream_context());
+			}
 		}
 	}
 
@@ -1132,7 +1156,11 @@ PHPAPI PHP_FUNCTION(fclose)
 	}
 
 	php_stream_from_zval(stream, arg1);
-	php_stream_close(stream);
+	if (!stream->is_persistent) {
+		zend_list_delete(stream->rsrc_id);
+	} else {
+		php_stream_pclose(stream);
+	}
 
 	RETURN_TRUE;
 }
@@ -1218,7 +1246,8 @@ PHP_FUNCTION(pclose)
 
 	php_stream_from_zval(stream, arg1);
 
-	RETURN_LONG(php_stream_close(stream));
+	zend_list_delete(stream->rsrc_id);
+	RETURN_LONG(FG(pclose_ret));
 }
 /* }}} */
 
@@ -1435,10 +1464,10 @@ PHPAPI PHP_FUNCTION(fgetss)
 
 	convert_to_long_ex(bytes);
 	len = Z_LVAL_PP(bytes);
-    if (len < 0) {
+	if (len < 0) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Length parameter may not be negative");
 		RETURN_FALSE;
-    }
+	}
 
 	buf = safe_emalloc(sizeof(char), (len + 1), 0);
 	/*needed because recv doesnt set null char at end*/
@@ -1675,7 +1704,7 @@ PHPAPI PHP_FUNCTION(fseek)
 	php_stream *stream;
 
 	if (argcount < 2 || argcount > 3 ||
-	    zend_get_parameters_ex(argcount, &arg1, &arg2, &arg3) == FAILURE) {
+		zend_get_parameters_ex(argcount, &arg1, &arg2, &arg3) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1867,6 +1896,14 @@ PHP_FUNCTION(rename)
 	ret = VCWD_RENAME(old_name, new_name);
 
 	if (ret == -1) {
+#ifdef EXDEV
+		if (errno == EXDEV) {
+			if (php_copy_file(old_name, new_name TSRMLS_CC)	== SUCCESS) {
+				VCWD_UNLINK(old_name);
+				RETURN_TRUE;
+			}
+		}
+#endif	
 		php_error_docref2(NULL TSRMLS_CC, old_name, new_name, E_WARNING, "%s", strerror(errno));
 		RETURN_FALSE;
 	}
@@ -1946,7 +1983,7 @@ PHP_NAMED_FUNCTION(php_if_fstat)
 	php_stream_statbuf stat_ssb;
 	
 	char *stat_sb_names[13]={"dev", "ino", "mode", "nlink", "uid", "gid", "rdev",
-			      "size", "atime", "mtime", "ctime", "blksize", "blocks"};
+				  "size", "atime", "mtime", "ctime", "blksize", "blocks"};
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &fp) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -2092,10 +2129,10 @@ PHPAPI PHP_FUNCTION(fread)
 
 	convert_to_long_ex(arg2);
 	len = Z_LVAL_PP(arg2);
-    if (len < 0) {
+	if (len < 0) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Length parameter may not be negative");
 		RETURN_FALSE;
-    }
+	}
 
 	Z_STRVAL_P(return_value) = emalloc(len + 1);
 	Z_STRLEN_P(return_value) = php_stream_read(stream, Z_STRVAL_P(return_value), len);
@@ -2370,24 +2407,24 @@ php_meta_tags_token php_next_meta_token(php_meta_tags_data *md TSRMLS_DC)
 			md->ulc = 0;
 		}
 
-        switch (ch) {
-        case '<':
-            return TOK_OPENTAG;
-            break;
-        case '>':
-            return TOK_CLOSETAG;
-            break;
-        case '=':
-            return TOK_EQUAL;
-            break;
-        case '/':
-            return TOK_SLASH;
-            break;
-        case '\'':
-        case '"':
-            compliment = ch;
-            md->token_len = 0;
-            while (!php_stream_eof(md->stream) &&
+		switch (ch) {
+		case '<':
+			return TOK_OPENTAG;
+			break;
+		case '>':
+			return TOK_CLOSETAG;
+			break;
+		case '=':
+			return TOK_EQUAL;
+			break;
+		case '/':
+			return TOK_SLASH;
+			break;
+		case '\'':
+		case '"':
+			compliment = ch;
+			md->token_len = 0;
+			while (!php_stream_eof(md->stream) &&
 				   (ch = php_stream_getc(md->stream)) &&
 				   ch != compliment && ch != '<' && ch != '>') {
 
@@ -2416,12 +2453,12 @@ php_meta_tags_token php_next_meta_token(php_meta_tags_data *md TSRMLS_DC)
 		case '\t':
 			break;
 		case ' ':
-            return TOK_SPACE;
-            break;
-        default:
-            if (isalnum(ch)) {
-                md->token_len = 0;
-                buff[(md->token_len)++] = ch;
+			return TOK_SPACE;
+			break;
+		default:
+			if (isalnum(ch)) {
+				md->token_len = 0;
+				buff[(md->token_len)++] = ch;
 				while (!php_stream_eof(md->stream) &&
 					   (ch = php_stream_getc(md->stream)) &&
 					   (isalnum(ch) || strchr(PHP_META_HTML401_CHARS, ch))) {
@@ -2433,13 +2470,13 @@ php_meta_tags_token php_next_meta_token(php_meta_tags_data *md TSRMLS_DC)
 				}
 
 				/* This is ugly, but we have to replace ungetc */
-                if (!isalpha(ch) && ch != '-') {
+				if (!isalpha(ch) && ch != '-') {
 					md->ulc = 1;
 					md->lc  = ch;
 				}
 
-                md->token_data = (char *) emalloc(md->token_len + 1);
-                memcpy(md->token_data, buff, md->token_len+1);
+				md->token_data = (char *) emalloc(md->token_len + 1);
+				memcpy(md->token_data, buff, md->token_len+1);
 
 				return TOK_ID;
 			} else {

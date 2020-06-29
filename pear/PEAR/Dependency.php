@@ -5,10 +5,10 @@
 // +----------------------------------------------------------------------+
 // | Copyright (c) 1997-2003 The PHP Group                                |
 // +----------------------------------------------------------------------+
-// | This source file is subject to version 2.02 of the PHP license,      |
+// | This source file is subject to version 3.0 of the PHP license,       |
 // | that is bundled with this package in the file LICENSE, and is        |
-// | available at through the world-wide-web at                           |
-// | http://www.php.net/license/2_02.txt.                                 |
+// | available through the world-wide-web at the following url:           |
+// | http://www.php.net/license/3_0.txt.                                  |
 // | If you did not receive a copy of the PHP license and are unable to   |
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
@@ -17,13 +17,7 @@
 // |          Stig Bakken <ssb@php.net>                                   |
 // +----------------------------------------------------------------------+
 //
-// $Id: Dependency.php,v 1.14.4.6 2003/04/14 12:37:59 jmcastagnetto Exp $
-
-/**
-* Methods for dependencies check. Based on Stig's dependencies RFC
-* at http://cvs.php.net/cvs.php/pearweb/rfc
-* (requires php >= 4.1)
-*/
+// $Id: Dependency.php,v 1.14.4.10 2003/08/06 01:58:30 cox Exp $
 
 require_once "PEAR.php";
 
@@ -33,15 +27,32 @@ define('PEAR_DEPENDENCY_UPGRADE_MINOR',  -3);
 define('PEAR_DEPENDENCY_UPGRADE_MAJOR',  -4);
 define('PEAR_DEPENDENCY_BAD_DEPENDENCY', -5);
 
+/**
+ * Dependency check for PEAR packages
+ *
+ * The class is based on the dependency RFC that can be found at
+ * http://cvs.php.net/cvs.php/pearweb/rfc. It requires PHP >= 4.1
+ *
+ * @author Tomas V.V.Vox <cox@idecnet.com>
+ * @author Stig Bakken <ssb@php.net>
+ */
 class PEAR_Dependency
 {
+    /**
+     * Constructor
+     *
+     * @access public
+     * @param  object Registry object
+     * @return void
+     */
     function PEAR_Dependency(&$registry)
     {
         $this->registry = &$registry;
     }
+
     /**
-    * This method maps the xml dependency definition to the
-    * PEAR_dependecy one
+    * This method maps the XML dependency definition to the
+    * corresponding one from PEAR_Dependency
     *
     * $opts => Array
     *    (
@@ -50,6 +61,10 @@ class PEAR_Dependency
     *        [version] => 3.4
     *        [name] => HTML_Common
     *    )
+    *
+    * @param  string Error message
+    * @param  array  Options
+    * @return boolean
     */
     function callCheckMethod(&$errmsg, $opts)
     {
@@ -124,11 +139,41 @@ class PEAR_Dependency
                     $errmsg = "requires package `$name' " .
                         $this->signOperator($relation) . " $req";
                     $code = $this->codeFromRelation($relation, $version, $req);
+                    return PEAR_DEPENDENCY_MISSING;
                 }
                 return false;
         }
         $errmsg = "relation '$relation' with requirement '$req' is not supported (name=$name)";
         return PEAR_DEPENDENCY_BAD_DEPENDENCY;
+    }
+
+    /**
+     * Check package dependencies on uninstall
+     *
+     * @param string $error     The resultant error string
+     * @param string $name      Name of the package to test
+     *
+     * @return bool true if there were errors
+     */
+    function checkPackageUninstall(&$error, $package)
+    {
+        $error = null;
+        $packages = $this->registry->listPackages();
+        foreach ($packages as $pkg) {
+            if ($pkg == $package) {
+                continue;
+            }
+            $deps = $this->registry->packageInfo($pkg, 'release_deps');
+            if (empty($deps)) {
+                continue;
+            }
+            foreach ($deps as $dep) {
+                if ($dep['type'] == 'pkg' && strcasecmp($dep['name'], $package) == 0) {
+                    $error .= "Package '$pkg' depends on '$package'\n";
+                }
+            }
+        }
+        return ($error) ? true : false;
     }
 
     /**
@@ -287,7 +332,12 @@ class PEAR_Dependency
 
     /**
      * Converts text comparing operators to them sign equivalents
-     * ex: 'ge' to '>='
+     *
+     * Example: 'ge' to '>='
+     *
+     * @access public
+     * @param  string Operator
+     * @return string Sign equivalent
      */
     function signOperator($operator)
     {
@@ -303,7 +353,15 @@ class PEAR_Dependency
         }
     }
 
-
+    /**
+     * Convert relation into corresponding code
+     *
+     * @access public
+     * @param  string Relation
+     * @param  string Version
+     * @param  string Requirement
+     * @return integer
+     */
     function codeFromRelation($relation, $version, $req)
     {
         $code = PEAR_DEPENDENCY_BAD_DEPENDENCY;
@@ -325,5 +383,4 @@ class PEAR_Dependency
         return $code;
     }
 }
-
 ?>

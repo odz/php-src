@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: pspell.c,v 1.28.8.2 2003/05/21 23:08:27 jay Exp $ */
+/* $Id: pspell.c,v 1.28.8.4 2003/08/13 20:59:44 vlad Exp $ */
 
 #define IS_EXT_MODULE
 
@@ -44,6 +44,11 @@
 #define PSPELL_BAD_SPELLERS 3L
 #define PSPELL_SPEED_MASK_INTERNAL 3L
 #define PSPELL_RUN_TOGETHER 8L
+
+/* Largest ignored word can be 999 characters (this seems sane enough), 
+ * and it takes 3 bytes to represent that (see pspell_config_ignore)
+ */
+#define PSPELL_LARGEST_WORD 3
 
 /* {{{ pspell_functions[]
  */
@@ -117,6 +122,14 @@ PHP_FUNCTION(pspell_new)
 	int argc;
 	int ind;
 
+#ifdef PHP_WIN32
+	TCHAR aspell_dir[200];
+	TCHAR data_dir[220];
+	TCHAR dict_dir[220];
+	HKEY hkey;
+	DWORD dwType,dwLen;
+#endif
+
 	PspellCanHaveError *ret;
 	PspellManager *manager;
 	PspellConfig *config;
@@ -127,6 +140,24 @@ PHP_FUNCTION(pspell_new)
 	}
 
 	config = new_pspell_config();
+
+#ifdef PHP_WIN32
+	/* If aspell was installed using installer, we should have a key
+	 * pointing to the location of the dictionaries
+	 */
+	if(0 == RegOpenKey(HKEY_LOCAL_MACHINE, "Software\\Aspell", &hkey)) {
+		RegQueryValueEx(hkey, "", NULL, &dwType, (LPBYTE)&aspell_dir, &dwLen);
+		RegCloseKey(hkey);
+		strcpy(data_dir, aspell_dir);
+		strcat(data_dir, "\\data");
+		strcpy(dict_dir, aspell_dir);
+		strcat(dict_dir, "\\dict");
+
+		pspell_config_replace(config, "data-dir", data_dir);
+		pspell_config_replace(config, "dict-dir", dict_dir);
+	}
+#endif
+
 	convert_to_string_ex(language);
 	pspell_config_replace(config, "language-tag", Z_STRVAL_PP(language));
 
@@ -194,6 +225,14 @@ PHP_FUNCTION(pspell_new_personal)
 	int argc;
 	int ind;
 
+#ifdef PHP_WIN32
+	TCHAR aspell_dir[200];
+	TCHAR data_dir[220];
+	TCHAR dict_dir[220];
+	HKEY hkey;
+	DWORD dwType,dwLen;
+#endif
+
 	PspellCanHaveError *ret;
 	PspellManager *manager;
 	PspellConfig *config;
@@ -205,7 +244,33 @@ PHP_FUNCTION(pspell_new_personal)
 
 	config = new_pspell_config();
 
+#ifdef PHP_WIN32
+	/* If aspell was installed using installer, we should have a key
+	 * pointing to the location of the dictionaries
+	 */
+	if(0 == RegOpenKey(HKEY_LOCAL_MACHINE, "Software\\Aspell", &hkey)) {
+		RegQueryValueEx(hkey, "", NULL, &dwType, (LPBYTE)&aspell_dir, &dwLen);
+		RegCloseKey(hkey);
+		strcpy(data_dir, aspell_dir);
+		strcat(data_dir, "\\data");
+		strcpy(dict_dir, aspell_dir);
+		strcat(dict_dir, "\\dict");
+
+		pspell_config_replace(config, "data-dir", data_dir);
+		pspell_config_replace(config, "dict-dir", dict_dir);
+	}
+#endif
+
 	convert_to_string_ex(personal);
+
+	if (PG(safe_mode) && (!php_checkuid(Z_STRVAL_PP(personal), NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
+		RETURN_FALSE;
+	}
+
+	if (php_check_open_basedir(Z_STRVAL_PP(personal) TSRMLS_CC)) {
+		RETURN_FALSE;
+	}
+
 	pspell_config_replace(config, "personal", Z_STRVAL_PP(personal));
 	pspell_config_replace(config, "save-repl", "false");
 
@@ -263,7 +328,6 @@ PHP_FUNCTION(pspell_new_personal)
 	
 	manager = to_pspell_manager(ret);
 	ind = zend_list_insert(manager, le_pspell);
-
 	RETURN_LONG(ind);
 }
 /* }}} */
@@ -671,9 +735,8 @@ PHP_FUNCTION(pspell_config_ignore)
 	zval **sccin, **pignore;
 	int argc;
 
-	/* Hack. But I cannot imagine any word being more than 999 characters long */
-	int loc = 3;
-	char ignore_str[loc + 1];	
+	int loc = PSPELL_LARGEST_WORD;
+	char ignore_str[PSPELL_LARGEST_WORD + 1];	
 	long ignore = 0L;
 
 	PspellConfig *config;
@@ -737,6 +800,15 @@ PHP_FUNCTION(pspell_config_personal)
 	}
 
 	convert_to_string_ex(personal);
+
+	if (PG(safe_mode) && (!php_checkuid(Z_STRVAL_PP(personal), NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
+		RETURN_FALSE;
+	}
+
+	if (php_check_open_basedir(Z_STRVAL_PP(personal) TSRMLS_CC)) {
+		RETURN_FALSE;
+	}
+
 	pspell_config_replace(config, "personal", Z_STRVAL_PP(personal));
 
 	RETURN_TRUE;
@@ -768,6 +840,15 @@ PHP_FUNCTION(pspell_config_repl)
 	pspell_config_replace(config, "save-repl", "true");
 
 	convert_to_string_ex(repl);
+
+	if (PG(safe_mode) && (!php_checkuid(Z_STRVAL_PP(repl), NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
+		RETURN_FALSE;
+	}
+
+	if (php_check_open_basedir(Z_STRVAL_PP(repl) TSRMLS_CC)) {
+		RETURN_FALSE;
+	}
+
 	pspell_config_replace(config, "repl", Z_STRVAL_PP(repl));
 
 	RETURN_TRUE;

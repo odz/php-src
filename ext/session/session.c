@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: session.c,v 1.336.2.15 2003/05/21 02:33:13 sas Exp $ */
+/* $Id: session.c,v 1.336.2.22 2003/08/14 01:32:01 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -323,7 +323,7 @@ void php_set_session_var(char *name, size_t namelen, zval *state_val, php_unseri
 			zend_set_hash_symbol(state_val, name, namelen, 1, 2, Z_ARRVAL_P(PS(http_session_vars)), &EG(symbol_table));
 		}
 	} else IF_SESSION_VARS() {
-		zend_set_hash_symbol(state_val, name, namelen, 0, 1, Z_ARRVAL_P(PS(http_session_vars)));
+		zend_set_hash_symbol(state_val, name, namelen, PZVAL_IS_REF(state_val), 1, Z_ARRVAL_P(PS(http_session_vars)));
 	}
 }
 
@@ -628,16 +628,18 @@ static int migrate_global(HashTable *ht, HashPosition *pos TSRMLS_DC)
 	uint str_len;
 	ulong num_key;
 	int n;
-	zval **val = NULL;
+	zval **val;
 	int ret = 0;
 	
 	n = zend_hash_get_current_key_ex(ht, &str, &str_len, &num_key, 0, pos);
 
 	switch (n) {
 		case HASH_KEY_IS_STRING:
-			zend_hash_find(&EG(symbol_table), str, str_len, (void **) &val);
-			if (val) {
-				ZEND_SET_SYMBOL_WITH_LENGTH(ht, str, str_len, *val, (*val)->refcount + 1 , 1);
+			if (zend_hash_find(&EG(symbol_table), str, str_len, 
+						(void **) &val) == SUCCESS 
+					&& val && Z_TYPE_PP(val) != IS_NULL) {
+				ZEND_SET_SYMBOL_WITH_LENGTH(ht, str, str_len, *val, 
+						(*val)->refcount + 1 , 1);
 				ret = 1;
 			}
 			break;
@@ -925,7 +927,7 @@ static void php_session_reset_id(TSRMLS_D)
 {
 	int module_number = PS(module_number);
 	
-	if (PS(send_cookie)) {
+	if (PS(use_cookies)) {
 		php_session_send_cookie(TSRMLS_C);
 	}
 
@@ -962,8 +964,10 @@ PHPAPI void php_session_start(TSRMLS_D)
 
 	PS(define_sid) = 1;
 	PS(send_cookie) = 1;
-	if (PS(session_status) != php_session_none) 
+	if (PS(session_status) != php_session_none) {
+		php_error(E_NOTICE, "A session had already been started - ignoring session_start()");
 		return;
+	}
 
 	lensess = strlen(PS(session_name));
 	
@@ -1010,8 +1014,8 @@ PHPAPI void php_session_start(TSRMLS_D)
 	   '<session-name>=<session-id>' to allow URLs of the form
 	   http://yoursite/<session-name>=<session-id>/script.php */
 
-	if (!PS(use_only_cookies) && !PS(id) &&
-			zend_hash_find(&EG(symbol_table), "REQUEST_URI",
+	if (!PS(use_only_cookies) && !PS(id) && PG(http_globals)[TRACK_VARS_SERVER] &&
+			zend_hash_find(Z_ARRVAL_P(PG(http_globals)[TRACK_VARS_SERVER]), "REQUEST_URI",
 				sizeof("REQUEST_URI"), (void **) &data) == SUCCESS &&
 			Z_TYPE_PP(data) == IS_STRING &&
 			(p = strstr(Z_STRVAL_PP(data), PS(session_name))) &&
@@ -1028,7 +1032,8 @@ PHPAPI void php_session_start(TSRMLS_D)
 	
 	if (PS(id) &&
 			PS(extern_referer_chk)[0] != '\0' &&
-			zend_hash_find(&EG(symbol_table), "HTTP_REFERER",
+			PG(http_globals)[TRACK_VARS_SERVER] &&
+			zend_hash_find(Z_ARRVAL_P(PG(http_globals)[TRACK_VARS_SERVER]), "HTTP_REFERER",
 				sizeof("HTTP_REFERER"), (void **) &data) == SUCCESS &&
 			Z_TYPE_PP(data) == IS_STRING &&
 			Z_STRLEN_PP(data) != 0 &&
@@ -1270,7 +1275,7 @@ PHP_FUNCTION(session_id)
 }
 /* }}} */
 
-/* {{{ proto string session_regenerate_id()
+/* {{{ proto bool session_regenerate_id()
    Update the current session id with a newly generated one. */
 PHP_FUNCTION(session_regenerate_id)
 {

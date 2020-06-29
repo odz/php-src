@@ -1,4 +1,4 @@
-dnl ## $Id: configure.in,v 1.396.2.54.2.1 2003/05/28 12:32:05 sniper Exp $ -*- sh -*-
+dnl ## $Id: configure.in,v 1.396.2.69 2003/08/24 19:30:14 iliaa Exp $ -*- sh -*-
 dnl ## Process this file with autoconf to produce a configure script.
 
 divert(1)
@@ -40,8 +40,8 @@ AC_CONFIG_HEADER(main/php_config.h)
 
 MAJOR_VERSION=4
 MINOR_VERSION=3
-RELEASE_VERSION=2
-EXTRA_VERSION=
+RELEASE_VERSION=3
+EXTRA_VERSION=""
 VERSION="$MAJOR_VERSION.$MINOR_VERSION.$RELEASE_VERSION$EXTRA_VERSION"
 
 dnl Define where extension directories are located in the configure context
@@ -327,6 +327,7 @@ PHP_MISSING_FCLOSE_DECL
 dnl QNX requires unix.h to allow functions in libunix to work properly
 AC_CHECK_HEADERS([ \
 ApplicationServices/ApplicationServices.h \
+sys/param.h \
 sys/types.h \
 sys/time.h \
 netinet/in.h \
@@ -370,7 +371,11 @@ unix.h \
 utime.h \
 sys/utsname.h \
 sys/ipc.h \
+dlfcn.h
 ],[],[],[
+#ifdef HAVE_SYS_PARAM_H
+#include <sys/param.h>
+#endif
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
@@ -519,7 +524,7 @@ vsnprintf \
 
 dnl Check for getaddrinfo, should be a better way, but...
 AC_CACHE_CHECK([for getaddrinfo], ac_cv_func_getaddrinfo,
-[AC_TRY_COMPILE([#include <netdb.h>],
+[AC_TRY_LINK([#include <netdb.h>],
                 [struct addrinfo *g,h;g=&h;getaddrinfo("","",g,&g);],
   ac_cv_func_getaddrinfo=yes, ac_cv_func_getaddrinfo=no)])
 if test "$ac_cv_func_getaddrinfo" = yes; then

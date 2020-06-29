@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: openssl.c,v 1.52.2.13 2003/05/05 16:29:57 wez Exp $ */
+/* $Id: openssl.c,v 1.52.2.15 2003/07/13 10:13:19 sr Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -1424,12 +1424,13 @@ PHP_FUNCTION(openssl_csr_export)
 }
 /* }}} */
 
-/* {{{ proto resource openssl_csr_sign(mixed csr, mixed x509, mixed priv_key, long days)
+/* {{{ proto resource openssl_csr_sign(mixed csr, mixed x509, mixed priv_key, long days [, array config_args [, long serial]])
    Signs a cert with another CERT */
 PHP_FUNCTION(openssl_csr_sign)
 {
 	zval * zcert = NULL, *zcsr, *zpkey, *args = NULL;
 	long num_days;
+	long serial = 0L;
 	X509 * cert = NULL, *new_cert = NULL;
 	X509_REQ * csr;
 	EVP_PKEY * key = NULL, *priv_key;
@@ -1437,7 +1438,7 @@ PHP_FUNCTION(openssl_csr_sign)
 	int i;
 	struct php_x509_request req;
 	
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zz!zl|a!", &zcsr, &zcert, &zpkey, &num_days, &args) == FAILURE)
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zz!zl|a!l", &zcsr, &zcert, &zpkey, &num_days, &args, &serial) == FAILURE)
 		return;
 
 	RETVAL_FALSE;
@@ -1493,11 +1494,10 @@ PHP_FUNCTION(openssl_csr_sign)
 		goto cleanup;
 	}
 	/* Version 3 cert */
-	if (!X509_set_version(new_cert, 3))
+	if (!X509_set_version(new_cert, 2))
 		goto cleanup;
 
-	/* TODO: Allow specifying */
-	ASN1_INTEGER_set(X509_get_serialNumber(new_cert), 0L);
+	ASN1_INTEGER_set(X509_get_serialNumber(new_cert), serial);
 	
 	X509_set_subject_name(new_cert, X509_REQ_get_subject_name(csr));
 
@@ -1913,7 +1913,7 @@ PHP_FUNCTION(openssl_pkey_export_to_file)
 		bio_out = BIO_new_file(filename, "w");
 
 		if (passphrase && req.priv_key_encrypt)
-			cipher = EVP_des_ede3_cbc();
+			cipher = (EVP_CIPHER *) EVP_des_ede3_cbc();
 		else
 			cipher = NULL;
 		
@@ -1964,7 +1964,7 @@ PHP_FUNCTION(openssl_pkey_export)
 		bio_out = BIO_new(BIO_s_mem());
 
 		if (passphrase && req.priv_key_encrypt)
-			cipher = EVP_des_ede3_cbc();
+			cipher = (EVP_CIPHER *) EVP_des_ede3_cbc();
 		else
 			cipher = NULL;
 		
@@ -2224,7 +2224,7 @@ PHP_FUNCTION(openssl_pkcs7_encrypt)
 	}
 
 	/* TODO: allow user to choose a different cipher */
-	cipher = EVP_rc2_40_cbc();
+	cipher = (EVP_CIPHER *) EVP_rc2_40_cbc();
 	if (cipher == NULL)
 		goto clean_exit;
 

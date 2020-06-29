@@ -790,7 +790,8 @@ gdImageStringFTEx (gdImage * im, int *brect, int fg, char *fontlist, double ptsi
 	char *tmpstr = NULL;
 	int render = (im && (im->trueColor || (fg <= 255 && fg >= -255)));
 	FT_BitmapGlyph bm;
-	int render_mode = FT_LOAD_RENDER | FT_LOAD_FORCE_AUTOHINT;
+	/* 2.0.13: Bob Ostermann: don't force autohint, that's just for testing freetype and doesn't look as good */
+	int render_mode = FT_LOAD_DEFAULT;
 	int m, mfound;
 	/* Now tuneable thanks to Wez Furlong */
 	double linespace = LINESPACE;
@@ -888,11 +889,16 @@ gdImageStringFTEx (gdImage * im, int *brect, int fg, char *fontlist, double ptsi
 	}
 
 #ifndef JISX0208
-	if (!font->have_char_map_sjis) {
-		next = string;
-	} else
+	if (font->have_char_map_sjis) {
 #endif
 		tmpstr = (char *) gdMalloc(BUFSIZ);
+		any2eucjp(tmpstr, string, BUFSIZ);
+		next = tmpstr;
+#ifndef JISX0208
+	} else {
+		next = string;
+	}
+#endif
 
 	while (*next) {
 		ch = *next;
@@ -909,6 +915,8 @@ gdImageStringFTEx (gdImage * im, int *brect, int fg, char *fontlist, double ptsi
 		}
 		/* newlines */
 		if (ch == '\n') {
+			/* 2.0.13: reset penf.x. Christopher J. Grayce */
+			penf.x = 0;
 			  penf.y -= (long)(face->size->metrics.height * linespace);
 			  penf.y = (penf.y - 32) & -64;		/* round to next pixel row */
 			  x1 = (int)(penf.x * cos_a - penf.y * sin_a + 32) / 64;

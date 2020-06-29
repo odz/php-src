@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: curl.c,v 1.124.2.10 2003/05/19 14:19:33 sniper Exp $ */
+/* $Id: curl.c,v 1.124.2.13 2003/07/20 15:19:39 sniper Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -191,7 +191,7 @@ PHP_MINIT_FUNCTION(curl)
 	REGISTER_CURL_CONSTANT(CURLOPT_SSLENGINE);
 	REGISTER_CURL_CONSTANT(CURLOPT_SSLENGINE_DEFAULT);
 	REGISTER_CURL_CONSTANT(CURLOPT_CRLF);
-#ifdef CURLOPT_ENCODING
+#if LIBCURL_VERSION_NUM >= 0x070a00
 	REGISTER_CURL_CONSTANT(CURLOPT_ENCODING);
 #endif
 		
@@ -574,7 +574,7 @@ static void curl_free_slist(void **slist)
 /* }}} */
 
 
-/* {{{ proto array curl_version(void)
+/* {{{ proto string curl_version(void)
    Return cURL version information. */
 PHP_FUNCTION(curl_version)
 {
@@ -729,22 +729,18 @@ PHP_FUNCTION(curl_setopt)
 		case CURLOPT_USERAGENT:
 		case CURLOPT_FTPPORT:
 		case CURLOPT_COOKIE:
-		case CURLOPT_COOKIEFILE:
 		case CURLOPT_REFERER:
 		case CURLOPT_INTERFACE:
 		case CURLOPT_KRB4LEVEL: 
-		case CURLOPT_RANDOM_FILE:
 		case CURLOPT_EGDSOCKET:
 		case CURLOPT_CAINFO: 
 		case CURLOPT_CAPATH:
-		case CURLOPT_COOKIEJAR:
 		case CURLOPT_SSL_CIPHER_LIST: 
 		case CURLOPT_SSLKEY:
-		case CURLOPT_SSLCERT:
 		case CURLOPT_SSLKEYTYPE: 
-		case CURLOPT_SSLKEYPASSWD: 
+		case CURLOPT_SSLKEYPASSWD:
 		case CURLOPT_SSLENGINE: 
-#ifdef CURLOPT_ENCODING
+#if LIBCURL_VERSION_NUM >= 0x070a00
 		case CURLOPT_ENCODING: 
 #endif
 		case CURLOPT_SSLENGINE_DEFAULT: {
@@ -956,6 +952,28 @@ PHP_FUNCTION(curl_setopt)
 
 			break;
 		}
+		/* the following options deal with files, therefor safe_mode & open_basedir checks
+		 * are required.
+		 */
+		case CURLOPT_COOKIEJAR:
+		case CURLOPT_SSLCERT:
+		case CURLOPT_RANDOM_FILE:
+		case CURLOPT_COOKIEFILE: {
+			char *copystr = NULL;
+
+			convert_to_string_ex(zvalue);
+
+			if (php_check_open_basedir(Z_STRVAL_PP(zvalue) TSRMLS_CC) || (PG(safe_mode) && !php_checkuid(Z_STRVAL_PP(zvalue), "rb+", CHECKUID_CHECK_MODE_PARAM))) {
+				RETURN_FALSE;			
+			}
+
+			copystr = estrndup(Z_STRVAL_PP(zvalue), Z_STRLEN_PP(zvalue));
+
+			error = curl_easy_setopt(ch->cp, option, copystr);
+			zend_llist_add_element(&ch->to_free.str, &copystr);
+
+			break;
+		}
 	}
 
 	SAVE_CURL_ERROR(ch, error);
@@ -1023,7 +1041,7 @@ PHP_FUNCTION(curl_exec)
 }
 /* }}} */
 
-/* {{{ proto string curl_getinfo(resource ch, int opt)
+/* {{{ proto mixed curl_getinfo(resource ch, int opt)
    Get information regarding a specific transfer */
 PHP_FUNCTION(curl_getinfo)
 {

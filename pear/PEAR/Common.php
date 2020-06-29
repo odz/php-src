@@ -5,10 +5,10 @@
 // +----------------------------------------------------------------------+
 // | Copyright (c) 1997-2003 The PHP Group                                |
 // +----------------------------------------------------------------------+
-// | This source file is subject to version 2.02 of the PHP license,      |
+// | This source file is subject to version 3.0 of the PHP license,       |
 // | that is bundled with this package in the file LICENSE, and is        |
-// | available at through the world-wide-web at                           |
-// | http://www.php.net/license/2_02.txt.                                 |
+// | available through the world-wide-web at the following url:           |
+// | http://www.php.net/license/3_0.txt.                                  |
 // | If you did not receive a copy of the PHP license and are unable to   |
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
@@ -17,7 +17,7 @@
 // |          Tomas V.V.Cox <cox@idecnet.com>                             |
 // +----------------------------------------------------------------------+
 //
-// $Id: Common.php,v 1.81.2.6 2003/04/11 23:48:38 ssb Exp $
+// $Id: Common.php,v 1.81.2.11 2003/08/06 01:58:30 cox Exp $
 
 require_once 'PEAR.php';
 require_once 'Archive/Tar.php';
@@ -156,7 +156,7 @@ class PEAR_Common extends PEAR
         $tempfiles =& $GLOBALS['_PEAR_Common_tempfiles'];
         while ($file = array_shift($tempfiles)) {
             if (@is_dir($file)) {
-                System::rm("-rf $file");
+                System::rm(array('-rf', $file));
             } elseif (file_exists($file)) {
                 unlink($file);
             }
@@ -198,7 +198,7 @@ class PEAR_Common extends PEAR
     function mkDirHier($dir)
     {
         $this->log(2, "+ create dir $dir");
-        return System::mkDir("-p $dir");
+        return System::mkDir(array('-p', $dir));
     }
 
     // }}}
@@ -242,11 +242,12 @@ class PEAR_Common extends PEAR
     function mkTempDir($tmpdir = '')
     {
         if ($tmpdir) {
-            $topt = "-t $tmpdir ";
+            $topt = array('-t', $tmpdir);
         } else {
-            $topt = '';
+            $topt = array();
         }
-        if (!$tmpdir = System::mktemp($topt . '-d pear')) {
+        $topt = array_merge($topt, array('-d', 'pear'));
+        if (!$tmpdir = System::mktemp($topt)) {
             return false;
         }
         $this->addTempFile($tmpdir);
@@ -567,7 +568,11 @@ class PEAR_Common extends PEAR
                 }
                 break;
             case 'license':
-                $this->pkginfo['release_license'] = $data;
+                if ($this->in_changelog) {
+                    $this->current_release['release_license'] = $data;
+                } else {
+                    $this->pkginfo['release_license'] = $data;
+                }
                 break;
             case 'dep':
                 if ($data && !$this->in_changelog) {
@@ -671,9 +676,17 @@ class PEAR_Common extends PEAR
             return $this->raiseError("could not open file \"$file\"");
         }
         $tar = new Archive_Tar($file);
+        if ($this->debug <= 1) {
+            $tar->pushErrorHandling(PEAR_ERROR_RETURN);
+        }
         $content = $tar->listContent();
+        if ($this->debug <= 1) {
+            $tar->popErrorHandling();
+        }
         if (!is_array($content)) {
-            return $this->raiseError("could not get contents of package \"$file\"");
+            $file = realpath($file);
+            return $this->raiseError("Could not get contents of package \"$file\"".
+                                     '. Invalid tgz file.');
         }
         $xml = null;
         foreach ($content as $file) {
@@ -688,7 +701,7 @@ class PEAR_Common extends PEAR
         }
         $tmpdir = System::mkTemp('-d pear');
         $this->addTempFile($tmpdir);
-        if (!$xml || !$tar->extractList($xml, $tmpdir)) {
+        if (!$xml || !$tar->extractList(array($xml), $tmpdir)) {
             return $this->raiseError('could not extract the package.xml file');
         }
         return $this->infoFromDescriptionFile("$tmpdir/$xml");
@@ -839,7 +852,7 @@ class PEAR_Common extends PEAR
             "role" => "role",
             );
         $ret = "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>\n";
-        //$ret .= "<!DOCTYPE package SYSTEM \"http://pear.php.net/package10.dtd\">\n";
+        $ret .= "<!DOCTYPE package SYSTEM \"http://pear.php.net/dtd/package-1.0\">\n";
         $ret .= "<package version=\"1.0\">
   <name>$pkginfo[package]</name>
   <summary>".htmlspecialchars($pkginfo['summary'])."</summary>
@@ -935,7 +948,11 @@ class PEAR_Common extends PEAR
         if (isset($pkginfo['provides'])) {
             foreach ($pkginfo['provides'] as $key => $what) {
                 $ret .= "$indent    <provides type=\"$what[type]\" ";
-                $ret .= "name=\"$what[name]\" />\n";
+                $ret .= "name=\"$what[name]\" ";
+                if (isset($what['extends'])) {
+                    $ret .= "extends=\"$what[extends]\" ";
+                }
+                $ret .= "/>\n";
             }
         }
         if (isset($pkginfo['filelist'])) {
@@ -1095,6 +1112,7 @@ class PEAR_Common extends PEAR
                 if (empty($c['prompt'])) {
                     $errors[] = "configure option $i: missing prompt";
                 }
+                $i++;
             }
         }
         if (empty($info['filelist'])) {
@@ -1151,7 +1169,7 @@ class PEAR_Common extends PEAR
      * Build a "provides" array from data returned by
      * analyzeSourceCode().  The format of the built array is like
      * this:
-     * 
+     *
      *  array(
      *    'class;MyClass' => 'array('type' => 'class', 'name' => 'MyClass'),
      *    ...
@@ -1164,7 +1182,7 @@ class PEAR_Common extends PEAR
      * @return void
      *
      * @access public
-     * 
+     *
      */
     function buildProvidesArray($srcinfo)
     {
@@ -1175,6 +1193,10 @@ class PEAR_Common extends PEAR
             }
             $this->pkginfo['provides'][$key] =
                 array('type' => 'class', 'name' => $class);
+            if (isset($srcinfo['inheritance'][$class])) {
+                $this->pkginfo['provides'][$key]['extends'] =
+                    $srcinfo['inheritance'][$class];
+            }
         }
         foreach ($srcinfo['declared_methods'] as $class => $methods) {
             foreach ($methods as $method) {
@@ -1243,6 +1265,7 @@ class PEAR_Common extends PEAR
         $declared_methods = array();
         $used_classes = array();
         $used_functions = array();
+        $extends = array();
         $nodeps = array();
         for ($i = 0; $i < sizeof($tokens); $i++) {
             if (is_array($tokens[$i])) {
@@ -1273,6 +1296,7 @@ class PEAR_Common extends PEAR
                 case T_CLASS:
                 case T_FUNCTION:
                 case T_NEW:
+                case T_EXTENDS:
                     $look_for = $token;
                     continue 2;
                 case T_STRING:
@@ -1280,6 +1304,8 @@ class PEAR_Common extends PEAR
                         $current_class = $data;
                         $current_class_level = $brace_level;
                         $declared_classes[] = $current_class;
+                    } elseif ($look_for == T_EXTENDS) {
+                        $extends[$current_class] = $data;
                     } elseif ($look_for == T_FUNCTION) {
                         if ($current_class) {
                             $current_function = "$current_class::$data";
@@ -1319,6 +1345,7 @@ class PEAR_Common extends PEAR
             "declared_methods" => $declared_methods,
             "declared_functions" => $declared_functions,
             "used_classes" => array_diff(array_keys($used_classes), $nodeps),
+            "inheritance" => $extends,
             );
     }
 
@@ -1344,6 +1371,7 @@ class PEAR_Common extends PEAR
             $decl_c = @array_merge($decl_c, $tmp['declared_classes']);
             $decl_f = @array_merge($decl_f, $tmp['declared_functions']);
             $decl_m = @array_merge($decl_m, $tmp['declared_methods']);
+            $inheri = @array_merge($inheri, $tmp['inheritance']);
         }
         $used_c = array_unique($used_c);
         $decl_c = array_unique($decl_c);
@@ -1353,6 +1381,7 @@ class PEAR_Common extends PEAR
                      'declared_methods' => $decl_m,
                      'declared_functions' => $decl_f,
                      'undeclared_classes' => $undecl_c,
+                     'inheritance' => $inheri,
                      );
     }
 
@@ -1582,7 +1611,7 @@ class PEAR_Common extends PEAR
                                                                   $errno, $errstr));
                 }
                 return PEAR::raiseError("Connection to `$host:$port' failed: $errstr", $errno);
-            }            
+            }
             $request = "GET $path HTTP/1.0\r\n";
         }
         $request .= "Host: $host:$port\r\n".

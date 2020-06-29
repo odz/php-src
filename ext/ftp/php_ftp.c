@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_ftp.c,v 1.74.2.8 2003/05/17 04:20:12 pollita Exp $ */
+/* $Id: php_ftp.c,v 1.74.2.11 2003/08/07 16:03:05 zeev Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -48,7 +48,7 @@ static int	le_ftpbuf;
 
 function_entry php_ftp_functions[] = {
 	PHP_FE(ftp_connect,			NULL)
-#if HAVE_OPENSSL_EXT
+#ifdef HAVE_OPENSSL_EXT
 	PHP_FE(ftp_ssl_connect,		NULL)
 #endif	
 	PHP_FE(ftp_login,			NULL)
@@ -139,7 +139,7 @@ PHP_MINFO_FUNCTION(ftp)
 							}
 
 
-/* {{{ proto resource ftp_connect(string host [, int port [, int timeout)]])
+/* {{{ proto resource ftp_connect(string host [, int port [, int timeout]])
    Opens a FTP stream */
 PHP_FUNCTION(ftp_connect)
 {
@@ -166,7 +166,7 @@ PHP_FUNCTION(ftp_connect)
 
 	/* autoseek for resuming */
 	ftp->autoseek = FTP_DEFAULT_AUTOSEEK;
-#if HAVE_OPENSSL_EXT
+#ifdef HAVE_OPENSSL_EXT
 	/* disable ssl */
 	ftp->use_ssl = 0;
 #endif
@@ -175,8 +175,8 @@ PHP_FUNCTION(ftp_connect)
 }
 /* }}} */
 
-#if HAVE_OPENSSL_EXT
-/* {{{ proto resource ftp_ssl_connect(string host [, int port [, int timeout)]])
+#ifdef HAVE_OPENSSL_EXT
+/* {{{ proto resource ftp_ssl_connect(string host [, int port [, int timeout]])
    Opens a FTP-SSL stream */
 PHP_FUNCTION(ftp_ssl_connect)
 {

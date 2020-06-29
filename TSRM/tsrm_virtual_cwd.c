@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_virtual_cwd.c,v 1.41.2.2 2003/03/17 13:50:21 wez Exp $ */
+/* $Id: tsrm_virtual_cwd.c,v 1.41.2.4 2003/07/28 18:35:34 iliaa Exp $ */
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -92,7 +92,7 @@ static int php_check_dots(const char *element, int n)
 	(len >= 2 && !php_check_dots(element, len))
 
 #define IS_DIRECTORY_CURRENT(element, len) \
-	(len == 1 && ptr[0] == '.')
+	(len == 1 && element[0] == '.')
 
 #elif defined(NETWARE)
 /* NetWare has strtok() (in LibC) and allows both slashes in paths, like Windows --
@@ -111,12 +111,12 @@ static int php_check_dots(const char *element, int n)
 
 #ifndef IS_DIRECTORY_UP
 #define IS_DIRECTORY_UP(element, len) \
-	(len == 2 && memcmp(element, "..", 2) == 0)
+	(len == 2 && element[0] == '.' && element[1] == '.')
 #endif
 
 #ifndef IS_DIRECTORY_CURRENT
 #define IS_DIRECTORY_CURRENT(element, len) \
-	(len == 1 && ptr[0] == '.')
+	(len == 1 && element[0] == '.')
 #endif
 
 /* define this to check semantics */
@@ -486,19 +486,23 @@ CWD_API int virtual_chdir_file(const char *path, int (*p_chdir)(const char *path
 CWD_API char *virtual_realpath(const char *path, char *real_path TSRMLS_DC)
 {
 	cwd_state new_state;
-	int retval;
+	char *retval;
 
 	CWD_STATE_COPY(&new_state, &CWDG(cwd));
-	retval = virtual_file_ex(&new_state, path, NULL, 1);
 	
-	if (!retval) {
+	if (virtual_file_ex(&new_state, path, NULL, 1)==0) {
 		int len = new_state.cwd_length>MAXPATHLEN-1?MAXPATHLEN-1:new_state.cwd_length;
+
 		memcpy(real_path, new_state.cwd, len);
 		real_path[len] = '\0';
-		return real_path;
+		retval = real_path;
+	} else {
+		retval = NULL;
 	}
 
-	return NULL;
+	CWD_STATE_FREE(&new_state);
+
+	return retval;
 }
 
 CWD_API int virtual_filepath_ex(const char *path, char **filepath, verify_path_func verify_path TSRMLS_DC)

@@ -478,7 +478,7 @@ enable_dl = On
 ; use when sending HTTP response code. If it's set 0 PHP sends Status: header that
 ; is supported by Apache. When this option is set to 1 PHP will send
 ; RFC2616 compliant header.
-; Set to 1 if running under IIS.  Default is zero.
+; Default is zero.
 ;cgi.rfc2616_headers = 0 
 
 
@@ -681,7 +681,7 @@ mysql.default_user =
 mysql.default_password =
 
 ; Maximum time (in secondes) for connect timeout. -1 means no limimt
-mysql.connect_timeout = -1
+mysql.connect_timeout = 60
 
 ; Trace mode. When trace_mode is active (=On), warnings for table/index scans and
 ; SQL-Erros will be displayed.
@@ -929,6 +929,12 @@ mssql.min_message_severity = 10
 ; Compatability mode with old versions of PHP 3.0.
 mssql.compatability_mode = Off
 
+; Connect timeout
+;mssql.connect_timeout = 5
+
+; Query timeout
+;mssql.timeout = 60
+
 ; Valid range 0 - 2147483647.  Default = 4096.
 ;mssql.textlimit = 4096
 
@@ -937,6 +943,11 @@ mssql.compatability_mode = Off
 
 ; Limits the number of records in each batch.  0 = all records in one batch.
 ;mssql.batchsize = 0
+
+; Specify how datetime and datetim4 columns are returned
+; On => Returns data converted to SQL server settings
+; Off => Returns values as YYYY-MM-DD hh:mm:ss
+;mssql.datetimeconvert = On
 
 ; Use NT authentication when connecting to the server
 mssql.secure_connection = Off

@@ -15,7 +15,7 @@
    | Author: Rasmus Lerdorf                                               |
    +----------------------------------------------------------------------+
  */
-/* $Id: exec.c,v 1.84.2.8 2003/04/16 22:57:15 moriyoshi Exp $ */
+/* $Id: exec.c,v 1.84.2.11 2003/08/07 15:50:18 zeev Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -401,18 +401,28 @@ PHP_FUNCTION(passthru)
 char *php_escape_shell_cmd(char *str) {
 	register int x, y, l;
 	char *cmd;
+	char *p = NULL;
 
 	l = strlen(str);
 	cmd = emalloc(2 * l + 1);
 	
 	for (x = 0, y = 0; x < l; x++) {
 		switch (str[x]) {
+			case '"':
+			case '\'':
+				if (!p && (p = memchr(str + x + 1, str[x], l - x - 1))) {
+					/* noop */
+				} else if (p && *p == str[x]) {
+					p = NULL;
+				} else {
+					cmd[y++] = '\\';
+				}
+				cmd[y++] = str[x];
+				break;
 			case '#': /* This is character-set independent */
 			case '&':
 			case ';':
 			case '`':
-			case '\'':
-			case '"':
 			case '|':
 			case '*':
 			case '?':
@@ -513,7 +523,7 @@ PHP_FUNCTION(escapeshellarg)
 /* }}} */
 
 /* {{{ proto string shell_exec(string cmd)
-   Use pclose() for FILE* that has been opened via popen() */
+   Execute command via shell and return complete output as string */
 PHP_FUNCTION(shell_exec)
 {
 	FILE *in;
@@ -690,7 +700,7 @@ PHP_FUNCTION(proc_open)
 	pid_t child;
 #endif
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "saz/", &command,
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "saz", &command,
 				&command_len, &descriptorspec, &pipes) == FAILURE) {
 		RETURN_FALSE;
 	}
@@ -941,6 +951,10 @@ PHP_FUNCTION(proc_open)
 	/* we forked/spawned and this is the parent */
 
 	efree(command);
+
+	if (pipes != NULL) {
+		zval_dtor(pipes);
+	}
 	array_init(pipes);
 
 	/* clean up all the child ends and then open streams on the parent

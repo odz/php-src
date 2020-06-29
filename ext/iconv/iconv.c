@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: iconv.c,v 1.65.2.4 2003/03/04 17:20:27 moriyoshi Exp $ */
+/* $Id: iconv.c,v 1.65.2.10 2003/08/13 18:22:17 moriyoshi Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -36,25 +36,14 @@
 
 #ifdef HAVE_ICONV
 
-#ifdef HAVE_GICONV_H
-#include <giconv.h>
+#ifdef PHP_ICONV_H_PATH
+#include PHP_ICONV_H_PATH
 #else
 #include <iconv.h>
 #endif
 
 #ifdef HAVE_GLIBC_ICONV
 #include <gnu/libc-version.h>
-#endif
-
-#ifdef HAVE_LIBICONV
-#define LIBICONV_PLUG
-#define icv_open(a, b) libiconv_open(a, b)
-#define icv_close(a) libiconv_close(a)
-#define icv(a, b, c, d, e) libiconv(a, b, c, d, e)
-#else
-#define icv_open(a, b) iconv_open(a, b)
-#define icv_close(a) iconv_close(a)
-#define icv(a, b, c, d, e) iconv(a, (char **) b, c, d, e)
 #endif
 
 /* {{{ iconv_functions[]
@@ -193,11 +182,10 @@ php_iconv_err_t php_iconv_string(const char *in_p, size_t in_len,
 							const char *in_charset, const char *out_charset)
 {
 #if !ICONV_SUPPORTS_ERRNO
-	unsigned int in_size, out_size, out_left;
+	size_t in_size, out_size, out_left;
 	char *out_buffer, *out_p;
 	iconv_t cd;
 	size_t result;
-	typedef unsigned int ucs4_t;
 
 	*out = NULL;
 	*out_len = 0;
@@ -209,12 +197,12 @@ php_iconv_err_t php_iconv_string(const char *in_p, size_t in_len,
 	  a single char can be more than 4 bytes.
 	  I added 15 extra bytes for safety. <yohgaki@php.net>
 	*/
-	out_size = in_len * sizeof(ucs4_t) + 15;
+	out_size = in_len * sizeof(int) + 15;
 	out_left = out_size;
 
 	in_size = in_len;
 
-	cd = icv_open(out_charset, in_charset);
+	cd = iconv_open(out_charset, in_charset);
 	
 	if (cd == (iconv_t)(-1)) {
 		return PHP_ICONV_ERR_UNKNOWN;
@@ -223,7 +211,7 @@ php_iconv_err_t php_iconv_string(const char *in_p, size_t in_len,
 	out_buffer = (char *) emalloc(out_size + 1);
 	out_p = out_buffer;
 	
-	result = icv(cd, (const char **) &in_p, &in_size, (char **)
+	result = iconv(cd, (const char **) &in_p, &in_size, (char **)
 				&out_p, &out_left);
 	
 	if (result == (size_t)(-1)) {
@@ -236,7 +224,7 @@ php_iconv_err_t php_iconv_string(const char *in_p, size_t in_len,
 	}
 
 	/* flush the shift-out sequences */ 
-	result = icv(cd, NULL, NULL, &out_p, &out_left);
+	result = iconv(cd, NULL, NULL, &out_p, &out_left);
 
 	if (result == (size_t)(-1)) {
 		efree(out_buffer);
@@ -247,7 +235,7 @@ php_iconv_err_t php_iconv_string(const char *in_p, size_t in_len,
 	out_buffer[*out_len] = '\0';
 	*out = out_buffer;
 
-	icv_close(cd);
+	iconv_close(cd);
 
 	return PHP_ICONV_ERR_SUCCESS;
 
@@ -264,7 +252,7 @@ php_iconv_err_t php_iconv_string(const char *in_p, size_t in_len,
 	*out = NULL;
 	*out_len = 0;
 
-	cd = icv_open(out_charset, in_charset);
+	cd = iconv_open(out_charset, in_charset);
 
 	if (cd == (iconv_t)(-1)) {
 		if (errno == EINVAL) {
@@ -281,7 +269,7 @@ php_iconv_err_t php_iconv_string(const char *in_p, size_t in_len,
 	out_p = out_buf;
 
 	while (in_left > 0) {
-		result = icv(cd, (const char **) &in_p, &in_left, (char **) &out_p, &out_left);
+		result = iconv(cd, (const char **) &in_p, &in_left, (char **) &out_p, &out_left);
 		out_size = bsz - out_left;
 		if (result == (size_t)(-1)) {
 			if (errno == E2BIG && in_left > 0) {
@@ -304,7 +292,7 @@ php_iconv_err_t php_iconv_string(const char *in_p, size_t in_len,
 	if (result != (size_t)(-1)) {
 		/* flush the shift-out sequences */ 
 		for (;;) {
-		   	result = icv(cd, NULL, NULL, (char **) &out_p, &out_left);
+		   	result = iconv(cd, NULL, NULL, (char **) &out_p, &out_left);
 			out_size = bsz - out_left;
 
 			if (result != (size_t)(-1)) {
@@ -328,7 +316,7 @@ php_iconv_err_t php_iconv_string(const char *in_p, size_t in_len,
 		}
 	}
 
-	icv_close(cd);
+	iconv_close(cd);
 
 	if (result == (size_t)(-1)) {
 		switch (errno) {
@@ -427,7 +415,7 @@ PHP_FUNCTION(ob_iconv_handler)
 {
 	char *out_buffer, *content_type, *mimetype = NULL, *s;
 	zval *zv_string;
-	unsigned int out_len;
+	size_t out_len;
 	int mimetype_alloced  = 0;
 	long status;
 
