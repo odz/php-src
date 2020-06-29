@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php.h,v 1.203 2004/01/12 00:19:40 helly Exp $ */
+/* $Id: php.h,v 1.203.2.4 2004/11/28 12:44:42 sesser Exp $ */
 
 #ifndef PHP_H
 #define PHP_H
@@ -37,10 +37,8 @@
 
 #include "zend_API.h"
 
-#if PHP_BROKEN_SPRINTF
 #undef sprintf
 #define sprintf php_sprintf
-#endif
 
 /* PHP's DEBUG value must match Zend's ZEND_DEBUG value */
 #undef PHP_DEBUG
@@ -232,13 +230,21 @@ char *strerror(int);
 #define LONG_MIN (- LONG_MAX - 1)
 #endif
 
+#ifndef INT_MAX
+#define INT_MAX 2147483647
+#endif
+
+#ifndef INT_MIN
+#define INT_MIN (- INT_MAX - 1)
+#endif
+
 #define PHP_GCC_VERSION ZEND_GCC_VERSION
 #define PHP_ATTRIBUTE_MALLOC ZEND_ATTRIBUTE_MALLOC
 #define PHP_ATTRIBUTE_FORMAT ZEND_ATTRIBUTE_FORMAT
 
-#if !defined(HAVE_SNPRINTF) || !defined(HAVE_VSNPRINTF) || PHP_BROKEN_SPRINTF || PHP_BROKEN_SNPRINTF || PHP_BROKEN_VSNPRINTF
+BEGIN_EXTERN_C()
 #include "snprintf.h"
-#endif
+END_EXTERN_C()
 #include "spprintf.h"
 
 #define EXEC_INPUT_BUF 4096
@@ -271,6 +277,7 @@ extern char **environ;
 #else	/* NETWARE */
 extern char **environ;
 #define php_sleep sleep
+#define PHP_SLEEP_NON_VOID
 #endif	/*  NETWARE */
 #endif	/* !defined(PHP_WIN32) */
 

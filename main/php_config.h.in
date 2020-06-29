@@ -618,6 +618,9 @@
 /* Define if you have the <strings.h> header file.  */
 #undef HAVE_STRINGS_H
 
+/* Define if you have the <sys/bitypes.h> header file.  */
+#undef HAVE_SYS_BITYPES_H
+
 /* Define if you have the <sys/dir.h> header file.  */
 #undef HAVE_SYS_DIR_H
 
@@ -1065,18 +1068,6 @@
 
 /* Define if you have the getaddrinfo function */
 #undef HAVE_GETADDRINFO
-
-/* Whether sprintf is C99 conform */
-#undef PHP_BROKEN_SPRINTF
-
-/* Whether sprintf is C99 conform */
-#undef PHP_BROKEN_SPRINTF
-
-/* Whether snprintf is C99 conform */
-#undef PHP_BROKEN_SNPRINTF
-
-/* Whether snprintf is C99 conform */
-#undef PHP_BROKEN_SNPRINTF
 
 /* Whether system headers declare timezone */
 #undef HAVE_DECLARED_TIMEZONE
@@ -1716,6 +1707,9 @@
 
 /* Whether to build mcrypt as dynamic module */
 #undef COMPILE_DL_MCRYPT
+
+/* Whether or not we're using libmonetra 4.2 or higher  */
+#undef LIBMONETRA_BELOW_4_2
 
 /*   */
 #undef HAVE_MCVE

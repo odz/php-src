@@ -15,7 +15,7 @@
   | Author: Georg Richter <georg@php.net>                                |
   +----------------------------------------------------------------------+
 
-  $Id: mysqli.c,v 1.43.2.6 2004/09/04 14:19:20 georg Exp $ 
+  $Id: mysqli.c,v 1.43.2.9 2004/12/09 08:24:33 tony2001 Exp $ 
 */
 
 #ifdef HAVE_CONFIG_H
@@ -108,7 +108,6 @@ void php_clear_stmt_bind(MY_STMT *stmt)
 /* {{{ php_clear_mysql */
 void php_clear_mysql(MY_MYSQL *mysql) {
 	if (mysql->li_read) {
-		printf("freeing...\n");
 		efree(Z_STRVAL_P(mysql->li_read));
 		FREE_ZVAL(mysql->li_read);
 		mysql->li_read = NULL;
@@ -179,11 +178,6 @@ zval *mysqli_read_property(zval *object, zval *member, int type TSRMLS_DC)
 	ret = FAILURE;
 	obj = (mysqli_object *)zend_objects_get_address(object TSRMLS_CC);
 
-	if (!obj->valid) {
-		retval = EG(uninitialized_zval_ptr);
-		return(retval);
-	}
-
  	if (member->type != IS_STRING) {
 		tmp_member = *member;
 		zval_copy_ctor(&tmp_member);
@@ -223,6 +217,7 @@ zval *mysqli_read_property(zval *object, zval *member, int type TSRMLS_DC)
 	} else {
 		std_hnd = zend_get_std_object_handlers();
 		retval = std_hnd->read_property(object, member, type TSRMLS_CC);
+		retval->refcount = 1;
 	}
 
 	if (member == &tmp_member) {
@@ -310,7 +305,7 @@ PHP_MYSQLI_EXPORT(zend_object_value) mysqli_objects_new(zend_class_entry *class_
 	zend_object_value retval;
 	mysqli_object *intern;
 	zval *tmp;
-	zend_class_entry *parent;
+	zend_class_entry *mysqli_base_class;
 
 	intern = emalloc(sizeof(mysqli_object));
 	memset(intern, 0, sizeof(mysqli_object));
@@ -320,11 +315,14 @@ PHP_MYSQLI_EXPORT(zend_object_value) mysqli_objects_new(zend_class_entry *class_
 	intern->ptr = NULL;
 	intern->valid = 0;
 	intern->prop_handler = NULL;
-	if ((parent = class_type->parent))
+
+	mysqli_base_class = class_type;
+	while (mysqli_base_class->type != ZEND_INTERNAL_CLASS && mysqli_base_class->parent != NULL)
 	{
-		zend_hash_find(&classes, parent->name, parent->name_length + 1, (void **) &intern->prop_handler);
+		mysqli_base_class = mysqli_base_class->parent;
 	}
-	zend_hash_find(&classes, class_type->name, class_type->name_length + 1, (void **) &intern->prop_handler);
+	zend_hash_find(&classes, mysqli_base_class->name, mysqli_base_class->name_length + 1, 
+					(void **) &intern->prop_handler);
 
 	ALLOC_HASHTABLE(intern->zo.properties);
 	zend_hash_init(intern->zo.properties, 0, NULL, ZVAL_PTR_DTOR, 0);
@@ -920,12 +918,10 @@ void php_local_infile_end(void *ptr)
 	data= (mysqli_local_infile *)ptr;
 
 	if (!(mysql = data->userdata)) {
-		efree(data);
 		return;
 	}
 
 	php_stream_close(mysql->li_stream);
-	//efree(data);
 	return;	
 }
 /* }}} */

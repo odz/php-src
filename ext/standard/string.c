@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: string.c,v 1.420 2004/07/11 21:15:04 andrey Exp $ */
+/* $Id: string.c,v 1.420.2.4 2004/11/21 13:35:50 tony2001 Exp $ */
 
 /* Synced with php 3.0 revision 1.193 1999-06-16 [ssb] */
 
@@ -136,7 +136,7 @@ static char *php_bin2hex(const unsigned char *old, const size_t oldlen, size_t *
 #ifdef HAVE_LOCALECONV
 /* {{{ localeconv_r
  * glibc's localeconv is not reentrant, so lets make it so ... sorta */
-struct lconv *localeconv_r(struct lconv *out)
+PHPAPI struct lconv *localeconv_r(struct lconv *out)
 {
 	struct lconv *res;
 
@@ -2938,7 +2938,7 @@ PHPAPI int php_char_to_str_ex(char *str, uint len, char from, char *to, int to_l
 		}
 	}
 
-	if (char_count == 0) {
+	if (char_count == 0 && case_sensitivity) {
 		ZVAL_STRINGL(result, str, len, 1);
 		return 0;
 	}
@@ -3740,18 +3740,6 @@ PHP_FUNCTION(setlocale)
 			
 			efree(args);
 			RETVAL_STRING(retval, 1);
-			
-			if (cat == LC_NUMERIC || cat == LC_ALL) {
-				struct lconv lc;
-				localeconv_r(&lc);
-			
-				EG(float_separator)[0] = (lc.decimal_point)[0];
-
-				if ((lc.decimal_point)[0] != '.') {
-					/* set locale back to C */
-					setlocale(LC_NUMERIC, "C");	
-				}
-			}
 			
 			return;
 		}
@@ -4724,7 +4712,7 @@ PHP_FUNCTION(str_split)
 	}
 
 	if (split_length <= 0) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "The the length of each segment must be greater then zero.");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "The length of each segment must be greater than zero.");
 		RETURN_FALSE;
 	}
 

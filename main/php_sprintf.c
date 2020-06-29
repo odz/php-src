@@ -16,19 +16,20 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_sprintf.c,v 1.17 2004/01/08 08:17:54 andi Exp $ */
+/* $Id: php_sprintf.c,v 1.17.2.2 2004/11/15 23:14:40 fmk Exp $ */
 
 #include <stdio.h>
 #include <stdarg.h>
-#ifdef NETWARE
+#include "php.h"
+#ifdef PHP_WIN32
+#include "config.w32.h"
+#elif defined NETWARE
 #include "config.nw.h"
 #else
 #include "php_config.h"
 #endif
 
-#if PHP_BROKEN_SPRINTF
-
-int
+PHPAPI int
 php_sprintf (char*s, const char* format, ...)
 {
   va_list args;
@@ -42,8 +43,6 @@ php_sprintf (char*s, const char* format, ...)
     return -1;
   return strlen (s);
 }
-
-#endif /* PHP_BROKEN_SPRINTF */
 
 /*
  * Local variables:

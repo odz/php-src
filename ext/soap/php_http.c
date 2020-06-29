@@ -17,13 +17,13 @@
   |          Dmitry Stogov <dmitry@zend.com>                             |
   +----------------------------------------------------------------------+
 */
-/* $Id: php_http.c,v 1.55 2004/06/22 12:42:17 dmitry Exp $ */
+/* $Id: php_http.c,v 1.55.2.5 2004/12/01 18:22:24 dmitry Exp $ */
 
 #include "php_soap.h"
 #include "ext/standard/base64.h"
 
 static char *get_http_header_value(char *headers, char *type);
-static int get_http_body(php_stream *socketd, char *headers,  char **response, int *out_size TSRMLS_DC);
+static int get_http_body(php_stream *socketd, int close, char *headers,  char **response, int *out_size TSRMLS_DC);
 static int get_http_headers(php_stream *socketd,char **response, int *out_size TSRMLS_DC);
 
 #define smart_str_append_const(str, const) \
@@ -32,9 +32,11 @@ static int get_http_headers(php_stream *socketd,char **response, int *out_size T
 static int stream_alive(php_stream *stream  TSRMLS_DC)
 {
 	int socket;
-	fd_set rfds;
-	struct timeval tv;
 	char buf;
+
+	/* maybe better to use:
+	 * php_stream_set_option(stream, PHP_STREAM_OPTION_CHECK_LIVENESS, 0, NULL)
+	 * here instead */
 
 	if (stream == NULL || stream->eof || php_stream_cast(stream, PHP_STREAM_AS_FD_FOR_SELECT, (void**)&socket, 0) != SUCCESS) {
 		return FALSE;
@@ -42,11 +44,7 @@ static int stream_alive(php_stream *stream  TSRMLS_DC)
 	if (socket == -1) {
 		return FALSE;
 	} else {
-		FD_ZERO(&rfds);
-		FD_SET(socket, &rfds);
-		tv.tv_sec = 0;
-		tv.tv_usec = 0;
-		if (select(socket + 1, &rfds, NULL, NULL, &tv) > 0 && FD_ISSET(socket, &rfds)) {
+		if (php_pollfd_for_ms(socket, PHP_POLLREADABLE, 0) > 0) {
 			if (0 == recv(socket, &buf, sizeof(buf), MSG_PEEK) && php_socket_errno() != EAGAIN) {
 				return FALSE;
 			}
@@ -206,8 +204,8 @@ int make_http_soap_request(zval  *this_ptr,
 	char *http_headers, *http_body, *content_type, *http_version, *cookie_itt;
 	int http_header_size, http_body_size, http_close;
 	char *connection;
-	int http_1_1 = 0;
-	int http_status = 0;
+	int http_1_1;
+	int http_status;
 	char *content_encoding;
 
 	if (this_ptr == NULL || Z_TYPE_P(this_ptr) != IS_OBJECT) {
@@ -382,6 +380,10 @@ try_again:
 		smart_str_append_const(&soap_headers, " HTTP/1.1\r\n"
 			"Host: ");
 		smart_str_appends(&soap_headers, phpurl->host);
+		if (phpurl->port != (use_ssl?443:80)) {
+			smart_str_appendc(&soap_headers, ':');
+			smart_str_append_unsigned(&soap_headers, phpurl->port);
+		}
 		smart_str_append_const(&soap_headers, "\r\n"
 			"Connection: Keep-Alive\r\n"
 /*
@@ -390,14 +392,15 @@ try_again:
 */
 			"User-Agent: PHP SOAP 0.1\r\n");
 		if (soap_version == SOAP_1_2) {
-			smart_str_append_const(&soap_headers,"Content-Type: application/soap+xml; charset=\"utf-8");
+			smart_str_append_const(&soap_headers,"Content-Type: application/soap+xml; charset=utf-8");
 			if (soapaction) {
-				smart_str_append_const(&soap_headers,"\"; action=\"");
+				smart_str_append_const(&soap_headers,"; action=\"");
 				smart_str_appends(&soap_headers, soapaction);
+				smart_str_append_const(&soap_headers,"\"");
 			}
-			smart_str_append_const(&soap_headers,"\"\r\n");
+			smart_str_append_const(&soap_headers,"\r\n");
 		} else {
-			smart_str_append_const(&soap_headers,"Content-Type: text/xml; charset=\"utf-8\"\r\n");
+			smart_str_append_const(&soap_headers,"Content-Type: text/xml; charset=utf-8\r\n");
 			if (soapaction) {
 				smart_str_append_const(&soap_headers, "SOAPAction: \"");
 				smart_str_appends(&soap_headers, soapaction);
@@ -509,16 +512,22 @@ try_again:
 	}
 
 	/* Check to see what HTTP status was sent */
+	http_1_1 = 0;
+	http_status = 0;
 	http_version = get_http_header_value(http_headers,"HTTP/");
 	if (http_version) {
 		char *tmp;
 
-		tmp = strstr(http_version," ");
+		if (strncmp(http_version,"1.1", 3)) {
+			http_1_1 = 1;
+		}
 
+		tmp = strstr(http_version," ");
 		if (tmp != NULL) {
 			tmp++;
 			http_status = atoi(tmp);
 		}
+		efree(http_version);
 
 		/* Process HTTP status codes */
 		if (http_status >= 200 && http_status < 300) {
@@ -531,14 +540,13 @@ try_again:
 			  int body_size;
 
 				if (new_url != NULL) {
-					if (get_http_body(stream, http_headers, &body, &body_size TSRMLS_CC)) {
+					if (get_http_body(stream, !http_1_1, http_headers, &body, &body_size TSRMLS_CC)) {
 						efree(body);
 					} else {
 						php_stream_close(stream);
 						zend_hash_del(Z_OBJPROP_P(this_ptr), "httpsocket", sizeof("httpsocket"));
 						stream = NULL;
 					}
-					efree(http_version);
 					efree(http_headers);
 					efree(loc);
 					if (new_url->scheme == NULL && new_url->path != NULL) {						
@@ -593,11 +601,6 @@ try_again:
 				return FALSE;
 			}
 		}
-
-		if (strncmp(http_version,"1.1", 3)) {
-			http_1_1 = 1;
-		}
-		efree(http_version);
 	}
 
 	/* Grab and send back every cookie */
@@ -682,7 +685,7 @@ try_again:
 		efree(cookie);
 	}
 
-	if (!get_http_body(stream, http_headers, &http_body, &http_body_size TSRMLS_CC)) {
+	if (!get_http_body(stream, !http_1_1, http_headers, &http_body, &http_body_size TSRMLS_CC)) {
 		if (request != buf) {efree(request);}
 		php_stream_close(stream);
 		efree(http_headers);
@@ -840,19 +843,21 @@ static char *get_http_header_value(char *headers, char *type)
 	return NULL;
 }
 
-static int get_http_body(php_stream *stream, char *headers,  char **response, int *out_size TSRMLS_DC)
+static int get_http_body(php_stream *stream, int close, char *headers,  char **response, int *out_size TSRMLS_DC)
 {
 	char *header, *http_buf = NULL;
-	int header_close = 0, header_chunked = 0, header_length = 0, http_buf_size = 0;
+	int header_close = close, header_chunked = 0, header_length = 0, http_buf_size = 0;
 
-	header = get_http_header_value(headers, "Connection: ");
-	if (header) {
-		if(!strcmp(header, "close")) header_close = 1;
-		efree(header);
+	if (!close) {
+		header = get_http_header_value(headers, "Connection: ");
+		if (header) {
+			if(!strncmp(header, "close", sizeof("close")-1)) header_close = 1;
+			efree(header);
+		}
 	}
 	header = get_http_header_value(headers, "Transfer-Encoding: ");
 	if (header) {
-		if(!strcmp(header, "chunked")) header_chunked = 1;
+		if(!strncmp(header, "chunked", sizeof("chunked")-1)) header_chunked = 1;
 		efree(header);
 	}
 	header = get_http_header_value(headers, "Content-Length: ");

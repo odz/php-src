@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sapi_apache2.c,v 1.40.2.1 2004/07/17 21:31:43 moriyoshi Exp $ */
+/* $Id: sapi_apache2.c,v 1.40.2.4 2004/12/06 18:55:38 stas Exp $ */
 
 #define ZEND_INCLUDE_FULL_WINDOWS_HEADERS
 
@@ -394,7 +394,7 @@ static apr_status_t php_server_context_cleanup(void *data_)
 	return APR_SUCCESS;
 }
 
-static void php_apache_request_ctor(request_rec *r, php_struct *ctx TSRMLS_DC)
+static int php_apache_request_ctor(request_rec *r, php_struct *ctx TSRMLS_DC)
 {
 	char *content_type;
 	char *content_length;
@@ -427,7 +427,7 @@ static void php_apache_request_ctor(request_rec *r, php_struct *ctx TSRMLS_DC)
 		SG(request_info).auth_user = NULL;
 		SG(request_info).auth_password = NULL;
 	}
-	php_request_startup(TSRMLS_C);
+	return php_request_startup(TSRMLS_C);
 }
 
 static void php_apache_request_dtor(request_rec *r TSRMLS_DC)
@@ -506,7 +506,9 @@ zend_first_try {
 		brigade = apr_brigade_create(r->pool, r->connection->bucket_alloc);
 		ctx->brigade = brigade;
 
-		php_apache_request_ctor(r, ctx TSRMLS_CC);
+		if (php_apache_request_ctor(r, ctx TSRMLS_CC)!=SUCCESS) {
+			zend_bailout();
+		}
 	} else {
 		parent_req = ctx->r;
 		ctx->r = r;
@@ -541,7 +543,6 @@ zend_first_try {
 			char *mem_usage;
 
 			mem_usage = apr_psprintf(ctx->r->pool, "%u", AG(allocated_memory_peak));
-			AG(allocated_memory_peak) = 0;
 			apr_table_set(r->notes, "mod_php_memory_usage", mem_usage);
 		}
 #endif
@@ -557,7 +558,9 @@ zend_first_try {
 
 		rv = ap_pass_brigade(r->output_filters, brigade);
 		if (rv != APR_SUCCESS || r->connection->aborted) {
+zend_first_try {
 			php_handle_aborted_connection();
+} zend_end_try();
 		}
 		apr_brigade_cleanup(brigade);
 	} else {

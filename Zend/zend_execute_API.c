@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_execute_API.c,v 1.287.2.2 2004/09/17 10:19:47 stas Exp $ */
+/* $Id: zend_execute_API.c,v 1.287.2.6 2004/11/25 20:26:48 zeev Exp $ */
 
 #include <stdio.h>
 #include <signal.h>
@@ -183,8 +183,6 @@ void init_executor(TSRMLS_D)
 	EG(scope) = NULL;
 
 	EG(This) = NULL;
-
-	EG(float_separator)[0] = '.';
 }
 
 void shutdown_executor(TSRMLS_D)
@@ -687,7 +685,7 @@ int zend_call_function(zend_fcall_info *fci, zend_fcall_info_cache *fci_cache TS
 				zend_error(E_ERROR, "Object does not support method calls");
 			}
 			EX(function_state).function = 
-			  Z_OBJ_HT_PP(fci->object_pp)->get_method(*fci->object_pp, Z_STRVAL_P(fci->function_name), Z_STRLEN_P(fci->function_name) TSRMLS_CC);
+				Z_OBJ_HT_PP(fci->object_pp)->get_method(*fci->object_pp, Z_STRVAL_P(fci->function_name), Z_STRLEN_P(fci->function_name) TSRMLS_CC);
 		} else if (calling_scope) {
 			char *function_name_lc = zend_str_tolower_dup(Z_STRVAL_P(fci->function_name), Z_STRLEN_P(fci->function_name));
 
@@ -888,6 +886,10 @@ ZEND_API int zend_lookup_class(char *name, int name_length, zend_class_entry ***
 	zval *exception;
 	char dummy = 1;
 	
+	if (name == NULL) {
+		return FAILURE;
+	}
+
 	lc_name = do_alloca(name_length + 1);
 	zend_str_tolower_copy(lc_name, name, name_length);
 

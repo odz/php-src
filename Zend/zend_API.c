@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_API.c,v 1.256.2.3 2004/09/09 09:53:20 helly Exp $ */
+/* $Id: zend_API.c,v 1.256.2.4 2004/11/02 13:19:48 sebastian Exp $ */
 
 #include "zend.h"
 #include "zend_execute.h"
@@ -1375,7 +1375,7 @@ ZEND_API int zend_register_functions(zend_class_entry *scope, zend_function_entr
 		}
 		while (ptr->fname) {
 			if (zend_hash_exists(target_function_table, ptr->fname, strlen(ptr->fname)+1)) {
-				zend_error(error_type, "Function registration failed - duplicate name - %s", ptr->fname);
+				zend_error(error_type, "Function registration failed - duplicate name - %s%s%s", scope ? scope->name : "", scope ? "::" : "", ptr->fname);
 			}
 			ptr++;
 		}

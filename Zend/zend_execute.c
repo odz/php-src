@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_execute.c,v 1.652.2.6 2004/09/22 07:12:15 dmitry Exp $ */
+/* $Id: zend_execute.c,v 1.652.2.11 2004/12/01 14:01:58 dmitry Exp $ */
 
 #define ZEND_INTENSIVE_DEBUGGING 0
 
@@ -378,7 +378,7 @@ static inline void zend_assign_to_object(znode *result, zval **object_ptr, znode
 		*retval = EG(uninitialized_zval_ptr);
 
 		SELECTIVE_PZVAL_LOCK(*retval, result);
-		PZVAL_UNLOCK(value);
+		FREE_OP(Ts, value_op, free_value);
 		return;
 	}
 	
@@ -4033,14 +4033,22 @@ static int zend_isset_isempty_dim_prop_obj_handler(int prop_dim, ZEND_OPCODE_HAN
 				result = Z_OBJ_HT_P(*container)->has_dimension(*container, offset, (opline->extended_value == ZEND_ISEMPTY) TSRMLS_CC);
 			}
 		} else if ((*container)->type == IS_STRING) { /* string offsets */
+			zval tmp_offset;
+
+			if (Z_TYPE_P(offset) != IS_LONG) {
+				tmp_offset = *offset;
+				zval_copy_ctor(&tmp_offset);
+				convert_to_long(&tmp_offset);
+				offset = &tmp_offset;
+			}
 			switch (opline->extended_value) {
 				case ZEND_ISSET:
-					if (offset->value.lval < Z_STRLEN_PP(container)) {
+					if (offset->value.lval >= 0 && offset->value.lval < Z_STRLEN_PP(container)) {
 						result = 1;
 					}
 					break;
 				case ZEND_ISEMPTY:
-					if (offset->value.lval < Z_STRLEN_PP(container) && Z_STRVAL_PP(container)[offset->value.lval] != '0') {
+					if (offset->value.lval >= 0 && offset->value.lval < Z_STRLEN_PP(container) && Z_STRVAL_PP(container)[offset->value.lval] != '0') {
 						result = 1;
 					}
 					break;

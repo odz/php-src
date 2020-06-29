@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: file.c,v 1.382.2.1 2004/09/09 19:41:40 wez Exp $ */
+/* $Id: file.c,v 1.382.2.3 2004/12/06 23:31:07 iliaa Exp $ */
 
 /* Synced with php 3.0 revision 1.218 1999-06-16 [ssb] */
 
@@ -803,7 +803,7 @@ PHP_FUNCTION(popen)
 	zval **arg1, **arg2;
 	FILE *fp;
 	char *p, *tmp = NULL;
-	char *b, buf[1024];
+	char *b, *buf = 0;
 	php_stream *stream;
 	
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE) {
@@ -812,6 +812,14 @@ PHP_FUNCTION(popen)
 	convert_to_string_ex(arg1);
 	convert_to_string_ex(arg2);
 	p = estrndup(Z_STRVAL_PP(arg2), Z_STRLEN_PP(arg2));
+#ifndef PHP_WIN32
+	{
+		char *z = memchr(p, 'b', Z_STRLEN_PP(arg2));
+		if (z) {
+			memmove(p + (z - p), z + 1, Z_STRLEN_PP(arg2) - (z - p));
+		}
+	}
+#endif
 	if (PG(safe_mode)){
 		b = strchr(Z_STRVAL_PP(arg1), ' ');
 		if (!b) {
@@ -826,10 +834,11 @@ PHP_FUNCTION(popen)
 				b = NULL;
 			}
 		}
+		
 		if (b) {
-			snprintf(buf, sizeof(buf), "%s%s", PG(safe_mode_exec_dir), b);
+			spprintf(&buf, 0, "%s%s", PG(safe_mode_exec_dir), b);
 		} else {
-			snprintf(buf, sizeof(buf), "%s/%s", PG(safe_mode_exec_dir), Z_STRVAL_PP(arg1));
+			spprintf(&buf, 0, "%s/%s", PG(safe_mode_exec_dir), Z_STRVAL_PP(arg1));
 		}
 
 		tmp = php_escape_shell_cmd(buf);
@@ -839,8 +848,12 @@ PHP_FUNCTION(popen)
 		if (!fp) {
 			php_error_docref2(NULL TSRMLS_CC, buf, p, E_WARNING, "%s", strerror(errno));
 			efree(p);
+			efree(buf);
 			RETURN_FALSE;
 		}
+		
+		efree(buf);
+
 	} else {
 		fp = VCWD_POPEN(Z_STRVAL_PP(arg1), p);
 		if (!fp) {

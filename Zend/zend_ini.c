@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_ini.c,v 1.33.2.1 2004/07/30 15:05:02 wez Exp $ */
+/* $Id: zend_ini.c,v 1.33.2.2 2004/11/03 23:14:31 derick Exp $ */
 
 #include "zend.h"
 #include "zend_qsort.h"
@@ -24,6 +24,7 @@
 #include "zend_ini.h"
 #include "zend_alloc.h"
 #include "zend_operators.h"
+#include "zend_strtod.h"
 
 static HashTable *registered_zend_ini_directives; 
 
@@ -298,9 +299,9 @@ ZEND_API double zend_ini_double(char *name, uint name_length, int orig)
 
 	if (zend_hash_find(EG(ini_directives), name, name_length, (void **) &ini_entry)==SUCCESS) {
 		if (orig && ini_entry->modified) {
-			return (double) (ini_entry->orig_value ? strtod(ini_entry->orig_value, NULL) : 0.0);
+			return (double) (ini_entry->orig_value ? zend_strtod(ini_entry->orig_value, NULL) : 0.0);
 		} else if (ini_entry->value) {
-			return (double) strtod(ini_entry->value, NULL);
+			return (double) zend_strtod(ini_entry->value, NULL);
 		}
 	}
 
@@ -486,7 +487,7 @@ ZEND_API ZEND_INI_MH(OnUpdateReal)
 
 	p = (double *) (base+(size_t) mh_arg1);
 
-	*p = strtod(new_value, NULL);
+	*p = zend_strtod(new_value, NULL);
 	return SUCCESS;
 }
 

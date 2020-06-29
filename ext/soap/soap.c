@@ -17,7 +17,7 @@
   |          Dmitry Stogov <dmitry@zend.com>                             |
   +----------------------------------------------------------------------+
 */
-/* $Id: soap.c,v 1.110.2.9 2004/09/16 08:11:07 dmitry Exp $ */
+/* $Id: soap.c,v 1.110.2.14 2004/12/14 13:58:18 dmitry Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -441,6 +441,7 @@ PHP_RINIT_FUNCTION(soap)
 	SOAP_GLOBAL(sdl) = NULL;
 	SOAP_GLOBAL(soap_version) = SOAP_1_1;
 	SOAP_GLOBAL(encoding) = NULL;
+	SOAP_GLOBAL(class_map) = NULL;
 	return SUCCESS;
 }
 
@@ -866,6 +867,15 @@ PHP_METHOD(SoapServer, SoapServer)
 	    }
 		}
 
+		if (zend_hash_find(ht, "classmap", sizeof("classmap"), (void**)&tmp) == SUCCESS &&
+			Z_TYPE_PP(tmp) == IS_ARRAY) {
+			zval *ztmp;
+
+			ALLOC_HASHTABLE(service->class_map);
+			zend_hash_init(service->class_map, 0, NULL, ZVAL_PTR_DTOR, 0);
+			zend_hash_copy(service->class_map, (*tmp)->value.ht, (copy_ctor_func_t) zval_add_ref, (void *) &ztmp, sizeof(zval *));
+		}
+
 	} else if (wsdl == NULL) {
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Invalid arguments. 'uri' option is required in nonWSDL mode.");
 	}
@@ -877,7 +887,7 @@ PHP_METHOD(SoapServer, SoapServer)
 	zend_hash_init(service->soap_functions.ft, 0, NULL, ZVAL_PTR_DTOR, 0);
 
 	if (wsdl) {
-		service->sdl = get_sdl(Z_STRVAL_P(wsdl) TSRMLS_CC);
+		service->sdl = get_sdl(this_ptr, Z_STRVAL_P(wsdl) TSRMLS_CC);
 		if (service->uri == NULL) {
 			if (service->sdl->target_ns) {
 				service->uri = estrdup(service->sdl->target_ns);
@@ -1256,7 +1266,7 @@ PHP_METHOD(SoapServer, handle)
 	int soap_version, old_soap_version;
 	sdlPtr old_sdl = NULL;
 	soapServicePtr service;
-	xmlDocPtr doc_request, doc_return;
+	xmlDocPtr doc_request=NULL, doc_return;
 	zval function_name, **params, **raw_post, *soap_obj, retval, **server_vars;
 	char *fn_name, cont_len[30];
 	int num_params = 0, size, i, call_status = 0;
@@ -1267,6 +1277,7 @@ PHP_METHOD(SoapServer, handle)
 	char *arg = NULL;
 	int arg_len;
 	xmlCharEncodingHandlerPtr old_encoding;
+	HashTable *old_class_map;
 
 	SOAP_SERVER_BEGIN_CODE();
 
@@ -1296,7 +1307,7 @@ PHP_METHOD(SoapServer, handle)
 						INIT_ZVAL(readfile_ret);
 						MAKE_STD_ZVAL(param);
 
-						sapi_add_header("Content-Type: text/xml; charset=\"utf-8\"", sizeof("Content-Type: text/xml; charset=\"utf-8\"")-1, 1);
+						sapi_add_header("Content-Type: text/xml; charset=utf-8", sizeof("Content-Type: text/xml; charset=utf-8")-1, 1);
 						ZVAL_STRING(param, service->sdl->source, 1);
 						ZVAL_STRING(&readfile, "readfile", 1);
 						if (call_user_function(EG(function_table), NULL, &readfile, &readfile_ret, 1, &param  TSRMLS_CC) == FAILURE) {
@@ -1312,7 +1323,7 @@ PHP_METHOD(SoapServer, handle)
 					} else {
 						soap_server_fault("Server", "WSDL generation is not supported yet", NULL, NULL, NULL TSRMLS_CC);
 /*
-						sapi_add_header("Content-Type: text/xml; charset=\"utf-8\"", sizeof("Content-Type: text/xml; charset=\"utf-8\""), 1);
+						sapi_add_header("Content-Type: text/xml; charset=utf-8", sizeof("Content-Type: text/xml; charset=utf-8"), 1);
 						PUTS("<?xml version=\"1.0\" ?>\n<definitions\n");
 						PUTS("    xmlns=\"http://schemas.xmlsoap.org/wsdl/\"\n");
 						PUTS("    targetNamespace=\"");
@@ -1410,6 +1421,8 @@ PHP_METHOD(SoapServer, handle)
 	SOAP_GLOBAL(sdl) = service->sdl;
 	old_encoding = SOAP_GLOBAL(encoding);
 	SOAP_GLOBAL(encoding) = service->encoding;
+	old_class_map = SOAP_GLOBAL(class_map);
+	SOAP_GLOBAL(class_map) = service->class_map;
 	old_soap_version = SOAP_GLOBAL(soap_version);
 	function = deserialize_function_call(service->sdl, doc_request, service->actor, &function_name, &num_params, &params, &soap_version, &soap_headers TSRMLS_CC);
 	xmlFreeDoc(doc_request);
@@ -1661,9 +1674,9 @@ PHP_METHOD(SoapServer, handle)
 	sprintf(cont_len, "Content-Length: %d", size);
 	sapi_add_header(cont_len, strlen(cont_len), 1);
 	if (soap_version == SOAP_1_2) {
-		sapi_add_header("Content-Type: application/soap+xml; charset=\"utf-8\"", sizeof("Content-Type: application/soap+xml; charset=\"utf-8\"")-1, 1);
+		sapi_add_header("Content-Type: application/soap+xml; charset=utf-8", sizeof("Content-Type: application/soap+xml; charset=utf-8")-1, 1);
 	} else {
-		sapi_add_header("Content-Type: text/xml; charset=\"utf-8\"", sizeof("Content-Type: text/xml; charset=\"utf-8\"")-1, 1);
+		sapi_add_header("Content-Type: text/xml; charset=utf-8", sizeof("Content-Type: text/xml; charset=utf-8")-1, 1);
 	}
 
 	xmlFreeDoc(doc_return);
@@ -1674,6 +1687,7 @@ fail:
 	SOAP_GLOBAL(soap_version) = old_soap_version;
 	SOAP_GLOBAL(encoding) = old_encoding;
 	SOAP_GLOBAL(sdl) = old_sdl;
+	SOAP_GLOBAL(class_map) = old_class_map;
 
 	/* Free soap headers */
 	zval_dtor(&retval);
@@ -1748,9 +1762,9 @@ static void soap_server_fault_ex(sdlFunctionPtr function, zval* fault, soapHeade
 	sprintf(cont_len,"Content-Length: %d", size);
 	sapi_add_header(cont_len, strlen(cont_len), 1);
 	if (soap_version == SOAP_1_2) {
-		sapi_add_header("Content-Type: application/soap+xml; charset=\"utf-8\"", sizeof("Content-Type: application/soap+xml; charset=\"utf-8\"")-1, 1);
+		sapi_add_header("Content-Type: application/soap+xml; charset=utf-8", sizeof("Content-Type: application/soap+xml; charset=utf-8")-1, 1);
 	} else {
-		sapi_add_header("Content-Type: text/xml; charset=\"utf-8\"", sizeof("Content-Type: text/xml; charset=\"utf-8\"")-1, 1);
+		sapi_add_header("Content-Type: text/xml; charset=utf-8", sizeof("Content-Type: text/xml; charset=utf-8")-1, 1);
 	}
 	php_write(buf, size TSRMLS_CC);
 
@@ -1986,6 +2000,18 @@ PHP_METHOD(SoapClient, SoapClient)
 				add_property_stringl(this_ptr, "_encoding", Z_STRVAL_PP(tmp), Z_STRLEN_PP(tmp), 1);			
 			}
 		}
+		if (zend_hash_find(ht, "classmap", sizeof("classmap"), (void**)&tmp) == SUCCESS &&
+			Z_TYPE_PP(tmp) == IS_ARRAY) {
+			zval *class_map;
+
+			MAKE_STD_ZVAL(class_map);
+			*class_map = **tmp;
+			zval_copy_ctor(class_map);
+#ifdef ZEND_ENGINE_2
+			class_map->refcount--;  /*FIXME*/
+#endif
+			add_property_zval(this_ptr, "_classmap", class_map);
+		}
 	} else if (wsdl == NULL) {
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "'location' and 'uri' options are requred in nonWSDL mode.");
 		return;
@@ -2000,7 +2026,7 @@ PHP_METHOD(SoapClient, SoapClient)
 		old_soap_version = SOAP_GLOBAL(soap_version);
 		SOAP_GLOBAL(soap_version) = soap_version;
 
-		sdl = get_sdl(Z_STRVAL_P(wsdl) TSRMLS_CC);
+		sdl = get_sdl(this_ptr, Z_STRVAL_P(wsdl) TSRMLS_CC);
 		ret = zend_list_insert(sdl, le_sdl);
 
 		add_property_resource(this_ptr, "sdl", ret);
@@ -2097,6 +2123,7 @@ static void do_soap_call(zval* this_ptr,
 	int soap_version;
 	zval response;
 	xmlCharEncodingHandlerPtr old_encoding;
+	HashTable *old_class_map;
 
 	SOAP_CLIENT_BEGIN_CODE();
 
@@ -2127,6 +2154,13 @@ static void do_soap_call(zval* this_ptr,
 		SOAP_GLOBAL(encoding) = xmlFindCharEncodingHandler(Z_STRVAL_PP(tmp));
 	} else {
 		SOAP_GLOBAL(encoding) = NULL;
+	}
+	old_class_map = SOAP_GLOBAL(class_map);
+	if (zend_hash_find(Z_OBJPROP_P(this_ptr), "_classmap", sizeof("_classmap"), (void **) &tmp) == SUCCESS &&
+	    Z_TYPE_PP(tmp) == IS_ARRAY) {
+		SOAP_GLOBAL(class_map) = (*tmp)->value.ht;
+	} else {
+		SOAP_GLOBAL(class_map) = NULL;
 	}
 
  	if (sdl != NULL) {
@@ -2228,6 +2262,7 @@ static void do_soap_call(zval* this_ptr,
   if (SOAP_GLOBAL(encoding) != NULL) {
 		xmlCharEncCloseFunc(SOAP_GLOBAL(encoding));
   }
+  SOAP_GLOBAL(class_map) = old_class_map;
 	SOAP_GLOBAL(encoding) = old_encoding;
 	SOAP_GLOBAL(sdl) = old_sdl;
 	SOAP_CLIENT_END_CODE();
@@ -2765,10 +2800,13 @@ static sdlFunctionPtr deserialize_function_call(sdlPtr sdl, xmlDocPtr request, c
 	trav = body->children;
 	while (trav != NULL) {
 		if (trav->type == XML_ELEMENT_NODE) {
+/*
 			if (func != NULL) {
 				soap_server_fault("Client", "looks like we got \"Body\" with several functions call", NULL, NULL, NULL TSRMLS_CC);
 			}
+*/
 			func = trav;
+			break; /* FIXME: the rest of body is ignored */
 		}
 		trav = trav->next;
 	}
@@ -3979,6 +4017,10 @@ static void delete_service(void *data)
 	}
 	if (service->encoding) {
 		xmlCharEncCloseFunc(service->encoding);
+	}
+	if (service->class_map) {
+		zend_hash_destroy(service->class_map);
+		FREE_HASHTABLE(service->class_map);
 	}
 	efree(service);
 }

@@ -22,7 +22,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: oci8.c,v 1.257 2004/07/15 11:00:14 tony2001 Exp $ */
+/* $Id: oci8.c,v 1.257.2.5 2004/11/22 21:46:49 andi Exp $ */
 
 /* TODO list:
  *
@@ -786,7 +786,7 @@ PHP_MINFO_FUNCTION(oci)
 
 	php_info_print_table_start();
 	php_info_print_table_row(2, "OCI8 Support", "enabled");
-	php_info_print_table_row(2, "Revision", "$Revision: 1.257 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.257.2.5 $");
 
 	sprintf(buf, "%ld", num_persistent);
 	php_info_print_table_row(2, "Active Persistent Links", buf);
@@ -1016,7 +1016,7 @@ static void _oci_conn_list_dtor(oci_connection *connection TSRMLS_DC)
 		);
 	}
 
-	if (connection->session) {
+	if (connection->session && connection->session->exclusive) {
 		/* close associated session when destructed */
 		zend_list_delete(connection->session->num);
 	}
@@ -2700,6 +2700,7 @@ static oci_session *_oci_open_session(oci_server* server,char *username,char *pa
 					session->persistent = 1;
 				}
 				smart_str_free_ex(&hashed_details, 1);
+				mutex_unlock(mx_lock);
 				return session;
 			} else {
 				_oci_close_session(session);
@@ -2906,7 +2907,7 @@ static int _session_compare(void *a, void *b)
 	oci_session *sess1 = (oci_session*) a;
 	oci_session *sess2 = (oci_session*) b;
 	
-	return sess1->num = sess2->num;
+	return sess1->num == sess2->num;
 }
 
 static void _oci_close_session(oci_session *session)
@@ -3008,6 +3009,16 @@ static void _oci_close_session(oci_session *session)
 			num_persistent--;
 		}
 	mutex_unlock(mx_lock);
+
+#ifdef HAVE_OCI_9_2
+	/* free environment handle (and fix bug #29652 with growing .msb FD number under weirdie Solarises) */
+	CALL_OCI(
+		OCIHandleFree(
+				(dvoid *) session->pEnv, 
+				OCI_HTYPE_ENV
+		)
+	);
+#endif
 
 	if (session->exclusive) {
 		efree(session);
@@ -3134,7 +3145,7 @@ static int _oci_session_cleanup(void *data TSRMLS_DC)
 
 	if (le->type == le_session) {
 		oci_server *server = ((oci_session*) le->ptr)->server;
-		if (server->is_open == 2) 
+		if (server && server->is_open == 2) 
 			return 1;
 	}
 	return 0;
@@ -5830,7 +5841,7 @@ PHP_FUNCTION(oci_new_connect)
    Connect to an Oracle database and log on. Returns a new session. */
 PHP_FUNCTION(oci_connect)
 {
-	oci_do_connect(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0, 0);
+	oci_do_connect(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0, 1);
 }
 /* }}} */
 

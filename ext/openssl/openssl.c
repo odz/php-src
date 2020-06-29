@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: openssl.c,v 1.89.2.2 2004/09/13 18:31:51 magnus Exp $ */
+/* $Id: openssl.c,v 1.89.2.4 2004/10/27 11:07:49 wez Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -135,7 +135,7 @@ zend_module_entry openssl_module_entry = {
 	"openssl",
 	openssl_functions,
 	PHP_MINIT(openssl),
-	NULL,
+	PHP_MSHUTDOWN(openssl),
 	NULL,
 	NULL,
 	PHP_MINFO(openssl),
@@ -1670,9 +1670,16 @@ PHP_FUNCTION(openssl_csr_new)
 						if (we_made_the_key) {
 							/* and a resource for the private key */
 							ZVAL_RESOURCE(out_pkey, zend_list_insert(req.priv_key, le_key));
+							req.priv_key = NULL; /* make sure the cleanup code doesn't zap it! */
 						} else if (key_resource != -1) {
 							req.priv_key = NULL; /* make sure the cleanup code doesn't zap it! */
 						}
+					}
+				}
+				else {
+					if (!we_made_the_key) {
+						/* if we have not made the key we are not supposed to zap it by calling dispose! */
+						req.priv_key = NULL;
 					}
 				}
 			}

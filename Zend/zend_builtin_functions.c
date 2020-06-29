@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_builtin_functions.c,v 1.239.2.6 2004/08/25 01:02:38 andi Exp $ */
+/* $Id: zend_builtin_functions.c,v 1.239.2.13 2004/12/06 08:57:55 stas Exp $ */
 
 #include "zend.h"
 #include "zend_API.h"
@@ -603,12 +603,21 @@ static void is_a_impl(INTERNAL_FUNCTION_PARAMETERS, zend_bool only_subclass)
 		ZEND_WRONG_PARAM_COUNT();
 	}
 
-	if (Z_TYPE_PP(obj) != IS_OBJECT) {
+	if (only_subclass && Z_TYPE_PP(obj) == IS_STRING) {
+		zend_class_entry **the_ce;
+		if (zend_lookup_class(Z_STRVAL_PP(obj), Z_STRLEN_PP(obj), &the_ce TSRMLS_CC) == FAILURE) {
+			zend_error(E_WARNING, "Unknown class passed as parameter");
+			RETURN_FALSE;
+		}
+		instance_ce = *the_ce;		
+	} else if (Z_TYPE_PP(obj) != IS_OBJECT) {
 		RETURN_FALSE;
+	} else {
+		instance_ce = NULL;
 	}
 	
 	/* TBI!! new object handlers */
-	if (!HAS_CLASS_ENTRY(**obj)) {
+	if (Z_TYPE_PP(obj) == IS_OBJECT && !HAS_CLASS_ENTRY(**obj)) {
 		RETURN_FALSE;
 	}
 
@@ -618,7 +627,11 @@ static void is_a_impl(INTERNAL_FUNCTION_PARAMETERS, zend_bool only_subclass)
 		retval = 0;
 	} else {
 		if (only_subclass) {
-			instance_ce = Z_OBJCE_PP(obj)->parent;
+			if (!instance_ce) {
+				instance_ce = Z_OBJCE_PP(obj)->parent;
+			} else {
+				instance_ce = instance_ce->parent;
+			}
 		} else {
 			instance_ce = Z_OBJCE_PP(obj);
 		}
@@ -657,59 +670,72 @@ ZEND_FUNCTION(is_a)
 /* }}} */
 
 
-/* {{{ proto array get_class_vars(string class_name)
-   Returns an array of default properties of the class */
-ZEND_FUNCTION(get_class_vars)
+/* {{{ add_class_vars */
+static void add_class_vars(zend_class_entry *ce, HashTable *properties, zval *return_value TSRMLS_DC)
 {
-	zval **class_name;
-	zend_class_entry *ce, **pce;
+	int instanceof = EG(scope) && instanceof_function(EG(scope), ce TSRMLS_CC);
 
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &class_name)==FAILURE) {
-		ZEND_WRONG_PARAM_COUNT();
-	}
-
-	convert_to_string_ex(class_name);
+	if (zend_hash_num_elements(properties) > 0) {
+		HashPosition pos;
+		zval **prop;
 	
-	if (zend_lookup_class(Z_STRVAL_PP(class_name), Z_STRLEN_PP(class_name), &pce TSRMLS_CC) == FAILURE) {
-		RETURN_FALSE;
-	} else {
-		ce = *pce;
-		array_init(return_value);
-
-		if (zend_hash_num_elements(&ce->default_properties) > 0) {
-			HashPosition pos;
-			zval **prop;
+		zend_hash_internal_pointer_reset_ex(properties, &pos);
+		while (zend_hash_get_current_data_ex(properties, (void **) &prop, &pos) == SUCCESS) {
+			char *key, *class_name, *prop_name;
+			uint key_len;
+			ulong num_index;
+			zval *prop_copy;
 	
-			zend_hash_internal_pointer_reset_ex(&ce->default_properties, &pos);
-			while (zend_hash_get_current_data_ex(&ce->default_properties, (void **) &prop, &pos) == SUCCESS) {
-				char *key, *class_name, *prop_name;
-				uint key_len;
-				ulong num_index;
-				zval *prop_copy;
-	
-				zend_hash_get_current_key_ex(&ce->default_properties, &key, &key_len, &num_index, 0, &pos);
-				zend_hash_move_forward_ex(&ce->default_properties, &pos);
-				zend_unmangle_property_name(key, &class_name, &prop_name);
-				if (class_name && class_name[0] != '*' && strcmp(class_name, ce->name)) {
+			zend_hash_get_current_key_ex(properties, &key, &key_len, &num_index, 0, &pos);
+			zend_hash_move_forward_ex(properties, &pos);
+			zend_unmangle_property_name(key, &class_name, &prop_name);
+			if (class_name) {
+				if (class_name[0] != '*' && strcmp(class_name, ce->name)) {
 					/* filter privates from base classes */
 					continue;
+				} else if (!instanceof) {
+					/* filter protected if not inside class */
+					continue;
 				}
-	
-				/* copy: enforce read only access */
-				ALLOC_ZVAL(prop_copy);
-				*prop_copy = **prop;
-				zval_copy_ctor(prop_copy);
-				INIT_PZVAL(prop_copy);
-	
-				/* this is necessary to make it able to work with default array 
-				* properties, returned to user */
-				if (Z_TYPE_P(prop_copy) == IS_CONSTANT_ARRAY || Z_TYPE_P(prop_copy) == IS_CONSTANT) {
-					zval_update_constant(&prop_copy, 0 TSRMLS_CC);
-				}
-                               
-				add_assoc_zval(return_value, prop_name, prop_copy);
 			}
+
+			/* copy: enforce read only access */
+			ALLOC_ZVAL(prop_copy);
+			*prop_copy = **prop;
+			zval_copy_ctor(prop_copy);
+			INIT_PZVAL(prop_copy);
+
+			/* this is necessary to make it able to work with default array 
+			* properties, returned to user */
+			if (Z_TYPE_P(prop_copy) == IS_CONSTANT_ARRAY || Z_TYPE_P(prop_copy) == IS_CONSTANT) {
+				zval_update_constant(&prop_copy, 0 TSRMLS_CC);
+			}
+                           
+			add_assoc_zval(return_value, prop_name, prop_copy);
 		}
+	}
+}
+/* }}} */
+
+
+/* {{{ proto array get_class_vars(string class_name)
+   Returns an array of default properties of the class. */
+ZEND_FUNCTION(get_class_vars)
+{
+	char *class_name;
+	int class_name_len;
+	zend_class_entry **pce;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &class_name, &class_name_len) == FAILURE) {
+		return;
+	}
+
+	if (zend_lookup_class(class_name, class_name_len, &pce TSRMLS_CC) == FAILURE) {
+		RETURN_FALSE;
+	} else {
+		array_init(return_value);
+		add_class_vars(*pce, &(*pce)->default_properties, return_value TSRMLS_CC);
+		add_class_vars(*pce, (*pce)->static_members, return_value TSRMLS_CC);
 	}
 }
 /* }}} */
@@ -723,9 +749,10 @@ ZEND_FUNCTION(get_object_vars)
 	zval **value;
 	HashTable *properties;
 	HashPosition pos;
-	char *key;
+	char *key, *prop_name, *class_name;
 	uint key_len;
 	ulong num_index;
+	int instanceof;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &obj) == FAILURE) {
 		ZEND_WRONG_PARAM_COUNT();
@@ -738,16 +765,27 @@ ZEND_FUNCTION(get_object_vars)
 		RETURN_FALSE;
 	}
 
+	instanceof = EG(This) && instanceof_function(Z_OBJCE_P(EG(This)), Z_OBJCE_PP(obj) TSRMLS_CC);
+
 	array_init(return_value);
 
 	properties = Z_OBJ_HT_PP(obj)->get_properties(*obj TSRMLS_CC);
 	zend_hash_internal_pointer_reset_ex(properties, &pos);
 
 	while (zend_hash_get_current_data_ex(properties, (void **) &value, &pos) == SUCCESS) {
-		if (zend_hash_get_current_key_ex(properties, &key, &key_len, &num_index, 0, &pos) == HASH_KEY_IS_STRING && key[0]) {
+		if (zend_hash_get_current_key_ex(properties, &key, &key_len, &num_index, 0, &pos) == HASH_KEY_IS_STRING) {
+			if (key[0]) {
 			/* Not separating references */
 			(*value)->refcount++;
 			add_assoc_zval_ex(return_value, key, key_len, *value);
+			} else if (instanceof) {
+				zend_unmangle_property_name(key, &class_name, &prop_name);
+				if (!memcmp(class_name, "*", 2) || (Z_OBJCE_P(EG(This)) == Z_OBJCE_PP(obj) && !strcmp(Z_OBJCE_P(EG(This))->name, class_name))) {
+					/* Not separating references */
+					(*value)->refcount++;
+					add_assoc_zval_ex(return_value, prop_name, strlen(prop_name)+1, *value);
+				}
+			}
 		}
 		zend_hash_move_forward_ex(properties, &pos);
 	}
@@ -764,6 +802,7 @@ ZEND_FUNCTION(get_class_methods)
 	zend_class_entry *ce = NULL, **pce;
 	HashPosition pos;
 	zend_function *mptr;
+	int instanceof;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &class)==FAILURE) {
 		ZEND_WRONG_PARAM_COUNT();
@@ -785,18 +824,22 @@ ZEND_FUNCTION(get_class_methods)
 		RETURN_NULL();
 	}
 
+	instanceof = EG(scope) && instanceof_function(EG(scope), ce TSRMLS_CC);
+
 	array_init(return_value);
 	zend_hash_internal_pointer_reset_ex(&ce->function_table, &pos);
 
 	while (zend_hash_get_current_data_ex(&ce->function_table, (void **) &mptr, &pos) == SUCCESS) {
-		MAKE_STD_ZVAL(method_name);
-		ZVAL_STRING(method_name, mptr->common.function_name, 1);
-		zend_hash_next_index_insert(return_value->value.ht, &method_name, sizeof(zval *), NULL);
+		if ((mptr->common.fn_flags & ZEND_ACC_PUBLIC) 
+		 || (instanceof && ((mptr->common.fn_flags & ZEND_ACC_PROTECTED) || EG(scope) == mptr->common.scope))) {
+			MAKE_STD_ZVAL(method_name);
+			ZVAL_STRING(method_name, mptr->common.function_name, 1);
+			zend_hash_next_index_insert(return_value->value.ht, &method_name, sizeof(zval *), NULL);
+		}
 		zend_hash_move_forward_ex(&ce->function_table, &pos);
 	}
 }
 /* }}} */
-\
 
 
 /* {{{ proto bool method_exists(object object, string method)
@@ -1097,13 +1140,15 @@ ZEND_FUNCTION(set_exception_handler)
 		ZEND_WRONG_PARAM_COUNT();
 	}
 
-	if (!zend_is_callable(*exception_handler, 0, &exception_handler_name)) {
-		zend_error(E_WARNING, "%s() expects the argument (%s) to be a valid callback",
-				   get_active_function_name(TSRMLS_C), exception_handler_name?exception_handler_name:"unknown");
+	if (Z_TYPE_PP(exception_handler) != IS_NULL) { /* NULL == unset */
+		if (!zend_is_callable(*exception_handler, 0, &exception_handler_name)) {
+			zend_error(E_WARNING, "%s() expects the argument (%s) to be a valid callback",
+					   get_active_function_name(TSRMLS_C), exception_handler_name?exception_handler_name:"unknown");
+			efree(exception_handler_name);
+			return;
+		}
 		efree(exception_handler_name);
-		return;
 	}
-	efree(exception_handler_name);
 
 	if (EG(user_exception_handler)) {
 		had_orig_exception_handler = 1;
@@ -1113,7 +1158,7 @@ ZEND_FUNCTION(set_exception_handler)
 	}
 	ALLOC_ZVAL(EG(user_exception_handler));
 
-	if (Z_STRLEN_PP(exception_handler)==0) { /* unset user-defined handler */
+	if (Z_TYPE_PP(exception_handler) == IS_NULL) { /* unset user-defined handler */
 		FREE_ZVAL(EG(user_exception_handler));
 		EG(user_exception_handler) = NULL;
 		RETURN_TRUE;
@@ -1660,11 +1705,11 @@ ZEND_API void zend_fetch_debug_backtrace(zval *return_value, int skip_last TSRML
 	ptr = EG(current_execute_data);
 
 	/* skip debug_backtrace() */
-	ptr = ptr->prev_execute_data;
 	if (skip_last--) {
 		int arg_count = *((ulong*)(cur_arg_pos - 2));
 		cur_arg_pos -= (arg_count + 2);
 		frames_on_stack--;
+		ptr = ptr->prev_execute_data;
 	}
 
 	array_init(return_value);
@@ -1717,6 +1762,11 @@ ZEND_API void zend_fetch_debug_backtrace(zval *return_value, int skip_last TSRML
 			/* i know this is kinda ugly, but i'm trying to avoid extra cycles in the main execution loop */
 			zend_bool build_filename_arg = 1;
 
+			if (!ptr->opline) {
+				/* can happen when calling eval from a custom sapi */
+				function_name = "unknown";
+				build_filename_arg = 0;
+			} else
 			switch (ptr->opline->op2.u.constant.value.lval) {
 				case ZEND_EVAL:
 					function_name = "eval";

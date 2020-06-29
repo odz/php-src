@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: streams.c,v 1.61.2.2 2004/09/08 18:45:05 pollita Exp $ */
+/* $Id: streams.c,v 1.61.2.5 2004/11/15 23:44:14 iliaa Exp $ */
 
 #define _GNU_SOURCE
 #include "php.h"
@@ -835,7 +835,7 @@ PHPAPI char *php_stream_get_record(php_stream *stream, size_t maxlen, size_t *re
 
 	php_stream_fill_read_buffer(stream, maxlen TSRMLS_CC);
 
-	if (delim_len == 0) {
+	if (delim_len == 0 || !delim) {
 		toread = maxlen;
 	} else {
 		if (delim_len == 1) {
@@ -859,6 +859,7 @@ PHPAPI char *php_stream_get_record(php_stream *stream, size_t maxlen, size_t *re
 	*returned_len = php_stream_read(stream, buf, toread);
 	                
 	if (*returned_len >= 0) {
+		buf[*returned_len] = '\0';
 		return buf;
 	} else {
 		efree(buf);
@@ -1150,7 +1151,7 @@ PHPAPI size_t _php_stream_passthru(php_stream * stream STREAMS_DC TSRMLS_DC)
 		char *p;
 		size_t mapped;
 
-		p = php_stream_mmap_range(stream, php_stream_tell(stream), 0, PHP_STREAM_MAP_MODE_SHARED_READONLY, &mapped);
+		p = php_stream_mmap_range(stream, php_stream_tell(stream), PHP_STREAM_COPY_ALL, PHP_STREAM_MAP_MODE_SHARED_READONLY, &mapped);
 
 		if (p) {
 			PHPWRITE(p, mapped);
@@ -1466,7 +1467,7 @@ PHPAPI php_stream_wrapper *php_stream_locate_url_wrapper(const char *path, char 
 	/* TODO: curl based streams probably support file:// properly */
 	if (!protocol || !strncasecmp(protocol, "file", n))	{
 #ifdef PHP_WIN32
-		if (protocol && path[n+1] == '/' && path[n+2] == '/' && path[n+4] != ':')	{
+		if (protocol && path[n+1] == '/' && path[n+2] == '/' && path[n+3] != '\0' && path[n+3] != '/' && path[n+4] != ':')	{
 #else
 		if (protocol && path[n+1] == '/' && path[n+2] == '/' && path[n+3] != '/')	{
 #endif

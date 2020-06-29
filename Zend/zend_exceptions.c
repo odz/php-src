@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_exceptions.c,v 1.65 2004/05/20 17:59:27 wez Exp $ */
+/* $Id: zend_exceptions.c,v 1.65.2.2 2004/12/07 07:45:46 dmitry Exp $ */
 
 #include "zend.h"
 #include "zend_API.h"
@@ -50,7 +50,8 @@ void zend_throw_exception_internal(zval *exception TSRMLS_DC)
 		zend_throw_exception_hook(exception TSRMLS_CC);
 	}
 
-	if ((EG(current_execute_data)->opline+1)->opcode == ZEND_HANDLE_EXCEPTION) {
+	if (EG(current_execute_data)->opline == NULL ||
+	    (EG(current_execute_data)->opline+1)->opcode == ZEND_HANDLE_EXCEPTION) {
 		/* no need to rethrow the exception */
 		return;
 	}
@@ -427,9 +428,15 @@ ZEND_METHOD(exception, __toString)
  * And never try to change the state of exceptions and never implement anything
  * that gives the user anything to accomplish this.
  */
+static
+ZEND_BEGIN_ARG_INFO(arginfo_exception___construct, 0)
+	ZEND_ARG_INFO(0, message)
+	ZEND_ARG_INFO(0, code)
+ZEND_END_ARG_INFO();
+
 static zend_function_entry default_exception_functions[] = {
 	ZEND_ME(exception, __clone, NULL, ZEND_ACC_PRIVATE|ZEND_ACC_FINAL)
-	ZEND_ME(exception, __construct, NULL, 0)
+	ZEND_ME(exception, __construct, arginfo_exception___construct, ZEND_ACC_PUBLIC)
 	ZEND_ME(exception, getMessage, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_FINAL)
 	ZEND_ME(exception, getCode, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_FINAL)
 	ZEND_ME(exception, getFile, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_FINAL)

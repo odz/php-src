@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: basic_functions.c,v 1.673.2.4 2004/08/19 15:15:32 tony2001 Exp $ */
+/* $Id: basic_functions.c,v 1.673.2.7 2004/11/15 23:16:20 fmk Exp $ */
 
 #include "php.h"
 #include "php_streams.h"
@@ -165,6 +165,7 @@ typedef struct _user_tick_function_entry {
 static void user_shutdown_function_dtor(php_shutdown_function_entry *shutdown_function_entry);
 static void user_tick_function_dtor(user_tick_function_entry *tick_function_entry);
 
+#undef sprintf
 
 function_entry basic_functions[] = {
 	PHP_FE(constant,														NULL)
@@ -1649,7 +1650,11 @@ PHP_FUNCTION(sleep)
 	}
 
 	convert_to_long_ex(num);
+#ifdef PHP_SLEEP_NON_VOID
+	RETURN_LONG(php_sleep(Z_LVAL_PP(num)));
+#else
 	php_sleep(Z_LVAL_PP(num));
+#endif
 }
 /* }}} */
 

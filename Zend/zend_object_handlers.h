@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_object_handlers.h,v 1.41 2004/05/04 15:03:28 wez Exp $ */
+/* $Id: zend_object_handlers.h,v 1.41.2.2 2004/11/25 20:26:48 zeev Exp $ */
 
 #ifndef ZEND_OBJECT_HANDLERS_H
 #define ZEND_OBJECT_HANDLERS_H

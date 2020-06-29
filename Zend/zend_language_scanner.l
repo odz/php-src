@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_language_scanner.l,v 1.111 2004/06/14 19:09:42 helly Exp $ */
+/* $Id: zend_language_scanner.l,v 1.111.2.1 2004/11/03 23:14:31 derick Exp $ */
 
 #define yyleng SCNG(yy_leng)
 #define yytext SCNG(yy_text)
@@ -57,6 +57,7 @@
 #include "zend_constants.h"
 #include "zend_variables.h"
 #include "zend_operators.h"
+#include "zend_strtod.h"
 
 #ifdef HAVE_STDARG_H
 # include <stdarg.h>
@@ -1188,7 +1189,7 @@ NEWLINE ("\r"|"\n"|"\r\n")
 	errno = 0;
 	zendlval->value.lval = strtol(yytext, NULL, 0);
 	if (errno == ERANGE) { /* overflow */
-		zendlval->value.dval = strtod(yytext, NULL);
+		zendlval->value.dval = zend_strtod(yytext, NULL);
 		zendlval->type = IS_DOUBLE;
 		return T_DNUMBER;
 	} else {
@@ -1225,7 +1226,7 @@ NEWLINE ("\r"|"\n"|"\r\n")
 }
 
 <ST_IN_SCRIPTING>{DNUM}|{EXPONENT_DNUM} {
-	zendlval->value.dval = strtod(yytext, NULL);
+	zendlval->value.dval = zend_strtod(yytext, NULL);
 	zendlval->type = IS_DOUBLE;
 	return T_DNUMBER;
 }

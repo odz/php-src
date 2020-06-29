@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_globals.h,v 1.135 2004/03/30 18:36:53 helly Exp $ */
+/* $Id: zend_globals.h,v 1.135.2.1 2004/11/03 23:14:31 derick Exp $ */
 
 #ifndef ZEND_GLOBALS_H
 #define ZEND_GLOBALS_H
@@ -236,9 +236,6 @@ struct _zend_executor_globals {
 	struct _zend_module_entry *current_module;
 
 	zend_property_info std_property_info;
-
-	/* locale stuff */
-	char float_separator[1];
 
 	void *reserved[ZEND_MAX_RESERVED_RESOURCES];
 };

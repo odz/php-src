@@ -16,7 +16,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: tidy.c,v 1.56.2.1 2004/08/04 16:39:56 zeev Exp $ */
+/* $Id: tidy.c,v 1.56.2.3 2004/11/14 13:35:48 tony2001 Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -497,13 +497,15 @@ static void tidy_object_free_storage(void *object TSRMLS_DC)
 	zend_hash_destroy(intern->std.properties);
 	FREE_HASHTABLE(intern->std.properties);
 
-	intern->ptdoc->ref_count--;
+	if (intern->ptdoc) {
+		intern->ptdoc->ref_count--;
 
-	if (intern->ptdoc->ref_count <= 0) {
-		tidyBufFree(intern->ptdoc->errbuf);
-		efree(intern->ptdoc->errbuf);
-		tidyRelease(intern->ptdoc->doc);
-		efree(intern->ptdoc);
+		if (intern->ptdoc->ref_count <= 0) {
+			tidyBufFree(intern->ptdoc->errbuf);
+			efree(intern->ptdoc->errbuf);
+			tidyRelease(intern->ptdoc->doc);
+			efree(intern->ptdoc);
+		}
 	}
 
 	efree(object);
@@ -952,7 +954,7 @@ PHP_MINFO_FUNCTION(tidy)
 	php_info_print_table_start();
 	php_info_print_table_header(2, "Tidy support", "enabled");
 	php_info_print_table_row(2, "libTidy Release", (char *)tidyReleaseDate());
-	php_info_print_table_row(2, "Extension Version", PHP_TIDY_MODULE_VERSION " ($Id: tidy.c,v 1.56.2.1 2004/08/04 16:39:56 zeev Exp $)");
+	php_info_print_table_row(2, "Extension Version", PHP_TIDY_MODULE_VERSION " ($Id: tidy.c,v 1.56.2.3 2004/11/14 13:35:48 tony2001 Exp $)");
 	php_info_print_table_end();
 
 	DISPLAY_INI_ENTRIES();
@@ -1088,7 +1090,7 @@ PHP_FUNCTION(tidy_parse_file)
 
 	if (!(contents = php_tidy_file_to_mem(inputfile, use_include_path TSRMLS_CC))) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Cannot Load '%s' into memory %s", inputfile, (use_include_path) ? "(Using include path)" : "");
-		return;
+		RETURN_FALSE;
 	}
 
 	TIDY_APPLY_CONFIG_ZVAL(obj->ptdoc->doc, options);

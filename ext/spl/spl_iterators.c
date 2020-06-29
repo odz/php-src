@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: spl_iterators.c,v 1.38.2.1 2004/07/28 22:55:26 helly Exp $ */
+/* $Id: spl_iterators.c,v 1.38.2.5 2004/11/25 20:28:37 zeev Exp $ */
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -314,7 +314,7 @@ zend_object_iterator_funcs spl_recursive_it_iterator_funcs = {
 	spl_recursive_it_rewind
 };
 
-/* {{{ proto RecursiveIteratorIterator::__construct(RecursiveIterator $it)
+/* {{{ proto RecursiveIteratorIterator::__construct(RecursiveIterator it [, int flags = RIT_LEAVES_ONLY])
    Creates a RecursiveIteratorIterator from a RecursiveIterator. */
 SPL_METHOD(RecursiveIteratorIterator, __construct)
 {
@@ -414,8 +414,8 @@ SPL_METHOD(RecursiveIteratorIterator, getDepth)
 	RETURN_LONG(object->level);
 } /* }}} */
 
-/* {{{ proto RecursiveIterator RecursiveIteratorIterator::getSubIterator()
-   The current active sub iterator */
+/* {{{ proto RecursiveIterator RecursiveIteratorIterator::getSubIterator([int level])
+   The current active sub iterator or the iterator at specified level */
 SPL_METHOD(RecursiveIteratorIterator, getSubIterator)
 {
 	spl_recursive_it_object   *object = (spl_recursive_it_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
@@ -489,18 +489,19 @@ static int spl_dual_it_gets_implemented(zend_class_entry *interface, zend_class_
 }
 #endif
 
-static union _zend_function *spl_dual_it_get_method(zval *object, char *method, int method_len TSRMLS_DC)
+static union _zend_function *spl_dual_it_get_method(zval *object_ptr, char *method, int method_len TSRMLS_DC)
 {
 	union _zend_function *function_handler;
 	spl_dual_it_object   *intern;
 
-	intern = (spl_dual_it_object*)zend_object_store_get_object(object TSRMLS_CC);
+	intern = (spl_dual_it_object*)zend_object_store_get_object(object_ptr TSRMLS_CC);
 
-	function_handler = std_object_handlers.get_method(object, method, method_len TSRMLS_CC);
+	function_handler = std_object_handlers.get_method(object_ptr, method, method_len TSRMLS_CC);
 	if (!function_handler) {
 		if (zend_hash_find(&intern->inner.ce->function_table, method, method_len+1, (void **) &function_handler) == FAILURE) {
 			if (Z_OBJ_HT_P(intern->inner.zobject)->get_method) {
-				function_handler = Z_OBJ_HT_P(intern->inner.zobject)->get_method(intern->inner.zobject, method, method_len TSRMLS_CC);
+				object_ptr = intern->inner.zobject;
+				function_handler = Z_OBJ_HT_P(object_ptr)->get_method(object_ptr, method, method_len TSRMLS_CC);
 			}
 		}
 	}
@@ -609,7 +610,7 @@ static INLINE spl_dual_it_object* spl_dual_it_construct(INTERNAL_FUNCTION_PARAME
 	return intern;
 }
 
-/* {{{ proto FilterIterator::__construct(Iterator $it) 
+/* {{{ proto FilterIterator::__construct(Iterator it) 
    Create an Iterator from another iterator */
 SPL_METHOD(dual_it, __construct)
 {
@@ -839,7 +840,7 @@ SPL_METHOD(FilterIterator, next)
 	spl_filter_it_next(getThis(), intern TSRMLS_CC);
 } /* }}} */
 
-/* {{{ proto ParentIterator::__construct(RecursiveIterator $it)
+/* {{{ proto ParentIterator::__construct(RecursiveIterator it)
    Create a ParentIterator from a RecursiveIterator */
 SPL_METHOD(ParentIterator, __construct)
 {
@@ -995,7 +996,7 @@ static INLINE void spl_limit_it_seek(spl_dual_it_object *intern, long pos TSRMLS
 	}
 }
 
-/* {{{ proto LimitIterator::__construct(Iterator $it [, int $offset, int $count])
+/* {{{ proto LimitIterator::__construct(Iterator it [, int offset, int count])
    Construct a LimitIterator from an Iterator with a given starting offset and optionally a maximum count */
 SPL_METHOD(LimitIterator, __construct)
 {
@@ -1039,7 +1040,7 @@ SPL_METHOD(LimitIterator, next)
 	}
 } /* }}} */
 
-/* {{{ proto void LimitIterator::seek(int $position)
+/* {{{ proto void LimitIterator::seek(int position)
    Seek to the given position */
 SPL_METHOD(LimitIterator, seek)
 {
@@ -1187,7 +1188,7 @@ static INLINE void spl_caching_it_rewind(spl_dual_it_object *intern TSRMLS_DC)
 	spl_caching_it_next(intern TSRMLS_CC);
 }
 
-/* {{{ proto CachingIterator::__construct(Iterator $it)
+/* {{{ proto CachingIterator::__construct(Iterator it [, flags = CIT_CALL_TOSTRING])
    Construct a CachingIterator from an Iterator */
 SPL_METHOD(CachingIterator, __construct)
 {
@@ -1259,7 +1260,7 @@ SPL_METHOD(CachingIterator, __toString)
 static
 ZEND_BEGIN_ARG_INFO(arginfo_caching_it___construct, 0) 
 	ZEND_ARG_OBJ_INFO(0, iterator, Iterator, 0)
-	ZEND_ARG_INFO(0, getStrVal)
+	ZEND_ARG_INFO(0, flags)
 ZEND_END_ARG_INFO();
 
 static zend_function_entry spl_funcs_CachingIterator[] = {
@@ -1275,7 +1276,7 @@ static zend_function_entry spl_funcs_CachingIterator[] = {
 	{NULL, NULL, NULL}
 };
 
-/* {{{ proto CachingRecursiveIterator::__construct(RecursiveIterator $it)
+/* {{{ proto CachingRecursiveIterator::__construct(RecursiveIterator it [, flags = CIT_CALL_TOSTRING])
    Create an iterator from a RecursiveIterator */
 SPL_METHOD(CachingRecursiveIterator, __construct)
 {
@@ -1311,8 +1312,7 @@ SPL_METHOD(CachingRecursiveIterator, getChildren)
 static
 ZEND_BEGIN_ARG_INFO_EX(arginfo_caching_rec_it___construct, 0, ZEND_RETURN_REFERENCE_AGNOSTIC, 2) 
 	ZEND_ARG_OBJ_INFO(0, iterator, Iterator, 0)
-	ZEND_ARG_INFO(0, getStrVal)
-	ZEND_ARG_INFO(0, catch_getChildren)
+	ZEND_ARG_INFO(0, flags)
 ZEND_END_ARG_INFO();
 
 static zend_function_entry spl_funcs_CachingRecursiveIterator[] = {

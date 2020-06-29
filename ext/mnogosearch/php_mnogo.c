@@ -1,11 +1,11 @@
 /* $Source: /repository/php-src/ext/mnogosearch/php_mnogo.c,v $ */
-/* $Id: php_mnogo.c,v 1.90.2.1 2004/07/19 19:46:48 gluke Exp $ */
+/* $Id: php_mnogo.c,v 1.90.2.5 2004/11/28 20:03:59 gluke Exp $ */
 
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2004 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.0 of the PHP license,       |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -20,7 +20,7 @@
    |                      and Ramil Kalimullin <ram@izhcom.ru>            |
    |  Further development by  Sergey Kartashoff <gluke@mail.ru>           |
    +----------------------------------------------------------------------+
- */
+*/
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -1214,40 +1214,45 @@ DLEXPORT PHP_FUNCTION(udm_load_ispell_data)
 #endif
 
 		case UDM_ISPELL_TYPE_AFFIX: 
-#if UDM_VERSION_ID < 30200		
+#if UDM_VERSION_ID < 30200
 			Agent->Conf->ispell_mode &= ~UDM_ISPELL_MODE_DB;
-
 #if UDM_VERSION_ID > 30111
 			Agent->Conf->ispell_mode &= ~UDM_ISPELL_MODE_SERVER;
 #endif
-			
 			if (UdmImportAffixes(Agent->Conf,val1,val2,NULL,0)) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING,"Cannot load affix file %s",val2);
 				RETURN_FALSE;
 			}
-#else
+#elif UDM_VERSION_ID < 30225
 			if (UdmImportAffixes(Agent->Conf,val1,charset,val2)) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING,"Cannot load affix file %s",val2);
 				RETURN_FALSE;
 			}
-    
+#else
+			if(UdmAffixListListAdd(&Agent->Conf->Affixes,val1,charset,val2)) {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING,"Cannot load affix file %s",val2);
+				RETURN_FALSE;
+			}
 #endif
 			break;
 			
 		case UDM_ISPELL_TYPE_SPELL: 
 #if UDM_VERSION_ID < 30200				
 			Agent->Conf->ispell_mode &= ~UDM_ISPELL_MODE_DB;
-			
 #if UDM_VERSION_ID > 30111
 			Agent->Conf->ispell_mode &= ~UDM_ISPELL_MODE_SERVER;
 #endif
-			
 			if (UdmImportDictionary(Agent->Conf,val1,val2,1,"")) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING,"Cannot load spell file %s",val2);
 				RETURN_FALSE;
 			}
-#else
+#elif UDM_VERSION_ID < 30225
 			if (UdmImportDictionary(Agent->Conf,val1,charset,val2,0,"")) {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING,"Cannot load spell file %s",val2);
+				RETURN_FALSE;
+			}
+#else
+			if(UdmSpellListListAdd(&Agent->Conf->Spells,val1,charset,val2)) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING,"Cannot load spell file %s",val2);
 				RETURN_FALSE;
 			}
@@ -1262,6 +1267,7 @@ DLEXPORT PHP_FUNCTION(udm_load_ispell_data)
 	}
 	
 	if (flag) {
+#if UDM_VERSION_ID < 30225
 #if UDM_VERSION_ID >= 30204
 		if(Agent->Conf->Spells.nspell) {
 			UdmSortDictionary(&Agent->Conf->Spells);
@@ -1272,6 +1278,7 @@ DLEXPORT PHP_FUNCTION(udm_load_ispell_data)
 			UdmSortDictionary(Agent->Conf);
 		  	UdmSortAffixes(Agent->Conf);
 		}
+#endif
 #endif
 	}
 	
@@ -1297,8 +1304,11 @@ DLEXPORT PHP_FUNCTION(udm_free_ispell_data)
 			break;
 	}
 	ZEND_FETCH_RESOURCE(Agent, UDM_AGENT *, yyagent, -1, "mnoGoSearch-Agent", le_link);
-
-#if UDM_VERSION_ID >= 30204
+	
+#if UDM_VERSION_ID >= 30225
+	UdmSpellListListFree(&Agent->Conf->Spells); 
+	UdmAffixListListFree(&Agent->Conf->Affixes);
+#elif UDM_VERSION_ID >= 30204
 	UdmSpellListFree(&Agent->Conf->Spells);
 	UdmAffixListFree(&Agent->Conf->Affixes);
 #elif UDM_VERSION_ID > 30111
@@ -1826,6 +1836,7 @@ DLEXPORT PHP_FUNCTION(udm_store_doc_cgi)
 	
 	UdmPrepare(Agent,Res);
 	UdmVarListReplaceStr(&Doc->Sections, "URL", UdmVarListFindStr(&Agent->Conf->Vars, "URL", "0"));
+	UdmVarListReplaceStr(&Doc->Sections, "dbnum", UdmVarListFindStr(&Agent->Conf->Vars, "dbnum", "0"));
 	UdmURLAction(Agent, Doc, UDM_URL_ACTION_GET_CACHED_COPY);
 	UdmVarListReplaceLst(&Agent->Conf->Vars, &Doc->Sections, NULL, "*");
 

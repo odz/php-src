@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend.c,v 1.287.2.1 2004/09/09 13:29:37 helly Exp $ */
+/* $Id: zend.c,v 1.287.2.2 2004/12/06 15:46:04 stas Exp $ */
 
 #include "zend.h"
 #include "zend_extensions.h"
@@ -865,6 +865,7 @@ ZEND_API int zend_get_configuration_directive(char *name, uint name_length, zval
 ZEND_API void zend_error(int type, const char *format, ...)
 {
 	va_list args;
+	va_list usr_copy;
 	zval ***params;
 	zval *retval;
 	zval *z_error_type, *z_error_message, *z_error_filename, *z_error_lineno, *z_context;
@@ -936,7 +937,15 @@ ZEND_API void zend_error(int type, const char *format, ...)
 			ALLOC_INIT_ZVAL(z_error_lineno);
 			ALLOC_INIT_ZVAL(z_context);
 
-			z_error_message->value.str.len = zend_vspprintf(&z_error_message->value.str.val, 0, format, args);
+#if defined(va_copy)
+			va_copy(usr_copy, args);
+#else
+			usr_copy = args;
+#endif
+			z_error_message->value.str.len = zend_vspprintf(&z_error_message->value.str.val, 0, format, usr_copy);
+#if defined(va_copy)
+			va_end(usr_copy);
+#endif
 			z_error_message->type = IS_STRING;
 
 			z_error_type->value.lval = type;

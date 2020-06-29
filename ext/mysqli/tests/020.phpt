@@ -1,11 +1,13 @@
 --TEST--
 mysqli bind_param/bind_result date
+--SKIPIF--
+<?php require_once('skipif.inc'); ?>
 --FILE--
 <?php
 	include "connect.inc";
 	
 	/*** test mysqli_connect 127.0.0.1 ***/
-	$link = mysqli_connect("localhost", $user, $passwd);
+	$link = mysqli_connect($host, $user, $passwd);
 
 	mysqli_select_db($link, "test");
 		
@@ -58,7 +60,7 @@ array(7) {
   [4]=>
   string(19) "2010-07-10 00:00:00"
   [5]=>
-  string(0) ""
+  string(19) "0000-00-00 00:00:00"
   [6]=>
   string(19) "1999-12-29 00:00:00"
 }
