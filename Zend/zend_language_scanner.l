@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_language_scanner.l,v 1.131.2.9 2006/01/04 23:53:04 andi Exp $ */
+/* $Id: zend_language_scanner.l,v 1.131.2.11 2006/04/13 13:48:28 dmitry Exp $ */
 
 #define yyleng SCNG(yy_leng)
 #define yytext SCNG(yy_text)
@@ -1461,7 +1461,7 @@ NEWLINE ("\r"|"\n"|"\r\n")
 	yymore();
 }
 
-<ST_ONE_LINE_COMMENT>[^\n\r?%>]+{ANY_CHAR} {
+<ST_ONE_LINE_COMMENT>[^\n\r?%>]*{ANY_CHAR} {
 	switch (yytext[yyleng-1]) {
 		case '?': case '%': case '>':
 			yyless(yyleng-1);
@@ -1491,7 +1491,7 @@ NEWLINE ("\r"|"\n"|"\r\n")
 <ST_ONE_LINE_COMMENT>"?>"|"%>" {
     if (CG(asp_tags) || yytext[yyleng-2] != '%') { /* asp comment? */
 		zendlval->value.str.val = yytext; /* no copying - intentional */
-		zendlval->value.str.len = yyleng;
+		zendlval->value.str.len = yyleng-2;
 		zendlval->type = IS_STRING;
 		yyless(yyleng-2);
 		BEGIN(ST_IN_SCRIPTING);
@@ -1734,7 +1734,6 @@ NEWLINE ("\r"|"\n"|"\r\n")
 <ST_HEREDOC>^{LABEL}(";")?{NEWLINE} {
 	int label_len;
 
-	CG(zend_lineno)++;
 	if (yytext[yyleng-2]=='\r') {
 		label_len = yyleng-2;
 	} else {
@@ -1755,6 +1754,7 @@ NEWLINE ("\r"|"\n"|"\r\n")
 		BEGIN(ST_IN_SCRIPTING);
 		return T_END_HEREDOC;
 	} else {
+		CG(zend_lineno)++;
 		zend_copy_value(zendlval, yytext, yyleng);
 		zendlval->type = IS_STRING;
 		return T_STRING;

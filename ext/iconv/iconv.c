@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: iconv.c,v 1.124.2.5 2006/01/01 12:50:08 sniper Exp $ */
+/* $Id: iconv.c,v 1.124.2.7 2006/02/28 02:22:57 helly Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -583,7 +583,7 @@ static php_iconv_err_t _php_iconv_substr(smart_str *pretval,
 	size_t out_left;
 
 	unsigned int cnt;
-	unsigned int total_len;
+	int total_len;
 	
 	err = _php_iconv_strlen(&total_len, str, nbytes, enc);
 	if (err != PHP_ICONV_ERR_SUCCESS) {
@@ -1395,11 +1395,13 @@ static php_iconv_err_t _php_iconv_mime_decode(smart_str *pretval, const char *st
 
 			case 3: /* expecting a encoding scheme specifier */
 				switch (*p1) {
+					case 'b':
 					case 'B':
 						enc_scheme = PHP_ICONV_ENC_SCHEME_BASE64;
 						scan_stat = 4;
 						break;
 
+					case 'q':
 					case 'Q':
 						enc_scheme = PHP_ICONV_ENC_SCHEME_QPRINT;
 						scan_stat = 4;

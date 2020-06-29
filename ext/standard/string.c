@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: string.c,v 1.445.2.6 2006/01/05 20:49:37 tony2001 Exp $ */
+/* $Id: string.c,v 1.445.2.14 2006/04/25 12:48:41 tony2001 Exp $ */
 
 /* Synced with php 3.0 revision 1.193 1999-06-16 [ssb] */
 
@@ -237,7 +237,7 @@ static void php_spn_common_handler(INTERNAL_FUNCTION_PARAMETERS, int behavior)
 		}
 	}
 	
-	if (((unsigned) start + (unsigned) len) > len1) {
+	if ((start + len) > len1) {
 		len = len1 - start;
 	}
 
@@ -676,12 +676,13 @@ PHP_FUNCTION(wordwrap)
 		/* Multiple character line break or forced cut */
 		if (linelength > 0) {
 			chk = (int)(textlen/linelength + 1);
+			newtext = safe_emalloc(chk, breakcharlen, textlen + 1);
 			alloced = textlen + chk * breakcharlen + 1;
 		} else {
 			chk = textlen;
 			alloced = textlen * (breakcharlen + 1) + 1;
+			newtext = safe_emalloc(textlen, (breakcharlen + 1), 1);
 		}
-		newtext = emalloc(alloced);
 
 		/* now keep track of the actual new text length */
 		newtextlen = 0;
@@ -1166,7 +1167,7 @@ quit_loop:
 	if (state == 1) {
 		cend = c;
 	}
-	if (suffix != NULL && sufflen < (cend - comp) &&
+	if (suffix != NULL && sufflen < (uint)(cend - comp) &&
 			memcmp(cend - sufflen, suffix, sufflen) == 0) {
 		cend -= sufflen;
 	}
@@ -1983,7 +1984,7 @@ PHP_FUNCTION(substr)
 		RETURN_FALSE;
 	}
 
-	if (((unsigned) f + (unsigned) l) > Z_STRLEN_PP(str)) {
+	if ((f + l) > Z_STRLEN_PP(str)) {
 		l = Z_STRLEN_PP(str) - f;
 	}
 
@@ -2080,7 +2081,7 @@ PHP_FUNCTION(substr_replace)
 				}
 			}
 
-			if (((unsigned) f + (unsigned) l) > Z_STRLEN_PP(str)) {
+			if ((f + l) > Z_STRLEN_PP(str)) {
 				l = Z_STRLEN_PP(str) - f;
 			}
 			if (Z_TYPE_PP(repl) == IS_ARRAY) {
@@ -2176,7 +2177,7 @@ PHP_FUNCTION(substr_replace)
 				}
 			}
 
-			if (((unsigned) f + (unsigned) l) > Z_STRLEN_PP(tmp_str)) {
+			if ((f + l) > Z_STRLEN_PP(tmp_str)) {
 				l = Z_STRLEN_PP(tmp_str) - f;
 			}
 
@@ -4473,7 +4474,7 @@ PHP_FUNCTION(substr_count)
 	if (ac > 2) {
 		convert_to_long_ex(offset);
 		if (Z_LVAL_PP(offset) < 0) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Offset should be greater then or equal to 0.");
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Offset should be greater than or equal to 0.");
 			RETURN_FALSE;		
 		}
 		p += Z_LVAL_PP(offset);
@@ -4653,6 +4654,8 @@ PHP_FUNCTION(str_rot13)
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg)) {
 		WRONG_PARAM_COUNT;
 	}
+
+	convert_to_string_ex(arg);
 	RETVAL_ZVAL(*arg, 1, 0);
 
 	php_strtr(Z_STRVAL_P(return_value), Z_STRLEN_P(return_value), rot13_from, rot13_to, 52);
@@ -4881,13 +4884,19 @@ PHP_FUNCTION(substr_compare)
 		RETURN_FALSE;
 	}
 
-	if (len && offset >= s1_len) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "The start position cannot exceed initial string length.");
+	if (ZEND_NUM_ARGS() >= 4 && len <= 0) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "The length must be greater than zero");
 		RETURN_FALSE;
 	}
 
 	if (offset < 0) {
 		offset = s1_len + offset;
+		offset = (offset < 0) ? 0 : offset;
+	}
+
+	if ((offset + len) >= s1_len) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "The start position cannot exceed initial string length");
+		RETURN_FALSE;
 	}
 
 	cmp_len = (uint) (len ? len : MAX(s2_len, (s1_len - offset)));

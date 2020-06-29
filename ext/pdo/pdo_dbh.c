@@ -18,7 +18,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: pdo_dbh.c,v 1.82.2.26 2006/01/01 12:50:11 sniper Exp $ */
+/* $Id: pdo_dbh.c,v 1.82.2.30 2006/04/09 08:05:01 wez Exp $ */
 
 /* The PDO Database Handle Class */
 
@@ -41,7 +41,7 @@ void pdo_raise_impl_error(pdo_dbh_t *dbh, pdo_stmt_t *stmt, const char *sqlstate
 	pdo_error_type *pdo_err = &dbh->error_code;
 	char *message = NULL;
 	const char *msg;
-	zval *info = NULL;
+	
 
 	if (dbh->error_mode == PDO_ERRMODE_SILENT) {
 #if 0
@@ -64,12 +64,6 @@ void pdo_raise_impl_error(pdo_dbh_t *dbh, pdo_stmt_t *stmt, const char *sqlstate
 		msg = "<<Unknown error>>";
 	}
 
-	MAKE_STD_ZVAL(info);
-	array_init(info);
-
-	add_next_index_string(info, *pdo_err, 1);
-	add_next_index_long(info, 0);
-		
 	if (supp) {
 		spprintf(&message, 0, "SQLSTATE[%s]: %s: %s", *pdo_err, msg, supp);
 	} else {
@@ -78,12 +72,8 @@ void pdo_raise_impl_error(pdo_dbh_t *dbh, pdo_stmt_t *stmt, const char *sqlstate
 
 	if (dbh->error_mode != PDO_ERRMODE_EXCEPTION) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", message);
-
-		if (info) {
-			zval_ptr_dtor(&info);
-		}
 	} else {
-		zval *ex;
+		zval *ex, *info;
 		zend_class_entry *def_ex = php_pdo_get_exception_base(1 TSRMLS_CC), *pdo_ex = php_pdo_get_exception();
 
 		MAKE_STD_ZVAL(ex);
@@ -92,10 +82,14 @@ void pdo_raise_impl_error(pdo_dbh_t *dbh, pdo_stmt_t *stmt, const char *sqlstate
 		zend_update_property_string(def_ex, ex, "message", sizeof("message")-1, message TSRMLS_CC);
 		zend_update_property_string(def_ex, ex, "code", sizeof("code")-1, *pdo_err TSRMLS_CC);
 		
-		if (info) {
-			zend_update_property(pdo_ex, ex, "errorInfo", sizeof("errorInfo")-1, info TSRMLS_CC);
-			zval_ptr_dtor(&info);
-		}
+		MAKE_STD_ZVAL(info);
+		array_init(info);
+
+		add_next_index_string(info, *pdo_err, 1);
+		add_next_index_long(info, 0);
+
+		zend_update_property(pdo_ex, ex, "errorInfo", sizeof("errorInfo")-1, info TSRMLS_CC);
+		zval_ptr_dtor(&info);
 
 		zend_throw_exception_object(ex TSRMLS_CC);
 	}
@@ -129,7 +123,6 @@ void pdo_handle_error(pdo_dbh_t *dbh, pdo_stmt_t *stmt TSRMLS_DC)
 	}
 
 	if (dbh->methods->fetch_err) {
-		
 		MAKE_STD_ZVAL(info);
 		array_init(info);
 
@@ -146,9 +139,6 @@ void pdo_handle_error(pdo_dbh_t *dbh, pdo_stmt_t *stmt TSRMLS_DC)
 				supp = estrndup(Z_STRVAL_PP(item), Z_STRLEN_PP(item));
 			}
 		}
-
-		zval_ptr_dtor(&info);
-		info = NULL;
 	}
 
 	if (supp) {
@@ -159,10 +149,6 @@ void pdo_handle_error(pdo_dbh_t *dbh, pdo_stmt_t *stmt TSRMLS_DC)
 
 	if (dbh->error_mode == PDO_ERRMODE_WARNING) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", message);
-
-		if (info) {
-			zval_ptr_dtor(&info);
-		}
 	} else if (EG(exception) == NULL) {
 		zval *ex;
 		zend_class_entry *def_ex = php_pdo_get_exception_base(1 TSRMLS_CC), *pdo_ex = php_pdo_get_exception();
@@ -175,12 +161,15 @@ void pdo_handle_error(pdo_dbh_t *dbh, pdo_stmt_t *stmt TSRMLS_DC)
 		
 		if (info) {
 			zend_update_property(pdo_ex, ex, "errorInfo", sizeof("errorInfo")-1, info TSRMLS_CC);
-			zval_ptr_dtor(&info);
 		}
 
 		zend_throw_exception_object(ex TSRMLS_CC);
 	}
-	
+
+	if (info) {
+		zval_ptr_dtor(&info);
+	}
+
 	if (message) {
 		efree(message);
 	}
@@ -203,7 +192,7 @@ static char *dsn_from_uri(char *uri, char *buf, size_t buflen TSRMLS_DC)
 	return dsn;
 }
 
-/* {{{ proto object PDO::__construct(string dsn, string username, string passwd [, array options])
+/* {{{ proto void PDO::__construct(string dsn, string username, string passwd [, array options])
    */
 static PHP_METHOD(PDO, dbh_constructor)
 {
@@ -1047,6 +1036,7 @@ static PHP_METHOD(PDO, quote)
 		RETURN_STRINGL(qstr, qlen, 0);
 	}
 	PDO_HANDLE_DBH_ERR();
+	RETURN_FALSE;
 }
 /* }}} */
 
@@ -1297,6 +1287,7 @@ void pdo_dbh_init(TSRMLS_D)
 	REGISTER_PDO_CLASS_CONST_LONG("ATTR_DRIVER_NAME",		(long)PDO_ATTR_DRIVER_NAME);
 	REGISTER_PDO_CLASS_CONST_LONG("ATTR_STRINGIFY_FETCHES",(long)PDO_ATTR_STRINGIFY_FETCHES);
 	REGISTER_PDO_CLASS_CONST_LONG("ATTR_MAX_COLUMN_LEN",(long)PDO_ATTR_MAX_COLUMN_LEN);
+	REGISTER_PDO_CLASS_CONST_LONG("ATTR_EMULATE_PREPARES",(long)PDO_ATTR_EMULATE_PREPARES);
 	
 	REGISTER_PDO_CLASS_CONST_LONG("ERRMODE_SILENT",	(long)PDO_ERRMODE_SILENT);
 	REGISTER_PDO_CLASS_CONST_LONG("ERRMODE_WARNING",	(long)PDO_ERRMODE_WARNING);

@@ -16,7 +16,11 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: wddx.c,v 1.119.2.8 2006/01/01 12:50:16 sniper Exp $ */
+/* $Id: wddx.c,v 1.119.2.10 2006/04/23 16:02:05 iliaa Exp $ */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "php.h"
 
@@ -35,6 +39,7 @@
 #include "ext/standard/html.h"
 #include "ext/standard/php_string.h"
 #include "ext/date/php_date.h"
+#include "zend_globals.h"
 
 #define WDDX_BUF_LEN			256
 #define PHP_CLASS_NAME_VAR		"php_class_name"
