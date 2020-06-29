@@ -708,6 +708,9 @@
 /* Define if you have the <synch.h> header file.  */
 #undef HAVE_SYNCH_H
 
+/* Define if you have the <sys/bitypes.h> header file.  */
+#undef HAVE_SYS_BITYPES_H
+
 /* Define if you have the <sys/dir.h> header file.  */
 #undef HAVE_SYS_DIR_H
 
@@ -1113,18 +1116,6 @@
 
 /* Define if you have the getaddrinfo function */
 #undef HAVE_GETADDRINFO
-
-/* Whether sprintf is C99 conform */
-#undef PHP_BROKEN_SPRINTF
-
-/* Whether sprintf is C99 conform */
-#undef PHP_BROKEN_SPRINTF
-
-/* Whether snprintf is C99 conform */
-#undef PHP_BROKEN_SNPRINTF
-
-/* Whether snprintf is C99 conform */
-#undef PHP_BROKEN_SNPRINTF
 
 /* Whether system headers declare timezone */
 #undef HAVE_DECLARED_TIMEZONE
@@ -1810,6 +1801,9 @@
 /*   */
 #undef HAVE_LIBMCRYPT
 
+/* Whether or not we're using libmonetra 4.2 or higher  */
+#undef LIBMONETRA_BELOW_4_2
+
 /*   */
 #undef HAVE_MCVE
 
@@ -2461,9 +2455,6 @@
 /* Whether to build zip as dynamic module */
 #undef COMPILE_DL_ZIP
 
-/* Whether sprintf is broken */
-#undef ZEND_BROKEN_SPRINTF
-
 /* whether floatingpoint.h defines fp_except */
 #undef HAVE_FP_EXCEPT
 
@@ -2535,11 +2526,7 @@
 # include <strings.h>
 #endif
 
-#if ZEND_BROKEN_SPRINTF
 int zend_sprintf(char *buffer, const char *format, ...);
-#else
-# define zend_sprintf sprintf
-#endif
 
 #include <math.h>
 

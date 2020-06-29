@@ -22,7 +22,7 @@
 */
 
 
-/* $Id: array.c,v 1.199.2.36 2004/08/10 06:04:12 moriyoshi Exp $ */
+/* $Id: array.c,v 1.199.2.40 2004/12/02 16:36:41 tony2001 Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -1712,7 +1712,7 @@ static void _phpi_pop(INTERNAL_FUNCTION_PARAMETERS, int off_the_end)
 	zval	   **stack,			/* Input stack */
 			   **val;			/* Value to be popped */
 	char *key = NULL;
-	int key_len = 0;
+	uint key_len = 0;
 	ulong index;
 	
 	/* Get the arguments and do error-checking */
@@ -3227,6 +3227,7 @@ PHP_FUNCTION(array_reduce)
 	efree(callback_name);
 
 	if (ZEND_NUM_ARGS() > 2) {
+		convert_to_long_ex(initial);
 		result = *initial;
 	} else {
 		MAKE_STD_ZVAL(result);

@@ -1,5 +1,56 @@
 PHP 4                                                                      NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+15 Dec 2004, Version 4.3.10
+- Added the %F modifier to *printf to render a non-locale-aware representation
+  of a float with the . as decimal separator. (Derick)
+- Fixed a bug in addslashes() handling of the '\0' character. (Ilia)
+- Backported Marcus' foreach() speedup patch from PHP 5.x. (Derick)
+- Fixed potential problems with unserializing invalid serialize data. (Marcus)
+- Fixed bug #31034 (Problem with non-existing iconv header file). (Derick)
+- Fixed bug #31024 (Crash in fgetcsv() with negative length). (Ilia)
+- Fixed bug #31019 (Logic error mssql library checking). (Frank)
+- Fixed bug #30995 (snmp extension does not build with net-snmp 5.2). (Ilia)
+- Fixed bug #30990 (allow popen() on *NIX to accept 'b' flag). (Ilia)
+- Fixed bug #30826 (Certain reference relations cannot be unserialized
+  properly). (Ilia)
+- Fixed bug #30750 (Meaningful error message when upload directory is not 
+  accessible). (Ilia)
+- Fixed bug #30739 (imagefill does not set back alphablending mode). (Pierre)
+- Fixed bug #30672 (Problem handling exif data in jpeg images at unusual 
+  places). (Marcus)
+- Fixed bug #30658 (Ensure that temporary files created by GD are removed).
+  (Ilia)
+- Fixed bug #30654 (oci8 persistent connection is deleted from hash 
+  if there was exclusive connection with the same credentials). (Tony)
+- Fixed bug #30613 (Prevent infinite recursion in url redirection). (Ilia)
+- Fixed bug #30587 (array_multisort doesn't separate zvals before 
+  changing them). (Tony)
+- Fixed bug #30475 (curl_getinfo() may crash in some situations). (Ilia)
+- Fixed bug #30442 (segfault when parsing ?getvariable[][ ). (Tony)
+- Fixed bug #30388 (rename across filesystems loses ownership and
+  permission info). (Tony)
+- Fixed bug #30282 (segfault when using unknown/unsupported
+  session.save_handler and/or session.serialize_handler). (Tony)
+- Fixed bug #30281 (Prevent non-wbmp images from being detected as such).
+  (Ilia)
+- Fixed bug #30276 (Possible crash in ctype_digit on large numbers). (Ilia)
+- Fixed bug #30229 (imagerectangle and imagefilledrectangle do work well
+  with alpha channel, corners are drawn twice). (Pierre)
+- Fixed bug #30224 (Sybase date strings are sometimes not null terminated).
+  (Ilia)
+- Fixed bug #30133 (get_current_user() crashes on Windows). (Edin)
+- Fixed bug #30057 (did not detect IPV6 on FreeBSD 4.1). (Wez)
+- Fixed bug #30027 (Possible crash inside ftp_get()).
+  (cfield at affinitysolutions dot com)
+- Fixed bug #29805 (HTTP Authentication Issues). (Uwe Schindler)
+- Fixed bug #29418 (double free when openssl_csr_new fails).
+  (Kamesh Jayachandran).
+- Fixed bug #28598 (Lost support for MS Symbol fonts). (Pierre)
+- Fixed bug #28325 (Circular references not properly serialized). (Moriyoshi)
+- Fixed bug #28228 (NULL decimal separator is not being handled correctly).
+  (Ilia)
+- Fixed bug #27469 (serialize() objects of incomplete class). (Dmitry)
+
 22 Sep 2004, Version 4.3.9
 - GPC input processing fixes (Stefano Di Paola, Rasmus, Stefan)
 - Implemented periodic PCRE compiled regexp cache cleanup, to avoid memory 
@@ -15,6 +66,7 @@ PHP 4                                                                      NEWS
 - Fixed funny forking effect in FastCGI when PHP_FCGI_CHILDREN was not set.
 - Fixed bug #30050 (Possible crash inside php_shutdown_config()). 
   (Ilia, nw at softwarekombinat dot de)
+- Fixed bug #29954 (array_reduce segfaults when initial value is array). (Tony)
 - Fixed bug #29882 (isset crashes on arrays). (Marcus)
 - Fixed bug #29753 (mcal_fetch_event() allows 2nd argument to be optional).
   (Ilia, Vrana)
@@ -37,7 +89,7 @@ PHP 4                                                                      NEWS
 - Fixed bug #29226 (ctype_* functions missing validation of numeric string
   representations). (Ilia)
 - Fixed bug #29209 (imap_fetchbody() doesn't check message index).
-  (Ilia, tony2001 at phpclub dot net)
+  (Ilia, Tony)
 - Fixed bug #29116 (Zend constant warning uses memory after free).
   (Marcus, jdolecek at NetBSD dot org)
 - Fixed bug #29114 (Potential double free in php_stat). (Sara)

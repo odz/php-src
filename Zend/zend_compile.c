@@ -2147,9 +2147,9 @@ void zend_do_foreach_begin(znode *foreach_token, znode *array, znode *open_brack
 }
 
 
-void zend_do_foreach_cont(znode *value, znode *key, znode *as_token TSRMLS_DC)
+void zend_do_foreach_cont(znode *value, znode *key, znode *as_token, znode *foreach_token TSRMLS_DC)
 {
-	zend_op *opline = get_next_op(CG(active_op_array) TSRMLS_CC);
+	zend_op *opline;
 	znode result_value, result_key, dummy;
 
 	if (key->op_type != IS_UNUSED) {
@@ -2159,20 +2159,24 @@ void zend_do_foreach_cont(znode *value, znode *key, znode *as_token TSRMLS_DC)
 		tmp = key;
 		key = value;
 		value = tmp;
+
+		/* Mark extended_value in case both key and value are being used */
+		CG(active_op_array)->opcodes[foreach_token->u.opline_num].extended_value |= ZEND_FE_FETCH_WITH_KEY;
 	}
 
-	opline->opcode = ZEND_FETCH_DIM_TMP_VAR;
-	opline->result.op_type = IS_VAR;
-	opline->result.u.EA.type = 0;
-	opline->result.u.opline_num = get_temporary_variable(CG(active_op_array));
-	opline->op1 = *as_token;
-	opline->op2.op_type = IS_CONST;
-	opline->op2.u.constant.type = IS_LONG;
-	opline->op2.u.constant.value.lval = 0;
-	opline->extended_value = ZEND_FETCH_STANDARD; /* ignored in fetch_dim_tmp_var, but what the hell. */
-	result_value = opline->result;
-
 	if (key->op_type != IS_UNUSED) {
+		opline = get_next_op(CG(active_op_array) TSRMLS_CC);
+		opline->opcode = ZEND_FETCH_DIM_TMP_VAR;
+		opline->result.op_type = IS_VAR;
+		opline->result.u.EA.type = 0;
+		opline->result.u.opline_num = get_temporary_variable(CG(active_op_array));
+		opline->op1 = *as_token;
+		opline->op2.op_type = IS_CONST;
+		opline->op2.u.constant.type = IS_LONG;
+		opline->op2.u.constant.value.lval = 0;
+		opline->extended_value = ZEND_FETCH_STANDARD; /* ignored in fetch_dim_tmp_var, but what the hell. */
+		result_value = opline->result;
+
 		opline = get_next_op(CG(active_op_array) TSRMLS_CC);
 		opline->opcode = ZEND_FETCH_DIM_TMP_VAR;
 		opline->result.op_type = IS_VAR;
@@ -2184,6 +2188,8 @@ void zend_do_foreach_cont(znode *value, znode *key, znode *as_token TSRMLS_DC)
 		opline->op2.u.constant.value.lval = 1;
 		opline->extended_value = ZEND_FETCH_STANDARD; /* ignored in fetch_dim_tmp_var, but what the hell. */
 		result_key = opline->result;
+	} else {
+		result_value = CG(active_op_array)->opcodes[foreach_token->u.opline_num].result;
 	}
 
 	zend_do_assign(&dummy, value, &result_value TSRMLS_CC);
@@ -2191,8 +2197,8 @@ void zend_do_foreach_cont(znode *value, znode *key, znode *as_token TSRMLS_DC)
 	if (key->op_type != IS_UNUSED) {
 		zend_do_assign(&dummy, key, &result_key TSRMLS_CC);
 		CG(active_op_array)->opcodes[CG(active_op_array)->last-1].result.u.EA.type |= EXT_TYPE_UNUSED;
+		zend_do_free(as_token TSRMLS_CC);
 	}
-	zend_do_free(as_token TSRMLS_CC);
 
 	do_begin_loop(TSRMLS_C);
 	INC_BPC(CG(active_op_array));

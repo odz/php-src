@@ -701,6 +701,7 @@ ZEND_API int zend_get_configuration_directive(char *name, uint name_length, zval
 ZEND_API void zend_error(int type, const char *format, ...)
 {
 	va_list args;
+	va_list usr_copy;
 	zval ***params;
 	zval *retval;
 	zval *z_error_type, *z_error_message, *z_error_filename, *z_error_lineno, *z_context;
@@ -769,9 +770,14 @@ ZEND_API void zend_error(int type, const char *format, ...)
 			ALLOC_INIT_ZVAL(z_error_lineno);
 			ALLOC_INIT_ZVAL(z_context);
 			z_error_message->value.str.val = (char *) emalloc(ZEND_ERROR_BUFFER_SIZE);
+#if defined(va_copy)
+			va_copy(usr_copy, args);
+#else
+			usr_copy = args;
+#endif
 
 #ifdef HAVE_VSNPRINTF
-			vsnprintf(z_error_message->value.str.val, ZEND_ERROR_BUFFER_SIZE, format, args);
+			vsnprintf(z_error_message->value.str.val, ZEND_ERROR_BUFFER_SIZE, format, usr_copy);
 			/* this MUST be revisited, but for now handle ALL implementation 
 			 * out there correct. Since this is inside an error handler the 
 			 * performance loss by strlne is irrelevant. */
@@ -783,6 +789,9 @@ ZEND_API void zend_error(int type, const char *format, ...)
 			z_error_message->value.str.len = strlen(z_error_message->value.str.val);
 			/* This is risky... */
 			/* z_error_message->value.str.len = vsprintf(z_error_message->value.str.val, format, args); */
+#endif
+#if defined(va_copy)
+			va_end(usr_copy);
 #endif
 			z_error_message->type = IS_STRING;
 

@@ -2,37 +2,30 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2004 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
-   | available at through the world-wide-web at                           |
+   | available through the world-wide-web at the following url:           |
    | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
    +----------------------------------------------------------------------+
-   | Authors: Andi Gutmans <andi@zend.com>                                |
-   |          Zeev Suraski <zeev@zend.com>                                |
+   | Authors: Derick Rethans <derick@php.net>                             |
    +----------------------------------------------------------------------+
 */
 
+/* $Id: zend_strtod.h,v 1.1.2.2 2004/11/04 02:33:29 edink Exp $ */
 
-#include <stdio.h>
+/* This is a header file for the strtod implementation by David M. Gay which
+ * can be found in zend_strtod.c */
+#ifndef ZEND_STRTOD_H
+#define ZEND_STRTOD_H
+#include <zend.h>
 
-#include "zend.h"
+BEGIN_EXTERN_C()
+ZEND_API double zend_strtod(const char *s00, char **se);
+END_EXTERN_C()
 
-#ifdef HAVE_STDARG_H
-# include <stdarg.h>
 #endif
-
-int zend_sprintf(char *buffer, const char *format, ...)
-{
-	va_list args;
-
-	va_start(args, format);
-	vsprintf(buffer, format, args);
-	va_end(args);
-
-	return strlen(buffer);
-}

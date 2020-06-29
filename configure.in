@@ -1,4 +1,4 @@
-dnl ## $Id: configure.in,v 1.396.2.126 2004/09/20 22:28:35 iliaa Exp $ -*- sh -*-
+dnl ## $Id: configure.in,v 1.396.2.140 2004/12/14 16:07:49 iliaa Exp $ -*- sh -*-
 dnl ## Process this file with autoconf to produce a configure script.
 
 divert(1)
@@ -40,7 +40,7 @@ AC_CONFIG_HEADER(main/php_config.h)
 
 MAJOR_VERSION=4
 MINOR_VERSION=3
-RELEASE_VERSION=9
+RELEASE_VERSION=10
 EXTRA_VERSION=""
 VERSION="$MAJOR_VERSION.$MINOR_VERSION.$RELEASE_VERSION$EXTRA_VERSION"
 
@@ -351,6 +351,7 @@ stdlib.h \
 string.h \
 syslog.h \
 sysexits.h \
+sys/bitypes.h \
 sys/file.h \
 sys/mman.h \
 sys/mount.h \
@@ -528,17 +529,20 @@ AC_CACHE_CHECK([for getaddrinfo], ac_cv_func_getaddrinfo,
   AC_TRY_RUN([
 #include <netdb.h>
 #include <sys/types.h>
+#ifndef AF_INET
+# include <sys/socket.h>
+#endif
 int main(void) {
   struct addrinfo *ai, *pai, hints;
 
   memset(&hints, 0, sizeof(hints));
   hints.ai_flags = AI_NUMERICHOST;
 
-  if (getaddrinfo("127.0.0.1", NULL, &hints, &ai) < 0) {
+  if (getaddrinfo("127.0.0.1", 0, &hints, &ai) < 0) {
     exit(1);
   }
 
-  if (ai == NULL) {
+  if (ai == 0) {
     exit(1);
   }
 
@@ -567,8 +571,8 @@ fi
 AC_REPLACE_FUNCS(strlcat strlcpy getopt)
 AC_FUNC_UTIME_NULL
 AC_FUNC_ALLOCA
-PHP_AC_BROKEN_SPRINTF
-PHP_AC_BROKEN_SNPRINTF
+dnl PHP_AC_BROKEN_SPRINTF
+dnl PHP_AC_BROKEN_SNPRINTF
 PHP_DECLARED_TIMEZONE
 PHP_TIME_R_TYPE
 PHP_READDIR_R_TYPE
@@ -916,7 +920,7 @@ fi
 
 if test "$abs_srcdir" != "$abs_builddir"; then
   INCLUDES="$INCLUDES -I\$(top_srcdir)/main -I\$(top_srcdir)/Zend"
-  INCLUDES="$INCLUDES -I\$(top_srcdir)/TSRM"
+  INCLUDES="$INCLUDES -I\$(top_srcdir)/TSRM -I\$(top_builddir)/"
 fi
 
 ZEND_EXTRA_LIBS="$LIBS"
@@ -1210,7 +1214,7 @@ PHP_ADD_SOURCES(Zend, \
     zend_opcode.c zend_operators.c zend_ptr_stack.c zend_stack.c \
     zend_variables.c zend.c zend_API.c zend_extensions.c zend_hash.c \
     zend_list.c zend_indent.c zend_builtin_functions.c zend_sprintf.c \
-    zend_ini.c zend_qsort.c zend_multibyte.c)
+    zend_ini.c zend_qsort.c zend_multibyte.c zend_strtod.c)
 
 if test -r "$abs_srcdir/Zend/zend_objects.c"; then
   PHP_ADD_SOURCES(Zend, zend_objects.c zend_object_handlers.c zend_objects_API.c zend_mm.c)

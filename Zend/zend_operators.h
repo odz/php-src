@@ -17,6 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
+#include "zend_strtod.h"
 
 #ifndef ZEND_OPERATORS_H
 #define ZEND_OPERATORS_H
@@ -28,6 +29,7 @@
 #include <ieeefp.h>
 #endif
 
+#include "zend_strtod.h"
 
 #if 0&&WITH_BCMATH
 #include "ext/bcmath/libbcmath/src/bcmath.h"
@@ -93,7 +95,7 @@ static inline int is_numeric_string(char *str, int length, long *lval, double *d
 	}
 
 	errno=0;
-	local_dval = strtod(str, &end_ptr_double);
+	local_dval = zend_strtod(str, &end_ptr_double);
 	if (errno!=ERANGE) {
 		if (end_ptr_double == str+length) { /* floating point string */
 			if (! zend_finite(local_dval)) {

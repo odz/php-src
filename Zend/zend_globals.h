@@ -207,9 +207,6 @@ struct _zend_executor_globals {
 
 	HashTable *ini_directives;
 
-	/* locale stuff */
-	char float_separator[1];
-
 	void *reserved[ZEND_MAX_RESERVED_RESOURCES];
 };
 

@@ -2782,6 +2782,7 @@ char *yytext;
 #include "zend_constants.h"
 #include "zend_variables.h"
 #include "zend_operators.h"
+#include "zend_strtod.h"
 
 #ifdef HAVE_STDARG_H
 # include <stdarg.h>
@@ -4293,7 +4294,7 @@ YY_RULE_SETUP
 	errno = 0;
 	zendlval->value.lval = strtol(yytext, NULL, 0);
 	if (errno == ERANGE) { /* overflow */
-		zendlval->value.dval = strtod(yytext, NULL);
+		zendlval->value.dval = zend_strtod(yytext, NULL);
 		zendlval->type = IS_DOUBLE;
 		return T_DNUMBER;
 	} else {
@@ -4336,7 +4337,7 @@ YY_RULE_SETUP
 case 93:
 YY_RULE_SETUP
 {
-	zendlval->value.dval = strtod(yytext, NULL);
+	zendlval->value.dval = zend_strtod(yytext, NULL);
 	zendlval->type = IS_DOUBLE;
 	return T_DNUMBER;
 }

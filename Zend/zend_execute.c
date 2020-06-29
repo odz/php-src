@@ -996,6 +996,7 @@ static void call_overloaded_function(temp_variable *T, int arg_count, zval *retu
 	}
 	zend_llist_destroy(T->EA.data.overloaded_element.elements_list);
 	efree(T->EA.data.overloaded_element.elements_list);
+	PZVAL_UNLOCK(T->EA.data.overloaded_element.object);
 }
 
 
@@ -1575,6 +1576,7 @@ binary_assign_op_addr: {
 									EX(Ts)[EX(opline)->op1.u.var].EA.data.overloaded_element.type = BP_VAR_NA;
 									EX(Ts)[EX(opline)->op1.u.var].EA.data.overloaded_element.elements_list = (zend_llist *) emalloc(sizeof(zend_llist));
 									zend_llist_init(EX(Ts)[EX(opline)->op1.u.var].EA.data.overloaded_element.elements_list, sizeof(zend_overloaded_element), NULL, 0);
+									EX(object).ptr->refcount++;
 								}
 								zend_llist_add_element(EX(Ts)[EX(opline)->op1.u.var].EA.data.overloaded_element.elements_list, &overloaded_element);
 								EX(fbc) = (zend_function *) emalloc(sizeof(zend_function));
@@ -2350,14 +2352,15 @@ send_by_ref:
 				}
 				NEXT_OPCODE();
 			case ZEND_FE_FETCH: {
-					zval *array = get_zval_ptr(&EX(opline)->op1, EX(Ts), &EG(free_op1), BP_VAR_R);
-					zval *result = &EX(Ts)[EX(opline)->result.u.var].tmp_var;
+					zend_op *opline = EX(opline);
+					zval *array = get_zval_ptr(&opline->op1, EX(Ts), &EG(free_op1), BP_VAR_R);
 					zval **value, *key;
 					char *str_key;
 					uint str_key_len;
 					ulong int_key;
 					HashTable *fe_ht;
-
+					zend_bool use_key = opline->extended_value & ZEND_FE_FETCH_WITH_KEY;
+					zval *result;
 					PZVAL_LOCK(array);
 
 					fe_ht = HASH_OF(array);
@@ -2370,27 +2373,33 @@ send_by_ref:
 						EX(opline) = op_array->opcodes+EX(opline)->op2.u.opline_num;
 						continue;
 					}
-					array_init(result);
 
+					result = &EX(Ts)[opline->result.u.var].tmp_var;
+					if (!use_key) {
+						*result = **value;
+						zval_copy_ctor(result);
+					} else {
+						array_init(result);
 
-					(*value)->refcount++;
-					zend_hash_index_update(result->value.ht, 0, value, sizeof(zval *), NULL);
+						(*value)->refcount++;
+						zend_hash_index_update(result->value.ht, 0, value, sizeof(zval *), NULL);
 
-					ALLOC_ZVAL(key);
-					INIT_PZVAL(key);
-					switch (zend_hash_get_current_key_ex(fe_ht, &str_key, &str_key_len, &int_key, 1, NULL)) {
-						case HASH_KEY_IS_STRING:
-							key->value.str.val = str_key;
-							key->value.str.len = str_key_len-1;
-							key->type = IS_STRING;
-							break;
-						case HASH_KEY_IS_LONG:
-							key->value.lval = int_key;
-							key->type = IS_LONG;
-							break;
-						EMPTY_SWITCH_DEFAULT_CASE()
+						ALLOC_ZVAL(key);
+						INIT_PZVAL(key);
+						switch (zend_hash_get_current_key_ex(fe_ht, &str_key, &str_key_len, &int_key, 1, NULL)) {
+							case HASH_KEY_IS_STRING:
+								key->value.str.val = str_key;
+								key->value.str.len = str_key_len-1;
+								key->type = IS_STRING;
+								break;
+							case HASH_KEY_IS_LONG:
+								key->value.lval = int_key;
+								key->type = IS_LONG;
+								break;
+							EMPTY_SWITCH_DEFAULT_CASE()
+						}
+						zend_hash_index_update(result->value.ht, 1, &key, sizeof(zval *), NULL);
 					}
-					zend_hash_index_update(result->value.ht, 1, &key, sizeof(zval *), NULL);
 					zend_hash_move_forward(fe_ht);
 				}
 				NEXT_OPCODE();

@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: oci8.c,v 1.183.2.13 2004/07/12 07:42:41 tony2001 Exp $ */
+/* $Id: oci8.c,v 1.183.2.16 2004/11/03 13:35:56 tony2001 Exp $ */
 
 /* TODO list:
  *
@@ -641,7 +641,7 @@ PHP_MINFO_FUNCTION(oci)
 
 	php_info_print_table_start();
 	php_info_print_table_row(2, "OCI8 Support", "enabled");
-	php_info_print_table_row(2, "Revision", "$Revision: 1.183.2.13 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.183.2.16 $");
 #ifndef PHP_WIN32
 	php_info_print_table_row(2, "Oracle Version", PHP_OCI8_VERSION );
 	php_info_print_table_row(2, "Compile-time ORACLE_HOME", PHP_OCI8_DIR );
@@ -2467,9 +2467,16 @@ _oci_close_session(oci_session *session)
 					(ub4) OCI_HTYPE_SESSION));
 	}
 
+#ifdef HAVE_OCI_9_2
+	/* free environment handle (and fix bug #29652 with growing .msb FD number under weirdie Solarises) */
+	CALL_OCI(OCIHandleFree(
+				(dvoid *) session->pEnv, 
+				OCI_HTYPE_ENV));
+#endif
+	
 	hashed_details = session->hashed_details;
 
-	if (! OCI(shutdown)) {
+	if (! OCI(shutdown) && !session->exclusive) {
 		zend_hash_del(OCI(user), hashed_details, strlen(hashed_details)+1);
 	}
 
@@ -2591,7 +2598,7 @@ static int _oci_session_cleanup(void *data TSRMLS_DC)
 	list_entry *le = (list_entry *) data;
 	if (Z_TYPE_P(le) == le_session) {
 		oci_server *server = ((oci_session*) le->ptr)->server;
-		if (server->is_open == 2) 
+		if (server && server->is_open == 2) 
 			return 1;
 	}
 	return 0;

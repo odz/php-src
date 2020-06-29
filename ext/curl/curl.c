@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: curl.c,v 1.124.2.25 2004/08/20 13:52:15 iliaa Exp $ */
+/* $Id: curl.c,v 1.124.2.27 2004/11/01 04:56:10 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -708,6 +708,7 @@ PHP_FUNCTION(curl_init)
 	curl_easy_setopt(ch->cp, CURLOPT_WRITEHEADER,       (void *) ch);
 	curl_easy_setopt(ch->cp, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);
 	curl_easy_setopt(ch->cp, CURLOPT_DNS_CACHE_TIMEOUT, 120);
+	curl_easy_setopt(ch->cp, CURLOPT_MAXREDIRS, 20); /* prevent infinite redirects */
 
 	if (argc > 0) {
 		char *urlcopy;
@@ -1207,10 +1208,13 @@ PHP_FUNCTION(curl_getinfo)
 		switch (option) {
 		case CURLINFO_EFFECTIVE_URL: 
 		case CURLINFO_CONTENT_TYPE: {
-			char *s_code;
+			char *s_code = NULL;
 
-			curl_easy_getinfo(ch->cp, option, &s_code);
-			RETURN_STRING(s_code, 1);
+			if (curl_easy_getinfo(ch->cp, option, &s_code) == CURLE_OK && s_code) {
+				RETURN_STRING(s_code, 1);
+			} else {
+				RETURN_FALSE;
+			}
 
 			break;
 		}
@@ -1220,10 +1224,13 @@ PHP_FUNCTION(curl_getinfo)
 		case CURLINFO_FILETIME: 
 		case CURLINFO_SSL_VERIFYRESULT: 
 		case CURLINFO_REDIRECT_COUNT: {
-			long code;
+			long code = 0;
 
-			curl_easy_getinfo(ch->cp, option, &code);
-			RETURN_LONG(code);
+			if (curl_easy_getinfo(ch->cp, option, &code) == CURLE_OK) {
+				RETURN_LONG(code);
+			} else {
+				RETURN_FALSE;
+			}
    
 			break;
 		}
@@ -1239,10 +1246,13 @@ PHP_FUNCTION(curl_getinfo)
 		case CURLINFO_CONTENT_LENGTH_UPLOAD: 
 		case CURLINFO_STARTTRANSFER_TIME:
 		case CURLINFO_REDIRECT_TIME: {
-			double code;
+			double code = 0.0;
 	
-			curl_easy_getinfo(ch->cp, option, &code);
-			RETURN_DOUBLE(code);
+			if (curl_easy_getinfo(ch->cp, option, &code) == CURLE_OK) {
+				RETURN_DOUBLE(code);
+			} else {
+				RETURN_FALSE;
+			}
 
 			break;
 		}

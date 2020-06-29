@@ -166,8 +166,6 @@ void init_executor(TSRMLS_D)
 #ifdef ZEND_WIN32
 	EG(timed_out) = 0;
 #endif
-
-	EG(float_separator)[0] = '.';
 }
 
 

@@ -34,11 +34,7 @@
 # include <strings.h>
 #endif
 
-#if ZEND_BROKEN_SPRINTF
 int zend_sprintf(char *buffer, const char *format, ...);
-#else
-# define zend_sprintf sprintf
-#endif
 
 #include <math.h>
 

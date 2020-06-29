@@ -2290,7 +2290,7 @@ case 46:
 { zend_do_foreach_begin(&yyvsp[-3], &yyvsp[-1], &yyvsp[-2], &yyvsp[0], 1 TSRMLS_CC); }
     break;
 case 47:
-{ zend_do_foreach_cont(&yyvsp[-2], &yyvsp[-1], &yyvsp[-4] TSRMLS_CC); }
+{ zend_do_foreach_cont(&yyvsp[-2], &yyvsp[-1], &yyvsp[-4], &yyvsp[-7] TSRMLS_CC); }
     break;
 case 48:
 { zend_do_foreach_end(&yyvsp[-9], &yyvsp[-8] TSRMLS_CC); }
@@ -2299,7 +2299,7 @@ case 49:
 { zend_do_foreach_begin(&yyvsp[-3], &yyvsp[-1], &yyvsp[-2], &yyvsp[0], 0 TSRMLS_CC); }
     break;
 case 50:
-{ zend_do_foreach_cont(&yyvsp[-2], &yyvsp[-1], &yyvsp[-4] TSRMLS_CC); }
+{ zend_do_foreach_cont(&yyvsp[-2], &yyvsp[-1], &yyvsp[-4], &yyvsp[-7] TSRMLS_CC); }
     break;
 case 51:
 { zend_do_foreach_end(&yyvsp[-9], &yyvsp[-8] TSRMLS_CC); }
