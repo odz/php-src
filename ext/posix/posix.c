@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: posix.c,v 1.42.2.3 2002/05/20 23:31:02 mfischer Exp $ */
+/* $Id: posix.c,v 1.51 2002/09/25 15:46:45 wez Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -130,7 +130,7 @@ function_entry posix_functions[] = {
 static PHP_MINFO_FUNCTION(posix)
 {
 	php_info_print_table_start();
-	php_info_print_table_row(2, "Revision", "$Revision: 1.42.2.3 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.51 $");
 	php_info_print_table_end();
 }
 /* }}} */
@@ -563,12 +563,11 @@ PHP_FUNCTION(posix_times)
 PHP_FUNCTION(posix_ctermid)
 {
 	char  buffer[L_ctermid];
-	char *p;
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE)
 		return;
 
-	if (NULL == (p = ctermid(buffer))) {
+	if (NULL == ctermid(buffer)) {
 		/* Found no documentation how the defined behaviour is when this
 		 * function fails
 		 */
@@ -581,19 +580,50 @@ PHP_FUNCTION(posix_ctermid)
 #endif
 /* }}} */
 
+/* Checks if the provides resource is a stream and if it provides a file descriptor */
+static int php_posix_stream_get_fd(zval *zfp, int *fd TSRMLS_DC)
+{
+	php_stream *stream;
+
+	php_stream_from_zval_no_verify(stream, &zfp);
+
+	if (stream == NULL) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "expects argument 1 to be a valid stream resource");
+		return 0;
+	}
+	if (php_stream_can_cast(stream, PHP_STREAM_AS_FD) == SUCCESS) {
+		php_stream_cast(stream, PHP_STREAM_AS_FD, (void*)fd, 0);
+	} else {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "could not use stream of type '%s'", 
+				stream->ops->label);
+		return 0;
+	}
+	return 1;
+}
+
 /* {{{ proto string posix_ttyname(int fd)
    Determine terminal device name (POSIX.1, 4.7.2) */
 PHP_FUNCTION(posix_ttyname)
 {
 	zval *z_fd;
 	char *p;
+	int fd;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &z_fd) == FAILURE)
 		return;
 
-	convert_to_long(z_fd);
+	switch (Z_TYPE_P(z_fd)) {
+		case IS_RESOURCE:
+			if (!php_posix_stream_get_fd(z_fd, &fd TSRMLS_CC)) {
+				RETURN_FALSE;
+			}
+			break;
+		default:
+			convert_to_long(z_fd);
+			fd = Z_LVAL_P(z_fd);
+	}
 
-	if (NULL == (p = ttyname(Z_LVAL_P(z_fd)))) {
+	if (NULL == (p = ttyname(fd))) {
 		POSIX_G(last_error) = errno;
 		RETURN_FALSE;
 	}
@@ -607,18 +637,27 @@ PHP_FUNCTION(posix_ttyname)
 PHP_FUNCTION(posix_isatty)
 {
 	zval *z_fd;
-	int   result;
+	int fd;
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &z_fd) == FAILURE)
 		return;
 
-	convert_to_long(z_fd);
+	switch (Z_TYPE_P(z_fd)) {
+		case IS_RESOURCE:
+			if (!php_posix_stream_get_fd(z_fd, &fd TSRMLS_CC)) {
+				RETURN_FALSE;
+			}
+			break;
+		default:
+			convert_to_long(z_fd);
+			fd = Z_LVAL_P(z_fd);
+	}
 
-	result = isatty(Z_LVAL_P(z_fd));
-	if (!result)
+	if (isatty(fd)) {
+		RETURN_TRUE;
+	} else {
 		RETURN_FALSE;
-
-	RETURN_TRUE;
+	}
 }
 /* }}} */
 
@@ -657,7 +696,7 @@ PHP_FUNCTION(posix_getcwd)
 		already supported by PHP.
  */
 
-/* {{{ proto bool posix_mkfifo(void)
+/* {{{ proto bool posix_mkfifo(string pathname, int mode)
    Make a FIFO special file (POSIX.1, 5.4.2) */
 #ifdef HAVE_MKFIFO
 PHP_FUNCTION(posix_mkfifo)

@@ -118,6 +118,8 @@
 %token T_DOUBLE_ARROW
 %token T_LIST
 %token T_ARRAY
+%token T_CLASS_C
+%token T_FUNC_C
 %token T_LINE
 %token T_FILE
 %token T_COMMENT
@@ -199,7 +201,7 @@ unticked_statement:
 	|	T_UNSET '(' unset_variables ')' ';'
 	|	T_FOREACH '(' w_cvar T_AS { zend_do_foreach_begin(&$1, &$3, &$2, &$4, 1 TSRMLS_CC); } w_cvar foreach_optional_arg ')' { zend_do_foreach_cont(&$6, &$7, &$4 TSRMLS_CC); } foreach_statement { zend_do_foreach_end(&$1, &$2 TSRMLS_CC); }
 	|	T_FOREACH '(' expr_without_variable T_AS { zend_do_foreach_begin(&$1, &$3, &$2, &$4, 0 TSRMLS_CC); } w_cvar foreach_optional_arg ')' { zend_do_foreach_cont(&$6, &$7, &$4 TSRMLS_CC); } foreach_statement { zend_do_foreach_end(&$1, &$2 TSRMLS_CC); }
-	|	T_DECLARE { zend_do_declare_begin(TSRMLS_C); } '(' declare_list ')' declare_statement { zend_do_declare_end(TSRMLS_C); }
+	|	T_DECLARE { $1.u.opline_num = get_next_op_number(CG(active_op_array)); zend_do_declare_begin(TSRMLS_C); } '(' declare_list ')' declare_statement {zend_do_declare_end(&$1 TSRMLS_CC); }
 	|	';'		/* empty statement */
 ;
 
@@ -524,6 +526,8 @@ common_scalar:
 	|	T_CONSTANT_ENCAPSED_STRING	{ $$ = $1; }
 	|	T_LINE 						{ $$ = $1; }
 	|	T_FILE 						{ $$ = $1; }
+	|	T_CLASS_C					{ $$ = $1; }
+	|	T_FUNC_C					{ $$ = $1; }
 ;
 
 

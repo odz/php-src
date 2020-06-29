@@ -53,8 +53,26 @@ ZEND_API void (*zend_unblock_interruptions)(void);
 ZEND_API void (*zend_ticks_function)(int ticks);
 ZEND_API void (*zend_error_cb)(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
 
+void (*zend_on_timeout)(int seconds TSRMLS_DC);
+
 static void (*zend_message_dispatcher_p)(long message, void *data);
 static int (*zend_get_configuration_directive_p)(char *name, uint name_length, zval *contents);
+
+
+static ZEND_INI_MH(OnUpdateErrorReporting)
+{
+	if (!new_value) {
+		EG(error_reporting) = E_ALL & ~E_NOTICE;
+	} else {
+		EG(error_reporting) = atoi(new_value);
+	}
+	return SUCCESS;
+}
+
+
+ZEND_INI_BEGIN()
+	ZEND_INI_ENTRY("error_reporting",			NULL,		ZEND_INI_ALL,		OnUpdateErrorReporting)
+ZEND_INI_END()
 
 
 #ifdef ZTS
@@ -67,7 +85,7 @@ HashTable *global_constants_table;
 HashTable *global_auto_globals_table;
 #endif
 
-zend_utility_values zend_uv;
+ZEND_API zend_utility_values zend_uv;
 
 ZEND_API zval zval_used_for_init; /* True global variable */
 
@@ -152,6 +170,11 @@ ZEND_API void zend_make_printable_zval(zval *expr, zval *expr_copy, int *use_cop
 			expr_copy->value.str.len = sizeof("Object")-1;
 			expr_copy->value.str.val = estrndup("Object", expr_copy->value.str.len);
 			break;
+		case IS_DOUBLE: 
+			*expr_copy = *expr;
+			zval_copy_ctor(expr_copy);
+			zend_locale_sprintf_double(expr_copy ZEND_FILE_LINE_CC);
+			break;	
 		default:
 			*expr_copy = *expr;
 			zval_copy_ctor(expr_copy);
@@ -321,6 +344,7 @@ static void executor_globals_ctor(zend_executor_globals *executor_globals TSRMLS
 	EG(lambda_count)=0;
 	EG(user_error_handler) = NULL;
 	EG(in_execution) = 0;
+	EG(current_execute_data) = NULL;
 }
 
 
@@ -414,9 +438,11 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 	zend_unblock_interruptions = utility_functions->unblock_interruptions;
 	zend_get_configuration_directive_p = utility_functions->get_configuration_directive;
 	zend_ticks_function = utility_functions->ticks_function;
+	zend_on_timeout = utility_functions->on_timeout;
 
 	zend_compile_file = compile_file;
 	zend_execute = execute;
+	zend_execute_internal = NULL; /* saves one function call if the zend_execute_internal is not used */
 
 	/* set up version */
 	zend_version_info = strdup(ZEND_CORE_VERSION_INFO);
@@ -480,6 +506,30 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 }
 
 
+void zend_register_standard_ini_entries(TSRMLS_D)
+{
+	int module_number = 0;
+
+	REGISTER_INI_ENTRIES();
+}
+
+
+#ifdef ZTS
+/* Unlink the global (r/o) copies of the class, function and constant tables,
+ * and use a fresh r/w copy for the startup thread
+ */
+void zend_post_startup(TSRMLS_D)
+{
+	zend_compiler_globals *compiler_globals = ts_resource(compiler_globals_id);
+
+	compiler_globals_ctor(compiler_globals, tsrm_ls);
+	zend_startup_constants(TSRMLS_C);
+	zend_copy_constants(EG(zend_constants), global_constants_table);
+	zend_new_thread_end_handler(tsrm_thread_id() TSRMLS_CC);
+}
+#endif
+
+
 void zend_shutdown(TSRMLS_D)
 {
 #ifdef ZEND_WIN32
@@ -489,7 +539,7 @@ void zend_shutdown(TSRMLS_D)
 	zend_destroy_rsrc_list(&EG(persistent_list) TSRMLS_CC);
 #endif
 	zend_destroy_rsrc_list_dtors();
-	zend_hash_destroy(&module_registry);
+	zend_hash_graceful_reverse_destroy(&module_registry);
 	zend_hash_destroy(GLOBAL_FUNCTION_TABLE);
 	free(GLOBAL_FUNCTION_TABLE);
 	zend_hash_destroy(GLOBAL_CLASS_TABLE);
@@ -529,6 +579,7 @@ ZEND_API void _zend_bailout(char *filename, uint lineno)
 	}
 	CG(unclean_shutdown) = 1;
 	CG(in_compilation) = EG(in_execution) = 0;
+	EG(current_execute_data) = NULL;
 	longjmp(EG(bailout), FAILURE);
 }
 END_EXTERN_C()
@@ -760,6 +811,7 @@ ZEND_API void zend_error(int type, const char *format, ...)
 	va_end(args);
 
 	if (type==E_PARSE) {
+		EG(exit_status) = 255;
 		zend_init_compiler_data_structures(TSRMLS_C);
 	}
 }

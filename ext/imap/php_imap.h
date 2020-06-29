@@ -22,20 +22,17 @@
    |          Andrew Skalski      <askalski@chekinc.com>                  |
    |          Hartmut Holzgraefe  <hartmut@six.de>                        |
    |          Jani Taskinen       <sniper@iki.fi>                         |
+   |          Daniel R. Kalowsky  <kalowsky@php.net>                      |
    | PHP 4.0 updates:  Zeev Suraski <zeev@zend.com>                       |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_imap.h,v 1.17.2.2 2002/08/26 01:58:32 sniper Exp $ */
+/* $Id: php_imap.h,v 1.24 2002/10/24 13:14:37 sas Exp $ */
 
 #ifndef PHP_IMAP_H
 #define PHP_IMAP_H
 
 #if HAVE_IMAP
-
-#ifndef PHP_WIN32
-#include "build-defs.h"
-#endif
 
 #if defined(HAVE_IMAP2000) || defined(HAVE_IMAP2001)
  /* these are used for quota support */
@@ -78,12 +75,6 @@ typedef enum {
 typedef struct php_imap_le_struct {
 	MAILSTREAM *imap_stream;
 	long flags;
-#ifdef OP_RELOGIN
-	/* AJS: busy flag for persistent connections, pointers for chaining */
-	struct php_imap_le_struct *next;
-	struct php_imap_le_struct **prev;
-	char busy;
-#endif
 } pils;
 
 typedef struct php_imap_mailbox_struct {
@@ -177,6 +168,7 @@ PHP_FUNCTION(imap_thread);
 
 #if defined(HAVE_IMAP2000) || defined(HAVE_IMAP2001)
 PHP_FUNCTION(imap_get_quota);
+PHP_FUNCTION(imap_get_quotaroot);
 PHP_FUNCTION(imap_set_quota);
 PHP_FUNCTION(imap_setacl);
 #endif
@@ -208,8 +200,7 @@ ZEND_BEGIN_MODULE_GLOBALS(imap)
 	unsigned long status_uidnext;
 	unsigned long status_uidvalidity;
 #if defined(HAVE_IMAP2000) || defined(HAVE_IMAP2001)
-	unsigned long quota_usage;
-	unsigned long quota_limit;
+	zval *quota_return;
 #endif
 ZEND_END_MODULE_GLOBALS(imap)
 

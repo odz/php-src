@@ -1,7 +1,7 @@
 --TEST--
 Test usort, uksort and uasort
---POST--
---GET--
+--INI--
+precision=14
 --FILE--
 <?php
 require('ext/standard/tests/array/data.inc');
@@ -28,11 +28,11 @@ usort ($data, 'cmp');
 var_dump ($data);
 ?>
 --EXPECT--
- -- Testing uasort() -- 
-array(7) {
-  [-2147483648]=>
+-- Testing uasort() -- 
+array(8) {
+  [16777216]=>
   float(-0.33333333333333)
-  ["-2147483648"]=>
+  ["-1000"]=>
   array(2) {
     [0]=>
     string(6) "banana"
@@ -47,27 +47,31 @@ array(7) {
   string(27) "PHP: Hypertext Preprocessor"
   [5]=>
   string(4) "Test"
-  [2147483647]=>
+  [1001]=>
+  string(6) "monkey"
+  [1000]=>
   string(4) "test"
 }
 
  -- Testing uksort() -- 
-array(7) {
-  ["-2147483648"]=>
+array(8) {
+  ["-1000"]=>
   array(2) {
     [0]=>
     string(6) "banana"
     [1]=>
     string(6) "orange"
   }
-  [-2147483648]=>
-  float(-0.33333333333333)
   [0]=>
   string(3) "PHP"
+  [1000]=>
+  string(4) "test"
+  [1001]=>
+  string(6) "monkey"
+  [16777216]=>
+  float(-0.33333333333333)
   [17]=>
   string(27) "PHP: Hypertext Preprocessor"
-  [2147483647]=>
-  string(4) "test"
   [5]=>
   string(4) "Test"
   ["test"]=>
@@ -75,15 +79,15 @@ array(7) {
 }
 
  -- Testing usort() -- 
-array(7) {
+array(8) {
   [0]=>
   float(-0.33333333333333)
   [1]=>
   array(2) {
+    [0]=>
     string(6) "banana"
-    int(0)
+    [1]=>
     string(6) "orange"
-    int(0)
   }
   [2]=>
   int(27)
@@ -94,5 +98,7 @@ array(7) {
   [5]=>
   string(4) "Test"
   [6]=>
+  string(6) "monkey"
+  [7]=>
   string(4) "test"
 }

@@ -18,7 +18,7 @@
  */
 
 
-/* $Id: php_main.h,v 1.19 2002/03/04 18:46:55 sas Exp $ */
+/* $Id: php_main.h,v 1.23 2002/09/18 21:57:29 zeev Exp $ */
 
 
 #ifndef PHP_MAIN_H
@@ -31,7 +31,7 @@
 PHPAPI int php_request_startup(TSRMLS_D);
 PHPAPI void php_request_shutdown(void *dummy);
 PHPAPI void php_request_shutdown_for_exec(void *dummy);
-PHPAPI int php_module_startup(sapi_module_struct *sf);
+PHPAPI int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_modules, uint num_additional_modules);
 PHPAPI void php_module_shutdown(TSRMLS_D);
 PHPAPI void php_module_shutdown_for_exec(void);
 PHPAPI int php_module_shutdown_wrapper(sapi_module_struct *sapi_globals);
@@ -52,9 +52,5 @@ extern void php_call_shutdown_functions(void);
 /* environment module */
 extern int php_init_environ(void);
 extern int php_shutdown_environ(void);
-
-#if defined(MBSTR_ENC_TRANS)
-#define php_treat_data mbstr_treat_data
-#endif
 
 #endif

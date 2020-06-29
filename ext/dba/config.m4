@@ -1,6 +1,8 @@
 dnl
-dnl $Id: config.m4,v 1.16.2.1 2002/04/18 12:31:19 derick Exp $
+dnl $Id: config.m4,v 1.29.2.1 2002/11/15 21:30:51 helly Exp $
 dnl
+
+dnl Suppose we need FlatFile if no or only CDB is used.
 
 AC_DEFUN(PHP_TEMP_LDFLAGS,[
   old_LDFLAGS=$LDFLAGS
@@ -8,7 +10,6 @@ AC_DEFUN(PHP_TEMP_LDFLAGS,[
   $2
   LDFLAGS=$old_LDFLAGS
 ])
-
 
 dnl Assign INCLUDE/LFLAGS from PREFIX
 AC_DEFUN(PHP_DBA_STD_ASSIGN,[
@@ -38,9 +39,9 @@ AC_DEFUN(PHP_DBA_STD_ATTACH,[
 
 dnl Print the result message
 AC_DEFUN(AC_DBA_STD_RESULT,[
-  if test "$THIS_RESULT" = "yes"; then
+  if test "$THIS_RESULT" = "yes" -o "$THIS_RESULT" = "builtin"; then
     HAVE_DBA=1
-    AC_MSG_RESULT(yes)
+    AC_MSG_RESULT($THIS_RESULT)
   else
     AC_MSG_RESULT(no)
   fi
@@ -48,7 +49,7 @@ AC_DEFUN(AC_DBA_STD_RESULT,[
 ])
 
 PHP_ARG_ENABLE(dba,whether to enable DBA,
-[  --enable-dba=shared     Build DBA as a shared module])
+[  --enable-dba            Build DBA with builtin modules])
 
 AC_ARG_WITH(gdbm,
 [  --with-gdbm[=DIR]       Include GDBM support],[
@@ -152,7 +153,19 @@ AC_ARG_WITH(db3,
 [  --with-db3[=DIR]        Include Berkeley DB3 support],[
   if test "$withval" != "no"; then
     for i in /usr/local /usr /usr/local/BerkeleyDB.3.0 $withval; do
-      if test -f "$i/include/db.h" ; then
+      if test -f "$i/db3/db.h"; then
+        THIS_PREFIX=$i
+        DB3_EXTRA=db3
+      elif test -f "$i/include/db3/db.h"; then
+        THIS_PREFIX=$i
+        DB3_EXTRA=db3/db.h
+      elif test -f "$i/include/db/db3.h"; then
+        THIS_PREFIX=$i
+        DB3_EXTRA=db/db3.h
+      elif test -f "$i/include/db3.h"; then
+        THIS_PREFIX=$i
+        DB3_EXTRA=db3.h
+      elif test -f "$i/include/db.h"; then
         THIS_PREFIX=$i
         DB3_EXTRA=db.h
       fi
@@ -162,7 +175,7 @@ AC_ARG_WITH(db3,
       AC_DEFINE_UNQUOTED(DB3_INCLUDE_FILE, "$DB3_EXTRA", [ ])
     fi
 
-    for LIB in db db-3 db3; do
+    for LIB in db-3.1 db-3 db3 db; do
       PHP_TEMP_LDFLAGS(-L$THIS_PREFIX/lib,[
       AC_CHECK_LIB($LIB, db_create, [AC_DEFINE(DBA_DB3,1,[ ]) THIS_LIBS=$LIB])
       ])
@@ -199,18 +212,29 @@ AC_ARG_WITH(dbm,
 AC_MSG_CHECKING(for DBM support)
 AC_DBA_STD_RESULT
 
+AC_DEFUN(PHP_DBA_BUILTIN_CDB,[
+  PHP_ADD_BUILD_DIR($ext_builddir/libcdb)
+  AC_DEFINE(DBA_CDB_BUILTIN, 1, [ ])
+  AC_DEFINE(DBA_CDB_MAKE, 1, [ ])
+  AC_DEFINE(DBA_CDB, 1, [ ])
+  cdb_sources="libcdb/cdb.c libcdb/cdb_make.c libcdb/uint32.c"
+  THIS_RESULT="builtin"
+])
+
 AC_ARG_WITH(cdb,
 [  --with-cdb[=DIR]        Include CDB support],[
   if test "$withval" != "no"; then
+    PHP_DBA_BUILTIN_CDB
+  elif test "$withval" != "no"; then
     for i in /usr/local /usr $withval; do
       if test -f "$i/include/cdb.h" ; then
         THIS_PREFIX=$i
       fi
-	done
+    done
 
     for LIB in cdb c; do
       PHP_TEMP_LDFLAGS(-L$THIS_PREFIX/lib,[
-      AC_CHECK_LIB($LIB, cdb_bread, [AC_DEFINE(DBA_CDB,1,[ ]) THIS_LIBS=$LIB])
+      AC_CHECK_LIB($LIB, cdb_read, [AC_DEFINE(DBA_CDB,1,[ ]) THIS_LIBS=$LIB])
       ])
     done
     
@@ -218,17 +242,43 @@ AC_ARG_WITH(cdb,
     PHP_DBA_STD_CHECK
     PHP_DBA_STD_ATTACH
   fi
+],[
+  if test "$PHP_DBA" != "no"; then
+    PHP_DBA_BUILTIN_CDB
+  fi
 ])
 AC_MSG_CHECKING(for CDB support)
+AC_DBA_STD_RESULT
+
+AC_DEFUN(PHP_DBA_BUILTIN_FLATFILE,[
+  PHP_ADD_BUILD_DIR($ext_builddir/libflatfile)
+  AC_DEFINE(DBA_FLATFILE, 1, [ ])
+  flat_sources="dba_flatfile.c libflatfile/flatfile.c"
+  THIS_RESULT="builtin"
+])
+
+dnl
+dnl FlatFile check must be the last one.
+dnl
+AC_ARG_WITH(flatfile,
+[  --with-flatfile         Include FlatFile support],[
+  if test "$withval" != "no"; then
+    PHP_DBA_BUILTIN_FLATFILE
+  fi
+],[
+  if test "$PHP_DBA" != "no"; then
+    PHP_DBA_BUILTIN_FLATFILE
+  fi
+])
+AC_MSG_CHECKING(for FlatFile support)
 AC_DBA_STD_RESULT
 
 AC_MSG_CHECKING(whether to enable DBA interface)
 if test "$HAVE_DBA" = "1"; then
   AC_MSG_RESULT(yes)
   AC_DEFINE(HAVE_DBA, 1, [ ])
-  PHP_EXTENSION(dba,$ext_shared)
+  PHP_NEW_EXTENSION(dba, dba.c dba_cdb.c dba_db2.c dba_dbm.c dba_gdbm.c dba_ndbm.c dba_db3.c $cdb_sources $flat_sources, $ext_shared)
   PHP_SUBST(DBA_SHARED_LIBADD)
 else
   AC_MSG_RESULT(no)
 fi
-

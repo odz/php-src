@@ -19,13 +19,14 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: math.c,v 1.80.2.4 2002/06/24 08:18:54 derick Exp $ */
+/* $Id: math.c,v 1.97.2.1 2002/12/05 21:09:18 helly Exp $ */
 
 #include "php.h"
 #include "php_math.h"
 
 #include <math.h>
 #include <float.h>
+#include <stdlib.h>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -314,10 +315,10 @@ PHP_FUNCTION(tanh)
 
 /* }}} */
 
-#ifndef PHP_WIN32
+#if !defined(PHP_WIN32) && !defined(NETWARE)
+#ifdef HAVE_ASINH
 /* {{{ proto float asinh(float number)
    Returns the inverse hyperbolic sine of the number, i.e. the value whose hyperbolic sine is number */
-
 PHP_FUNCTION(asinh)
 {
 	zval **num;
@@ -329,11 +330,12 @@ PHP_FUNCTION(asinh)
 	Z_DVAL_P(return_value) = asinh(Z_DVAL_PP(num));
 	Z_TYPE_P(return_value) = IS_DOUBLE;
 }
-
 /* }}} */
+#endif /* HAVE_ASINH */
+
+#ifdef HAVE_ACOSH
 /* {{{ proto float acosh(float number)
    Returns the inverse hyperbolic cosine of the number, i.e. the value whose hyperbolic cosine is number */
-
 PHP_FUNCTION(acosh)
 {
 	zval **num;
@@ -345,11 +347,12 @@ PHP_FUNCTION(acosh)
 	Z_DVAL_P(return_value) = acosh(Z_DVAL_PP(num));
 	Z_TYPE_P(return_value) = IS_DOUBLE;
 }
-
 /* }}} */
+#endif /* HAVE_ACOSH */
+
+#ifdef HAVE_ATANH
 /* {{{ proto float atanh(float number)
    Returns the inverse hyperbolic tangent of the number, i.e. the value whose hyperbolic tangent is number */
-
 PHP_FUNCTION(atanh)
 {
 	zval **num;
@@ -361,19 +364,18 @@ PHP_FUNCTION(atanh)
 	Z_DVAL_P(return_value) = atanh(Z_DVAL_PP(num));
 	Z_TYPE_P(return_value) = IS_DOUBLE;
 }
-
 /* }}} */
-#endif
+#endif /* HAVE_ATANH */
+#endif /* !defined(PHP_WIN32) && !defined(NETWARE) */
+
 
 /* {{{ proto float pi(void)
    Returns an approximation of pi */
-
 PHP_FUNCTION(pi)
 {
 	Z_DVAL_P(return_value) = M_PI;
 	Z_TYPE_P(return_value) = IS_DOUBLE;
 }
-
 /* }}} */
 
 
@@ -471,7 +473,7 @@ PHP_FUNCTION(exp)
 /* }}} */
 
 
-#ifndef PHP_WIN32
+#if !defined(PHP_WIN32) && !defined(NETWARE)
 /* {{{ proto float expm1(float number)
    Returns exp(number) - 1, computed in a way that accurate even when the value of number is close to zero */
 
@@ -503,6 +505,7 @@ PHP_FUNCTION(expm1)
 
 PHP_FUNCTION(log1p)
 {
+#ifdef HAVE_LOG1P
 	zval **num;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &num) == FAILURE) {
@@ -511,24 +514,41 @@ PHP_FUNCTION(log1p)
 	convert_to_double_ex(num);
 	Z_DVAL_P(return_value) = log1p(Z_DVAL_PP(num));
 	Z_TYPE_P(return_value) = IS_DOUBLE;
+#endif
 }
 
 /* }}} */
 
 #endif
-/* {{{ proto float log(float number)
-   Returns the natural logarithm of the number */
+/* {{{ proto float log(float number, [float base])
+   Returns the natural logarithm of the number, or the base log if base is specified */
 
 PHP_FUNCTION(log)
 {
-	zval **num;
-
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &num) == FAILURE) {
-		WRONG_PARAM_COUNT;
+	zval **num, **base;
+	
+	switch (ZEND_NUM_ARGS()) {
+		case 1:
+			if (zend_get_parameters_ex(1, &num) == FAILURE) {
+				WRONG_PARAM_COUNT;
+			}
+			convert_to_double_ex(num);
+			RETURN_DOUBLE(log(Z_DVAL_PP(num)));
+		case 2:
+			if (zend_get_parameters_ex(2, &num, &base) == FAILURE) {
+				WRONG_PARAM_COUNT;
+			}
+			convert_to_double_ex(num);
+			convert_to_double_ex(base);
+		
+			if (Z_DVAL_PP(base) <= 0.0) {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "base must be greater than 0");				
+				RETURN_FALSE;
+			}
+			RETURN_DOUBLE(log(Z_DVAL_PP(num)) / log(Z_DVAL_PP(base)));
+		default:
+			WRONG_PARAM_COUNT;
 	}
-	convert_to_double_ex(num);
-	Z_DVAL_P(return_value) = log(Z_DVAL_PP(num));
-	Z_TYPE_P(return_value) = IS_DOUBLE;
 }
 
 /* }}} */
@@ -576,6 +596,7 @@ PHP_FUNCTION(sqrt)
 
 PHP_FUNCTION(hypot)
 {
+#ifdef HAVE_HYPOT
 	zval **num1, **num2;
 
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &num1, &num2) == FAILURE) {
@@ -585,6 +606,7 @@ PHP_FUNCTION(hypot)
 	convert_to_double_ex(num2);
 	Z_DVAL_P(return_value) = hypot(Z_DVAL_PP(num1), Z_DVAL_PP(num2));
 	Z_TYPE_P(return_value) = IS_DOUBLE;
+#endif
 }
 
 /* }}} */
@@ -653,8 +675,12 @@ _php_math_basetolong(zval *arg, int base) {
 		if (num > onum)
 			continue;
 
-		php_error(E_WARNING, "base_to_long: number '%s' is too big to fit in long", s);
-		return LONG_MAX;
+		{
+			TSRMLS_FETCH();
+
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Number '%s' is too big to fit in long", s);
+			return LONG_MAX;
+		}
 	}
 
 	return num;
@@ -670,11 +696,13 @@ _php_math_basetolong(zval *arg, int base) {
  */
 PHPAPI int
 _php_math_basetozval(zval *arg, int base, zval *ret) {
-	long num = 0, digit, onum;
-	double fnum;
+	long num = 0;
+	double fnum = 0;
 	int i;
 	int mode = 0;
 	char c, *s;
+	long cutoff;
+	int cutlim;
 
 	if (Z_TYPE_P(arg) != IS_STRING || base < 2 || base > 36) {
 		return FAILURE;
@@ -682,30 +710,37 @@ _php_math_basetozval(zval *arg, int base, zval *ret) {
 
 	s = Z_STRVAL_P(arg);
 
+	cutoff = LONG_MAX / base;
+	cutlim = LONG_MAX % base;
+	
 	for (i = Z_STRLEN_P(arg); i > 0; i--) {
 		c = *s++;
 
-		digit = (c >= '0' && c <= '9') ? c - '0'
-			: (c >= 'A' && c <= 'Z') ? c - 'A' + 10
-			: (c >= 'a' && c <= 'z') ? c - 'a' + 10
-			: base;
+		/* might not work for EBCDIC */
+		if (c >= '0' && c <= '9') 
+			c -= '0';
+		else if (c >= 'A' && c <= 'Z') 
+			c -= 'A' - 10;
+		else if (c >= 'a' && c <= 'z') 
+			c -= 'a' - 10;
+		else
+			continue;
 
-		if (digit >= base)
+		if (c >= base)
 			continue;
 		
 		switch (mode) {
 		case 0: /* Integer */
-			onum = num;
-			num = num * base + digit;
-
-			if (num > onum)
-				break; /* No overflow, continue */
-			
-			fnum = onum;
-			mode = 1;
+			if (num < cutoff || (num == cutoff && c <= cutlim)) {
+				num = num * base + c;
+				break;
+			} else {
+				fnum = num;
+				mode = 1;
+			}
 			/* fall-through */
 		case 1: /* Float */
-			fnum = fnum * base + digit;
+			fnum = fnum * base + c;
 		}	
 	}
 
@@ -772,11 +807,10 @@ _php_math_zvaltobase(zval *arg, int base TSRMLS_DC)
 
 		/* Don't try to convert +/- infinity */
 		if (fvalue == HUGE_VAL || fvalue == -HUGE_VAL) {
-			php_error(E_WARNING, "Number too large in %s() call",
-				get_active_function_name(TSRMLS_C));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Number too large");
 			return empty_string;
 		}
-		
+
 		end = ptr = buf + sizeof(buf) - 1;
 		*ptr = '\0';
 
@@ -926,11 +960,11 @@ PHP_FUNCTION(base_convert)
 	convert_to_long_ex(frombase);
 	convert_to_long_ex(tobase);
 	if (Z_LVAL_PP(frombase) < 2 || Z_LVAL_PP(frombase) > 36) {
-		php_error(E_WARNING, "base_convert: invalid `from base' (%d)", Z_LVAL_PP(frombase));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid `from base' (%d)", Z_LVAL_PP(frombase));
 		RETURN_FALSE;
 	}
 	if (Z_LVAL_PP(tobase) < 2 || Z_LVAL_PP(tobase) > 36) {
-		php_error(E_WARNING, "base_convert: invalid `to base' (%d)", Z_LVAL_PP(tobase));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid `to base' (%d)", Z_LVAL_PP(tobase));
 		RETURN_FALSE;
 	}
 
@@ -1070,6 +1104,6 @@ PHP_FUNCTION(fmod)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 fdm=marker
- * vim<600: sw=4 ts=4
+ * vim600: fdm=marker
+ * vim: noet sw=4 ts=4
  */

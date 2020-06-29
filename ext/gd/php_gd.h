@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_gd.h,v 1.38 2002/02/28 08:26:12 sebastian Exp $ */
+/* $Id: php_gd.h,v 1.44.2.1 2002/12/11 23:30:23 iliaa Exp $ */
 
 #ifndef PHP_GD_H
 #define PHP_GD_H
@@ -29,12 +29,6 @@
 #endif
 
 #if HAVE_LIBGD
-
-#include <gd.h>
-
-#if HAVE_LIBT1
-#include "gdt1.h"
-#endif
 
 #define PHP_GDIMG_TYPE_GIF      1
 #define PHP_GDIMG_TYPE_PNG      2
@@ -65,9 +59,7 @@ PHP_MINFO_FUNCTION(gd);
 PHP_MINIT_FUNCTION(gd);
 PHP_MSHUTDOWN_FUNCTION(gd);
 
-#ifndef HAVE_GDIMAGECOLORRESOLVE
-static int gdImageColorResolve(gdImagePtr, int, int, int);
-#endif
+PHP_FUNCTION(gd_info);
 PHP_FUNCTION(imagearc);
 PHP_FUNCTION(imagechar);
 PHP_FUNCTION(imagecharup);
@@ -102,6 +94,11 @@ PHP_FUNCTION(imagecolorresolvealpha);
 PHP_FUNCTION(imagecolorclosestalpha);
 PHP_FUNCTION(imagecolorexactalpha);
 PHP_FUNCTION(imagecopyresampled);
+
+#ifdef HAVE_GD_BUNDLED
+PHP_FUNCTION(imagerotate);
+#endif
+
 PHP_FUNCTION(imagesetthickness);
 PHP_FUNCTION(imagesettile);
 PHP_FUNCTION(imagecopymergegray);
@@ -113,12 +110,14 @@ PHP_FUNCTION(imagecreatefromstring);
 PHP_FUNCTION(imagecreatefromgif);
 PHP_FUNCTION(imagecreatefromjpeg);
 PHP_FUNCTION(imagecreatefromxbm);
-PHP_FUNCTION(imagecreatefromxpm);
 PHP_FUNCTION(imagecreatefrompng);
 PHP_FUNCTION(imagecreatefromwbmp);
 PHP_FUNCTION(imagecreatefromgd);
 PHP_FUNCTION(imagecreatefromgd2);
 PHP_FUNCTION(imagecreatefromgd2part);
+#if defined(HAVE_GD_XPM) && defined(HAVE_GD_BUNDLED)
+PHP_FUNCTION(imagecreatefromxpm);
+#endif
 
 PHP_FUNCTION(imagegammacorrect);
 PHP_FUNCTION(imagedestroy);
@@ -164,12 +163,12 @@ PHP_FUNCTION(jpeg2wbmp);
 PHP_FUNCTION(png2wbmp);
 PHP_FUNCTION(image2wbmp);
 
-PHP_GD_API int phpi_get_le_gd(void);
-
-/* This is missing from gd.h */
-#if HAVE_COLORCLOSESTHWB
-int gdImageColorClosestHWB(gdImagePtr im, int r, int g, int b);
+#if HAVE_GD_BUNDLED
+PHP_FUNCTION(imagelayereffect);
+PHP_FUNCTION(imagecolormatch);
 #endif
+
+PHP_GD_API int phpi_get_le_gd(void);
 
 #else
 

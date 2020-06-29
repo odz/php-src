@@ -20,7 +20,7 @@
    | Based on code from: Shawn Cokus <Cokus@math.washington.edu>          |
    +----------------------------------------------------------------------+
  */
-/* $Id: rand.c,v 1.58 2002/02/28 08:26:48 sebastian Exp $ */
+/* $Id: rand.c,v 1.60 2002/09/06 07:44:30 hyanantha Exp $ */
 
 #include <stdlib.h>
 
@@ -29,6 +29,10 @@
 #  define WIN32_LEAN_AND_MEAN
 # endif
 # include <windows.h>
+#endif
+
+#if defined(NETWARE) && !defined(NEW_LIBC)  /* For getpid() used below */
+#include "netware/pwd.h"
 #endif
 
 #include "php.h"
@@ -315,8 +319,6 @@ PHP_FUNCTION(mt_srand)
  *
  * -RL
  */    
-#define RAND_RANGE(__n, __min, __max, __tmax) \
-	(__n) = (__min) + (long) ((double) ((__max) - (__min) + 1.0) * ((__n) / ((__tmax) + 1.0)))
 
 /* {{{ proto int rand([int min, int max])
    Returns a random number */

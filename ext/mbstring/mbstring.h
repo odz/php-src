@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mbstring.h,v 1.14.2.4 2002/07/05 15:02:40 hirokawa Exp $ */
+/* $Id: mbstring.h,v 1.40.2.2 2002/11/14 13:37:26 edink Exp $ */
 
 /*
  * PHP4 Multibyte String module "mbstring" (currently only for Japanese)
@@ -51,12 +51,28 @@
 #define HAVE_MBSTRING 1
 #endif
 
+#ifdef PHP_WIN32
+# undef MBSTRING_API
+# ifdef MBSTRING_EXPORTS
+#  define MBSTRING_API __declspec(dllexport)
+# else
+#  define MBSTRING_API __declspec(dllimport)
+# endif
+#else
+# undef MBSTRING_API
+# define MBSTRING_API /* nothing special */
+#endif
+
+
 #if HAVE_MBSTRING
 
 #include "mbfilter.h"
+#include "SAPI.h"
+
+#define PHP_MBSTRING_API 20021024
 
 #if HAVE_MBREGEX
-#include "mbregex.h"
+#include "php_mbregex.h"
 #endif
 
 extern zend_module_entry mbstring_module_entry;
@@ -67,6 +83,11 @@ PHP_MSHUTDOWN_FUNCTION(mbstring);
 PHP_RINIT_FUNCTION(mbstring);
 PHP_RSHUTDOWN_FUNCTION(mbstring);
 PHP_MINFO_FUNCTION(mbstring);
+
+/* functions in php_unicode.c */
+PHP_FUNCTION(mb_convert_case);
+PHP_FUNCTION(mb_strtoupper);
+PHP_FUNCTION(mb_strtolower);
 
 /* php function registration */
 PHP_FUNCTION(mb_language);
@@ -81,6 +102,7 @@ PHP_FUNCTION(mb_output_handler);
 PHP_FUNCTION(mb_strlen);
 PHP_FUNCTION(mb_strpos);
 PHP_FUNCTION(mb_strrpos);
+PHP_FUNCTION(mb_substr_count);
 PHP_FUNCTION(mb_substr);
 PHP_FUNCTION(mb_strcut);
 PHP_FUNCTION(mb_strwidth);
@@ -95,36 +117,35 @@ PHP_FUNCTION(mb_encode_numericentity);
 PHP_FUNCTION(mb_decode_numericentity);
 PHP_FUNCTION(mb_send_mail);
 PHP_FUNCTION(mb_get_info);
-#if HAVE_MBREGEX
-PHP_FUNCTION(mb_regex_encoding);
-PHP_FUNCTION(mb_ereg);
-PHP_FUNCTION(mb_eregi);
-PHP_FUNCTION(mb_ereg_replace);
-PHP_FUNCTION(mb_eregi_replace);
-PHP_FUNCTION(mb_split);
-PHP_FUNCTION(mb_ereg_match);
-PHP_FUNCTION(mb_ereg_search);
-PHP_FUNCTION(mb_ereg_search_pos);
-PHP_FUNCTION(mb_ereg_search_regs);
-PHP_FUNCTION(mb_ereg_search_init);
-PHP_FUNCTION(mb_ereg_search_getregs);
-PHP_FUNCTION(mb_ereg_search_getpos);
-PHP_FUNCTION(mb_ereg_search_setpos);
-#endif
 
-#if HAVE_MBREGEX
-#define PHP_MBREGEX_MAXCACHE 50
-int php_mbregex_name2mbctype(const char *pname);
-#endif
+MBSTRING_API int php_mb_encoding_translation(TSRMLS_D);
 
-char *mbstr_strrchr(const char *s, char c TSRMLS_DC);
-int mbstr_is_mb_leadbyte(const char *s TSRMLS_DC);
+MBSTRING_API char *php_mb_safe_strrchr_ex(const char *s, unsigned int c,
+                                    size_t nbytes, const mbfl_encoding *enc);
+MBSTRING_API char *php_mb_safe_strrchr(const char *s, unsigned int c,
+                                 size_t nbytes TSRMLS_DC);
+MBSTRING_API char *php_mb_strrchr(const char *s, char c TSRMLS_DC);
+
+MBSTRING_API char * php_mb_convert_encoding(char *input, size_t length,
+                                      char *_to_encoding,
+                                      char *_from_encodings,
+                                      size_t *output_len TSRMLS_DC);
+
+MBSTRING_API int php_mb_check_encoding_list(const char *encoding_list TSRMLS_DC);
+
+MBSTRING_API size_t php_mb_mbchar_bytes_ex(const char *s, const mbfl_encoding *enc);
+MBSTRING_API size_t php_mb_mbchar_bytes(const char *s TSRMLS_DC);
+
 
 ZEND_BEGIN_MODULE_GLOBALS(mbstring)
 	int language;
 	int current_language;
 	int internal_encoding;
 	int current_internal_encoding;
+#ifdef ZEND_MULTIBYTE
+	int *script_encoding_list;
+	int script_encoding_list_size;
+#endif /* ZEND_MULTIBYTE */
 	int http_output_encoding;
 	int current_http_output_encoding;
 	int http_input_identify;
@@ -143,18 +164,12 @@ ZEND_BEGIN_MODULE_GLOBALS(mbstring)
 	int current_filter_illegal_mode;
 	int current_filter_illegal_substchar;
 	long func_overload;
+	zend_bool encoding_translation;
 	mbfl_buffer_converter *outconv;
-#if HAVE_MBREGEX
-	int default_mbctype;
-	int current_mbctype;
-	HashTable ht_rc;
-	zval **search_str;
-	zval *search_str_val;
-	unsigned int search_pos;
-	mb_regex_t *search_re;
-	struct mbre_registers *search_regs;
+#if HAVE_MBREGEX && defined(PHP_MBREGEX_GLOBALS)
+	PHP_MBREGEX_GLOBALS	
 #endif
-ZEND_END_MODULE_GLOBALS(mbstring);
+ZEND_END_MODULE_GLOBALS(mbstring)
 
 #define MB_OVERLOAD_MAIL 1
 #define MB_OVERLOAD_STRING 2
@@ -172,6 +187,19 @@ struct mb_overload_def {
 #else
 #define MBSTRG(v) (mbstring_globals.v)
 #endif
+
+#ifdef ZEND_MULTIBYTE
+MBSTRING_API int php_mb_set_zend_encoding(TSRMLS_D);
+char* php_mb_encoding_detector(const char *string, int length, char *list
+		TSRMLS_DC);
+int php_mb_encoding_converter(char **to, int *to_length, const char *from,
+		int from_length, const char *encoding_to, const char *encoding_from
+		TSRMLS_DC);
+int php_mb_oddlen(const char *string, int length, const char *encoding TSRMLS_DC);
+#endif /* ZEND_MULTIBYTE */
+
+SAPI_POST_HANDLER_FUNC(php_mbstr_post_handler);
+MBSTRING_API SAPI_TREAT_DATA_FUNC(mbstr_treat_data);
 
 #else	/* HAVE_MBSTRING */
 

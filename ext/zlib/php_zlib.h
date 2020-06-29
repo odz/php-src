@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_zlib.h,v 1.21 2001/12/11 15:30:57 sebastian Exp $ */
+/* $Id: php_zlib.h,v 1.32 2002/08/09 22:29:58 helly Exp $ */
 
 #ifndef PHP_ZLIB_H
 #define PHP_ZLIB_H
@@ -25,15 +25,15 @@
 #include <zlib.h>
 
 ZEND_BEGIN_MODULE_GLOBALS(zlib)
-	int gzgetss_state;
-
 	/* variables for transparent gzip encoding */
-    int compression_coding;
-    z_stream stream;
-    uLong crc;
+	int compression_coding;
+	z_stream stream;
+	uLong crc;
 	int ob_gzhandler_status;
 	int ob_gzip_coding;
 	int output_compression;
+	int output_compression_level;
+	char *output_handler;
 ZEND_END_MODULE_GLOBALS(zlib)
 
 extern zend_module_entry php_zlib_module_entry;
@@ -44,17 +44,6 @@ PHP_MSHUTDOWN_FUNCTION(zlib);
 PHP_RINIT_FUNCTION(zlib);
 PHP_MINFO_FUNCTION(zlib);
 PHP_FUNCTION(gzopen);
-PHP_FUNCTION(gzclose);
-PHP_FUNCTION(gzeof);
-PHP_FUNCTION(gzread);
-PHP_FUNCTION(gzgetc);
-PHP_FUNCTION(gzgets);
-PHP_FUNCTION(gzgetss);
-PHP_FUNCTION(gzwrite);
-PHP_FUNCTION(gzrewind);
-PHP_FUNCTION(gztell);
-PHP_FUNCTION(gzseek);
-PHP_FUNCTION(gzpassthru);
 PHP_FUNCTION(readgzfile);
 PHP_FUNCTION(gzfile);
 PHP_FUNCTION(gzcompress);
@@ -64,9 +53,11 @@ PHP_FUNCTION(gzinflate);
 PHP_FUNCTION(gzencode);
 PHP_FUNCTION(ob_gzhandler);
 
-FILE *zlib_fopen_wrapper(const char *path, char *mode, int options, int *issock, int *socketd, char **opened_path TSRMLS_DC);
 int php_enable_output_compression(int buffer_size TSRMLS_DC);
 
+php_stream *php_stream_gzopen(php_stream_wrapper *wrapper, char *path, char *mode, int options, char **opened_path, php_stream_context *context STREAMS_DC TSRMLS_DC);
+extern php_stream_ops php_stream_gzio_ops;
+extern php_stream_wrapper php_stream_gzip_wrapper;
 
 #ifdef ZTS
 #define ZLIBG(v) TSRMG(zlib_globals_id, zend_zlib_globals *, v)
@@ -76,4 +67,15 @@ int php_enable_output_compression(int buffer_size TSRMLS_DC);
 
 #define phpext_zlib_ptr zlib_module_ptr
 
+#define CODING_GZIP		1
+#define CODING_DEFLATE	2
+
 #endif /* PHP_ZLIB_H */
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * indent-tabs-mode: t
+ * End:
+ */

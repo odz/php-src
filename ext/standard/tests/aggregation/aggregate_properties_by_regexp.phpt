@@ -1,10 +1,12 @@
 --TEST--
 aggregating default properties matching regular expression
+--SKIPIF--
+<?php if (!function_exists('aggregate_properties_by_regexp')) print "skip"; ?>
 --POST--
 --GET--
 --FILE--
 <?php
-include "./ext/standard/tests/aggregation/aggregate.lib";
+include "ext/standard/tests/aggregation/aggregate.lib";
 
 $obj = new simple();
 aggregate_properties_by_regexp($obj, 'helper', '/^my/');

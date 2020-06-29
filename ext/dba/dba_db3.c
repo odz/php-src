@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dba_db3.c,v 1.16.2.1 2002/04/18 12:31:19 derick Exp $ */
+/* $Id: dba_db3.c,v 1.21.2.2 2002/12/20 20:25:19 helly Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -66,7 +66,7 @@ DBA_OPEN_FUNC(db3)
 		info->mode == DBA_TRUNC ? DB_CREATE | DB_TRUNCATE : -1;
 
 	if (gmode == -1)
-		return FAILURE;
+		return FAILURE; /* not possible */
 
 	if (info->argc > 0) {
 		convert_to_long_ex(info->argv[0]);
@@ -74,10 +74,14 @@ DBA_OPEN_FUNC(db3)
 	}
 
 	if (db_create(&dbp, NULL, 0) == 0 &&
+#if (DB_VERSION_MAJOR == 4 && DB_VERSION_MINOR >= 1)
+			dbp->open(dbp, 0, info->path, NULL, type, gmode, filemode) == 0) {
+#else
 			dbp->open(dbp, info->path, NULL, type, gmode, filemode) == 0) {
+#endif
 		dba_db3_data *data;
 
-		data = malloc(sizeof(*data));
+		data = pemalloc(sizeof(*data), info->flags&DBA_PERSISTENT);
 		data->dbp = dbp;
 		data->cursor = NULL;
 		info->dbf = data;
@@ -96,7 +100,7 @@ DBA_CLOSE_FUNC(db3)
 	
 	if (dba->cursor) dba->cursor->c_close(dba->cursor);
 	dba->dbp->close(dba->dbp, 0);
-	free(dba);
+	pefree(dba, info->flags&DBA_PERSISTENT);
 }
 
 DBA_FETCH_FUNC(db3)
@@ -166,7 +170,7 @@ DBA_FIRSTKEY_FUNC(db3)
 	}
 
 	/* we should introduce something like PARAM_PASSTHRU... */
-	return dba_nextkey_db3(info, newlen);
+	return dba_nextkey_db3(info, newlen TSRMLS_CC);
 }
 
 DBA_NEXTKEY_FUNC(db3)

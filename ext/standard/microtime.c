@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: microtime.c,v 1.36 2002/02/28 08:26:46 sebastian Exp $ */
+/* $Id: microtime.c,v 1.39 2002/10/29 23:35:49 helly Exp $ */
 
 #include "php.h"
 
@@ -25,6 +25,12 @@
 #endif
 #ifdef PHP_WIN32
 #include "win32/time.h"
+#elif defined(NETWARE)
+#ifdef NEW_LIBC
+#include <sys/timeval.h>
+#else
+#include "netware/time_nw.h"
+#endif
 #else
 #include <sys/time.h>
 #endif
@@ -43,12 +49,13 @@
 
 #define NUL  '\0'
 #define MICRO_IN_SEC 1000000.00
+#define SEC_IN_MIN 60
 
 /* {{{ proto string microtime(void)
    Returns a string containing the current time in seconds and microseconds */
+#ifdef HAVE_GETTIMEOFDAY
 PHP_FUNCTION(microtime)
 {
-#ifdef HAVE_GETTIMEOFDAY
 	struct timeval tp;
 	long sec = 0L;
 	double msec = 0.0;
@@ -61,17 +68,18 @@ PHP_FUNCTION(microtime)
 		if (msec >= 1.0) msec -= (long) msec;
 		snprintf(ret, 100, "%.8f %ld", msec, sec);
 		RETVAL_STRING(ret,1);
-	} else
-#endif
+	} else {
 		RETURN_FALSE;
+	}
 }
+#endif
 /* }}} */
 
 /* {{{ proto array gettimeofday(void)
    Returns the current time as array */
+#ifdef HAVE_GETTIMEOFDAY
 PHP_FUNCTION(gettimeofday)
 {
-#ifdef HAVE_GETTIMEOFDAY
 	struct timeval tp;
 	struct timezone tz;
 	
@@ -81,13 +89,18 @@ PHP_FUNCTION(gettimeofday)
 		array_init(return_value);
 		add_assoc_long(return_value, "sec", tp.tv_sec);
 		add_assoc_long(return_value, "usec", tp.tv_usec);
+#ifdef PHP_WIN32
+		add_assoc_long(return_value, "minuteswest", tz.tz_minuteswest/SEC_IN_MIN);
+#else
 		add_assoc_long(return_value, "minuteswest", tz.tz_minuteswest);
+#endif			
 		add_assoc_long(return_value, "dsttime", tz.tz_dsttime);
 		return;
-	} else
-#endif
-	RETURN_FALSE;
+	} else {
+		RETURN_FALSE;
+	}
 }
+#endif
 /* }}} */
 
 #ifdef HAVE_GETRUSAGE

@@ -17,7 +17,7 @@
    |          Hartmut Holzgraefe <hholzgra@php.net>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_fopen_wrapper.c,v 1.11 2002/02/28 08:26:46 sebastian Exp $ */
+/* $Id: php_fopen_wrapper.c,v 1.29.2.1 2002/11/21 10:53:18 hholzgra Exp $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,27 +29,145 @@
 #include "php_globals.h"
 #include "php_standard.h"
 #include "php_fopen_wrappers.h"
+#include "SAPI.h"
 
-
-/* {{{ php_fopen_url_wrap_php
- */
-FILE *php_fopen_url_wrap_php(const char *path, char *mode, int options, int *issock, int *socketd, char **opened_path TSRMLS_DC)
+static size_t php_stream_output_write(php_stream *stream, const char *buf, size_t count TSRMLS_DC)
 {
-	const char *res = path + 6;
+	PHPWRITE(buf, count);
+	return count;
+}
 
-	*issock = 0;
+static size_t php_stream_output_read(php_stream *stream, char *buf, size_t count TSRMLS_DC)
+{
+	stream->eof = 1;
+	return 0;
+}
+
+static int php_stream_output_close(php_stream *stream, int close_handle TSRMLS_DC)
+{
+	return 0;
+}
+
+static int php_stream_output_flush(php_stream *stream TSRMLS_DC)
+{
+	sapi_flush(TSRMLS_C);
+	return 0;
+}
+
+php_stream_ops php_stream_output_ops = {
+	php_stream_output_write,
+	php_stream_output_read,
+	php_stream_output_close,
+	php_stream_output_flush,
+	"Output",
+	NULL, /* seek */
+	NULL, /* cast */
+	NULL, /* stat */
+	NULL  /* set_option */
+};
+
+static size_t php_stream_input_write(php_stream *stream, const char *buf, size_t count TSRMLS_DC)
+{
+	return -1;
+}
+
+static size_t php_stream_input_read(php_stream *stream, char *buf, size_t count TSRMLS_DC)
+{
+	size_t read_bytes = 0;
+	if(!stream->eof) {
+		if(SG(request_info).raw_post_data) { /* data has already been read by a post handler */
+			read_bytes = SG(request_info).raw_post_data_length - stream->position;
+			if(read_bytes <= count) {
+				stream->eof = 1;
+			} else {
+				read_bytes = count;
+			}
+			if(read_bytes) {
+				memcpy(buf, SG(request_info).raw_post_data + stream->position, read_bytes);
+			}
+		} else if(sapi_module.read_post) {
+			read_bytes = sapi_module.read_post(buf, count TSRMLS_CC);
+			if(read_bytes <= 0){
+				stream->eof = 1;
+				read_bytes = 0;
+			}
+		} else {
+			stream->eof = 1;
+		}
+	}
+	SG(read_post_bytes) += read_bytes;
+	return read_bytes;
+}
+
+static int php_stream_input_close(php_stream *stream, int close_handle TSRMLS_DC)
+{
+	return 0;
+}
+
+static int php_stream_input_flush(php_stream *stream TSRMLS_DC)
+{
+	return -1;
+}
+
+php_stream_ops php_stream_input_ops = {
+	php_stream_input_write,
+	php_stream_input_read,
+	php_stream_input_close,
+	php_stream_input_flush,
+	"Input",
+	NULL, /* seek */
+	NULL, /* cast */
+	NULL, /* stat */
+	NULL  /* set_option */
+};
+
+php_stream * php_stream_url_wrap_php(php_stream_wrapper *wrapper, char *path, char *mode, int options, char **opened_path, php_stream_context *context STREAMS_DC TSRMLS_DC)
+{
+	FILE * fp = NULL;
+	php_stream * stream = NULL;
+
+	if (!strncasecmp(path, "php://", 6))
+		path += 6;
 	
-	if (!strcasecmp(res, "stdin")) {
-		return fdopen(dup(STDIN_FILENO), mode);
-	} else if (!strcasecmp(res, "stdout")) {
-		return fdopen(dup(STDOUT_FILENO), mode);
-	} else if (!strcasecmp(res, "stderr")) {
-		return fdopen(dup(STDERR_FILENO), mode);
+	if (!strcasecmp(path, "output")) {
+		return php_stream_alloc(&php_stream_output_ops, NULL, 0, "wb");
 	}
 	
-	return NULL;
+	if (!strcasecmp(path, "input")) {
+		return php_stream_alloc(&php_stream_input_ops, NULL, 0, "rb");
+	}  
+	
+	if (!strcasecmp(path, "stdin")) {
+		fp = fdopen(dup(STDIN_FILENO), mode);
+	} else if (!strcasecmp(path, "stdout")) {
+		fp = fdopen(dup(STDOUT_FILENO), mode);
+	} else if (!strcasecmp(path, "stderr")) {
+		fp = fdopen(dup(STDERR_FILENO), mode);
+	}
+
+	if (fp)	{
+		stream = php_stream_fopen_from_file(fp, mode);
+		if (stream == NULL)
+			fclose(fp);
+	}
+	return stream;
 }
-/* }}} */
+
+static php_stream_wrapper_ops php_stdio_wops = {
+	php_stream_url_wrap_php,
+	NULL, /* close */
+	NULL, /* fstat */
+	NULL, /* stat */
+	NULL, /* opendir */
+	"PHP"
+};
+
+php_stream_wrapper php_stream_php_wrapper =	{
+	&php_stdio_wops,
+	NULL,
+	0, /* is_url */
+};
+
 
 /*
  * Local variables:

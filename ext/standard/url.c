@@ -15,7 +15,7 @@
    | Author: Jim Winstead <jimw@php.net>                                  |
    +----------------------------------------------------------------------+
  */
-/* $Id: url.c,v 1.51 2002/02/28 08:26:49 sebastian Exp $ */
+/* $Id: url.c,v 1.58.2.2 2002/12/05 21:09:19 helly Exp $ */
 
 #include <stdlib.h>
 #include <string.h>
@@ -58,103 +58,215 @@ PHPAPI void php_url_free(php_url *theurl)
 }
 /* }}} */
 
+/* {{{ php_replace_controlchars
+ */
+PHPAPI char *php_replace_controlchars(char *str)
+{
+	unsigned char *s = (unsigned char *)str;
+	
+	if (!str) {
+		return (NULL);
+	}
+	
+	while (*s) {
+	    
+		if (iscntrl(*s)) {
+			*s='_';
+		}	
+		s++;
+	}
+	
+	return (str);
+} 
+/* }}} */
+ 
+
 /* {{{ php_url_parse
  */
 PHPAPI php_url *php_url_parse(char *str)
 {
-	regex_t re;
-	regmatch_t subs[11];
-	int err;
 	int length = strlen(str);
-	char *result;
+	char port_buf[5];
 	php_url *ret = ecalloc(1, sizeof(php_url));
-
-	/* from Appendix B of draft-fielding-url-syntax-09,
-	   http://www.ics.uci.edu/~fielding/url/url.txt */
-	err = regcomp(&re, "^(([^:/?#]+):)?(//([^/?#]*))?([^?#]*)(\\?([^#]*))?(#(.*))?", REG_EXTENDED);
-	if (err) {
-		/*php_error(E_WARNING, "Unable to compile regex: %d\n", err);*/
-		efree(ret);
-		return NULL;
-	}
-	err = regexec(&re, str, 10, subs, 0);
-	if (err) {
-		/*php_error(E_WARNING, "Error with regex\n");*/
-		efree(ret);
-		regfree(&re);
-		return NULL;
-	}
-	/* no processing necessary on the scheme */
-	if (subs[2].rm_so != -1 && subs[2].rm_so <= length) {
-		ret->scheme = estrndup(str + subs[2].rm_so, subs[2].rm_eo - subs[2].rm_so);
-	}
-
-	/* the path to the resource */
-	if (subs[5].rm_so != -1 && subs[5].rm_so <= length) {
-		ret->path = estrndup(str + subs[5].rm_so, subs[5].rm_eo - subs[5].rm_so);
-	}
-
-	/* the query part */
-	if (subs[7].rm_so != -1 && subs[7].rm_so <= length) {
-		ret->query = estrndup(str + subs[7].rm_so, subs[7].rm_eo - subs[7].rm_so);
-	}
-
-	/* the fragment */
-	if (subs[9].rm_so != -1 && subs[9].rm_so <= length) {
-		ret->fragment = estrndup(str + subs[9].rm_so, subs[9].rm_eo - subs[9].rm_so);
-	}
-
-	/* extract the username, pass, and port from the hostname */
-	if (subs[4].rm_so != -1 && subs[4].rm_so <= length) {
-
-		int cerr;
-		/* extract username:pass@host:port from regex results */
-		result = estrndup(str + subs[4].rm_so, subs[4].rm_eo - subs[4].rm_so);
-		length = strlen(result);
-
-		regfree(&re);			/* free the old regex */
+	char *s, *e, *p, *pp, *ue;
 		
-		if (length) {
-			if ((cerr=regcomp(&re, "^(([^@:]+)(:([^@:]+))?@)?((\\[([^]]+)\\])|([^:@]+))(:([^:@]+))?", REG_EXTENDED))
-				|| (err=regexec(&re, result, 11, subs, 0))) {
+	s = str;
+	ue = s + length;
+
+	/* parse scheme */
+	if ((e = strchr(s, ':')) && (e-s)) {
+		/* 
+		 * certain schemas like mailto: and zlib: may not have any / after them
+		 * this check ensures we support those.
+		 */
+		if (*(e+1) != '/') {
+			/* check if the data we get is a port this allows us to 
+			 * correctly parse things like a.com:80
+			 */
+			p = e + 1;
+			while (isdigit(*p)) {
+				p++;
+			}
+			
+			if ((*p) == '\0' || *p == '/') {
+				goto parse_port;
+			}
+			
+			ret->scheme = estrndup(s, (e-s));
+			php_replace_controlchars(ret->scheme);
+			
+			length -= ++e - s;
+			s = e;
+			goto just_path;
+		} else {
+			ret->scheme = estrndup(s, (e-s));
+			php_replace_controlchars(ret->scheme);
+		
+			if (*(e+2) == '/') {
+				s = e + 3;
+			} else {
+				s = e + 1;
+				if (!strncasecmp("file", ret->scheme, sizeof("file"))) {
+					goto nohost;
+				} else {
+					length -= ++e - s;
+					s = e;
+					goto just_path;
+				}	
+			}
+		}	
+	} else if (e) { /* no scheme, look for port */
+		parse_port:
+		p = e + 1;
+		pp = p;
+		
+		while (pp-p < 6 && isdigit(*pp)) {
+			pp++;
+		}
+		
+		if (pp-p < 6 && (*pp == '/' || *pp == '\0')) {
+			memcpy(port_buf, p, (pp-p));
+			port_buf[pp-p] = '\0';
+			ret->port = atoi(port_buf);
+		} else {
+			goto just_path;
+		}
+	} else {
+		just_path:
+		ue = s + length;
+		goto nohost;
+	}
+	
+	if (!(e = strchr(s, '/'))) {
+		e = ue;
+	} else if (e && e == s) {
+		e = ue;
+	}
+
+	/* check for login and password */
+	if ((p = memchr(s, '@', (e-s)))) {
+		if ((pp = memchr(s, ':', (p-s)))) {
+			if ((pp-s) > 0) {
+				ret->user = estrndup(s, (pp-s));
+				php_replace_controlchars(ret->user);
+			}	
+		
+			pp++;
+			if (p-pp > 0) {
+				ret->pass = estrndup(pp, (p-pp));
+				php_replace_controlchars(ret->pass);
+			}	
+		} else {
+			ret->user = estrndup(s, (p-s));
+			php_replace_controlchars(ret->user);
+		}
+		
+		s = p + 1;
+	}
+	
+	/* check for port */
+	if ((p = memchr(s, ':', (e-s)))) {
+		if (!ret->port) {
+			p++;
+			if ( e-p > 5 || e-p < 1 ) { /* port cannot be longer then 5 characters */
 				STR_FREE(ret->scheme);
-				STR_FREE(ret->path);
-				STR_FREE(ret->query);
-				STR_FREE(ret->fragment);
+				STR_FREE(ret->user);
+				STR_FREE(ret->pass);
 				efree(ret);
-				efree(result);
-				/*php_error(E_WARNING, "Unable to compile regex: %d\n", err);*/
-				if (!cerr) regfree(&re); 
 				return NULL;
 			}
-			/* now deal with all of the results */
-			if (subs[2].rm_so != -1 && subs[2].rm_so < length) {
-				ret->user = estrndup(result + subs[2].rm_so, subs[2].rm_eo - subs[2].rm_so);
-			}
-			if (subs[4].rm_so != -1 && subs[4].rm_so < length) {
-				ret->pass = estrndup(result + subs[4].rm_so, subs[4].rm_eo - subs[4].rm_so);
-			}
-			if (subs[7].rm_so != -1 && subs[7].rm_so < length) {
-				ret->host = estrndup(result + subs[7].rm_so, subs[7].rm_eo - subs[7].rm_so);
-			} else if (subs[8].rm_so != -1 && subs[8].rm_so < length) {
-				ret->host = estrndup(result + subs[8].rm_so, subs[8].rm_eo - subs[8].rm_so);
-			}
-			if (subs[10].rm_so != -1 && subs[10].rm_so < length) {
-				ret->port = (unsigned short) strtol(result + subs[10].rm_so, NULL, 10);
-			}
-		}
-		efree(result);
+		
+			memcpy(port_buf, p, (e-p));
+			port_buf[e-p] = '\0';
+			ret->port = atoi(port_buf);
+			p--;
+		}	
+	} else {
+		p = e;
 	}
-	else if (ret->scheme && !strcmp(ret->scheme, "http")) {
+	
+	/* check if we have a valid host, if we don't reject the string as url */
+	if ((p-s) < 1) {
 		STR_FREE(ret->scheme);
-		STR_FREE(ret->path);
-		STR_FREE(ret->query);
-		STR_FREE(ret->fragment);
+		STR_FREE(ret->user);
+		STR_FREE(ret->pass);
 		efree(ret);
-		regfree(&re);
 		return NULL;
 	}
-	regfree(&re);
+	
+	ret->host = estrndup(s, (p-s));
+	php_replace_controlchars(ret->host);
+	
+	if (e == ue) {
+		return ret;
+	}
+	
+	s = e;
+	
+	nohost:
+	
+	if ((p = strchr(s, '?'))) {
+		pp = strchr(s, '#');
+		
+		if (pp && pp < p) {
+			p = pp;
+			pp = strchr(pp+2, '#');
+		}
+	
+		if (p - s) {
+			ret->path = estrndup(s, (p-s));
+			php_replace_controlchars(ret->path);
+		}	
+	
+		if (pp) {
+			if (pp - ++p) { 
+				ret->query = estrndup(p, (pp-p));
+				php_replace_controlchars(ret->query);
+			}
+			p = pp;
+			goto label_parse;
+		} else if (++p - ue) {
+			ret->query = estrndup(p, (ue-p));
+			php_replace_controlchars(ret->query);
+		}
+	} else if ((p = strchr(s, '#'))) {
+		if (p - s) {
+			ret->path = estrndup(s, (p-s));
+			php_replace_controlchars(ret->path);
+		}	
+		
+		label_parse:
+		p++;
+		
+		if (ue - p) {
+			ret->fragment = estrndup(p, (ue-p));
+			php_replace_controlchars(ret->fragment);
+		}	
+	} else {
+		ret->path = estrndup(s, (ue-s));
+		php_replace_controlchars(ret->path);
+	}
+
 	return ret;
 }
 /* }}} */
@@ -173,7 +285,7 @@ PHP_FUNCTION(parse_url)
 
 	resource = php_url_parse(str);
 	if (resource == NULL) {
-		php_error(E_WARNING, "unable to parse url (%s)", str);
+		php_error_docref1(NULL TSRMLS_CC, str, E_WARNING, "Unable to parse url");
 		RETURN_FALSE;
 	}
 

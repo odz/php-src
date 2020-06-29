@@ -14,14 +14,24 @@
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
 // | Author: Stig Bakken <ssb@fast.no>                                    |
+// |         Tomas V.V.Cox <cox@idecnet.com>                              |
+// |                                                                      |
 // +----------------------------------------------------------------------+
 //
-// $Id: Registry.php,v 1.14.2.2 2002/04/09 19:04:23 ssb Exp $
+// $Id: Registry.php,v 1.35 2002/10/04 20:00:51 mj Exp $
 
+/*
+TODO:
+    - Transform into singleton()
+    - Add application level lock (avoid change the registry from the cmdline
+      while using the GTK interface, for ex.)
+*/
 require_once "System.php";
 require_once "PEAR.php";
 
-define("PEAR_REGISTRY_ERROR_LOCK", -2);
+define('PEAR_REGISTRY_ERROR_LOCK',   -2);
+define('PEAR_REGISTRY_ERROR_FORMAT', -3);
+define('PEAR_REGISTRY_ERROR_FILE',   -4);
 
 /**
  * Administration class used to maintain the installed package database.
@@ -55,6 +65,20 @@ class PEAR_Registry extends PEAR
      */
     var $lock_mode = 0; // XXX UNUSED
 
+    /** Cache of package information.  Structure:
+     * array(
+     *   'package' => array('id' => ... ),
+     *   ... )
+     * @var array
+     */
+    var $pkginfo_cache = array();
+
+    /** Cache of file map.  Structure:
+     * array( '/path/to/file' => 'package', ... )
+     * @var array
+     */
+    var $filemap_cache = array();
+
     // }}}
 
     // {{{ constructor
@@ -70,11 +94,12 @@ class PEAR_Registry extends PEAR
     {
         parent::PEAR();
         $ds = DIRECTORY_SEPARATOR;
+        $this->install_dir = $pear_install_dir;
         $this->statedir = $pear_install_dir.$ds.'.registry';
         $this->filemap  = $pear_install_dir.$ds.'.filemap';
         $this->lockfile = $pear_install_dir.$ds.'.lock';
         if (!file_exists($this->filemap)) {
-            $this->_rebuildFileMap();
+            $this->rebuildFileMap();
         }
     }
 
@@ -156,9 +181,9 @@ class PEAR_Registry extends PEAR
     }
 
     // }}}
-    // {{{ _rebuildFileMap()
+    // {{{ rebuildFileMap()
 
-    function _rebuildFileMap()
+    function rebuildFileMap()
     {
         $packages = $this->listPackages();
         $files = array();
@@ -186,8 +211,29 @@ class PEAR_Registry extends PEAR
         if (!$fp) {
             return false;
         }
+        $this->filemap_cache = $files;
         fwrite($fp, serialize($files));
         fclose($fp);
+        return true;
+    }
+
+    // }}}
+    // {{{ readFileMap()
+
+    function readFileMap()
+    {
+        $fp = @fopen($this->filemap, 'r');
+        if (!$fp) {
+            return $this->raiseError('PEAR_Registry: could not open filemap', PEAR_REGISTRY_ERROR_FILE, null, null, $php_errormsg);
+        }
+        $fsize = filesize($this->filemap);
+        $data = fread($fp, $fsize);
+        fclose($fp);
+        $tmp = unserialize($data);
+        if (!$tmp && $fsize > 7) {
+            return $this->raiseError('PEAR_Registry: invalid filemap data', PEAR_REGISTRY_ERROR_FORMAT, null, null, $data);
+        }
+        $this->filemap_cache = $tmp;
         return true;
     }
 
@@ -208,7 +254,7 @@ class PEAR_Registry extends PEAR
      */
     function _lock($mode = LOCK_EX)
     {
-        if(!strstr(php_uname(), 'Windows 95/98')) {    
+        if (!eregi('Windows 9', php_uname())) {
             if ($mode != LOCK_UN && is_resource($this->lock_fp)) {
                 // XXX does not check type of lock (LOCK_SH/LOCK_EX)
                 return true;
@@ -224,9 +270,14 @@ class PEAR_Registry extends PEAR
                 }
                 $open_mode = 'r';
             }
+
+            @ini_set('track_errors', true);
             $this->lock_fp = @fopen($this->lockfile, $open_mode);
+            @ini_restore('track_errors');
+
             if (!is_resource($this->lock_fp)) {
-                return $this->raiseError("could not create lock file: $php_errormsg");
+                return $this->raiseError("could not create lock file" .
+                                         (isset($php_errormsg) ? ": " . $php_errormsg : ""));
             }
             if (!(int)flock($this->lock_fp, $mode)) {
                 switch ($mode) {
@@ -360,6 +411,7 @@ class PEAR_Registry extends PEAR
             $this->_unlock();
             return false;
         }
+        $info['_lastmodified'] = time();
         fwrite($fp, serialize($info));
         $this->_closePackageFile($fp);
         $this->_unlock();
@@ -376,7 +428,7 @@ class PEAR_Registry extends PEAR
         }
         $file = $this->_packageFileName($package);
         $ret = @unlink($file);
-        $this->_rebuildFileMap();
+        $this->rebuildFileMap();
         $this->_unlock();
         return $ret;
     }
@@ -393,14 +445,12 @@ class PEAR_Registry extends PEAR
         if (PEAR::isError($e = $this->_lock(LOCK_EX))) {
             return $e;
         }
-        if (!file_exists($this->filemap)) {
-            $this->_rebuildFileMap();
-        }
         $fp = $this->_openPackageFile($package, 'w');
         if ($fp === null) {
             $this->_unlock();
             return false;
         }
+        $info['_lastmodified'] = time();
         if ($merge) {
             fwrite($fp, serialize(array_merge($oldinfo, $info)));
         } else {
@@ -408,10 +458,232 @@ class PEAR_Registry extends PEAR
         }
         $this->_closePackageFile($fp);
         if (isset($info['filelist'])) {
-            $this->_rebuildFileMap();
+            $this->rebuildFileMap();
         }
         $this->_unlock();
         return true;
+    }
+
+    // }}}
+    // {{{ checkFileMap()
+
+    /**
+     * Test whether a file belongs to a package.
+     *
+     * @param string $path file path, absolute or relative to the pear
+     * install dir
+     *
+     * @return string which package the file belongs to, or an empty
+     * string if the file does not belong to an installed package
+     *
+     * @access public
+     */
+    function checkFileMap($path)
+    {
+        if (is_array($path)) {
+            static $notempty;
+            if (empty($notempty)) {
+                $notempty = create_function('$a','return !empty($a);');
+            }
+            $pkgs = array();
+            foreach ($path as $name => $attrs) {
+                if (isset($attrs['baseinstalldir'])) {
+                    $name = $attrs['baseinstalldir'].DIRECTORY_SEPARATOR.$name;
+                }
+                $pkgs[$name] = $this->checkFileMap($name);
+            }
+            return array_filter($pkgs, $notempty);
+        }
+        if (empty($this->filemap_cache) && PEAR::isError($this->readFileMap())) {
+            return $err;
+        }
+        if (isset($this->filemap_cache[$path])) {
+            return $this->filemap_cache[$path];
+        }
+        $l = strlen($this->install_dir);
+        if (substr($path, 0, $l) == $this->install_dir) {
+            $path = preg_replace('!^'.DIRECTORY_SEPARATOR.'+!', '', substr($path, $l));
+        }
+        if (isset($this->filemap_cache[$path])) {
+            return $this->filemap_cache[$path];
+        }
+        return '';
+    }
+
+    // }}}
+
+    // {{{ rebuildDepsFile()
+
+    /**
+    Experimental dependencies database handling functions (not yet in production)
+
+    TODO:
+        - test it
+        - Think on the "not" dep relation. It's supposed that a package can't
+          be installed if conflicts with another. The problem comes when the
+          user forces the installation and later upgrades it
+    **/
+
+    // XXX Terrible slow, a lot of read, lock, write, unlock
+    function rebuildDepsFile()
+    {
+        // Init the file with empty data
+        $error = $this->_depWriteDepDB(array());
+        if (PEAR::isError($error)) {
+            return $error;
+        }
+        $packages = $this->listPackages();
+        foreach ($packages as $package) {
+            $deps = $this->packageInfo($package, 'release_deps');
+            $error = $this->setPackageDep($package, $deps);
+            if (PEAR::isError($error)) {
+                return $error;
+            }
+        }
+        return true;
+    }
+
+    function &_depGetDepDB()
+    {
+        if (!$fp = fopen($this->depfile, 'r')) {
+            return $this->raiseError("Could not open dependencies file `".$this->depfile."'");
+        }
+        $data = fread($fp, filesize($this->depfile));
+        fclose($fp);
+        return unserialize($data);
+    }
+
+    function _depWriteDepDB(&$deps)
+    {
+        if (PEAR::isError($e = $this->_lock(LOCK_EX))) {
+            return $e;
+        }
+        if (!$fp = fopen($this->depfile, 'w')) {
+            $this->_unlock();
+            return $this->raiseError("Could not open dependencies file `".$this->depfile."' for writting");
+        }
+        fwrite($fp, serialize($deps));
+        fclose($fp);
+        $this->_unlock();
+        return true;
+    }
+
+    /*
+    The data structure is as follows:
+    $dep_db = array(
+        // Other packages depends in some manner on this packages
+        'deps' => array(
+            'Package Name' => array(
+                0 => array(
+                    // This package depends on 'Package Name'
+                    'depend' => 'Package',
+                    // Which version 'Package' needs of 'Package Name'
+                    'version' => '1.0',
+                    // The requirement (version_compare() operator)
+                    'rel' => 'ge'
+                ),
+            ),
+        )
+        // This packages are dependant on other packages
+        'pkgs' => array(
+            'Package Dependant' => array(
+                // This is a index list with paths over the 'deps' array for quick
+                // searching things like "what dependecies has this package?"
+                // $dep_db['deps']['Package Name'][3]
+                'Package Name' => 3 // key in array ['deps']['Package Name']
+            ),
+        )
+    )
+
+    Note: It only supports package dependencies no other type
+    */
+
+    function removePackageDep($package)
+    {
+        $data = &$this->_depGetDepDB();
+        if (PEAR::isError($data)) {
+            return $data;
+        }
+        // Other packages depends on this package, can't be removed
+        if (isset($data['deps'][$package])) {
+            return $data['deps'][$package];
+        }
+        // The package depends on others, remove those dependencies
+        if (isset($data['pkgs'][$package])) {
+            foreach ($data['pkgs'][$package] as $pkg => $key) {
+                // remove the dependency
+                unset($data['deps'][$pkg][$key]);
+                // if no more dependencies, remove the subject too
+                if (!count($data['deps'][$pkg])) {
+                    unset($data['deps'][$pkg]);
+                }
+            }
+            // remove the package from the index list
+            unset($data['pkgs'][$package]);
+        }
+        return $this->_depWriteDepDB();
+    }
+
+    /**
+    * Update or insert a the dependencies of a package, prechecking
+    * that the package won't break any dependency in the process
+    */
+    function setPackageDep($package, $new_version, $rel_deps = array())
+    {
+        $data = &$this->_depGetDepDB();
+        if (PEAR::isError($deps)) {
+            return $deps;
+        }
+        // Other packages depend on this package, check deps. Mostly for
+        // handling uncommon cases like:
+        // <dep type='pkg' rel='lt' version='1.0'>Foo</dep> and we are trying to
+        // update Foo to version 2.0
+        if (isset($data['deps'][$package])) {
+            foreach ($data['deps'][$package] as $dep) {
+                $require  = $dep['version'];
+                $relation = $dep['rel'];
+                // XXX (cox) Possible problem with changes in the way
+                // PEAR_Dependency::checkPackage() works
+                if ($relation != 'has') {
+                    if (!version_compare("$new_version", "$require", $relation)) {
+                        $fails[] = $dep;
+                    }
+                }
+            }
+            if (isset($fails)) {
+                return $fails;
+            }
+        }
+
+        // This package has no dependencies
+        if (!is_array($rel_deps) || !count($rel_deps)) {
+            return true;
+        }
+
+        // The package depends on others, register that
+        foreach ($rel_deps as $dep) {
+            // We only support deps of type 'pkg's
+            if ($dep && $dep['type'] == 'pkg' && isset($dep['name'])) {
+                $write = array('depend'  => $package,
+                               'version' => $dep['version'],
+                               'rel'     => $dep['rel']);
+                settype($data['deps'][$dep['name']], 'array');
+
+                // The dependency already exists, update it
+                if (isset($data['pkgs'][$package][$dep['name']])) {
+                    $key = $data['pkgs'][$package][$dep['name']];
+                    $data['deps'][$dep['name']][$key] = $write;
+
+                // New dependency, insert it
+                } else {
+                    $data['deps'][$dep['name']][] = $write;
+                    $key = key($data['deps'][$dep['name']]);
+                    settype($data['pkgs'][$package], 'array');
+                    $data['pkgs'][$package][$dep['name']] = $key;
+                }
+            }
+        }
+        return $this->_depWriteDepDB($data);
     }
 
     // }}}

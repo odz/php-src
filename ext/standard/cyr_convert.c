@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: cyr_convert.c,v 1.19 2002/02/28 08:26:44 sebastian Exp $ */
+/* $Id: cyr_convert.c,v 1.22 2002/08/24 01:19:27 helly Exp $ */
 
 #include <stdlib.h>
 
@@ -201,7 +201,7 @@ _cyr_mac = {
 *    d - x-cp866
 *    m - x-mac-cyrillic
 *****************************************************************************/
-static char * php_convert_cyr_string(unsigned char *str, int length, char from, char to)
+static char * php_convert_cyr_string(unsigned char *str, int length, char from, char to TSRMLS_DC)
 {
 	const unsigned char *from_table, *to_table;
 	unsigned char tmp;
@@ -228,7 +228,7 @@ static char * php_convert_cyr_string(unsigned char *str, int length, char from, 
 		case 'K':
 			break;
 		default:
-			php_error(E_WARNING, "Unknown source charset: %c", from);
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unknown source charset: %c", from);
 			break;
 	}
 
@@ -250,7 +250,7 @@ static char * php_convert_cyr_string(unsigned char *str, int length, char from, 
 		case 'K':
 			break;
 		default:
-			php_error(E_WARNING, "Unknown destination charset: %c", to);
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unknown destination charset: %c", to);
 			break;
 	}
 
@@ -284,7 +284,7 @@ PHP_FUNCTION(convert_cyr_string)
 
 	str = (unsigned char*) estrndup(Z_STRVAL_PP(str_arg), Z_STRLEN_PP(str_arg));
 	
-	php_convert_cyr_string(str, Z_STRLEN_PP(str_arg), Z_STRVAL_PP(fr_cs)[0], Z_STRVAL_PP(to_cs)[0]);
+	php_convert_cyr_string(str, Z_STRLEN_PP(str_arg), Z_STRVAL_PP(fr_cs)[0], Z_STRVAL_PP(to_cs)[0] TSRMLS_CC);
 	RETVAL_STRING((char *)str, 0)
 }
 /* }}} */

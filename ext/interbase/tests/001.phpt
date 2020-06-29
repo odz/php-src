@@ -6,13 +6,10 @@ InterBase: create test database
 --GET--
 --FILE--
 <?
-/* $Id: 001.phpt,v 1.1.10.1 2002/03/21 14:51:45 ludoo Exp $ */
+/* $Id: 001.phpt,v 1.2 2002/03/19 16:52:41 ludoo Exp $ */
 
-	// remember to:
-	// a) give write permission to the ext/ibase/tests directory
+	// remember to give write permission to the ext/ibase/tests directory
 	// to the user running interbase, otherwise db creation/deletion will  fail
-	// b) set ISC_USER and ISC_PASSWORD env vars before running the tests in order
-	// to be able to connect to Interbase
 	$test_base = dirname(__FILE__)."/ibase_test.tmp";
 	$name = tempnam("","CREATEDB");
 	$ftmp = fopen($name,"w");

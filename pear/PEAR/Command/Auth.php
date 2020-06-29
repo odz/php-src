@@ -16,7 +16,7 @@
 // | Author: Stig Bakken <ssb@fast.no>                                    |
 // +----------------------------------------------------------------------+
 //
-// $Id: Auth.php,v 1.4.2.2 2002/04/09 19:04:23 ssb Exp $
+// $Id: Auth.php,v 1.10.4.2 2002/12/13 02:14:23 ssb Exp $
 
 require_once "PEAR/Command/Common.php";
 require_once "PEAR/Remote.php";
@@ -28,6 +28,37 @@ require_once "PEAR/Config.php";
  */
 class PEAR_Command_Auth extends PEAR_Command_Common
 {
+    // {{{ properties
+
+    var $commands = array(
+        'login' => array(
+            'summary' => 'Connects and authenticates to remote server',
+            'shortcut' => 'li',
+            'function' => 'doLogin',
+            'options' => array(),
+            'doc' => '
+Log in to the remote server.  To use remote functions in the installer
+that require any kind of privileges, you need to log in first.  The
+username and password you enter here will be stored in your per-user
+PEAR configuration (~/.pearrc on Unix-like systems).  After logging
+in, your username and password will be sent along in subsequent
+operations on the remote server.',
+            ),
+        'logout' => array(
+            'summary' => 'Logs out from the remote server',
+            'shortcut' => 'lo',
+            'function' => 'doLogout',
+            'options' => array(),
+            'doc' => '
+Logs out from the remote server.  This command does not actually
+connect to the remote server, it only deletes the stored username and
+password from your user configuration.',
+            )
+
+        );
+
+    // }}}
+
     // {{{ constructor
 
     /**
@@ -42,88 +73,80 @@ class PEAR_Command_Auth extends PEAR_Command_Common
 
     // }}}
 
-    // {{{ getCommands()
+    // {{{ doLogin()
 
     /**
-     * Return a list of all the commands defined by this class.
-     * @return array list of commands
-     * @access public
-     */
-    function getCommands()
-    {
-        return array('login', 'logout');
-    }
-
-    // }}}
-
-    function getHelp($command)
-    {
-        switch ($command) {
-            case 'login':
-                return array(null, 'Connects to the remote server');
-            case 'logout':
-                return array(null, 'Disconnects from the remote server');
-        }
-    }
-    // {{{ run()
-
-    /**
-     * Execute the command.
+     * Execute the 'login' command.
      *
-     * @param string command name
+     * @param string $command command name
      *
-     * @param array option_name => value
+     * @param array $options option_name => value
      *
-     * @param array list of additional parameters
+     * @param array $params list of additional parameters
      *
      * @return bool TRUE on success, FALSE for unknown commands, or
      * a PEAR error on failure
      *
      * @access public
      */
-    function run($command, $options, $params)
+    function doLogin($command, $options, $params)
     {
-        $failmsg = '';
         $server = $this->config->get('master_server');
-        switch ($command) {
-            case 'login': {
-                $remote = new PEAR_Remote($this->config);
-                $username = $this->config->get('username');
-                if (empty($username)) {
-                    $username = @$_ENV['USER'];
-                }
-                $this->ui->displayLine("Logging in to $server.");
-                $username = trim($this->ui->userDialog('Username', 'text', $username));
+        $remote = new PEAR_Remote($this->config);
+        $username = $this->config->get('username');
+        if (empty($username)) {
+            $username = @$_ENV['USER'];
+        }
+        $this->ui->outputData("Logging in to $server.", $command);
+        
+        list($username, $password) = $this->ui->userDialog(
+            $command,
+            array('Username', 'Password'),
+            array('text',     'password'),
+            array($username,  '')
+            );
+        $username = trim($username);
+        $password = trim($password);
+        
+        $this->config->set('username', $username);
+        $this->config->set('password', $password);
+        
+        $remote->expectError(401);
+        $ok = $remote->call('logintest');
+        $remote->popExpect();
+        if ($ok === true) {
+            $this->ui->outputData("Logged in.", $command);
+            $this->config->store();
+        } else {
+            return $this->raiseError("Login failed!");
+        }
 
-                $this->config->set('username', $username);
-                $password = trim($this->ui->userDialog('Password', 'password'));
-                $this->config->set('password', $password);
-                $remote->expectError(401);
-                $ok = $remote->call('logintest');
-                $remote->popExpect();
-                if ($ok === true) {
-                    $this->ui->displayLine("Logged in.");
-                    $this->config->store();
-                } else {
-                    $this->ui->displayLine("Login failed!");
-                }
-                break;
-            }
-            case 'logout': {
-                $this->ui->displayLine("Logging out from $server.");
-                $this->config->remove('username');
-                $this->config->remove('password');
-                $this->config->store();
-                break;
-            }
-            default: {
-                return false;
-            }
-        }
-        if ($failmsg) {
-            return $this->raiseError($failmsg);
-        }
-        return true;
+    }
+
+    // }}}
+    // {{{ doLogout()
+
+    /**
+     * Execute the 'logout' command.
+     *
+     * @param string $command command name
+     *
+     * @param array $options option_name => value
+     *
+     * @param array $params list of additional parameters
+     *
+     * @return bool TRUE on success, FALSE for unknown commands, or
+     * a PEAR error on failure
+     *
+     * @access public
+     */
+    function doLogout($command, $options, $params)
+    {
+        $server = $this->config->get('master_server');
+        $this->ui->outputData("Logging out from $server.", $command);
+        $this->config->remove('username');
+        $this->config->remove('password');
+        $this->config->store();
     }
 
     // }}}

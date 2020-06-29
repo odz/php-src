@@ -112,8 +112,10 @@ static void _zend_is_inconsistent(HashTable *ht, char *file, int line)
 	}
 
 
-#define HASH_UNPROTECT_RECURSION(ht)																\
-	(ht)->nApplyCount--;
+#define HASH_UNPROTECT_RECURSION(ht)													\
+	if ((ht)->bApplyProtection) {														\
+		(ht)->nApplyCount--;															\
+	}
 
 
 #define ZEND_HASH_IF_FULL_DO_RESIZE(ht)				\
@@ -391,7 +393,7 @@ ZEND_API int zend_hash_index_update_or_next_insert(HashTable *ht, ulong h, void 
 			}
 			UPDATE_DATA(ht, p, pData, nDataSize);
 			HANDLE_UNBLOCK_INTERRUPTIONS();
-			if (h >= ht->nNextFreeElement) {
+			if ((long)h >= (long)ht->nNextFreeElement) { /* comparing signed to avoid wraparounds on -1 */
 				ht->nNextFreeElement = h + 1;
 			}
 			if (pDest) {
@@ -419,7 +421,7 @@ ZEND_API int zend_hash_index_update_or_next_insert(HashTable *ht, ulong h, void 
 	CONNECT_TO_GLOBAL_DLLIST(p, ht);
 	HANDLE_UNBLOCK_INTERRUPTIONS();
 
-	if (h >= ht->nNextFreeElement) {
+	if ((long)h >= (long)ht->nNextFreeElement) { /* comparing signed to avoid wraparounds on -1 */
 		ht->nNextFreeElement = h + 1;
 	}
 	ht->nNumOfElements++;
@@ -722,9 +724,9 @@ ZEND_API void zend_hash_apply_with_arguments(HashTable *ht, apply_func_args_t de
 
 	HASH_PROTECT_RECURSION(ht);
 
-	va_start(args, num_args);
 	p = ht->pListHead;
 	while (p != NULL) {
+		va_start(args, num_args);
 		hash_key.arKey = p->arKey;
 		hash_key.nKeyLength = p->nKeyLength;
 		hash_key.h = p->h;
@@ -733,8 +735,8 @@ ZEND_API void zend_hash_apply_with_arguments(HashTable *ht, apply_func_args_t de
 		} else {
 			p = p->pListNext;
 		}
+		va_end(args);
 	}
-	va_end(args);
 
 	HASH_UNPROTECT_RECURSION(ht);
 }
@@ -1113,7 +1115,7 @@ ZEND_API int zend_hash_sort(HashTable *ht, sort_func_t sort_func,
 
 	IS_CONSISTENT(ht);
 
-	if (ht->nNumOfElements <= 1) {	/* Doesn't require sorting */
+	if (!(ht->nNumOfElements>1) && !(renumber && ht->nNumOfElements>0)) { /* Doesn't require sorting */
 		return SUCCESS;
 	}
 	arTmp = (Bucket **) pemalloc(ht->nNumOfElements * sizeof(Bucket *), ht->persistent);

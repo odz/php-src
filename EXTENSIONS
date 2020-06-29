@@ -36,6 +36,11 @@ PRIMARY MAINTAINER:  Rasmus Lerdorf <rasmus@php.net>
 MAINTENANCE:         Maintained
 STATUS:              Working
 -------------------------------------------------------------------------------
+EXTENSION:           apache2
+PRIMARY MAINTAINER:  Aaron Bannert <aaron@php.net>
+MAINTENANCE:         Maintained
+STATUS:              Experimental
+-------------------------------------------------------------------------------
 EXTENSION:           cgi
 MAINTENANCE:         Unknown
 STATUS:              Working
@@ -142,7 +147,8 @@ STATUS:              Working
 COMMENT:             Tested on phpts and isapi versions
 -------------------------------------------------------------------------------
 EXTENSION:           mysql
-MAINTENANCE:         Unknown
+PRIMARY MAINTAINER:  Zak Greant <zak@mysql.com>, Georg Richter <georg@php.net>
+MAINTENANCE:         Maintained
 STATUS:              Working
 -------------------------------------------------------------------------------
 EXTENSION:           pgsql
@@ -168,7 +174,7 @@ EXTENSION:           odbc
 PRIMARY MAINTAINER:  Daniel R. Kalowsky <kalowsky@php.net>
 MAINTENANCE:         Maintained
 STATUS:              Working
-COMMENT:             Working except for persistent connections
+COMMENT:             Working 
 -------------------------------------------------------------------------------
 EXTENSION:           oracle
 PRIMARY MAINTAINER:  Thies C. Arntzen <thies@thieso.net>
@@ -191,10 +197,22 @@ MAINTENANCE:         Unknown
 STATUS:              Unknown
 -------------------------------------------------------------------------------
 EXTENSION:           bz2
-PRIMARY MAINTAINER:  Sterling Hughes <sterling@php.net>
-MAINTENANCE:         Maintained
+PRIMARY MAINTAINER:  Hartmut Holzgraefe <hartmut@six.de>
+MAINTENANCE:         Odd Fixes
 STATUS:              Working
 SINCE:               4.0.3
+-------------------------------------------------------------------------------
+EXTENSION:           dio
+PRIMARY MAINTAINER:  Sterling Hughes <sterling@php.net>
+MAINTENANCE:         Orphaned
+STATUS:              Working
+SINCE:               4.0.6
+-------------------------------------------------------------------------------
+EXTENSION:           cyrus
+PRIMARY MAINTAINER:  Sterling Hughes <sterling@php.net>
+MAINTENANCE:         Orphaned
+STATUS:              Working
+SINCE:               4.0.6
 -------------------------------------------------------------------------------
 EXTENSION:           calendar
 PRIMARY MAINTAINER:  Hartmut Holzgraefe <hartmut@six.de>
@@ -215,6 +233,11 @@ EXTENSION:           crack
 MAINTENANCE:         Unknown
 STATUS:              Experimental
 SINCE:               4.0.5
+-------------------------------------------------------------------------------
+EXTENSION:           ctype
+PRIMARY MAINTAINER:  Hartmut Holzgraefe <hartmut@six.de>
+MAINTENANCE:         Maintained
+STATUS:              Working
 -------------------------------------------------------------------------------
 EXTENSION:           curl
 PRIMARY MAINTAINER:  Sterling Hughes <sterling@php.net>
@@ -248,9 +271,15 @@ PRIMARY MAINTAINER:  Uwe Steinmann <steinm@php.net>
 MAINTENANCE:         Maintained
 STATUS:              Unknown
 -------------------------------------------------------------------------------
+EXTENSION:           fribidi
+PRIMARY MAINTAINER:  Tal Peer <tal@php.net>
+MAINTENANCE:         Maintained
+STATUS:              Working
+-------------------------------------------------------------------------------
 EXTENSION:           ftp
-MAINTENANCE:         Unknown
-STATUS:              Unknown
+PRIMARY MAINTAINER:  Stefan Esser (sesser@php.net)
+MAINTENANCE:         Maintained
+STATUS:              Working
 -------------------------------------------------------------------------------
 EXTENSION:           gd
 PRIMARY MAINTAINER:  Rasmus Lerdorf <rasmus@php.net>
@@ -269,6 +298,11 @@ SINCE:               4.0.4
 EXTENSION:           icap
 MAINTENANCE:         Unknown
 STATUS:              Obsolete
+-------------------------------------------------------------------------------
+EXTENSION:           iconv
+PRIMARY MAINTAINER:  Moriyoshi Koizumi <moriyoshi@php.net>
+MAINTENANCE:         Maintained
+STATUS:              Working
 -------------------------------------------------------------------------------
 EXTENSION:           imap
 PRIMARY MAINTAINER:  Chuck Hagenbuch <chuck@horde.org>
@@ -407,8 +441,8 @@ SINCE:               4.0.2
 -------------------------------------------------------------------------------
 EXTENSION:           swf
 PRIMARY MAINTAINER:  Sterling Hughes <sterling@php.net>
-MAINTENANCE:         Maintained
-STATUS:              Depreciated (Use the ming swf extension instead)
+MAINTENANCE:         Orphaned
+STATUS:              Deprecated (Use the ming swf extension instead)
 COMMENT:             Only for Unix (won't change)
 -------------------------------------------------------------------------------
 EXTENSION:           sysvsem
@@ -435,9 +469,9 @@ MAINTENANCE:         Maintained
 STATUS:              Working
 -------------------------------------------------------------------------------
 EXTENSION:           xslt
-PRIMARY MAINTAINER:  Sterling Hughes <sterling@php.net>
-MAINTENANC:          Maintained
-STATUS:              Working
+PRIMARY MAINTAINER:  Hartmut Holzgraefe <hartmut@six.de>
+MAINTENANCE:         Odd Fixes
+STATUS:              Working (mostly)
 -------------------------------------------------------------------------------
 EXTENSION:           yaz
 PRIMARY MAINTAINER:  Adam Dickmeiss <adam@indexdata.dk>
@@ -455,9 +489,9 @@ MAINTENANCE:         Maintained
 STATUS:              Working
 -------------------------------------------------------------------------------
 EXTENSION:           zziplib
-PRIMARY MAINTAINER:  Sterling Hughes <sterling@php.net>
-MAINTENANCE:         Maintained
-STATUS:              Experimental
+PRIMARY MAINTAINER:  Hartmut Holzgraefe <hartmut@six.de>
+MAINTENANCE:         Odd Fixes
+STATUS:              Working
 SINCE:               4.0.5
 -------------------------------------------------------------------------------
 # iptc?

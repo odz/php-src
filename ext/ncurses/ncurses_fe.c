@@ -29,6 +29,7 @@ static unsigned char first_args_force_ref[] = {1, BYREF_FORCE};
 static unsigned char firstandsecond_args_force_ref[] = {2, BYREF_FORCE, BYREF_FORCE};
 static unsigned char second_args_force_ref[] = {2, BYREF_NONE, BYREF_FORCE};
 static unsigned char secondandthird_args_force_ref[] = {3, BYREF_NONE, BYREF_FORCE, BYREF_FORCE};
+static unsigned char second_thru_fourth_args_force_ref[] = {4, BYREF_NONE, BYREF_FORCE, BYREF_FORCE, BYREF_FORCE};
 
 /* ncurses_functions[]
  *
@@ -43,6 +44,8 @@ function_entry ncurses_functions[] = {
   PHP_FE(ncurses_has_colors, NULL)
   PHP_FE(ncurses_init, NULL)
   PHP_FE(ncurses_init_pair, NULL)
+  PHP_FE(ncurses_color_content, second_thru_fourth_args_force_ref)
+  PHP_FE(ncurses_pair_content, secondandthird_args_force_ref)
   PHP_FE(ncurses_move, NULL)
   PHP_FE(ncurses_newwin, NULL)
   PHP_FE(ncurses_refresh, NULL)
@@ -57,12 +60,15 @@ function_entry ncurses_functions[] = {
   PHP_FE(ncurses_clrtobot, NULL)
   PHP_FE(ncurses_clrtoeol, NULL)
   PHP_FE(ncurses_def_prog_mode, NULL)
+  PHP_FE(ncurses_reset_prog_mode, NULL)
   PHP_FE(ncurses_def_shell_mode, NULL)
+  PHP_FE(ncurses_reset_shell_mode, NULL)
   PHP_FE(ncurses_delch, NULL)
   PHP_FE(ncurses_deleteln, NULL)
   PHP_FE(ncurses_doupdate, NULL)
   PHP_FE(ncurses_echo, NULL)
   PHP_FE(ncurses_erase, NULL)
+  PHP_FE(ncurses_werase, NULL)
   PHP_FE(ncurses_erasechar, NULL)
   PHP_FE(ncurses_flash, NULL)
   PHP_FE(ncurses_flushinp, NULL)
@@ -78,6 +84,7 @@ function_entry ncurses_functions[] = {
   PHP_FE(ncurses_nonl, NULL)
   PHP_FE(ncurses_noraw, NULL)
   PHP_FE(ncurses_raw, NULL)
+  PHP_FE(ncurses_meta, NULL)
   PHP_FE(ncurses_resetty, NULL)
   PHP_FE(ncurses_savetty, NULL)
   PHP_FE(ncurses_termattrs, NULL)
@@ -162,6 +169,37 @@ function_entry ncurses_functions[] = {
   PHP_FE(ncurses_wgetch, NULL)
   PHP_FE(ncurses_keypad, NULL)
   PHP_FE(ncurses_wmove, NULL)
+
+	PHP_FE(ncurses_newpad,		NULL)
+	PHP_FE(ncurses_prefresh,	NULL)
+	PHP_FE(ncurses_pnoutrefresh,	NULL)
+	PHP_FE(ncurses_wstandout,		NULL)
+	PHP_FE(ncurses_wstandend,		NULL)
+	PHP_FE(ncurses_wattrset,		NULL)
+	PHP_FE(ncurses_wattron,		NULL)
+	PHP_FE(ncurses_wattroff,		NULL)
+	PHP_FE(ncurses_waddch,		NULL)
+	PHP_FE(ncurses_wborder,		NULL)
+	PHP_FE(ncurses_whline,		NULL)
+	PHP_FE(ncurses_wvline,		NULL)
+	PHP_FE(ncurses_getyx,		secondandthird_args_force_ref)
+	PHP_FE(ncurses_getmaxyx,		secondandthird_args_force_ref)
+	
+#if HAVE_NCURSES_PANEL
+	PHP_FE(ncurses_update_panels,	NULL)
+	PHP_FE(ncurses_panel_window,	NULL)
+	PHP_FE(ncurses_panel_below,	NULL)
+	PHP_FE(ncurses_panel_above,	NULL)
+	PHP_FE(ncurses_replace_panel,	NULL)
+	PHP_FE(ncurses_move_panel,	NULL)
+	PHP_FE(ncurses_bottom_panel,	NULL)
+	PHP_FE(ncurses_top_panel,	NULL)
+	PHP_FE(ncurses_show_panel,	NULL)
+	PHP_FE(ncurses_hide_panel,	NULL)
+	PHP_FE(ncurses_del_panel,	NULL)
+	PHP_FE(ncurses_new_panel,	NULL)
+#endif
+  
   {NULL, NULL, NULL}  /* Must be the last line in ncurses_functions[] */
 };
 

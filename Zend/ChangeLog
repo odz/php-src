@@ -1,3 +1,739 @@
+2002-11-02  Ilia Alshanetsky  <ilia@prohost.org>
+
+    * zend_language_scanner.l:
+    This patch prevents the freeing of file_handle.free_filename inside
+    compile_filename when dealing with remote files.
+
+    * zend_language_scanner.l:
+    Fixed bug #20214. The remotly included files now are being stored in the
+    included files hash table.
+
+2002-11-01  Derick Rethans  <d.rethans@jdimedia.nl>
+
+    * zend.c: - Initialize the current_execute_data pointer
+
+2002-10-29  Anantha Kesari H Y  <hyanantha@novell.com>
+
+    * zend_config.nw.h:
+    Adding definitions for zend_isnan, zend_isinf and zend_finite for NetWare
+
+2002-10-25  Anantha Kesari H Y  <hyanantha@novell.com>
+
+    * acconfig.h
+      zend.h
+      zend_config.nw.h: NetWare related changes/modifications.
+
+    * zend_config.nw.h: New file.
+
+2002-10-24  Sascha Schumann  <sascha@schumann.cx>
+
+    * Zend.m4
+      configure.in: Split up dl/dlsym checks
+
+2002-10-21  Thies C. Arntzen  <thies@thieso.net>
+
+    * zend_builtin_functions.c:
+    debug_backtrace(): make sure we don't take too many arguments off the argument-stack.
+
+2002-10-20  Masaki Fujimoto  <fujimoto@studio.co.jp>
+
+    * zend_highlight.c
+      zend_highlight.h
+      zend_multibyte.c
+      zend_multibyte.h:
+    fixed highlight related bugs (in case shift_jis input/output filters are enabled)
+
+2002-10-18  Andi Gutmans  <andi@zend.com>
+
+    * zend_execute.c: - Cleanup
+
+2002-10-14  Ilia Alshanetsky  <ilia@prohost.org>
+
+    * zend_globals.h
+      zend_ini_parser.y
+      zend_ini_scanner.l: Fixed bug #17580
+
+2002-10-14  Derick Rethans  <d.rethans@jdimedia.nl>
+
+    * zend_operators.c: - Add newline for Slowaris compilers
+
+2002-10-13  Ilia Alshanetsky  <ilia@prohost.org>
+
+    * zend_extensions.h:
+    Increased the API number to the date in which floats patch was added.
+
+2002-10-12  Ilia Alshanetsky  <ilia@prohost.org>
+
+    * zend.c
+      zend_operators.c
+      zend_operators.h:
+    Cleanup the float/locale implementation as suggested by Andi.
+
+2002-10-10  Ilia Alshanetsky  <ilia@prohost.org>
+
+    * zend.c: Fixed ZTS build.
+
+2002-10-10  James Cox  <james@blog.at>
+
+    * zend.c: typo
+
+2002-10-10  Ilia Alshanetsky  <ilia@prohost.org>
+
+    * zend_execute_API.c
+      zend_globals.h
+      zend.c:
+    This patch fixes handling of floats on locales where decimal point is not a
+    '.'. Problem is best demonstrated by bug #17079.
+
+2002-10-09  Ilia Alshanetsky  <ilia@prohost.org>
+
+    * zend_builtin_functions.c
+      zend_compile.c
+      zend_constants.c
+      zend_execute.c
+      zend_execute_API.c
+      zend_operators.c
+      zend_operators.h
+      zend_API.c:
+    Renamed zend_str_tolower_nlc to zend_str_tolower and removed the original
+    locale depedant zend_str_tolower.
+
+2002-10-09  Sebastian Bergmann  <sb@sebastian-bergmann.de>
+
+    * zend.h: Lower version here, too.
+
+2002-10-07  Zeev Suraski  <zeev@zend.com>
+
+    * zend_operators.c
+      zend_operators.h: Fix bogus prototypes
+
+2002-10-05  Sebastian Bergmann  <sb@sebastian-bergmann.de>
+
+    * zend.h: Bump Zend version after PHP_4_3 branch.
+
+2002-10-01  Zeev Suraski  <zeev@zend.com>
+
+    * zend_execute.c
+      zend_execute.h
+      zend_execute_API.c: Expose execute_internal again, in execute_API.c
+
+    * zend_execute.c
+      zend_execute.h:
+    execute_internal() shouldn't be exposed.  Thies - if you think it SHOULD be
+    exposed for some reason, then it should move to zend_execute_API.c
+
+2002-09-26  Ilia Alshanetsky  <ilia@prohost.org>
+
+    * zend_API.c
+      zend_builtin_functions.c
+      zend_compile.c
+      zend_constants.c
+      zend_execute.c
+      zend_execute_API.c
+      zend_operators.c
+      zend_operators.h: Fixed bug #18556
+
+2002-09-24  Zeev Suraski  <zeev@zend.com>
+
+    * zend.c: call the thread end handler for the first thread too
+
+2002-09-23  Zeev Suraski  <zeev@zend.com>
+
+    * zend_ini.c
+      zend_globals.h:
+    Thread safety fix - thanks again to Michael Sisolak for pointing out the
+    problem
+
+2002-09-19  Derick Rethans  <d.rethans@jdimedia.nl>
+
+    * zend_ini.c: - MFZE2
+
+2002-09-19  Zeev Suraski  <zeev@zend.com>
+
+    * zend.c
+      zend.h
+      zend_execute_API.c: Fix connection_status()
+
+2002-09-17  Zeev Suraski  <zeev@zend.com>
+
+    * zend.c
+      zend.h: MFH
+
+    * zend.c
+      zend.h:
+    Commit infrastructure for fixing the bug Michael Sisolak found - this
+    should greatly improve the stability of the thread-safe version!
+
+2002-09-15  Ilia Alshanetsky  <ilia@prohost.org>
+
+    * zend_highlight.c: Fix bug #18151
+
+    * zend.c: Set a proper exit error code when Zend encounters a parse error.
+
+2002-09-12  Andrei Zmievski  <andrei@php.net>
+
+    * zend_execute_API.c: Fix for resources defined as constants.
+
+2002-09-10  Andrei Zmievski  <andrei@php.net>
+
+    * zend_API.h
+      zend_builtin_functions.c
+      zend_API.c: Make function_exists() respect disabled functions.
+
+2002-09-09  Stanislav Malyshev  <stas@zend.com>
+
+    * zend_execute.c: fix bug #18610
+
+    * zend_variables.c:
+    take care of right IS_CONSTANT_INDEX variables destruction
+    fixes bug #18108
+
+    * zend_execute_API.c: fix bug #18668 - arrays with constant indexes
+
+    * zend_execute_API.c: protect EG(uninitialized_zval) from being referenced
+    this should fix bug #14582
+
+2002-09-07  Thies C. Arntzen  <thies@thieso.net>
+
+    * zend_execute_API.c:
+    call_user_function_ex now also supports the zend_execute_internal hook.
+
+2002-09-03  Thies C. Arntzen  <thies@thieso.net>
+
+    * zend_execute.c
+      zend_execute_API.c
+      zend_globals.h
+      zend.c
+      zend_builtin_functions.c:
+    rename execute_data_ptr -> current_execute_data to match ZE2 naming
+
+    * zend_builtin_functions.c
+      zend_execute.c
+      zend_execute_API.c
+      zend_execute_globals.h
+      zend_extensions.h:
+     - Backported debug_backtrace() from ZendEngine2. 
+
+2002-09-03  Zeev Suraski  <zeev@zend.com>
+
+    * zend.c
+      zend.h: export zend_uv
+
+    * zend_ini.c:
+    Commit the 2nd part of Jan's patch, to support non-HTML messages
+
+2002-09-03  Derick Rethans  <d.rethans@jdimedia.nl>
+
+    * zend_ini.c: - Revert
+
+    * zend_ini.c:
+    - Apply rest of html errors fix (Patch by Jan Lehnardt <jan@php.net>)
+
+2002-09-03  Sebastian Bergmann  <sb@sebastian-bergmann.de>
+
+    * zend.h:
+    Add html_errors to zend_utility_values. Patch by Jan Lehnardt <jan@php.net>.
+
+2002-09-02  Derick Rethans  <d.rethans@jdimedia.nl>
+
+    * zend_extensions.h:
+    - Bump up module API no (to be able to check for Thies' zend_execute_internal
+      functionality)
+
+2002-09-02  Stanislav Malyshev  <stas@zend.com>
+
+    * zend_execute.c: Do full init for INIT_STRING
+
+2002-08-31  Stefan Esser  <s.esser@e-matters.de>
+
+    * zend_operators.c:
+    changed zend_atoi() to use strtol() instead of atoi() to support octal and hex numbers.
+
+2002-08-29  Thies Arntzen  <thies@pb1.pair.com>
+
+    * zend.c: after bailout execute_data_ptr is no longer valid
+
+2002-08-28  stas  <stas@pb1.pair.com>
+
+    * zend_ini_parser.y
+      zend_ini.h: export zend_parse_ini_file
+
+2002-08-28  derick  <derick@pb1.pair.com>
+
+    * zend.c: - MFH
+
+    * zend.c: - Fix for bug #19103
+
+2002-08-27  sniper  <sniper@pb1.pair.com>
+
+    * zend_qsort.c: MFH, Fix bug: #17449 (sort problems on 64bit systems)
+
+2002-08-24  Andi Gutmans  <andi@pb1.pair.com>
+
+    * zend_execute.c: - Whitespace
+
+2002-08-24  derick  <derick@pb1.pair.com>
+
+    * zend_execute.c: - And one more
+
+    * zend.c: - Fix typo
+
+2002-08-24  Thies Arntzen  <thies@pb1.pair.com>
+
+    * zend_execute.h
+      zend_execute_API.c
+      zend.c
+      zend_execute.c:
+     - added zend_execute_internal which is called like zend_execute but for
+       internal functions. 
+
+
+2002-08-20  fujimoto  <fujimoto@pb1.pair.com>
+
+    * zend_compile.c:
+    check for IS_CONSTANT instead of NULL, according to Andi's idea.
+
+2002-08-19  Zeev Suraski  <zeev@pb1.pair.com>
+
+    * zend_operators.c: MFH
+
+    * zend_operators.c: Fix crashes in certain weird error situations
+
+2002-08-18  sesser  <sesser@pb1.pair.com>
+
+    * zend_alloc.c
+      zend_alloc.h: catch possible integer overflow in ecalloc.
+
+2002-08-17  Zeev Suraski  <zeev@pb1.pair.com>
+
+    * zend_variables.c: MFB
+
+    * zend_variables.c:
+    Look for $GLOBALS when playing with the type of $GLOBALS
+
+    * zend_language_parser.y: Make new bisons happy
+
+2002-08-17  Andi Gutmans  <andi@pb1.pair.com>
+
+    * zend_execute.c:
+    - Always use estrndup() instead of estrdup() when possible.
+
+2002-08-17  Zeev Suraski  <zeev@pb1.pair.com>
+
+    * zend_execute.c:
+    Fix require_once/include_once support for URL's (patch by Ilya)
+
+    * zend_hash.c: Fix sorting of one element hashes, if renumber is on
+
+2002-08-15  Zeev Suraski  <zeev@pb1.pair.com>
+
+    * flex.skl
+      zend.c
+      zend_globals.h
+      zend_language_scanner.l: MFH
+
+    * zend_language_scanner.l
+      zend.c
+      zend_globals.h
+      flex.skl:
+    Fix serious threading problems that could lead to random parse errors,
+    especially on multi-CPU machines
+
+2002-08-13  Zeev Suraski  <zeev@pb1.pair.com>
+
+    * zend.h: Fix bug in concatenation.  How come nobody caught this already??
+
+2002-08-13  fujimoto  <fujimoto@pb1.pair.com>
+
+    * zend_compile.c: fix segfaults
+
+2002-08-09  sebastian  <sebastian@pb1.pair.com>
+
+    * zend.h: Sync version.
+
+2002-08-08  Zeev Suraski  <zeev@pb1.pair.com>
+
+    * zend_alloc.c: Make Nick happy :)
+
+2002-08-04  jason  <jason@pb1.pair.com>
+
+    * zend_compile.c
+      zend_compile.h
+      zend_globals.h
+      zend_language_parser.y:
+    Switch to using a parser token instead of a global
+
+2002-08-02  Zeev Suraski  <zeev@pb1.pair.com>
+
+    * zend_execute.c: Fix bug #16558 (thanks, Ilya)
+
+2002-08-01  stas  <stas@pb1.pair.com>
+
+    * zend_execute.c
+      zend_hash.c:
+    fix bug #18140 - check return value of insert and make insert not
+    wrap around
+
+2002-07-31  stas  <stas@pb1.pair.com>
+
+    * zend_extensions.h:
+    CVS head is not binary compatible with latest release (4.2.2) - bump
+    up the extension API number.
+
+2002-07-30  jason  <jason@pb1.pair.com>
+
+    * zend_execute.c
+      zend_globals.h
+      zend_compile.c:    This is done by counting the opcodes between the begining and end of the declaration.
+
+    Fixed certain situations where switching between tick counts could overflow the comparison
+
+2002-07-20  Thies Arntzen  <thies@pb1.pair.com>
+
+    * zend_execute.c:
+    make sure that execute_data_ptr gets re-initialized after possible recursion
+
+2002-07-15  derick  <derick@pb1.pair.com>
+
+    * zend_operators.c: - Remove Andi's and Derick's crap
+
+2002-07-14  Sascha Schumann  <sas@pb1.pair.com>
+
+    * zend_operators.c: testing considered harmful.
+
+    compiles now again
+
+2002-07-14  derick  <derick@pb1.pair.com>
+
+    * zend_operators.c:
+    - Now implement is as documented: considered TRUE, like any other non-zero
+      (whether negative or positive) number! This means that FALSE++ = TRUE and
+      TRUE++ is still TRUE. Same for FALSE-- = TRUE and TRUE-- = FALSE;
+
+    * zend_operators.c: - Added 'type juggling' for boolean values.
+    - Added 'type juggling' for boolean values. The following conversions are
+      done 
+      $a = FALSE; $a++; /* $a is now bool(true); */
+      $a = TRUE;  $a++; /* $a is now int(2); */
+      $a = FALSE; $a--; /* $a is now int(-1); */
+      $a = TRUE;  $a--; /* $a is now bool(false); */
+
+2002-06-29  Andi Gutmans  <andi@zend.com>
+
+    * zend_language_parser.y: - Add missing semi-colon.
+
+    * zend_compile.c: - Revert previous patch.
+
+    * zend_compile.c: - Fix for bug 17882
+
+    * zend_operators.c: - Fix bug 15037
+
+2002-06-28  Jani Taskinen  <sniper@iki.fi>
+
+    * zend_modules.h:
+    Updated the API number (to be at least same as it is in PHP_4_2_0 branch)
+
+2002-06-26  Andi Gutmans  <andi@zend.com>
+
+    * zend_alloc.c:
+    - Put back the optimization which releases heaps in non-debug mode before
+    - trying to detect leaks
+
+2002-06-24  Andi Gutmans  <andi@zend.com>
+
+    * zend_alloc.c:
+    - MFZE2 (Fixes some warnings and a bug introduced in an earlier patch)
+
+    * zend_alloc.c: - Clean up shutdown_memory_manager().
+
+2002-06-24  Sebastian Bergmann  <sb@sebastian-bergmann.de>
+
+    * Zend.m4: IMHO, ZTS should no longer be labeled experimental.
+
+2002-06-24  Andi Gutmans  <andi@zend.com>
+
+    * zend_alloc.c: - Only do some initializations when needed
+    - Nuke some old commented code
+
+    * zend.h
+      zend_types.h:
+    - Move type definitions out of zend.h so that we can include them without
+    - having to include all of zend.h (which sometimes causes circular
+    - dependencies)
+
+2002-06-22  Andi Gutmans  <andi@zend.com>
+
+    * zend_language_parser.y: - MFH
+
+    * zend_language_parser.y:
+    - This typo has survived for a loooooooooong time.
+
+    * zend_alloc.c
+      zend_alloc.h
+      zend_globals.h: - Completely nuke the persist_alloc() stuff
+
+    * zend_alloc.c
+      zend_alloc.h
+      zend_constants.c
+      zend_constants.h
+      zend_variables.c
+      zend_variables.h: - Nuke persist_alloc()
+
+2002-06-19  Andi Gutmans  <andi@zend.com>
+
+    * zend_constants.c:
+    - Fix problem where you couldn't define constants with different cases but
+    - the same name.
+
+2002-06-18  Derick Rethans  <d.rethans@jdimedia.nl>
+
+    * zend.c:
+    - Change the order of which modules are unloaded to the reverse order of
+      which they were loaded.
+    - Change the order of which modules are unloaded to the reverse order of
+      which they were loaded. (Derick, Zend Engine)
+
+2002-06-12  Andrei Zmievski  <andrei@php.net>
+
+    * zend_builtin_functions.c:
+    set_error_handler() should take methods as callbacks. Also fixed it to report
+    invalid callbacks.
+
+2002-06-08  Andrei Zmievski  <andrei@php.net>
+
+    * zend_builtin_functions.c:
+    Extension registered classes preserve their case in the class entries,
+    so we need to use case-insensitive comparison. A bit slower, but more
+    right.
+
+2002-06-05  Derick Rethans  <d.rethans@jdimedia.nl>
+
+    * zend_llist.c: - MFH
+
+    * zend_globals.h
+      zend_llist.c: - MFZE2 (memleak fix by Stefan Sesser)
+
+2002-06-04  Derick Rethans  <d.rethans@jdimedia.nl>
+
+    * zend_ini_scanner.l: - oops
+
+    * zend_ini_scanner.l: - MFZE2
+
+2002-05-29  Venkat Raghavan S  <rvenkat@novell.com>
+
+    * acconfig.h: Changes to build Zend on NetWare
+
+2002-05-28  Venkat Raghavan S  <rvenkat@novell.com>
+
+    * zend.h: Basic NetWare changes
+
+2002-05-20  Zeev Suraski  <zeev@zend.com>
+
+    * zend_execute.h
+      zend_list.h
+      zend_API.h: Expose more C++ API's (Wez)
+
+2002-05-20  Masaki Fujimoto  <fujimoto@studio.co.jp>
+
+    * zend_compile.h: removed unused prototype.
+
+2002-05-19  Masaki Fujimoto  <fujimoto@studio.co.jp>
+
+    * zend_compile.c
+      zend_language_parser.y
+      zend_language_scanner.l:
+    replaced encoding directive by declare directive.
+
+2002-05-18  Masaki Fujimoto  <fujimoto@studio.co.jp>
+
+    * zend_compile.c
+      zend_language_scanner.l
+      zend_multibyte.c
+      zend_multibyte.h: fixed coding style.
+
+2002-05-16  Sterling Hughes  <sterling@bumblebury.com>
+
+    * zend_execute.c
+      zend_execute.h
+      zend_execute_globals.h
+      zend_globals.h: expose zend_execute_data
+
+2002-05-13  Sterling Hughes  <sterling@bumblebury.com>
+
+    * zend_qsort.c: add $Id: ChangeLog,v 1.97 2002/11/03 01:34:09 changelog Exp $ tag
+
+2002-05-13  Derick Rethans  <d.rethans@jdimedia.nl>
+
+    * zend_builtin_functions.c: - Whitespace
+
+2002-05-12  Zeev Suraski  <zeev@zend.com>
+
+    * zend_highlight.c: Improve html_puts()
+
+2002-05-11  Zeev Suraski  <zeev@zend.com>
+
+    * zend_highlight.c
+      zend_highlight.h: constify
+
+2002-05-10  Sterling Hughes  <sterling@bumblebury.com>
+
+    * zend_qsort.c:
+    Apply casting patch by stig v. (not to be confused with stiglet, our
+    benevolent release master :)
+
+2002-05-10  Rasmus Lerdorf  <rasmus@lerdorf.on.ca>
+
+    * zend_multibyte.c: Fix build
+
+2002-05-08  Derick Rethans  <d.rethans@jdimedia.nl>
+
+    * zend_builtin_functions.c: - Fix for bug #17096
+
+2002-05-08  Rui Hirokawa  <rui_hirokawa@ybb.ne.jp>
+
+    * Zend.dsp
+      Zend.m4
+      ZendTS.dsp
+      zend_compile.c
+      zend_compile.h
+      zend_globals.h
+      zend_language_parser.y
+      zend_language_scanner.h
+      zend_language_scanner.l
+      zend_multibyte.c
+      zend_multibyte.h:
+    Added conversion support from script character encoding to internal character encoding. This feature is very useful for japanese who uses Shift_JIS encoding because some of characters in Shift_JIS are including '0x5c' and it causes some troubles on Zend parser. This patch is made by Masaki Fujimoto.
+
+    * Makefile.am:
+    Added conversion support from script character encoding to internal character encoding. This feature is very useful for japanese who uses Shift_JIS encoding because some of characters in Shift_JIS are including '0x5c' and it causes some troubles on Zend parser.
+
+2002-05-04  Sascha Schumann  <sascha@schumann.cx>
+
+    * zend_extensions.c: add EOL here
+
+    * zend_execute.c:
+    revert and don't rely on compiler before turning on brain
+
+    * zend_execute.c: disable unused code
+
+2002-05-02  Derick Rethans  <d.rethans@jdimedia.nl>
+
+    * zend_extensions.h:
+    - Bump API no to the same as 4.2.1 (this was the original idea AFAIK)
+
+2002-04-30  Stanislav Malyshev  <stas@zend.com>
+
+    * zend_operators.h: Put () in case we want to use it with ->
+
+2002-04-29  Zeev Suraski  <zeev@zend.com>
+
+    * zend_modules.h
+      zend_extensions.h:
+    Update API numbers (4.2.0 went out with the same API numbers as 4.1.0,
+    which unfortunately turned out to be wrong...)
+
+    * zend_alloc.c
+      zend_alloc.h: MFH (to avoid API inconsistencies with 4.3)
+
+2002-04-27  Rasmus Lerdorf  <rasmus@lerdorf.on.ca>
+
+    * zend_execute_API.c:
+    * zend_execute_API.c: Fix for #14542
+
+2002-04-27  Sascha Schumann  <sascha@schumann.cx>
+
+    * zend_alloc.h:
+    Partial backout of last patch.  GCC does not seem to optimize
+    across function borders, even if an inlined function is involved.
+
+    * zend_alloc.c
+      zend_alloc.h:
+    If the size-operands of memset are constants, the compiler can
+    turn them into fast inline code.
+
+    So, instead of using ecalloc, we use emalloc + memset in macro form now.
+
+    emalloc will not return NULL, so the chosen macro form is safe.
+
+    This is not true for malloc(3).  An inline function accomodates
+    our needs here.
+
+    Suggested by: http://www.mail-archive.com/dev%40httpd.apache.org/msg02492.html
+
+2002-04-25  Harald Radi  <h.radi@nme.at>
+
+    * zend_config.w32.h: unbreak the win32 build
+
+2002-04-24  Sascha Schumann  <sascha@schumann.cx>
+
+    * zend_API.c: Avoid exceeding buffer limits
+
+2002-04-23  Thies C. Arntzen  <thies@thieso.net>
+
+    * zend_list.c
+      zend_hash.h
+      zend_hash.c:
+    MFH. make sure resource list is always consistent during request shutdown.
+
+2002-04-22  Sascha Schumann  <sascha@schumann.cx>
+
+    * Zend.m4: change default value of inline-opt to yes.
+
+2002-04-19  Zeev Suraski  <zeev@zend.com>
+
+    * zend_hash.c: Fix imbalance bug
+
+2002-04-18  Thies C. Arntzen  <thies@thieso.net>
+
+    * zend_hash.h
+      zend_list.c
+      zend_hash.c:
+    make sure the resource-list is always consistent during shutdown. this fixes
+
+2002-04-10  Jani Taskinen  <sniper@iki.fi>
+
+    * zend_language_scanner.l: Possible buggy fixed.
+
+    * zend_language_parser.y
+      zend_language_scanner.l: - Added __FUNCTION__ and __CLASS__ constants.
+
+2002-04-05  Zeev Suraski  <zeev@zend.com>
+
+    * zend_execute_API.c: Add some protection code
+
+2002-04-04  Jani Taskinen  <sniper@iki.fi>
+
+    * Zend.m4
+      zend.h
+      zend_extensions.c:
+    - OS X support for dynamically loaded extensions. (patch by Marko)
+
+2002-03-29  Derick Rethans  <d.rethans@jdimedia.nl>
+
+    * zend_compile.c: - Revert fix
+
+    * zend_compile.c: - Revert patch
+
+2002-03-25  Derick Rethans  <d.rethans@jdimedia.nl>
+
+    * zend_compile.c: - MFH for fix for bug #16265
+
+    * zend_compile.c: - Fix for bug #16265
+
+2002-03-15  Sebastian Bergmann  <sb@sebastian-bergmann.de>
+
+    * zend.h: PHP HEAD will become 4.2.1.
+
+2002-03-12  Andi Gutmans  <andi@zend.com>
+
+    * zend.h: - Forgot to close comment.
+
+    * zend.h: - Macro for duality between Engine 1 and 2
+
+2002-03-07  Sebastian Bergmann  <sb@sebastian-bergmann.de>
+
+    * zend.h: HEAD is 4.3.0 / 1.3.0 now.
+
 2002-03-04  Sebastian Bergmann  <sb@sebastian-bergmann.de>
 
     * zend.h: PHP CVS HEAD is 1.2.0 again, revert last version bump.

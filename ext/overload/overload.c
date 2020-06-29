@@ -44,6 +44,7 @@
 #include "ext/standard/info.h"
 #include "php_overload.h"
 
+#ifndef ZEND_ENGINE_2
 #if HAVE_OVERLOAD
 
 #define GET_HANDLER  "__get"
@@ -146,7 +147,7 @@ PHP_RSHUTDOWN_FUNCTION(overload)
 PHP_MINFO_FUNCTION(overload)
 {
 	php_info_print_table_start();
-	php_info_print_table_row(2, "User-space object overloading support", "enabled");
+	php_info_print_table_row(2, "User-Space Object Overloading Support", "enabled");
 	php_info_print_table_end();
 
 	/* Remove comments if you have entries in php.ini
@@ -184,7 +185,7 @@ static int call_get_handler(zval *object, zval *prop_name, zval **prop_value TSR
 	temp_ce = *Z_OBJCE_P(object);
 	DISABLE_HANDLERS(temp_ce);
 	orig_ce = Z_OBJCE_P(object);
-	Z_OBJCE_P(object) = &temp_ce;
+	Z_OBJ_P(object)->ce = &temp_ce;
 
 	result_ptr->is_ref = 1;
 	result_ptr->refcount = 1;
@@ -203,7 +204,7 @@ static int call_get_handler(zval *object, zval *prop_name, zval **prop_value TSR
 											&retval,
 											1, args,
 											0, NULL TSRMLS_CC);
-		Z_OBJCE_P(object) = orig_ce;
+		Z_OBJ_P(object)->ce = orig_ce;
 
 		if (call_result == FAILURE || !retval) {
 			php_error(E_WARNING, "unable to call %s::" GET_HANDLER "_%s() handler", Z_OBJCE_P(object)->name, Z_STRVAL_P(prop_name));
@@ -221,7 +222,7 @@ static int call_get_handler(zval *object, zval *prop_name, zval **prop_value TSR
 											&retval,
 											2, args,
 											0, NULL TSRMLS_CC);
-		Z_OBJCE_P(object) = orig_ce;
+		Z_OBJ_P(object)->ce = orig_ce;
 
 		if (call_result == FAILURE || !retval) {
 			php_error(E_WARNING, "unable to call %s::" GET_HANDLER "() handler", Z_OBJCE_P(object)->name);
@@ -269,7 +270,7 @@ int call_set_handler(zval *object, zval *prop_name, zval *value TSRMLS_DC)
 	temp_ce = *Z_OBJCE_P(object);
 	DISABLE_HANDLERS(temp_ce);
 	orig_ce = Z_OBJCE_P(object);
-	Z_OBJCE_P(object) = &temp_ce;
+	Z_OBJ_P(object)->ce = &temp_ce;
 
 	if (value->refcount == 0) {
 		MAKE_STD_ZVAL(value_copy);
@@ -291,7 +292,7 @@ int call_set_handler(zval *object, zval *prop_name, zval *value TSRMLS_DC)
 											&retval,
 											1, args,
 											0, NULL TSRMLS_CC);
-		Z_OBJCE_P(object) = orig_ce;
+		Z_OBJ_P(object)->ce = orig_ce;
 
 		if (call_result == FAILURE || !retval) {
 			php_error(E_WARNING, "unable to call %s::" SET_HANDLER "_%s() handler", Z_OBJCE_P(object)->name, Z_STRVAL_P(prop_name));
@@ -309,7 +310,7 @@ int call_set_handler(zval *object, zval *prop_name, zval *value TSRMLS_DC)
 											&retval,
 											2, args,
 											0, NULL TSRMLS_CC);
-		Z_OBJCE_P(object) = orig_ce;
+		Z_OBJ_P(object)->ce = orig_ce;
 
 		if (call_result == FAILURE || !retval) {
 			php_error(E_WARNING, "unable to call %s::" SET_HANDLER "() handler", orig_ce->name);
@@ -541,7 +542,7 @@ static void overload_call_method(INTERNAL_FUNCTION_PARAMETERS, zend_property_ref
 		temp_ce = *Z_OBJCE_P(object);
 		DISABLE_HANDLERS(temp_ce);
 		orig_ce = Z_OBJCE_P(object);
-		Z_OBJCE_P(object) = &temp_ce;
+		Z_OBJ_P(object)->ce = &temp_ce;
 
 		ZVAL_STRINGL(&call_handler, CALL_HANDLER, sizeof(CALL_HANDLER)-1, 0);
 		ZVAL_STRINGL(&method_name, Z_STRVAL(method->element), Z_STRLEN(method->element), 0);
@@ -568,7 +569,7 @@ static void overload_call_method(INTERNAL_FUNCTION_PARAMETERS, zend_property_ref
 											&retval,
 											3, handler_args,
 											0, NULL TSRMLS_CC);
-		Z_OBJCE_P(object) = orig_ce;
+		Z_OBJ_P(object)->ce = orig_ce;
 		zval_ptr_dtor(&arg_array);
 
 		if (call_result == FAILURE || !retval) {
@@ -601,9 +602,9 @@ static void overload_call_method(INTERNAL_FUNCTION_PARAMETERS, zend_property_ref
 			return;
 		}
 
-		*return_value = *retval;
-		INIT_PZVAL(return_value);
-		FREE_ZVAL(retval);
+		return_value->value = retval->value;
+		zval_copy_ctor(return_value);
+		zval_ptr_dtor(&retval);
 	}
 	
 	efree(args);
@@ -695,6 +696,7 @@ PHP_FUNCTION(overload)
 /* }}} */
 
 #endif /* HAVE_OVERLOAD */
+#endif /* ZEND_ENGINE_2 */
 
 /*
  * Local variables:

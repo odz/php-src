@@ -17,9 +17,10 @@
 // |          Tomas V.V.Cox <cox@idecnet.com>                             |
 // +----------------------------------------------------------------------+
 //
-// $Id: Packager.php,v 1.27.2.2 2002/04/09 19:04:23 ssb Exp $
+// $Id: Packager.php,v 1.43 2002/09/09 21:42:32 ssb Exp $
 
 require_once 'PEAR/Common.php';
+require_once 'System.php';
 
 /**
  * Administration class used to make a PEAR release tarball.
@@ -32,18 +33,11 @@ require_once 'PEAR/Common.php';
  */
 class PEAR_Packager extends PEAR_Common
 {
-    // {{{ properties
-
-    /** debug mode (integer) */
-    var $debug = 0;
-
-    // }}}
-
     // {{{ constructor
 
     function PEAR_Packager()
     {
-        $this->PEAR();
+        $this->PEAR_Common();
     }
 
     // }}}
@@ -60,7 +54,6 @@ class PEAR_Packager extends PEAR_Common
 
     function package($pkgfile = null, $compress = true)
     {
-        $this->orig_pwd = getcwd();
         if (empty($pkgfile)) {
             $pkgfile = 'package.xml';
         }
@@ -68,19 +61,17 @@ class PEAR_Packager extends PEAR_Common
         if (PEAR::isError($pkginfo)) {
             return $this->raiseError($pkginfo);
         }
-        // XXX This needs to be checked in infoFromDescriptionFile
-        //     or at least a helper method to do the proper checks
         if (empty($pkginfo['version'])) {
             return $this->raiseError("No version info found in $pkgfile");
         }
         // TMP DIR -------------------------------------------------
         // We allow calls like "pear package /home/user/mypack/package.xml"
+        $oldcwd = getcwd();
         if (!@chdir(dirname($pkgfile))) {
             return $this->raiseError('Could not chdir to '.dirname($pkgfile));
         }
-        $pwd = getcwd();
         $pkgfile = basename($pkgfile);
-        if (isset($pkginfo['release_state']) && $pkginfo['release_state'] == 'snapshot' && empty($pkginfo['version'])) {
+        if (@$pkginfo['release_state'] == 'snapshot' && empty($pkginfo['version'])) {
             $pkginfo['version'] = date('Ymd');
         }
         // don't want strange characters
@@ -95,6 +86,7 @@ class PEAR_Packager extends PEAR_Common
         // Copy files -----------------------------------------------
         foreach ($pkginfo['filelist'] as $fname => $atts) {
             if (!file_exists($fname)) {
+                chdir($oldcwd);
                 return $this->raiseError("File $fname does not exist");
             } else {
                 $filelist[$i++] = $fname;
@@ -107,38 +99,48 @@ class PEAR_Packager extends PEAR_Common
         }
         $new_xml = $this->xmlFromInfo($pkginfo);
         if (PEAR::isError($new_xml)) {
+            chdir($oldcwd);
             return $this->raiseError($new_xml);
         }
-        $tmpdir = $this->mkTempDir(getcwd());
+        if (!($tmpdir = System::mktemp('-t '.getcwd().' -d'))) {
+            return $this->raiseError("PEAR_Packager: mktemp failed");
+        }
         $newpkgfile = $tmpdir . DIRECTORY_SEPARATOR . 'package.xml';
         $np = @fopen($newpkgfile, "w");
         if (!$np) {
-            return $this->raiseError("PEAR_Packager: unable to rewrite $pkgfile");
+            chdir($oldcwd);
+            return $this->raiseError("PEAR_Packager: unable to rewrite $pkgfile as $newpkgfile");
         }
         fwrite($np, $new_xml);
         fclose($np);
 
         // TAR the Package -------------------------------------------
         $ext = $compress ? '.tgz' : '.tar';
-        $dest_package = $this->orig_pwd . DIRECTORY_SEPARATOR . $pkgver . $ext;
+        $dest_package = $oldcwd . DIRECTORY_SEPARATOR . $pkgver . $ext;
         $tar =& new Archive_Tar($dest_package, $compress);
         $tar->setErrorHandling(PEAR_ERROR_RETURN); // XXX Don't print errors
         // ----- Creates with the package.xml file
         $ok = $tar->createModify($newpkgfile, '', $tmpdir);
         if (PEAR::isError($ok)) {
+            chdir($oldcwd);
             return $this->raiseError($ok);
         } elseif (!$ok) {
+            chdir($oldcwd);
             return $this->raiseError('PEAR_Packager: tarball creation failed');
         }
         // ----- Add the content of the package
         if (!$tar->addModify($filelist, $pkgver)) {
+            chdir($oldcwd);
             return $this->raiseError('PEAR_Packager: tarball creation failed');
         }
         $this->log(1, "Package $dest_package done");
-        $cvsversion = preg_replace('/[^a-z0-9]/i', '_', $pkgversion);
-        $cvstag = "RELEASE_$cvsversion";
-        $this->log(0, "Tag the released code with `pear cvstag $pkgfile'");
-        $this->log(0, "(or set the CVS tag $cvstag by hand)");
+        if (file_exists("CVS/Root")) {
+            $cvsversion = preg_replace('/[^a-z0-9]/i', '_', $pkgversion);
+            $cvstag = "RELEASE_$cvsversion";
+            $this->log(1, "Tag the released code with `pear cvstag $pkgfile'");
+            $this->log(1, "(or set the CVS tag $cvstag by hand)");
+        }
+        chdir($oldcwd);
         return $dest_package;
     }
 

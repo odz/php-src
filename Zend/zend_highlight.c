@@ -53,22 +53,43 @@ ZEND_API void zend_html_putc(char c)
 }
 
 
-ZEND_API void zend_html_puts(char *s, uint len)
+ZEND_API void zend_html_puts(const char *s, uint len TSRMLS_DC)
 {
-	register char *ptr=s, *end=s+len;
+	const char *ptr=s, *end=s+len;
+#ifdef ZEND_MULTIBYTE
+	char *mbs;
+	int mblen;
+
+	if (LANG_SCNG(output_filter)) {
+		LANG_SCNG(output_filter)(&mbs, &mblen, s, len TSRMLS_CC);
+		ptr = mbs;
+		end = mbs+mblen;
+	}
+#endif /* ZEND_MULTIBYTE */
 	
 	while (ptr<end) {
-		if (*ptr==' '
-			&& len>1
-			&& !(((ptr+1)>=end) || (*(ptr+1)==' ')) /* next is not a space */
-			&& !((ptr==s) || (*(ptr-1)==' '))) /* last is not a space */ {
-			char c = *ptr++;
-
-			ZEND_PUTC(c);
-			continue;
+		if (*ptr==' ') {
+			/* Series of spaces should be displayed as &nbsp;'s
+			 * whereas single spaces should be displayed as a space
+			 */
+			if ((ptr+1) < end && *(ptr+1)==' ') {
+				do {
+					zend_html_putc(*ptr);
+				} while ((++ptr < end) && (*ptr==' '));
+			} else {
+				ZEND_PUTC(*ptr);
+				ptr++;
+			}
+		} else {
+			zend_html_putc(*ptr++);
 		}
-		zend_html_putc(*ptr++);
 	}
+
+#ifdef ZEND_MULTIBYTE
+	if (LANG_SCNG(output_filter)) {
+		efree(mbs);
+	}
+#endif /* ZEND_MULTIBYTE */
 }
 
 
@@ -108,7 +129,7 @@ ZEND_API void zend_highlight(zend_syntax_highlighter_ini *syntax_highlighter_ini
 				in_string = !in_string;
 				break;				
 			case T_WHITESPACE:
-				zend_html_puts(LANG_SCNG(yy_text), LANG_SCNG(yy_leng));  /* no color needed */
+				zend_html_puts(LANG_SCNG(yy_text), LANG_SCNG(yy_leng) TSRMLS_CC);  /* no color needed */
 				token.type = 0;
 				continue;
 				break;
@@ -136,10 +157,10 @@ ZEND_API void zend_highlight(zend_syntax_highlighter_ini *syntax_highlighter_ini
 		}
 		switch (token_type) {
 			case T_END_HEREDOC:
-				zend_html_puts(token.value.str.val, token.value.str.len);
+				zend_html_puts(token.value.str.val, token.value.str.len TSRMLS_CC);
 				break;
 			default:
-				zend_html_puts(LANG_SCNG(yy_text), LANG_SCNG(yy_leng));
+				zend_html_puts(LANG_SCNG(yy_text), LANG_SCNG(yy_leng) TSRMLS_CC);
 				break;
 		}
 
@@ -185,8 +206,8 @@ ZEND_API void zend_strip(TSRMLS_D)
 		switch (token_type) {
 			case T_COMMENT:
 				token.type = 0;
-				break;
-
+				continue;
+			
 			case T_WHITESPACE:
 				if (token.type) {
 					putchar(' ');

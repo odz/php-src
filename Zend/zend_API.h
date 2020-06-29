@@ -29,6 +29,8 @@
 #include "zend_variables.h"
 #include "zend_execute.h"
 
+
+BEGIN_EXTERN_C()
 #define ZEND_FN(name) zif_##name
 #define ZEND_NAMED_FUNCTION(name) void name(INTERNAL_FUNCTION_PARAMETERS)
 #define ZEND_FUNCTION(name) ZEND_NAMED_FUNCTION(ZEND_FN(name))
@@ -246,6 +248,8 @@ ZEND_API int zend_set_hash_symbol(zval *symbol, char *name, int name_length,
 
 #define add_method(arg, key, method)	add_assoc_function((arg), (key), (method))
 
+ZEND_API ZEND_FUNCTION(display_disabled_function);
+
 #if ZEND_DEBUG
 #define CHECK_ZVAL_STRING(z) \
 	if ((z)->value.str.val[ (z)->value.str.len ] != '\0') zend_error(E_WARNING, "String is not zero-terminated (%s)", (z)->value.str.val);
@@ -416,6 +420,8 @@ ZEND_API int zend_set_hash_symbol(zval *symbol, char *name, int name_length,
 #define ZEND_RSHUTDOWN_FUNCTION		ZEND_MODULE_DEACTIVATE_D
 #define ZEND_MINFO_FUNCTION			ZEND_MODULE_INFO_D
 
+END_EXTERN_C()
+	
 #endif /* ZEND_API_H */
 
 

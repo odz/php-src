@@ -15,7 +15,7 @@
    | Author: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                        |
    +----------------------------------------------------------------------+
  */
-/* $Id: safe_mode.c,v 1.42.2.2 2002/03/20 09:02:54 sesser Exp $ */
+/* $Id: safe_mode.c,v 1.51 2002/11/06 18:07:23 iliaa Exp $ */
 
 #include "php.h"
 
@@ -31,16 +31,17 @@
 #include "SAPI.h"
 #include "php_globals.h"
 
-
 /*
  * php_checkuid
  *
- * This function has four modes:
+ * This function has six modes:
  * 
  * 0 - return invalid (0) if file does not exist
  * 1 - return valid (1)  if file does not exist
  * 2 - if file does not exist, check directory
  * 3 - only check directory (needed for mkdir)
+ * 4 - check mode and param
+ * 5 - only check file
  */
 
 PHPAPI int php_checkuid(const char *filename, char *fopen_mode, int mode)
@@ -49,8 +50,12 @@ PHPAPI int php_checkuid(const char *filename, char *fopen_mode, int mode)
 	int ret, nofile=0;
 	long uid=0L, gid=0L, duid=0L, dgid=0L;
 	char path[MAXPATHLEN];
-	char *s;
+	char *s, filenamecopy[MAXPATHLEN];
+	php_stream_wrapper *wrapper = NULL;
 	TSRMLS_FETCH();
+
+	strlcpy(filenamecopy, filename, MAXPATHLEN);
+	filename=(char *)&filenamecopy;
 
 	if (!filename) {
 		return 0; /* path must be provided */
@@ -67,10 +72,10 @@ PHPAPI int php_checkuid(const char *filename, char *fopen_mode, int mode)
 	/* 
 	 * If given filepath is a URL, allow - safe mode stuff
 	 * related to URL's is checked in individual functions
-     */	
-	if (!strncasecmp(filename,"http://", 7) || !strncasecmp(filename,"ftp://", 6)) {
+	 */
+	wrapper = php_stream_locate_url_wrapper(filename, NULL, STREAM_LOCATE_WRAPPERS_ONLY TSRMLS_CC);
+	if (wrapper != NULL)
 		return 1;
-	}
 		
 	/* First we see if the file is owned by the same user...
 	 * If that fails, passthrough and check directory...
@@ -80,10 +85,10 @@ PHPAPI int php_checkuid(const char *filename, char *fopen_mode, int mode)
 		ret = VCWD_STAT(path, &sb);
 		if (ret < 0) {
 			if (mode == CHECKUID_DISALLOW_FILE_NOT_EXISTS) {
-				php_error(E_WARNING, "Unable to access %s", filename);
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to access %s", filename);
 				return 0;
 			} else if (mode == CHECKUID_ALLOW_FILE_NOT_EXISTS) {
-				php_error(E_WARNING, "Unable to access %s", filename);
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to access %s", filename);
 				return 1;
 			}
 			nofile = 1;
@@ -116,7 +121,7 @@ PHPAPI int php_checkuid(const char *filename, char *fopen_mode, int mode)
 			VCWD_REALPATH(filename, path);
 			*s = DEFAULT_SLASH;
 		} else {
-			VCWD_GETCWD(path, MAXPATHLEN);
+			VCWD_GETCWD(path, sizeof(path));
  		}
 	} /* end CHECKUID_ALLOW_ONLY_DIR */
 	
@@ -124,7 +129,7 @@ PHPAPI int php_checkuid(const char *filename, char *fopen_mode, int mode)
 		/* check directory */
 		ret = VCWD_STAT(path, &sb);
 		if (ret < 0) {
-			php_error(E_WARNING, "Unable to access %s", filename);
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to access %s", filename);
 			return 0;
 		}
 		duid = sb.st_uid;
@@ -159,9 +164,9 @@ PHPAPI int php_checkuid(const char *filename, char *fopen_mode, int mode)
 	}
 	
 	if (PG(safe_mode_gid)) {
-		php_error(E_WARNING, "SAFE MODE Restriction in effect.  The script whose uid/gid is %ld/%ld is not allowed to access %s owned by uid/gid %ld/%ld", php_getuid(), php_getgid(), filename, uid, gid);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "SAFE MODE Restriction in effect.  The script whose uid/gid is %ld/%ld is not allowed to access %s owned by uid/gid %ld/%ld", php_getuid(), php_getgid(), filename, uid, gid);
 	} else {
-		php_error(E_WARNING, "SAFE MODE Restriction in effect.  The script whose uid is %ld is not allowed to access %s owned by uid %ld", php_getuid(), filename, uid);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "SAFE MODE Restriction in effect.  The script whose uid is %ld is not allowed to access %s owned by uid %ld", php_getuid(), filename, uid);
 	}			
 	return 0;
 }

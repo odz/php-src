@@ -17,7 +17,7 @@
 */
 
 
-/* $Id: php_mysql.h,v 1.26 2002/02/28 08:26:26 sebastian Exp $ */
+/* $Id: php_mysql.h,v 1.33 2002/11/11 12:54:06 georg Exp $ */
 
 #ifndef PHP_MYSQL_H
 #define PHP_MYSQL_H
@@ -58,6 +58,7 @@ PHP_FUNCTION(mysql_db_query);
 PHP_FUNCTION(mysql_list_dbs);
 PHP_FUNCTION(mysql_list_tables);
 PHP_FUNCTION(mysql_list_fields);
+PHP_FUNCTION(mysql_list_processes);
 PHP_FUNCTION(mysql_error);
 PHP_FUNCTION(mysql_errno);
 PHP_FUNCTION(mysql_affected_rows);
@@ -80,10 +81,16 @@ PHP_FUNCTION(mysql_field_len);
 PHP_FUNCTION(mysql_field_type);
 PHP_FUNCTION(mysql_field_flags);
 PHP_FUNCTION(mysql_escape_string);
+PHP_FUNCTION(mysql_real_escape_string);
 PHP_FUNCTION(mysql_get_client_info);
 PHP_FUNCTION(mysql_get_host_info);
 PHP_FUNCTION(mysql_get_proto_info);
 PHP_FUNCTION(mysql_get_server_info);
+PHP_FUNCTION(mysql_info);
+PHP_FUNCTION(mysql_stat);
+PHP_FUNCTION(mysql_thread_id);
+PHP_FUNCTION(mysql_client_encoding);
+PHP_FUNCTION(mysql_ping);
 
 ZEND_BEGIN_MODULE_GLOBALS(mysql)
 	long default_link;
@@ -95,6 +102,9 @@ ZEND_BEGIN_MODULE_GLOBALS(mysql)
 	char *default_socket;
 	char *connect_error;
 	long connect_errno;
+	long connect_timeout;
+	long result_allocated;
+	long trace_mode;
 ZEND_END_MODULE_GLOBALS(mysql)
 
 #ifdef ZTS

@@ -1,7 +1,10 @@
 --TEST--
-Output buffering test
---POST--
---GET--
+Output buffering tests
+--INI--
+output_buffering=0
+output_handler=
+zlib.output_compression=0
+zlib.output_handler=
 --FILE--
 <?php
 ob_start();
@@ -14,8 +17,10 @@ echo 'A';
   ob_end_clean();
 $a = ob_get_contents();
 ob_end_clean();
-echo $b;
-echo $a;
+
+var_dump( $b ); // 2B
+var_dump( $a ); // 1A
 ?>
 --EXPECT--
-3B2A
+string(2) "2B"
+string(2) "1A"

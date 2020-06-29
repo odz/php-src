@@ -2,6 +2,8 @@
 Test array_merge and array_walk
 --POST--
 --GET--
+--INI--
+precision=14
 --FILE--
 <?php
 require('ext/standard/tests/array/data.inc');
@@ -44,7 +46,7 @@ array_walk ($data, 'echo_kv');
 
 ?>
 --EXPECT--
-array(10) {
+array(11) {
   [0]=>
   string(3) "PHP"
   [1]=>
@@ -55,7 +57,7 @@ array(10) {
   int(27)
   [3]=>
   string(4) "test"
-  ["-2147483648"]=>
+  ["-1000"]=>
   array(2) {
     [0]=>
     string(6) "banana"
@@ -63,18 +65,9 @@ array(10) {
     string(6) "orange"
   }
   [4]=>
-  float(-0.33333333333333)
+  string(6) "monkey"
   [5]=>
-  array(1) {
-    [0]=>
-    array(1) {
-      [0]=>
-      array(1) {
-        [0]=>
-        int(0)
-      }
-    }
-  }
+  float(-0.33333333333333)
   [6]=>
   array(1) {
     [0]=>
@@ -97,6 +90,17 @@ array(10) {
       }
     }
   }
+  [8]=>
+  array(1) {
+    [0]=>
+    array(1) {
+      [0]=>
+      array(1) {
+        [0]=>
+        int(0)
+      }
+    }
+  }
 }
  -- Testing array_walk() -- 
 int(0)
@@ -109,7 +113,7 @@ string(4) "test"
 int(27)
 int(3)
 string(4) "test"
-string(11) "-2147483648"
+string(5) "-1000"
 array(2) {
   [0]=>
   string(6) "banana"
@@ -117,18 +121,9 @@ array(2) {
   string(6) "orange"
 }
 int(4)
-float(-0.33333333333333)
+string(6) "monkey"
 int(5)
-array(1) {
-  [0]=>
-  array(1) {
-    [0]=>
-    array(1) {
-      [0]=>
-      int(0)
-    }
-  }
-}
+float(-0.33333333333333)
 int(6)
 array(1) {
   [0]=>
@@ -141,6 +136,17 @@ array(1) {
   }
 }
 int(7)
+array(1) {
+  [0]=>
+  array(1) {
+    [0]=>
+    array(1) {
+      [0]=>
+      int(0)
+    }
+  }
+}
+int(8)
 array(1) {
   [0]=>
   array(1) {

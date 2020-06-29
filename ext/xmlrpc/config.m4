@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.8.2.7 2002/09/01 00:19:38 sniper Exp $
+dnl $Id: config.m4,v 1.18 2002/09/04 18:47:25 sniper Exp $
 dnl
 
 sinclude(ext/xmlrpc/libxmlrpc/acinclude.m4)
@@ -10,18 +10,14 @@ sinclude(libxmlrpc/xmlrpc.m4)
 PHP_ARG_WITH(xmlrpc, for XMLRPC-EPI support,
 [  --with-xmlrpc[=DIR]     Include XMLRPC-EPI support.])
 
-xmlrpc_ext_shared=$ext_shared
-
 PHP_ARG_WITH(expat-dir, libexpat dir for XMLRPC-EPI,
-[  --with-expat-dir=DIR      XMLRPC-EPI: libexpat dir for XMLRPC-EPI.])
+[  --with-expat-dir=DIR      XMLRPC-EPI: libexpat dir for XMLRPC-EPI.],yes,no)
 
 PHP_ARG_WITH(iconv-dir, iconv dir for XMLRPC-EPI,
-[  --with-iconv-dir=DIR      XMLRPC-EPI: iconv dir for XMLRPC-EPI.])
-
+[  --with-iconv-dir=DIR      XMLRPC-EPI: iconv dir for XMLRPC-EPI.],yes,no)
 
 if test "$PHP_XMLRPC" != "no"; then
 
-  PHP_EXTENSION(xmlrpc, $xmlrpc_ext_shared)
   PHP_SUBST(XMLRPC_SHARED_LIBADD)
   AC_DEFINE(HAVE_XMLRPC,1,[ ])
 
@@ -42,10 +38,11 @@ if test "$PHP_XMLRPC" != "no"; then
   if test "$PHP_ICONV_DIR" != "no"; then
     PHP_ICONV=$PHP_ICONV_DIR
   fi
-
+  
   if test "$PHP_ICONV" = "no"; then
     PHP_ICONV=yes
   fi
+  
   PHP_SETUP_ICONV(XMLRPC_SHARED_LIBADD, [], [
     AC_MSG_ERROR([iconv not found, in order to build xmlrpc you need the iconv library])
   ])
@@ -54,13 +51,14 @@ fi
 
 if test "$PHP_XMLRPC" = "yes"; then
   XMLRPC_CHECKS
-  XMLRPC_LIBADD=libxmlrpc/libxmlrpc.la
-  XMLRPC_SHARED_LIBADD="$XMLRPC_SHARED_LIBADD libxmlrpc/libxmlrpc.la"
-  XMLRPC_SUBDIRS=libxmlrpc
-  PHP_SUBST(XMLRPC_LIBADD)
-  PHP_SUBST(XMLRPC_SUBDIRS)
-  LIB_BUILD($ext_builddir/libxmlrpc,$xmlrpc_ext_shared,yes)
-  PHP_ADD_INCLUDE($ext_srcdir/libxmlrpc)
+  PHP_NEW_EXTENSION(xmlrpc,xmlrpc-epi-php.c libxmlrpc/base64.c \
+          libxmlrpc/simplestring.c libxmlrpc/xml_to_dandarpc.c \
+          libxmlrpc/xmlrpc_introspection.c libxmlrpc/encodings.c \
+          libxmlrpc/system_methods.c libxmlrpc/xml_to_xmlrpc.c \
+          libxmlrpc/queue.c libxmlrpc/xml_element.c libxmlrpc/xmlrpc.c \
+          libxmlrpc/xml_to_soap.c,$ext_shared,,
+          -I@ext_srcdir@/libxmlrpc -DVERSION="0.50")
+  PHP_ADD_BUILD_DIR($ext_builddir/libxmlrpc)
   XMLRPC_MODULE_TYPE=builtin
 
 elif test "$PHP_XMLRPC" != "no"; then

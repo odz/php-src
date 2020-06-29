@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: pageinfo.c,v 1.30 2002/02/28 08:26:46 sebastian Exp $ */
+/* $Id: pageinfo.c,v 1.34 2002/09/06 07:47:49 derick Exp $ */
 
 #include "php.h"
 #include "pageinfo.h"
@@ -27,14 +27,33 @@
 #if HAVE_PWD_H
 #ifdef PHP_WIN32
 #include "win32/pwd.h"
+#elif defined(NETWARE)
+#ifdef ZTS
+extern int basic_globals_id;
+#endif
+#include "netware/pwd.h"
 #else
 #include <pwd.h>
 #endif
+#endif
+#if HAVE_GRP_H
+# ifdef PHP_WIN32
+#  include "win32/grp.h"
+# else
+#  include <grp.h>
+# endif
+#endif
+#ifdef PHP_WIN32
+#undef getgid
+#define getgroups(a, b) 0
+#define getgid() 1
+#define getuid() 1
 #endif
 #if HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 #include <sys/stat.h>
+#include <sys/types.h>
 #ifdef PHP_WIN32
 #include <process.h>
 #endif
@@ -45,7 +64,11 @@
  */
 PHPAPI void php_statpage(TSRMLS_D)
 {
+#if defined(NETWARE) && defined(CLIB_STAT_PATCH)
+	struct stat_libc *pstat;
+#else
 	struct stat *pstat;
+#endif
 
 	pstat = sapi_get_stat(TSRMLS_C);
 
@@ -54,8 +77,15 @@ PHPAPI void php_statpage(TSRMLS_D)
 			BG(page_uid)   = pstat->st_uid;
 			BG(page_gid)   = pstat->st_gid;
 			BG(page_inode) = pstat->st_ino;
+#if defined(NETWARE) && defined(NEW_LIBC)
+			BG(page_mtime) = (pstat->st_mtime).tv_nsec;
+#else
 			BG(page_mtime) = pstat->st_mtime;
-		} 
+#endif
+		} else { /* handler for situations where there is no source file, ex. php -r */
+			BG(page_uid) = getuid();
+			BG(page_gid) = getgid();
+		}
 	}
 }
 /* }}} */

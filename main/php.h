@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php.h,v 1.159 2002/03/01 00:16:58 shane Exp $ */
+/* $Id: php.h,v 1.178 2002/11/07 11:52:45 sas Exp $ */
 
 #ifndef PHP_H
 #define PHP_H
@@ -26,8 +26,8 @@
 #include <dmalloc.h>
 #endif
 
-#define PHP_API_VERSION 20010901
-
+#define PHP_API_VERSION 20020918
+#define PHP_HAVE_STREAMS
 #define YYDEBUG 0
 
 #include "php_version.h"
@@ -61,9 +61,30 @@
 #define PHP_DIR_SEPARATOR '/'
 #endif
 
+#ifdef NETWARE
+/* For php_get_uname() function */
+#define PHP_UNAME  "NetWare"
+/*
+ * This is obtained using uname(2) on Unix and assigned in the case of Windows;
+ * we'll do it this way at least for now.
+ */
+#define PHP_OS      PHP_UNAME
+#endif
+
 #include "php_regex.h"
 
-
+#if HAVE_ASSERT_H
+#if PHP_DEBUG
+#undef NDEBUG
+#else
+#ifndef NDEBUG
+#define NDEBUG
+#endif
+#endif
+#include <assert.h>
+#else /* HAVE_ASSERT_H */
+#define assert(expr) ((void) (0))
+#endif /* HAVE_ASSERT_H */
 
 #define APACHE 0
 
@@ -73,6 +94,10 @@
 
 #if HAVE_ALLOCA_H
 #include <alloca.h>
+#endif
+
+#if HAVE_BUILD_DEFS_H
+#include "build-defs.h"
 #endif
 
 /*
@@ -160,9 +185,6 @@ typedef unsigned int socklen_t;
 char *strerror(int);
 #endif
 
-#include "php_streams.h"
-#include "fopen_wrappers.h"
-
 #if (REGEX == 1 || REGEX == 0) && !defined(NO_REGEX_EXTRA_H)
 #include "regex/regex_extra.h"
 #endif
@@ -171,6 +193,13 @@ char *strerror(int);
 # ifdef PHP_WIN32
 #include "win32/pwd.h"
 #include "win32/param.h"
+#elif defined(NETWARE)
+#ifdef NEW_LIBC
+#include <sys/param.h>
+#else
+#include "NetWare/param.h"
+#endif
+#include "NetWare/pwd.h"
 # else
 #include <pwd.h>
 #include <sys/param.h>
@@ -192,6 +221,7 @@ char *strerror(int);
 #if !defined(HAVE_SNPRINTF) || !defined(HAVE_VSNPRINTF) || defined(BROKEN_SPRINTF) || defined(BROKEN_SNPRINTF) || defined(BROKEN_VSNPRINTF)
 #include "snprintf.h"
 #endif
+#include "spprintf.h"
 
 #define EXEC_INPUT_BUF 4096
 
@@ -208,11 +238,23 @@ char *strerror(int);
 # endif
 #endif
 
+
 /* global variables */
 extern pval *data;
 #if !defined(PHP_WIN32)
+#ifdef NETWARE
+#ifdef NEW_LIBC
+/*#undef environ*/  /* For now, so that our 'environ' implementation is used */
+#define php_sleep sleep
+#else
+#define php_sleep   delay   /* sleep() and usleep() are not available */
+#define usleep      delay
+#endif
+extern char **environ;
+#else
 extern char **environ;
 #define php_sleep sleep
+#endif
 #endif
 
 #ifdef PHP_PWRITE_64
@@ -231,6 +273,15 @@ int Debug(char *format, ...);
 int cfgparse(void);
 
 #define php_error zend_error
+
+PHPAPI void php_verror(const char *docref, const char *params, int type, const char *format, va_list args TSRMLS_DC) ;
+
+/* PHPAPI void php_error(int type, const char *format, ...); */
+PHPAPI void php_error_docref0(const char *docref TSRMLS_DC, int type, const char *format, ...);
+PHPAPI void php_error_docref1(const char *docref TSRMLS_DC, const char *param1, int type, const char *format, ...);
+PHPAPI void php_error_docref2(const char *docref TSRMLS_DC, const char *param1, const char *param2, int type, const char *format, ...);
+
+#define php_error_docref php_error_docref0
 
 #define zenderror phperror
 #define zendlex phplex
@@ -300,6 +351,11 @@ PHPAPI int cfg_get_string(char *varname, char **result);
 #define VIRTUAL_DIR
 #endif
 
+#include "php_streams.h"
+#include "php_memory_streams.h"
+#include "fopen_wrappers.h"
+
+
 /* Virtual current working directory support */
 #include "tsrm_virtual_cwd.h"
 
@@ -346,8 +402,6 @@ PHPAPI int cfg_get_string(char *varname, char **result);
 #define XtOffsetOf(s_type, field) XtOffset(s_type*, field)
 #endif
 #endif /* !XtOffsetOf */
-	
-PHPAPI PHP_FUNCTION(warn_not_available);
 
 #endif
 

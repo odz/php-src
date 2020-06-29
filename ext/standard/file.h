@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: file.h,v 1.46 2002/02/28 08:26:45 sebastian Exp $ */
+/* $Id: file.h,v 1.70.2.1 2002/11/30 18:39:31 helly Exp $ */
 
 /* Synced with php 3.0 revision 1.30 1999-06-16 [ssb] */
 
@@ -29,54 +29,58 @@ PHP_MSHUTDOWN_FUNCTION(file);
 PHP_FUNCTION(tempnam);
 PHP_NAMED_FUNCTION(php_if_tmpfile);
 PHP_NAMED_FUNCTION(php_if_fopen);
-PHP_FUNCTION(fclose);
+PHPAPI PHP_FUNCTION(fclose);
 PHP_FUNCTION(popen);
 PHP_FUNCTION(pclose);
-PHP_FUNCTION(feof);
-PHP_FUNCTION(fread);
-PHP_FUNCTION(fgetc);
-PHP_FUNCTION(fgets);
+PHPAPI PHP_FUNCTION(feof);
+PHPAPI PHP_FUNCTION(fread);
+PHPAPI PHP_FUNCTION(fgetc);
+PHPAPI PHP_FUNCTION(fgets);
 PHP_FUNCTION(fscanf);
-PHP_FUNCTION(fgetss);
+PHPAPI PHP_FUNCTION(fgetss);
 PHP_FUNCTION(fgetcsv);
-PHP_FUNCTION(fwrite);
-PHP_FUNCTION(fflush);
-PHP_FUNCTION(rewind);
-PHP_FUNCTION(ftell);
-PHP_FUNCTION(fseek);
+PHPAPI PHP_FUNCTION(fwrite);
+PHPAPI PHP_FUNCTION(fflush);
+PHPAPI PHP_FUNCTION(rewind);
+PHPAPI PHP_FUNCTION(ftell);
+PHPAPI PHP_FUNCTION(fseek);
 PHP_FUNCTION(mkdir);
 PHP_FUNCTION(rmdir);
-PHP_FUNCTION(fpassthru);
+PHPAPI PHP_FUNCTION(fpassthru);
 PHP_FUNCTION(readfile);
 PHP_FUNCTION(umask);
 PHP_FUNCTION(rename);
 PHP_FUNCTION(unlink);
 PHP_FUNCTION(copy);
 PHP_FUNCTION(file);
+PHP_FUNCTION(file_get_contents);
 PHP_FUNCTION(set_socket_blocking); /* deprecated */
-PHP_FUNCTION(socket_set_blocking);
-PHP_FUNCTION(socket_set_timeout);
-PHP_FUNCTION(socket_get_status);
-PHP_FUNCTION(set_file_buffer);
+PHP_FUNCTION(stream_set_blocking);
+PHP_FUNCTION(stream_select);
+PHP_FUNCTION(stream_set_timeout);
+PHP_FUNCTION(stream_set_write_buffer);
 PHP_FUNCTION(get_meta_tags);
 PHP_FUNCTION(flock);
 PHP_FUNCTION(fd_set);
 PHP_FUNCTION(fd_isset);
-PHP_FUNCTION(select);
 #if (!defined(PHP_WIN32) && !defined(__BEOS__) && HAVE_REALPATH) || defined(ZTS)
 PHP_FUNCTION(realpath);
+PHP_FUNCTION(fnmatch);
 #endif
 PHP_NAMED_FUNCTION(php_if_ftruncate);
 PHP_NAMED_FUNCTION(php_if_fstat);
 
-/* temporary function for testing streams */
-PHP_FUNCTION(fopenstream);
+PHP_FUNCTION(stream_get_meta_data);
+PHP_FUNCTION(stream_register_wrapper);
+PHP_FUNCTION(stream_context_create);
+PHP_FUNCTION(stream_context_set_params);
+PHP_FUNCTION(stream_context_set_option);
+PHP_FUNCTION(stream_context_get_options);
+PHP_FUNCTION(stream_filter_prepend);
+PHP_FUNCTION(stream_filter_append);
+PHP_MINIT_FUNCTION(user_streams);
 
-PHPAPI int php_set_sock_blocking(int socketd, int block);
-PHPAPI int php_file_le_fopen(void);
-PHPAPI int php_file_le_stream(void);
-PHPAPI int php_file_le_popen(void);
-PHPAPI int php_file_le_socket(void);
+PHPAPI int php_set_sock_blocking(int socketd, int block TSRMLS_DC);
 PHPAPI int php_copy_file(char *src, char *dest TSRMLS_DC);
 
 #define META_DEF_BUFSIZE 8192
@@ -94,26 +98,24 @@ typedef enum _php_meta_tags_token {
 } php_meta_tags_token;
 
 typedef struct _php_meta_tags_data {
-  FILE *fp;
-  int socketd;
-  int issock;
-  int ulc;
-  int lc;
-  char *input_buffer;
-  char *token_data;
-  int token_len;
-  int in_meta;
+	php_stream *stream;
+	int ulc;
+	int lc;
+	char *input_buffer;
+	char *token_data;
+	int token_len;
+	int in_meta;
 } php_meta_tags_data;
 
-php_meta_tags_token php_next_meta_token(php_meta_tags_data *);
+php_meta_tags_token php_next_meta_token(php_meta_tags_data * TSRMLS_DC);
 
 typedef struct {
-  int fgetss_state;
-  int pclose_ret;
-  HashTable ht_fsock_keys;
-  HashTable ht_fsock_socks;
-  struct php_sockbuf *phpsockbuf;
-  size_t def_chunk_size;
+  	int pclose_ret;
+	size_t def_chunk_size;
+	long auto_detect_line_endings;
+	long default_socket_timeout;
+	char *user_agent;
+	char *user_stream_current_filename; /* for simple recursion protection */
 } php_file_globals;
 
 #ifdef ZTS

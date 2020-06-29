@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dba_dbm.c,v 1.14.2.1 2002/04/18 12:31:19 derick Exp $ */
+/* $Id: dba_dbm.c,v 1.22.2.1 2002/12/20 20:25:19 helly Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -78,13 +78,14 @@ DBA_OPEN_FUNC(dbm)
 		return FAILURE;
 	}
 
-	info->dbf = calloc(sizeof(dba_dbm_data), 1);
+	info->dbf = pemalloc(sizeof(dba_dbm_data), info->flags&DBA_PERSISTENT);
+	memset(info->dbf, 0, sizeof(dba_dbm_data));
 	return SUCCESS;
 }
 
 DBA_CLOSE_FUNC(dbm)
 {
-	free(info->dbf);
+	pefree(info->dbf, info->flags&DBA_PERSISTENT);
 	dbmclose();
 }
 

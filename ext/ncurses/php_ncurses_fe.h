@@ -28,6 +28,8 @@ PHP_FUNCTION(ncurses_getch);
 PHP_FUNCTION(ncurses_has_colors);
 PHP_FUNCTION(ncurses_init);
 PHP_FUNCTION(ncurses_init_pair);
+PHP_FUNCTION(ncurses_color_content);
+PHP_FUNCTION(ncurses_pair_content);
 PHP_FUNCTION(ncurses_move);
 PHP_FUNCTION(ncurses_newwin);
 PHP_FUNCTION(ncurses_refresh);
@@ -42,12 +44,15 @@ PHP_FUNCTION(ncurses_clear);
 PHP_FUNCTION(ncurses_clrtobot);
 PHP_FUNCTION(ncurses_clrtoeol);
 PHP_FUNCTION(ncurses_def_prog_mode);
+PHP_FUNCTION(ncurses_reset_prog_mode);
 PHP_FUNCTION(ncurses_def_shell_mode);
+PHP_FUNCTION(ncurses_reset_shell_mode);
 PHP_FUNCTION(ncurses_delch);
 PHP_FUNCTION(ncurses_deleteln);
 PHP_FUNCTION(ncurses_doupdate);
 PHP_FUNCTION(ncurses_echo);
 PHP_FUNCTION(ncurses_erase);
+PHP_FUNCTION(ncurses_werase);
 PHP_FUNCTION(ncurses_erasechar);
 PHP_FUNCTION(ncurses_flash);
 PHP_FUNCTION(ncurses_flushinp);
@@ -63,6 +68,7 @@ PHP_FUNCTION(ncurses_noecho);
 PHP_FUNCTION(ncurses_nonl);
 PHP_FUNCTION(ncurses_noraw);
 PHP_FUNCTION(ncurses_raw);
+PHP_FUNCTION(ncurses_meta);
 PHP_FUNCTION(ncurses_resetty);
 PHP_FUNCTION(ncurses_savetty);
 PHP_FUNCTION(ncurses_termattrs);
@@ -147,6 +153,36 @@ PHP_FUNCTION(ncurses_wcolor_set);
 PHP_FUNCTION(ncurses_wgetch);
 PHP_FUNCTION(ncurses_keypad);
 PHP_FUNCTION(ncurses_wmove);
+
+PHP_FUNCTION(ncurses_newpad);
+PHP_FUNCTION(ncurses_prefresh);
+PHP_FUNCTION(ncurses_pnoutrefresh);
+
+PHP_FUNCTION(ncurses_wstandout);
+PHP_FUNCTION(ncurses_wstandend);
+PHP_FUNCTION(ncurses_wattrset);
+PHP_FUNCTION(ncurses_wattron);
+PHP_FUNCTION(ncurses_wattroff);
+PHP_FUNCTION(ncurses_waddch);
+PHP_FUNCTION(ncurses_wborder);
+PHP_FUNCTION(ncurses_whline);
+PHP_FUNCTION(ncurses_wvline);
+PHP_FUNCTION(ncurses_getyx);
+PHP_FUNCTION(ncurses_getmaxyx);
+#if HAVE_NCURSES_PANEL
+PHP_FUNCTION(ncurses_update_panels);
+PHP_FUNCTION(ncurses_panel_window);
+PHP_FUNCTION(ncurses_panel_below);
+PHP_FUNCTION(ncurses_panel_above);
+PHP_FUNCTION(ncurses_replace_panel);
+PHP_FUNCTION(ncurses_move_panel);
+PHP_FUNCTION(ncurses_bottom_panel);
+PHP_FUNCTION(ncurses_top_panel);
+PHP_FUNCTION(ncurses_show_panel);
+PHP_FUNCTION(ncurses_hide_panel);
+PHP_FUNCTION(ncurses_del_panel);
+PHP_FUNCTION(ncurses_new_panel);
+#endif
 
 
 #endif

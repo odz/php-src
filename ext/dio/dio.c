@@ -29,19 +29,21 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <termios.h>
 
 #define le_fd_name "Direct I/O File Descriptor"
 static int le_fd;
 
 function_entry dio_functions[] = {
-    PHP_FE(dio_open,      NULL)
-    PHP_FE(dio_truncate,  NULL)
-    PHP_FE(dio_stat,      NULL)
+	PHP_FE(dio_open,      NULL)
+	PHP_FE(dio_truncate,  NULL)
+	PHP_FE(dio_stat,      NULL)
 	PHP_FE(dio_seek,      NULL)
 	PHP_FE(dio_fcntl,     NULL)
 	PHP_FE(dio_read,      NULL)
-    PHP_FE(dio_write,     NULL)
-    PHP_FE(dio_close,     NULL)
+	PHP_FE(dio_write,     NULL)
+	PHP_FE(dio_close,     NULL)
+        PHP_FE(dio_tcsetattr,     NULL)
 	{NULL, NULL, NULL}
 };
 
@@ -55,7 +57,7 @@ zend_module_entry dio_module_entry = {
 	NULL,	
 	NULL,
 	PHP_MINFO(dio),
-    "0.1",
+	"0.1",
 	STANDARD_MODULE_PROPERTIES
 };
 
@@ -74,9 +76,11 @@ static void _dio_close_fd(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 
 #define RDIOC(c) REGISTER_LONG_CONSTANT(#c, c, CONST_CS | CONST_PERSISTENT)
 
+#define DIO_UNDEF_CONST -1
+
 PHP_MINIT_FUNCTION(dio)
 {
-    le_fd = zend_register_list_destructors_ex(_dio_close_fd, NULL, le_fd_name, module_number);
+	le_fd = zend_register_list_destructors_ex(_dio_close_fd, NULL, le_fd_name, module_number);
 
 	RDIOC(O_RDONLY);
 	RDIOC(O_WRONLY);
@@ -87,7 +91,12 @@ PHP_MINIT_FUNCTION(dio)
 	RDIOC(O_APPEND);
 	RDIOC(O_NONBLOCK);
 	RDIOC(O_NDELAY);
+#ifdef O_SYNC
 	RDIOC(O_SYNC);
+#endif
+#ifdef O_ASYNC
+	RDIOC(O_ASYNC);
+#endif
 	RDIOC(O_NOCTTY);
 	RDIOC(S_IRWXU);
 	RDIOC(S_IRUSR);
@@ -120,7 +129,7 @@ PHP_MINIT_FUNCTION(dio)
 PHP_MINFO_FUNCTION(dio)
 {
 	php_info_print_table_start();
-	php_info_print_table_header(2, "dio support", "enabled");
+	php_info_print_table_row(2, "dio support", "enabled");
 	php_info_print_table_end();
 }
 
@@ -147,8 +156,7 @@ PHP_FUNCTION(dio_open)
 
 	if (ZEND_NUM_ARGS() == 3) {
 		fd = open(file_name, flags, mode);
-	}
-	else {
+	} else {
 		fd = open(file_name, flags);
 	}
 
@@ -181,10 +189,13 @@ PHP_FUNCTION(dio_read)
 	data = emalloc(bytes + 1);
 	res = read(f->fd, data, bytes);
 	if (res <= 0) {
+		efree(data);
 		RETURN_NULL();
 	}
-	
+
+	data = erealloc(data, res + 1);
 	data[res] = 0;
+
 	RETURN_STRINGL(data, res, 0);
 }
 /* }}} */
@@ -322,28 +333,28 @@ PHP_FUNCTION(dio_fcntl)
 		}
 		if (Z_TYPE_P(arg) == IS_ARRAY) {
 			fh = HASH_OF(arg);
-			if (zend_hash_find(fh, "start", 5, (void **) &element) == FAILURE) {
+			if (zend_hash_find(fh, "start", sizeof("start"), (void **) &element) == FAILURE) {
 				lk.l_start = 0;
 			}
 			else {
 				lk.l_start = Z_LVAL_PP(element);
 			}
 
-			if (zend_hash_find(fh, "length", 6, (void **) &element) == FAILURE) {
+			if (zend_hash_find(fh, "length", sizeof("length"), (void **) &element) == FAILURE) {
 				lk.l_len = 0;
 			}
 			else {
 				lk.l_len = Z_LVAL_PP(element);
 			}
 
-			if (zend_hash_find(fh, "whence", 6, (void **) &element) == FAILURE) {
+			if (zend_hash_find(fh, "whence", sizeof("whence"), (void **) &element) == FAILURE) {
 				lk.l_whence = 0;
 			}
 			else {
-				lk.l_whence = SEEK_SET;
+				lk.l_whence = Z_LVAL_PP(element);
 			}
 
-			if (zend_hash_find(fh, "type", 6, (void **) &element) == FAILURE) {
+			if (zend_hash_find(fh, "type", sizeof("type"), (void **) &element) == FAILURE) {
 				lk.l_type = 0;
 			}
 			else {
@@ -401,6 +412,170 @@ PHP_FUNCTION(dio_fcntl)
 	}
 }
 /* }}} */
+
+
+/* {{{ proto mixed dio_tcsetattr(resource fd,  array args )
+   Perform a c library tcsetattr on fd */
+PHP_FUNCTION(dio_tcsetattr)
+{
+	zval     *r_fd;
+	zval     *arg = NULL;
+	php_fd_t *f;
+	struct termios newtio;
+	int Baud_Rate, Data_Bits=8, Stop_Bits=1, Parity=0;
+	long BAUD,DATABITS,STOPBITS,PARITYON,PARITY;
+	HashTable      *fh;
+	zval          **element;
+        
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rz", &r_fd, &arg) == FAILURE) {
+		return;
+	}
+	ZEND_FETCH_RESOURCE(f, php_fd_t *, &r_fd, -1, le_fd_name, le_fd);
+
+ 
+	if (Z_TYPE_P(arg) != IS_ARRAY) {
+		zend_error(E_WARNING,"tcsetattr, third argument should be an associative array");
+		return;
+	}
+
+	fh = HASH_OF(arg);
+
+	if (zend_hash_find(fh, "baud", sizeof("baud"), (void **) &element) == FAILURE) {
+		Baud_Rate = 9600;
+	} else {
+		Baud_Rate = Z_LVAL_PP(element);
+	}
+
+	if (zend_hash_find(fh, "bits", sizeof("bits"), (void **) &element) == FAILURE) {
+		Data_Bits = 8;
+	} else {
+		Data_Bits = Z_LVAL_PP(element);
+	}
+
+	if (zend_hash_find(fh, "stop", sizeof("stop"), (void **) &element) == FAILURE) {
+		Stop_Bits = 1;
+	} else {
+		Stop_Bits = Z_LVAL_PP(element);
+	} 
+
+	if (zend_hash_find(fh, "parity", sizeof("parity"), (void **) &element) == FAILURE) {
+		Parity = 0;
+	} else {
+		Parity = Z_LVAL_PP(element);
+	} 
+
+    /* assign to correct values... */
+    switch (Baud_Rate)  {
+		case 38400:            
+			BAUD = B38400;
+			break;
+		case 19200:
+			BAUD = B19200;
+			break;
+		case 9600:
+			BAUD = B9600;
+			break;
+		case 4800:
+			BAUD = B4800;
+			break;
+		case 2400:
+			BAUD = B2400;
+			break;
+		case 1800:
+			BAUD = B1800;
+			break;
+		case 1200:
+			BAUD = B1200;
+			break;
+		case 600:
+			BAUD = B600;
+			break;
+		case 300:
+			BAUD = B300;
+			break;
+		case 200:
+			BAUD = B200;
+			break;
+		case 150:
+			BAUD = B150;
+			break;
+		case 134:
+			BAUD = B134;
+			break;
+		case 110:
+			BAUD = B110;
+			break;
+		case 75:
+			BAUD = B75;
+			break;
+		case 50:
+			BAUD = B50;
+			break;
+		default:
+			zend_error(E_WARNING, "invalid baud rate %d", Baud_Rate);
+			RETURN_FALSE;
+	}
+	switch (Data_Bits) {
+		case 8:
+			DATABITS = CS8;
+			break;
+		case 7:
+			DATABITS = CS7;
+			break;
+		case 6:
+			DATABITS = CS6;
+			break;
+		case 5:
+			DATABITS = CS5;
+			break;
+		default:
+			zend_error(E_WARNING, "invalid data bits %d", Data_Bits);
+			RETURN_FALSE;
+	}   
+	switch (Stop_Bits) {
+		case 1:
+			STOPBITS = 0;
+			break;
+		case 2:
+			STOPBITS = CSTOPB;
+			break;
+		default:
+			zend_error(E_WARNING, "invalid stop bits %d", Stop_Bits);
+			RETURN_FALSE;
+	}   
+
+	switch (Parity) {
+		case 0:    
+			PARITYON = 0;
+			PARITY = 0;
+			break;
+		case 1:                         
+			PARITYON = PARENB;
+			PARITY = PARODD;
+			break;
+		case 2:                         
+			PARITYON = PARENB;
+			PARITY = 0;
+			break;
+		default:
+			zend_error(E_WARNING, "invalid parity %d", Parity);
+			RETURN_FALSE;
+	}   
+        
+	newtio.c_cflag = BAUD | CRTSCTS | DATABITS | STOPBITS | PARITYON | PARITY | CLOCAL | CREAD;
+	newtio.c_iflag = IGNPAR;
+	newtio.c_oflag = 0;
+	newtio.c_lflag = 0;       /* ICANON; */
+	newtio.c_cc[VMIN]=1;
+	newtio.c_cc[VTIME]=0;
+	tcflush(f->fd, TCIFLUSH);
+	tcsetattr(f->fd,TCSANOW,&newtio);
+
+	RETURN_TRUE;
+}
+/* }}} */
+
+
 
 /* {{{ proto void dio_close(resource fd)
    Close the file descriptor given by fd */

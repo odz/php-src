@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: iptc.c,v 1.37 2002/02/28 08:26:46 sebastian Exp $ */
+/* $Id: iptc.c,v 1.41.4.1 2002/12/05 22:46:40 iliaa Exp $ */
 
 /*
  * Functions to parse & compse IPTC data.
@@ -112,9 +112,7 @@ static int php_iptc_get1(FILE *fp, int spool, unsigned char **spoolbuf TSRMLS_DC
  */
 static int php_iptc_read_remaining(FILE *fp, int spool, unsigned char **spoolbuf TSRMLS_DC)
 {
- 	int c;
-
-  	while ((c = php_iptc_get1(fp, spool, spoolbuf TSRMLS_CC)) != EOF) continue;
+  	while (php_iptc_get1(fp, spool, spoolbuf TSRMLS_CC) != EOF) continue;
 
 	return M_EOI;
 }
@@ -215,7 +213,7 @@ PHP_FUNCTION(iptcembed)
 	}
 
     if ((fp = VCWD_FOPEN(Z_STRVAL_PP(jpeg_file), "rb")) == 0) {
-        php_error(E_WARNING, "Unable to open %s", Z_STRVAL_PP(jpeg_file));
+        php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to open %s", Z_STRVAL_PP(jpeg_file));
         RETURN_FALSE;
     }
 
@@ -304,7 +302,7 @@ PHP_FUNCTION(iptcembed)
    Parse binary IPTC-data into associative array */
 PHP_FUNCTION(iptcparse)
 {
-	unsigned int length, inx, len, inheader, tagsfound;
+	unsigned int length, inx, len, tagsfound;
 	unsigned char *buffer;
 	unsigned char recnum, dataset;
 	unsigned char key[ 16 ];
@@ -319,7 +317,6 @@ PHP_FUNCTION(iptcparse)
 	length = Z_STRLEN_PP(str);
 	buffer = Z_STRVAL_PP(str);
 
-	inheader = 0; /* have we already found the IPTC-Header??? */
 	tagsfound = 0; /* number of tags already found */
 
 	while (inx < length) { /* find 1st tag */
@@ -356,19 +353,13 @@ PHP_FUNCTION(iptcparse)
 			break;
 
 		if (tagsfound == 0) { /* found the 1st tag - initialize the return array */
-			if (array_init(return_value) == FAILURE) {
-				php_error(E_ERROR, "Unable to initialize array");
-				RETURN_FALSE;
-	  		}
+			array_init(return_value);
 		}
 
 		if (zend_hash_find(Z_ARRVAL_P(return_value), key, strlen(key) + 1, (void **) &element) == FAILURE) {
 			ALLOC_ZVAL(values);
 			INIT_PZVAL(values);
-			if (array_init(values) == FAILURE) {
-				php_error(E_ERROR, "Unable to initialize array");
-				RETURN_FALSE;
-			}
+			array_init(values);
 			
 			zend_hash_update(Z_ARRVAL_P(return_value), key, strlen(key)+1, (void *) &values, sizeof(pval*), (void **) &element);
 		} 

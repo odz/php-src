@@ -16,14 +16,12 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_win32.h,v 1.7 2001/12/11 15:16:20 sebastian Exp $ */
+/* $Id: tsrm_win32.h,v 1.9 2002/10/29 07:32:52 shane Exp $ */
 
 #ifndef TSRM_WIN32_H
 #define TSRM_WIN32_H
 
 #include "TSRM.h"
-
-#ifdef TSRM_WIN32
 #include <windows.h>
 
 struct ipc_perm {
@@ -73,8 +71,6 @@ typedef struct {
 # define TWG(v) (win32_globals.v)
 #endif
 
-#endif
-
 #define IPC_PRIVATE	0
 #define IPC_CREAT	00001000
 #define IPC_EXCL	00002000
@@ -96,6 +92,7 @@ typedef struct {
 TSRM_API void tsrm_win32_startup(void);
 TSRM_API void tsrm_win32_shutdown(void);
 
+TSRM_API FILE *popen_ex(const char *command, const char *type, const char *cwd, char *env);
 TSRM_API FILE *popen(const char *command, const char *type);
 TSRM_API int pclose(FILE *stream);
 

@@ -156,6 +156,7 @@ sapi_nsapi_header_handler(sapi_header_struct *sapi_header, sapi_headers_struct *
 	header_name = sapi_header->header;
 	header_content = p = strchr(header_name, ':');
 	if (p == NULL) {
+		efree(sapi_header->header);
 		return 0;
 	}
 
@@ -317,7 +318,9 @@ sapi_nsapi_register_server_variables(zval *track_vars_array TSRMLS_DC)
 	}
 	sprintf(buf, "%d", conf_getglobals()->Vport);
 	php_register_variable("SERVER_PORT", buf, track_vars_array TSRMLS_CC );
-	php_register_variable("SERVER_NAME", util_hostname(), track_vars_array TSRMLS_CC );
+	if ((value = util_hostname())) {
+		php_register_variable("SERVER_NAME", value, track_vars_array TSRMLS_CC );
+	}	
 	php_register_variable("SERVER_URL", http_uri2url("", ""), track_vars_array TSRMLS_CC );
 	php_register_variable("HTTPS", (security_active ? "ON" : "OFF"), track_vars_array TSRMLS_CC );
 /*	php_register_variable("SERVER_SOFTWARE", MAGNUS_VERSION_STRING, track_vars_array TSRMLS_CC ); */
@@ -341,11 +344,20 @@ nsapi_log_message(char *message)
 }
 
 
+static int php_nsapi_startup(sapi_module_struct *sapi_module)
+{
+	if (php_module_startup(sapi_module, NULL, 0)==FAILURE) {
+		return FAILURE;
+	}
+	return SUCCESS;
+}
+
+
 static sapi_module_struct nsapi_sapi_module = {
 	"nsapi",				/* name */
 	"NSAPI",				/* pretty name */
 
-	php_module_startup,			/* startup */
+	php_nsapi_startup,			/* startup */
 	php_module_shutdown_wrapper,		/* shutdown */
 
 	NULL,					/* activate */

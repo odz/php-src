@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ircg.c,v 1.128 2002/02/28 08:26:17 sebastian Exp $ */
+/* $Id: ircg.c,v 1.137 2002/10/17 10:40:17 sas Exp $ */
 
 /* {{{ includes */
 
@@ -33,6 +33,7 @@
 #include "php_ircg.h"
 #include "ext/standard/html.h"
 
+#include "ext/standard/php_lcg.h"
 #include "ext/standard/php_smart_str.h"
 #include "ext/standard/info.h"
 #include "ext/standard/basic_functions.h"
@@ -53,7 +54,6 @@
 #include <arpa/inet.h>
 #endif
 
-#define IRCG_ERROR_MSG_GC_INTERVAL 50
 
 /* }}} */
 
@@ -99,6 +99,8 @@ enum {
 	FMT_MSG_BANLIST,
 	FMT_MSG_BANLIST_END,
 	FMT_MSG_DISCONNECTED,
+	FMT_MSG_LIST,
+	FMT_MSG_LISTEND,
 	NO_FMTS
 };
 /* }}} */
@@ -129,6 +131,7 @@ function_entry ircg_functions[] = {
 	PHP_FE(ircg_lookup_format_messages, NULL)
 	PHP_FE(ircg_register_format_messages, NULL)
 	PHP_FE(ircg_get_username, NULL)
+	PHP_FE(ircg_eval_ecmascript_params, NULL)
 	{NULL, NULL, NULL}	/* Must be the last line in ircg_functions[] */
 };
 /* }}} */
@@ -147,6 +150,7 @@ typedef struct {
 	union {
 		unsigned char v;
 		void *ptr;
+		smart_str *s;
 	} para;
 } token_t;
 
@@ -163,9 +167,11 @@ typedef struct {
 	irconn_t conn;
 	smart_str buffer;
 	time_t login;
-	int buffer_count;
 	int fd;
 	int irconn_id;
+#if 0
+	struct sockaddr_in sin; /* address of stream conn */
+#endif
 	php_fmt_msgs_t *fmt_msgs;
 	irc_write_buf wb;
 	HashTable ctcp_msgs;
@@ -192,7 +198,8 @@ enum {
 	C_TO,
 	C_MESSAGE,
 	C_STRING,
-	C_PERCENT
+	C_PERCENT,
+	C_TERMINATE_1		/* auth by username */
 };
 
 enum {
@@ -211,9 +218,11 @@ static php_fmt_msgs_t fmt_msgs_default_compiled;
 
 static void format_msg(const format_msg_t *fmt_msg, smart_str *channel, 
 		smart_str *to, smart_str *from, smart_str *msg, smart_str *result, 
-		const char *username, int username_len);
+		const char *username, int username_len, int *status);
 
 static void msg_send(php_irconn_t *conn, smart_str *msg);
+
+static php_irconn_t *flush_data;
 
 /* }}} */
 
@@ -245,7 +254,9 @@ static char *fmt_msgs_default[] = {
 	"%f sets channel operator flag of %t to %m on %c<br />",
 	"banned from %c: %m<br />",
 	"end of ban list for %c<br />",
-	"You have been disconnected<br />"
+	"You have been disconnected<br />",
+	"Channel %c has %t users and the topic is '%m'<br />",
+	"End of LIST<br />"
 };
 
 /* }}} */
@@ -260,7 +271,7 @@ static char *fmt_msgs_default[] = {
 
 #define FORMAT_MSG(conn, type, chan, to, from, msg, res, u, ulen) {			\
 	format_msg(MSG(conn, type), chan, \
-			to, from, msg, res, u, ulen);									\
+			to, from, msg, res, u, ulen, NULL);								\
 }
 
 /* }}} */
@@ -321,6 +332,28 @@ static void fmt_msgs_dtor(void *dummy)
 
 /* }}} */
 
+
+static int is_my_conn(php_irconn_t *conn)
+{
+#if 0
+	struct sockaddr_in sin;
+	socklen_t len = sizeof(sin);
+
+	if (getpeername(conn->fd, &sin, &len)) {
+		if (errno == EBADF || errno == ENOTSOCK || errno == ENOTCONN)
+			return 0;
+		else
+			/* closing a connection is better than leaking fds */
+			return 1;
+	}
+
+	if (sin.sin_addr.s_addr == conn->sin.sin_addr.s_addr 
+			&& sin.sin_port == conn->sin.sin_port)
+#endif
+		return 1;
+	return 0;
+}
+
 /* {{{ quit_handler */
 
 static void quit_handler(irconn_t *c, void *dummy)
@@ -332,12 +365,13 @@ static void quit_handler(irconn_t *c, void *dummy)
 		zend_hash_index_del(&h_fd2irconn, conn->fd);
 		if (conn->file_fd == -1)
 			irc_write_buf_del(&conn->wb);
-		shutdown(conn->fd, 2);
+		if (is_my_conn(conn))
+			shutdown(conn->fd, 2);
 	}
 	if (conn->file_fd != -1) {
 		smart_str m = {0};
 
-		format_msg(MSG(conn, FMT_MSG_DISCONNECTED), NULL, NULL, NULL, NULL,
+		FORMAT_MSG(conn, FMT_MSG_DISCONNECTED, NULL, NULL, NULL, NULL,
 			&m, conn->conn.username, conn->conn.username_len);
 		msg_send(conn, &m);
 
@@ -349,7 +383,7 @@ static void quit_handler(irconn_t *c, void *dummy)
 	zend_hash_index_del(&h_irconn, conn->irconn_id);
 
 	zend_hash_destroy(&conn->ctcp_msgs);
-	if (conn->buffer.c) smart_str_free_ex(&conn->buffer, 1);
+	smart_str_free_ex(&conn->buffer, 1);
 	
 #ifdef IRCG_PENDING_URL
 	if (conn->od_port) {
@@ -389,13 +423,14 @@ static const char hextab[] = "0123456789abcdef";
 
 static void ircg_nickname_escape(smart_str *input, smart_str *output)
 {
-	char *p;
-	char *end;
-	char c;
+	unsigned char *p;
+	unsigned char *end;
+	unsigned char c;
 
-	end = input->c + input->len;
+	p = (unsigned char *) input->c;
+	end = p + input->len;
 
-	for(p = input->c; p < end; p++) {
+	while (p < end) {
 		c = *p;
 		if ((c >= 'a' && c <= 'z')
 				|| (c >= 'A' && c <= 'Z')
@@ -406,6 +441,7 @@ static void ircg_nickname_escape(smart_str *input, smart_str *output)
 			smart_str_appendc_ex(output, hextab[c >> 4], 1);
 			smart_str_appendc_ex(output, hextab[c & 15], 1);
 		}
+		p++;
 	}
 }
 
@@ -553,6 +589,7 @@ next:
 
 		/* associate mode bits with each command where applicable */
 		case 'c': NEW_TOKEN(C_CHANNEL, v) = mode; break;
+		case 'd': NEW_TOKEN(C_TERMINATE_1, v) = mode; break;
 		case 't': NEW_TOKEN(C_TO, v) = mode; break;
 		case 'f': NEW_TOKEN(C_FROM, v) = mode; break;
 		case 'r': NEW_TOKEN(C_MESSAGE, v) = mode; break;
@@ -562,6 +599,7 @@ next:
 		case '%': NEW_TOKEN(C_PERCENT, v) = 0; break;
 
 		default: /* ignore invalid combinations */
+				  break;
 		}
 		p = q + 1; /* skip last format character */
 	} while (p < pe);
@@ -576,7 +614,7 @@ leave_loop:
 /* {{{ format_msg */
 static void format_msg(const format_msg_t *fmt_msg, smart_str *channel, 
 		smart_str *to, smart_str *from, smart_str *msg, smart_str *result, 
-		const char *username, int username_len)
+		const char *username, int username_len, int *status)
 {
 	smart_str encoded_msg = {0};
 	int encoded = 0;
@@ -637,7 +675,7 @@ static void format_msg(const format_msg_t *fmt_msg, smart_str *channel,
 			break;									\
 		}
 
-	for (; ntoken -- > 0; i++) {
+	for (; ntoken-- > 0; i++) {
 		switch (t[i].code) {
 		case C_STRING: smart_str_append_ex(result, t[i].para.ptr, 1); break;
 		case C_FROM: IRCG_APPEND(from); break;
@@ -645,6 +683,13 @@ static void format_msg(const format_msg_t *fmt_msg, smart_str *channel,
 		case C_CHANNEL: IRCG_APPEND(channel); break;
 		case C_MESSAGE: IRCG_APPEND(msg); break;
 		case C_PERCENT: smart_str_appendc_ex(result, '%', 1); break;
+		case C_TERMINATE_1: /* auth by username */
+			if (ntoken > 0 && t[i+1].code == C_STRING) {
+				if (t[i+1].para.s->len == from->len
+						&& strncasecmp(t[i+1].para.s->c, from->c, from->len) == 0)
+					*status = 1;
+			} else
+				*status = 1;
 		}
 	}
 
@@ -663,12 +708,6 @@ stop:
 
 #define ADD_HEADER(a) sapi_add_header(a, sizeof(a) - 1, 1)
 
-static void msg_http_start(php_irconn_t *conn TSRMLS_DC)
-{
-	ADD_HEADER("Pragma: no-cache");
-	sapi_send_headers(TSRMLS_C);
-}
-
 static void http_closed_connection(int fd)
 {
 	int *id, stored_id;
@@ -684,52 +723,89 @@ static void http_closed_connection(int fd)
 
 /* }}} */
 
+static time_t ircg_now(void)
+{
+	struct timeval now;
+
+#if IRCG_API_VERSION >= 20010601
+	if (ircg_now_time_t != (time_t) 0) 
+		return ircg_now_time_t;
+	else
+#endif
+	gettimeofday(&now, NULL);
+
+	return now.tv_sec;
+}
+
+#define GC_INTVL 60
+#define WINDOW_TIMEOUT (3 * 60)
+
+static const char timeout_message[] = "Timed out waiting for streaming window";
+
 /* {{{ Message-delivery */
 static void msg_accum_send(php_irconn_t *conn, smart_str *msg)
 {
+	int n;
+	
 	if (msg->c == 0) return;
 
 	if (conn->file_fd != -1) {
 		write(conn->file_fd, msg->c, msg->len);
-		smart_str_free_ex(msg, 1);
-		return;
+		goto done;
 	}
 	
 	switch (conn->fd) {
 	case -2: /* Connection was finished */
-		smart_str_free_ex(msg, 1);
-		break;
+		goto done;
 	case -1: /* No message window yet. Buffer */
-		if (conn->buffer_count++ > 10) {
-			struct timeval now;
-			
-			smart_str_free_ex(msg, 1);
-#if IRCG_API_VERSION >= 20010601
-			if (ircg_now_time_t != (time_t) 0) 
-				now.tv_sec = ircg_now_time_t;
-			else
-#endif
-				gettimeofday(&now, NULL);
-		   	if ((now.tv_sec - conn->login) > 30)
-				irc_disconnect(&conn->conn, "Timed out waiting for window");
-			return;
+		if ((ircg_now() - conn->login) > WINDOW_TIMEOUT) {
+			irc_disconnect(&conn->conn, timeout_message);
+			goto done;
 		}
 		smart_str_append_ex(&conn->buffer, msg, 1);
-		smart_str_free_ex(msg, 1);
-		break;
+		goto done;
 	default:
 #if IRCG_API_VERSION - 0 >= 20010601
-		if (irc_write_buf_append_ex(&conn->wb, msg, 0)) {
-			irc_disconnect(&conn->conn, "Write to HTTP client failed");
+		if ((n = irc_write_buf_append_ex(&conn->wb, msg, 0))) {
+			const char *reason;
+		
+#if IRCG_API_VERSION - 0 >= 20020308	
+			switch (n) {
+			case D_OVERFLOW:
+				reason = "Client is too slow, client-specific queue full";
+				break;
+			case D_POLL_ERROR:
+				reason = "Poll failed. The connection is bad.";
+				break;
+			case D_CORRUPT_QUEUE:
+				reason = "Internal failure: Corrupt queue";
+				break;
+			default:
+				if (n < 0)
+					reason = strerror(-n);
+				else
+#else
+			{
+#endif
+					reason = "Write to HTTP client failed for no reason";
+			}
+
+			irc_disconnect(&conn->conn, reason);
 		}
+		return;
 #elif IRCG_API_VERSION - 0 >= 20010302
-		irc_write_buf_append_ex(&conn->wb, msg, 0);
+		irc_write_buf_append_ex(&conn->wb, msg, 0); /* no copy */
+		return;
 #else
 		irc_write_buf_append(&conn->wb, msg);
-		smart_str_free_ex(msg, 1);
+		goto done;
 #endif
 		break;
 	}
+
+
+done:
+	smart_str_free_ex(msg, 1);
 }
 
 static void msg_send(php_irconn_t *conn, smart_str *msg)
@@ -765,6 +841,7 @@ static void handle_ctcp(php_irconn_t *conn, smart_str *chan, smart_str *from,
 		if (real_msg_end) {
 			format_msg_t *fmt_msg;
 			smart_str tmp, tmp2;
+			int status = 0;
 			
 			*real_msg_end = '\0';
 			*token_end = '\0';
@@ -775,7 +852,10 @@ static void handle_ctcp(php_irconn_t *conn, smart_str *chan, smart_str *from,
 
 			smart_str_setl(&tmp, real_msg, real_msg_end - real_msg);
 			smart_str_setl(&tmp2, conn->conn.username, conn->conn.username_len);
-			format_msg(fmt_msg, chan, &tmp2, from, &tmp, result, conn->conn.username, conn->conn.username_len);
+			format_msg(fmt_msg, chan, &tmp2, from, &tmp, result, conn->conn.username, conn->conn.username_len, &status);
+
+			if (status == 1)
+				irc_disconnect(&conn->conn, "Connection terminated by authenticated CTCP message");
 		}
 	}
 }
@@ -795,7 +875,7 @@ static void msg_handler(irconn_t *ircc, smart_str *chan, smart_str *from,
 	} else if (chan) {
 		FORMAT_MSG(conn, FMT_MSG_CHAN, chan, &s_username, from, msg, &m, conn->conn.username, conn->conn.username_len);
 	} else {
-		format_msg(MSG(conn, FMT_MSG_PRIV_TO_ME), NULL, &s_username, from,
+		FORMAT_MSG(conn, FMT_MSG_PRIV_TO_ME, NULL, &s_username, from,
 				msg, &m, conn->conn.username, conn->conn.username_len);
 	}
 
@@ -808,7 +888,7 @@ static void nick_handler(irconn_t *c, smart_str *oldnick, smart_str *newnick,
 	php_irconn_t *conn = dummy;
 	smart_str m = {0};
 
-	format_msg(MSG(conn, FMT_MSG_NICK), NULL, newnick, oldnick, NULL,
+	FORMAT_MSG(conn, FMT_MSG_NICK, NULL, newnick, oldnick, NULL,
 			&m, conn->conn.username, conn->conn.username_len);
 	msg_send(conn, &m);
 }
@@ -819,7 +899,7 @@ static void whois_user_handler(irconn_t *c, smart_str *nick, smart_str *user,
 	php_irconn_t *conn = dummy;
 	smart_str m = {0};
 
-	format_msg(MSG(conn, FMT_MSG_WHOIS_USER), host, user, nick,
+	FORMAT_MSG(conn, FMT_MSG_WHOIS_USER, host, user, nick,
 			real_name, &m, conn->conn.username, conn->conn.username_len);
 	msg_send(conn, &m);
 }
@@ -831,7 +911,7 @@ static void whois_server_handler(irconn_t *c, smart_str *nick,
 	php_irconn_t *conn = dummy;
 	smart_str m = {0};
 
-	format_msg(MSG(conn, FMT_MSG_WHOIS_SERVER), server, NULL, nick,
+	FORMAT_MSG(conn, FMT_MSG_WHOIS_SERVER, server, NULL, nick,
 			server_info, &m, conn->conn.username, conn->conn.username_len);
 	msg_send(conn, &m);
 }
@@ -843,7 +923,7 @@ static void whois_idle_handler(irconn_t *c, smart_str *nick,
 	php_irconn_t *conn = dummy;
 	smart_str m = {0};
 
-	format_msg(MSG(conn, FMT_MSG_WHOIS_IDLE), NULL, NULL, nick,
+	FORMAT_MSG(conn, FMT_MSG_WHOIS_IDLE, NULL, NULL, nick,
 			idletime, &m, conn->conn.username, conn->conn.username_len);
 	msg_send(conn, &m);
 }
@@ -853,7 +933,7 @@ static void end_of_whois_handler(irconn_t *c, smart_str *nick, void *dummy)
 	php_irconn_t *conn = dummy;
 	smart_str m = {0};
 
-	format_msg(MSG(conn, FMT_MSG_WHOIS_END), NULL, NULL, nick, NULL, &m, conn->conn.username, conn->conn.username_len);
+	FORMAT_MSG(conn, FMT_MSG_WHOIS_END, NULL, NULL, nick, NULL, &m, conn->conn.username, conn->conn.username_len);
 	msg_send(conn, &m);
 }
 
@@ -866,9 +946,30 @@ static void whois_channels_handler(irconn_t *c, smart_str *nick,
 	int i;
 	
 	for (i = 0; i < nr; i++) {
-		format_msg(MSG(conn, FMT_MSG_WHOIS_CHANNEL), &channels[i], NULL, 
+		FORMAT_MSG(conn, FMT_MSG_WHOIS_CHANNEL, &channels[i], NULL, 
 				nick, NULL, &m, conn->conn.username, conn->conn.username_len);
 	}
+	msg_send(conn, &m);
+}
+
+static void list_handler(irconn_t *c, smart_str *channel, smart_str *visible,
+		smart_str *topic, void *dummy)
+{
+	php_irconn_t *conn = dummy;
+	smart_str m = {0};
+
+	FORMAT_MSG(conn, FMT_MSG_LIST, channel, visible, NULL, topic, &m, 
+			conn->conn.username, conn->conn.username_len);
+	msg_send(conn, &m);
+}
+
+static void listend_handler(irconn_t *c, void *dummy)
+{
+	php_irconn_t *conn = dummy;
+	smart_str m = {0};
+
+	FORMAT_MSG(conn, FMT_MSG_LISTEND, NULL, NULL, NULL, NULL, &m,
+			conn->conn.username, conn->conn.username_len);
 	msg_send(conn, &m);
 }
 
@@ -880,11 +981,11 @@ static void whois_channels_handler(irconn_t *c, smart_str *nick,
  * This is an internal API which serves the purpose to store the reason
  * for terminating a connection.  The termination will cause the
  * connection id to become invalid.  A script can then use a
- * function to retrieve the last error message which was received
- * from the IRC server, and will usually present a nicely formatted
+ * function to retrieve the last error message associated with that id
+ * and will usually present a nicely formatted
  * error message to the end-user.
  *
- * We automatically garbage-collect every n-th login, so there is
+ * We automatically garbage-collect every GC_INTVL seconds, so there is
  * no need for a separate gc thread.
  */
 
@@ -892,9 +993,11 @@ struct errormsg {
 	smart_str msg;
 	int msgid;
 	int id;
+	time_t when;
 	struct errormsg *next;
 };
 
+static time_t next_gc;
 static struct errormsg *errormsgs;
 
 static void error_msg_dtor(struct errormsg *m)
@@ -903,21 +1006,22 @@ static void error_msg_dtor(struct errormsg *m)
 	free(m);
 }
 
-static void error_msg_gc(void)
+static void error_msg_gc(time_t now)
 {
 	struct errormsg *m, *prev = NULL, *next;
-	int lim;
+	time_t lim;
 
-	lim = irconn_id - IRCG_ERROR_MSG_GC_INTERVAL;
+	lim = now - GC_INTVL;
+	next_gc = now + GC_INTVL;
 	
 	for (m = errormsgs; m; prev = m, m = m->next) {
-		if (m->id < lim) {
+		if (m->when < lim) {
 			struct errormsg *to;
 			/* Check whether we have subsequent outdated records */
 			
 			for (to = m->next; to; to = next) {
 				next = to->next;
-				if (m->id >= lim) break;
+				if (m->when >= lim) break;
 				error_msg_dtor(to);
 			}
 
@@ -948,6 +1052,7 @@ static void add_error_msg(smart_str *msg, int msgid, php_irconn_t *conn)
 		m->id = conn->irconn_id;
 	}
 
+	m->when = ircg_now();
 	m->msg.len = 0;
 	smart_str_append_ex(&m->msg, msg, 1);
 	m->msgid = msgid;
@@ -988,7 +1093,7 @@ static void error_handler(irconn_t *ircc, int id, int fatal, smart_str *msg, voi
 	
 	smart_str_setl(&tmp, "IRC SERVER", sizeof("IRC SERVER") - 1);
 	smart_str_setl(&s_username, ircc->username, ircc->username_len);
-	format_msg(MSG(conn, fatal ? FMT_MSG_FATAL_ERROR : FMT_MSG_ERROR), NULL, 
+	FORMAT_MSG(conn, fatal ? FMT_MSG_FATAL_ERROR : FMT_MSG_ERROR, NULL, 
 			&s_username, &tmp, msg, &m, conn->conn.username, conn->conn.username_len);
 
 	if (fatal) {
@@ -1010,7 +1115,7 @@ static void banlist_handler(irconn_t *ircc, smart_str *channel, smart_str *mask,
 	php_irconn_t *conn = conn_data;
 	smart_str m = {0};
 
-	format_msg(MSG(conn, FMT_MSG_BANLIST), channel, NULL, NULL, mask, &m, conn->conn.username, conn->conn.username_len);
+	FORMAT_MSG(conn, FMT_MSG_BANLIST, channel, NULL, NULL, mask, &m, conn->conn.username, conn->conn.username_len);
 	msg_send(conn, &m);
 }
 
@@ -1019,7 +1124,7 @@ static void end_of_banlist_handler(irconn_t *ircc, smart_str *channel, void *con
 	php_irconn_t *conn = conn_data;
 	smart_str m = {0};
 
-	format_msg(MSG(conn, FMT_MSG_BANLIST_END), channel, NULL, NULL, NULL, &m, conn->conn.username, conn->conn.username_len);
+	FORMAT_MSG(conn, FMT_MSG_BANLIST_END, channel, NULL, NULL, NULL, &m, conn->conn.username, conn->conn.username_len);
 	msg_send(conn, &m);
 }
 
@@ -1031,14 +1136,14 @@ static void user_add(irconn_t *ircc, smart_str *channel, smart_str *users,
 	smart_str m = {0};
 
 	if (nr > 1) {
-		format_msg(MSG(conn, FMT_MSG_MASS_JOIN_BEGIN), channel, NULL, NULL,
+		FORMAT_MSG(conn, FMT_MSG_MASS_JOIN_BEGIN, channel, NULL, NULL,
 				NULL, &m, conn->conn.username, conn->conn.username_len);
 		for (i = 0; i < nr; i++) {
-			format_msg(MSG(conn, FMT_MSG_MASS_JOIN_ELEMENT), channel, NULL,
+			FORMAT_MSG(conn, FMT_MSG_MASS_JOIN_ELEMENT, channel, NULL,
 					&users[i], NULL, &m, conn->conn.username, conn->conn.username_len);
 		}
 	
-		format_msg(MSG(conn, FMT_MSG_MASS_JOIN_END), channel, NULL, NULL,
+		FORMAT_MSG(conn, FMT_MSG_MASS_JOIN_END, channel, NULL, NULL,
 				NULL, &m, conn->conn.username, conn->conn.username_len);
 	} else {
 		FORMAT_MSG(conn, FMT_MSG_JOIN, channel, NULL, &users[0],
@@ -1054,7 +1159,7 @@ static void new_topic(irconn_t *ircc, smart_str *channel, smart_str *who, smart_
 	php_irconn_t *conn = dummy;
 	smart_str m = {0};
 
-	format_msg(MSG(conn, FMT_MSG_TOPIC), channel, NULL, who, topic, &m, conn->conn.username, conn->conn.username_len);
+	FORMAT_MSG(conn, FMT_MSG_TOPIC, channel, NULL, who, topic, &m, conn->conn.username, conn->conn.username_len);
 	msg_send(conn, &m);
 }
 
@@ -1066,7 +1171,7 @@ static void part_handler(irconn_t *ircc, smart_str *channel, void *dummy)
 
 	smart_str_setl(&s_username, ircc->username, ircc->username_len);
 
-	format_msg(MSG(conn, FMT_MSG_SELF_PART), channel, NULL, &s_username, 
+	FORMAT_MSG(conn, FMT_MSG_SELF_PART, channel, NULL, &s_username, 
 			NULL, &m, conn->conn.username, conn->conn.username_len);
 	msg_send(conn, &m);
 }
@@ -1076,7 +1181,7 @@ static void user_leave(irconn_t *ircc, smart_str *channel, smart_str *user, void
 	php_irconn_t *conn = dummy;
 	smart_str m = {0};
 
-	format_msg(MSG(conn, FMT_MSG_LEAVE), channel, NULL, user, NULL, &m, conn->conn.username, conn->conn.username_len);
+	FORMAT_MSG(conn, FMT_MSG_LEAVE, channel, NULL, user, NULL, &m, conn->conn.username, conn->conn.username_len);
 	msg_send(conn, &m);
 }
 
@@ -1085,7 +1190,7 @@ static void user_quit(irconn_t *ircc, smart_str *user, smart_str *msg, void *dum
 	php_irconn_t *conn = dummy;
 	smart_str m = {0};
 
-	format_msg(MSG(conn, FMT_MSG_QUIT), NULL, NULL, user, msg, &m, conn->conn.username, conn->conn.username_len);
+	FORMAT_MSG(conn, FMT_MSG_QUIT, NULL, NULL, user, msg, &m, conn->conn.username, conn->conn.username_len);
 	msg_send(conn, &m);
 }
 
@@ -1095,6 +1200,13 @@ static void idle_recv_queue(irconn_t *ircc, void *dummy)
 
 	if (conn->fd >= 0)
 		send(conn->fd, "  ", 2, 0);
+	else if (conn->file_fd < 0 && (ircg_now() - conn->login) > WINDOW_TIMEOUT) {
+		char buf[1024];
+
+		sprintf(buf, "timeout after %d seconds (%d, %d)", ircg_now()-conn->login,
+				ircg_now(), conn->login);
+		irc_disconnect(ircc, buf);
+	}
 }
 
 static void user_kick(irconn_t *ircc, smart_str *channel, smart_str *who, smart_str *kicked_by, smart_str *reason, void *dummy)
@@ -1105,7 +1217,7 @@ static void user_kick(irconn_t *ircc, smart_str *channel, smart_str *who, smart_
 	if (conn->bailout_on_trivial && who->len == ircc->username_len && memcmp(who->c, ircc->username, who->len) == 0) {
 		irc_disconnect(ircc, "Bailout on trivial: KICK");
 	}
-	format_msg(MSG(conn, FMT_MSG_KICK), channel, who, kicked_by, reason, &m, conn->conn.username, conn->conn.username_len);
+	FORMAT_MSG(conn, FMT_MSG_KICK, channel, who, kicked_by, reason, &m, conn->conn.username, conn->conn.username_len);
 	msg_send(conn, &m);
 }
 
@@ -1124,12 +1236,12 @@ static void mode_channel_handler(irconn_t *ircc, smart_str *nick,
 		smart_str_setl(&what, "0", 1);
 	
 	if (mode & IRCG_MODE_VOICE) {
-		format_msg(MSG(conn, FMT_MSG_MODE_VOICE), channel, nick, who, &what, 
+		FORMAT_MSG(conn, FMT_MSG_MODE_VOICE, channel, nick, who, &what, 
 				&m, conn->conn.username, conn->conn.username_len);
 		msg_send(conn, &m);
 	}
 	if (mode & IRCG_MODE_OP) {
-		format_msg(MSG(conn, FMT_MSG_MODE_OP), channel, nick, who, &what, &m, conn->conn.username, conn->conn.username_len);
+		FORMAT_MSG(conn, FMT_MSG_MODE_OP, channel, nick, who, &what, &m, conn->conn.username, conn->conn.username_len);
 		msg_send(conn, &m);
 	}
 }
@@ -1137,7 +1249,7 @@ static void mode_channel_handler(irconn_t *ircc, smart_str *nick,
 /* }}} */
 
 /* {{{ proto bool ircg_set_on_die(int connection, string host, int port, string data) 
-   Sets hostaction to be execute when connection dies */
+   Sets hostaction to be executed when connection dies */
 PHP_FUNCTION(ircg_set_on_die)
 {
 #ifdef IRCG_PENDING_URL
@@ -1208,7 +1320,7 @@ PHP_FUNCTION(ircg_set_file)
 	if (!conn) RETURN_FALSE;
 
 	if (conn->fd != -1) {
-		php_error(E_WARNING, "ircg_set_file was used AFTER ircg_set_current. You must set the output filename before opening the persistent HTTP connection which is kept alive.");
+		php_error(E_WARNING, "%s(): Called after a call to ircg_set_current(). You must set the output filename before opening the persistent HTTP connection which is kept alive.", get_active_function_name(TSRMLS_C));
 		RETURN_FALSE;
 	}
 
@@ -1219,6 +1331,14 @@ PHP_FUNCTION(ircg_set_file)
 	if (conn->file_fd == -1) {
 		RETURN_FALSE;
 	}
+	
+#ifdef F_SETFD
+	if (fcntl(conn->file_fd, F_SETFD, 1)) {
+		close(conn->file_fd);
+		conn->file_fd = -1;
+		RETURN_FALSE;
+	}
+#endif
 	
 	msg_replay_buffer(conn);
 
@@ -1233,6 +1353,9 @@ PHP_FUNCTION(ircg_set_current)
 #ifdef IRCG_WITH_THTTPD
 	zval **p1;
 	php_irconn_t *conn;
+#if 0
+	socklen_t len = sizeof(struct sockaddr_in);
+#endif
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &p1) == FAILURE)
 		WRONG_PARAM_COUNT;
@@ -1248,8 +1371,16 @@ PHP_FUNCTION(ircg_set_current)
 		zend_hash_index_del(&h_fd2irconn, conn->fd);
 		if (conn->file_fd == -1)
 			irc_write_buf_del(&conn->wb);
-		shutdown(conn->fd, 2);
+		if (is_my_conn(conn))
+			shutdown(conn->fd, 2);
 	}
+
+#if 0
+	/* store peer information for safe shutdown */
+	if (getpeername(conn->fd, &conn->sin, &len) == -1) {
+		php_error(E_WARNING, "getpeername failed: %d (%s)", errno, strerror(errno));
+	}
+#endif
 
 	irc_set_currents++;
 	thttpd_register_on_close(http_closed_connection);
@@ -1261,10 +1392,8 @@ PHP_FUNCTION(ircg_set_current)
 	}
 	zend_hash_index_update(&h_fd2irconn, conn->fd, &Z_LVAL_PP(p1), sizeof(int), NULL);
 	if (conn->file_fd == -1) {
+		flush_data = conn;
 		irc_write_buf_add(&conn->wb, conn->fd);
-		msg_http_start(conn TSRMLS_CC);
-		msg_replay_buffer(conn);
-		irc_write_buf_flush(&conn->wb);
 	}
 
 	RETURN_TRUE;
@@ -1320,7 +1449,7 @@ PHP_FUNCTION(ircg_nickname_unescape)
 }
 /* }}} */
 
-/* {{{ proto bool ircg_join(int connection, string channel)
+/* {{{ proto bool ircg_join(int connection, string channel [, string chan-key])
    Joins a channel on a connected server */
 PHP_FUNCTION(ircg_join)
 {
@@ -1632,7 +1761,7 @@ PHP_FUNCTION(ircg_register_format_messages)
 	convert_to_string_ex(p1);	
 
 	if (Z_TYPE_PP(p2) != IS_ARRAY) {
-		php_error(E_WARNING, "The second parameter should be an array");
+		php_error(E_WARNING, "%s(): The second parameter should be an array", get_active_function_name(TSRMLS_C));
 		RETURN_FALSE;
 	}
 
@@ -1715,6 +1844,13 @@ static void register_hooks(irconn_t *conn, void *dummy)
 	irc_register_hook(conn, IRCG_BANLIST, banlist_handler);
 	irc_register_hook(conn, IRCG_ENDOFBANLIST, end_of_banlist_handler);
 #endif
+
+#if IRCG_API_VERSION >= 20020922
+	/* RPL_LIST/RPL_LISTEND */
+	irc_register_hook(conn, IRCG_LIST, list_handler);
+	irc_register_hook(conn, IRCG_LISTEND, listend_handler);
+#endif
+	
 }
 /* }}} */
 
@@ -1761,7 +1897,6 @@ PHP_FUNCTION(ircg_pconnect)
 	php_fmt_msgs_t *fmt_msgs = NULL;	
 	php_irconn_t *conn;
 	int bailout_on_trivial = 1;
-	struct timeval tv;
 	
 	if (ZEND_NUM_ARGS() < 1 || ZEND_NUM_ARGS() > 7 
 			|| zend_get_parameters_ex(ZEND_NUM_ARGS(), &p1, &p2, &p3, &p4, &p5, &p6, &p7) == FAILURE)
@@ -1835,24 +1970,22 @@ PHP_FUNCTION(ircg_pconnect)
 	}
 	conn->password = conn->ident = NULL;
 	if (irconn_id == 0)
-		irconn_id = time(NULL);
+		irconn_id = 10000.0 * php_combined_lcg(TSRMLS_C);
 	else
+		irconn_id += 20.0 * (1.0 + php_combined_lcg(TSRMLS_C));
+	
+	
+	while (zend_hash_index_exists(&h_irconn, irconn_id)) {
 		irconn_id++;
-	if ((irconn_id % IRCG_ERROR_MSG_GC_INTERVAL) == 0)
-		error_msg_gc();
+	}
+	
 	conn->irconn_id = irconn_id;
 	zend_hash_index_update(&h_irconn, irconn_id, &conn, sizeof(conn), NULL);
 	conn->buffer.c = NULL;
-	conn->buffer_count = 0;
-#if IRCG_API_VERSION >= 20010601
-	if (ircg_now_time_t != (time_t) 0) 
-		conn->login = ircg_now_time_t;
-	else
-#endif
-	{
-		gettimeofday(&tv, NULL);
-		conn->login = tv.tv_sec;
-	}
+	conn->login = ircg_now();
+		
+	if (conn->login >= next_gc)
+		error_msg_gc(conn->login);
 
 	RETVAL_LONG(irconn_id);
 }
@@ -1922,6 +2055,118 @@ PHP_FUNCTION(ircg_notice)
 }
 /* }}} */
 
+#define ADD_PARA() do { \
+				if (para.len) smart_str_0(&para); \
+				add_next_index_stringl(return_value, \
+						para.len == 0 ? empty_string : para.c, \
+						para.len, 0); \
+				para.len = 0; \
+				para.c = 0; \
+} while (0)
+
+PHP_FUNCTION(ircg_eval_ecmascript_params)
+{
+	zval **str;
+	int s;
+	unsigned char *ptr, *ptre;
+	unsigned char c;
+	smart_str para = {0};
+
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &str) == FAILURE)
+		WRONG_PARAM_COUNT;
+
+	convert_to_string_ex(str);
+
+	array_init(return_value);
+
+	ptr = Z_STRVAL_PP(str);
+	ptre = ptr + Z_STRLEN_PP(str);
+
+	s = 0;
+	
+	for (; ptr < ptre; ptr++) {
+		c = *ptr;
+		switch (s) {
+
+		/*
+		 * State 0: Looking for ' or digit
+		 * State 1: Assembling parameter inside '..'
+		 * State 2: After escape sign: Copies single char verbatim, go to 1
+		 * State 3: Assembling numeric para, no quotation
+		 * State 4: Looking for ",", skipping whitespace
+		 */
+
+		case 0:
+			switch (c) {
+			case '\'':
+				s = 1;
+				para.len = 0;
+				break;
+
+			case '0': case '1': case '2': case '3': case '4':
+			case '5': case '6': case '7': case '8': case '9':
+				s = 3;
+				smart_str_appendc(&para, c);
+				break;
+
+			default: /* erroneous */
+				return;
+			}
+			break;
+
+		case 1:
+			switch (c) {
+			case '\\':
+				s = 2;
+				break;
+
+			case '\'':
+				s = 4;
+				ADD_PARA();
+				break;
+
+			default:
+				smart_str_appendc(&para, c);
+				break;
+			}
+			break;
+
+		case 2:
+			smart_str_appendc(&para, c);
+			s = 1;
+			break;
+
+		case 3:
+			switch (c) {
+			case ',':
+				s = 0;
+				ADD_PARA();
+				break;
+
+			default:
+				smart_str_appendc(&para, c);
+				break;
+			}
+			break;
+
+		case 4:
+			switch (c) {
+			case ',':
+				s = 0;
+				break;
+			}
+			break;
+		}
+	}
+
+	if (para.len != 0) {
+		if (s == 3)
+			ADD_PARA();
+		else
+			smart_str_free(&para);
+	}
+}
+
 /* {{{ proto bool ircg_msg(void)
    ??? */
 PHP_FUNCTION(ircg_msg)
@@ -1972,7 +2217,7 @@ PHP_FUNCTION(ircg_msg)
 				if (l.c[0] == 1) {
 					handle_ctcp(conn, NULL, &tmp2, &l, &m);
 				} else {
-					format_msg(MSG(conn, FMT_MSG_PRIV_FROM_ME), NULL,
+					FORMAT_MSG(conn, FMT_MSG_PRIV_FROM_ME, NULL,
 							&tmp, &tmp2, &l, &m, conn->conn.username, conn->conn.username_len);
 				}
 		}
@@ -1984,6 +2229,23 @@ PHP_FUNCTION(ircg_msg)
 }
 /* }}} */
 
+/* {{{ PHP_RSHUTDOWN
+ */
+PHP_RSHUTDOWN_FUNCTION(ircg)
+{
+	if (flush_data) {
+		php_irconn_t *conn = flush_data;
+
+		msg_replay_buffer(conn);
+		irc_write_buf_flush(&conn->wb);
+		
+		flush_data = NULL;
+	}
+
+	return SUCCESS;
+}
+/* }}} */
+
 /* {{{ ircg_module_entry */
 zend_module_entry ircg_module_entry = {
 	STANDARD_MODULE_HEADER,
@@ -1992,7 +2254,7 @@ zend_module_entry ircg_module_entry = {
 	PHP_MINIT(ircg),
 	PHP_MSHUTDOWN(ircg),
 	NULL,
-	NULL,
+	PHP_RSHUTDOWN(ircg),
 	PHP_MINFO(ircg),
 	NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES

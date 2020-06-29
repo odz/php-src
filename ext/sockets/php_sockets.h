@@ -22,7 +22,7 @@
 #ifndef PHP_SOCKETS_H
 #define PHP_SOCKETS_H
 
-/* $Id: php_sockets.h,v 1.22 2002/03/06 20:19:09 jason Exp $ */
+/* $Id: php_sockets.h,v 1.26 2002/10/28 18:00:30 sander Exp $ */
 
 #if HAVE_SOCKETS
 
@@ -41,6 +41,8 @@ extern zend_module_entry sockets_module_entry;
 
 PHP_MINIT_FUNCTION(sockets);
 PHP_MINFO_FUNCTION(sockets);
+PHP_RINIT_FUNCTION(sockets);
+PHP_RSHUTDOWN_FUNCTION(sockets);
 
 PHP_FUNCTION(socket_iovec_alloc);
 PHP_FUNCTION(socket_iovec_free);
@@ -72,8 +74,8 @@ PHP_FUNCTION(socket_recvmsg);
 PHP_FUNCTION(socket_sendmsg);
 PHP_FUNCTION(socket_readv);
 PHP_FUNCTION(socket_writev);
-PHP_FUNCTION(socket_getopt);
-PHP_FUNCTION(socket_setopt);
+PHP_FUNCTION(socket_get_option);
+PHP_FUNCTION(socket_set_option);
 PHP_FUNCTION(socket_shutdown);
 PHP_FUNCTION(socket_last_error);
 PHP_FUNCTION(socket_clear_error);
@@ -100,14 +102,17 @@ typedef struct {
 /* Prototypes */
 int open_listen_sock(php_socket **php_sock, int port, int backlog TSRMLS_DC);
 int accept_connect(php_socket *in_sock, php_socket **new_sock, struct sockaddr *la TSRMLS_DC);
-int php_read(int bsd_socket, void *buf, int maxlen);
+int php_read(int bsd_socket, void *buf, size_t maxlen, int flags);
+
+ZEND_BEGIN_MODULE_GLOBALS(sockets)
+	int last_error;
+	char *strerror_buf;
+ZEND_END_MODULE_GLOBALS(sockets)
 
 #ifdef ZTS
-#define SOCKETSG(v) (sockets_globals->v)
-#define SOCKETSLS_FETCH() php_sockets_globals *sockets_globals = ts_resource(sockets_globals_id)
+#define SOCKETS_G(v) TSRMG(sockets_globals_id, zend_sockets_globals *, v)
 #else
-#define SOCKETSG(v) (sockets_globals.v)
-#define SOCKETSLS_FETCH()
+#define SOCKETS_G(v) (sockets_globals.v)
 #endif
 
 #else

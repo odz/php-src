@@ -21,14 +21,17 @@
 
 PHP_MINIT_FUNCTION(url_scanner_ex);
 PHP_MSHUTDOWN_FUNCTION(url_scanner_ex);
+
+PHP_RINIT_FUNCTION(url_scanner_ex);
+PHP_RSHUTDOWN_FUNCTION(url_scanner_ex);
+
+char *php_url_scanner_adapt_single_url(const char *url, size_t urllen, const char *name, const char *value, size_t *newlen TSRMLS_DC);
+
+int php_url_scanner_add_var(char *name, int name_len, char *value, int value_len, int urlencode TSRMLS_DC);
+int php_url_scanner_reset_vars(TSRMLS_D);
+
 int php_url_scanner_ex_activate(TSRMLS_D);
 int php_url_scanner_ex_deactivate(TSRMLS_D);
-
-char *url_adapt_ext_ex(const char *src, size_t srclen, const char *name, const char *value, size_t *newlen, zend_bool do_flush TSRMLS_DC);
-
-char *url_adapt_single_url(const char *url, size_t urllen, const char *name, const char *value, size_t *newlen TSRMLS_DC);
-
-char *url_adapt_flush(size_t * TSRMLS_DC);
 
 #include "php_smart_str_public.h"
 
@@ -42,9 +45,10 @@ typedef struct {
 	/* The result buffer */
 	smart_str result;
 
-	/* The data which is appended to each relative URL */
-	smart_str q_name;
-	smart_str q_value;
+	/* The data which is appended to each relative URL/FORM */
+	smart_str form_app, url_app;
+
+	int active;
 
 	char *lookup_data;
 	int state;
@@ -52,5 +56,10 @@ typedef struct {
 	/* Everything above is zeroed in RINIT */
 	HashTable *tags;
 } url_adapt_state_ex_t;
+
+typedef struct {
+	smart_str var;
+	smart_str val;
+} url_adapt_var_t;
 
 #endif

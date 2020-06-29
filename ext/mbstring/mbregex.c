@@ -23,6 +23,8 @@
 
 #include "php.h"
 
+#if HAVE_MBREGEX
+
 #define re_compile_pattern mbre_compile_pattern
 #define re_free_pattern mbre_free_pattern
 #define re_adjust_startpos mbre_adjust_startpos
@@ -297,27 +299,42 @@ int *retlen;
     return retval;
 }
 
-
+#define rt re_syntax_table
 static void
 init_syntax_once()
 {
-   register int c;
-   static int done = 0;
+	register int c;
+	static int done = 0;
 
-   if (done)
-     return;
+#ifdef ZTS
+	extern MUTEX_T mbregex_locale_mutex;
+#endif
 
-   memset(re_syntax_table, 0, sizeof re_syntax_table);
+	if (done) {
+		return;
+	}
+#ifdef ZTS
+	tsrm_mutex_lock( mbregex_locale_mutex );
+#endif
 
-   for (c=0; c<=0x7f; c++)
-     if (isalnum(c)) 
-       re_syntax_table[c] = Sword;
-   re_syntax_table['_'] = Sword;
+	memset(re_syntax_table, 0, sizeof(re_syntax_table));
 
-   for (c=0x80; c<=0xff; c++)
-     if (isalnum(c)) 
-       re_syntax_table[c] = Sword2;
-   done = 1;
+	for (c=0; c<=0x7f; c++) {
+		if (isalnum(c)) { 
+			re_syntax_table[c] = Sword;
+		}
+	}
+	re_syntax_table['_'] = Sword;
+
+	for (c=0x80; c<=0xff; c++) {
+		if (isalnum(c)) { 
+			re_syntax_table[c] = Sword2;
+		}
+	}
+#ifdef ZTS
+	tsrm_mutex_unlock( mbregex_locale_mutex );
+#endif
+	done = 1;
 }
 
 void
@@ -479,7 +496,7 @@ enum regexpcode
     wordbeg,	 /* Succeeds if at word beginning.  */
     wordend,	 /* Succeeds if at word end.  */
     wordbound,   /* Succeeds if at a word boundary.  */
-    notwordbound,/* Succeeds if not at a word boundary.  */
+    notwordbound /* Succeeds if not at a word boundary.  */
   };
 
 
@@ -633,7 +650,7 @@ print_mbc(c)
 /* Make sure we have at least N more bytes of space in buffer.  */
 #define GET_BUFFER_SPACE(n)						\
   do {								        \
-    while (b - bufp->buffer + (n) >= bufp->allocated)			\
+    while (b - bufp->buffer + (size_t)(n) >= (size_t)bufp->allocated)			\
       EXTEND_BUFFER;							\
   } while (0)
 
@@ -1291,7 +1308,7 @@ re_compile_pattern(pattern, size, bufp)
   register const char *p = pattern;
   const char *nextp;
   const char *pend = pattern + size;
-  register unsigned int c, c1;
+  register unsigned int c, c1=0;
   const char *p0;
   int numlen;
 #define ERROR_MSG_MAX_SIZE 200
@@ -1429,6 +1446,9 @@ re_compile_pattern(pattern, size, bufp)
 	snprintf(error_msg, ERROR_MSG_MAX_SIZE, 
 		 "invalid regular expression; there's no previous pattern, to which '%c' would define cardinality at %d", 
 		 c, p-pattern);
+	if (bufp->buffer) {
+		xfree(bufp->buffer);
+	}	
 	FREE_AND_RETURN(stackb, error_msg);
       }
       /* If there is a sequence of repetition chars,
@@ -2202,7 +2222,7 @@ re_compile_pattern(pattern, size, bufp)
 	 `upper_bound' is 1, though.)  */
       { /* If the upper bound is > 1, we need to insert
 	   more at the end of the loop.  */
-	unsigned nbytes = upper_bound == 1 ? 10 : 20;
+	unsigned int nbytes = (unsigned int)upper_bound == 1 ? 10 : 20;
 
 	GET_BUFFER_SPACE(nbytes);
 	/* Initialize lower bound of the `succeed_n', even
@@ -2387,7 +2407,7 @@ re_compile_pattern(pattern, size, bufp)
 	  GET_UNSIGNED_NUMBER(c1);
 	  if (!ISDIGIT(c)) PATUNFETCH;
 
-	if (9 < c1 && c1 >= regnum) {
+	if (9 < c1 && c1 >= (unsigned int)regnum) {
 	    /* need to get octal */
 	  c = scan_oct(p0, 3, &numlen) & 0xff;
 	  p = p0 + numlen;
@@ -3616,12 +3636,12 @@ init_regs(regs, num_regs)
     regs->end = TMALLOC(num_regs, int);
     regs->allocated = num_regs;
   }
-  else if (regs->allocated < num_regs) {
+  else if (regs->allocated < (int)num_regs) {
     TREALLOC(regs->beg, num_regs, int);
     TREALLOC(regs->end, num_regs, int);
     regs->allocated = num_regs;
   }
-  for (i=0; i<num_regs; i++) {
+  for (i=0; i<(int)num_regs; i++) {
     regs->beg[i] = regs->end[i] = -1;
   }
 }
@@ -3737,7 +3757,7 @@ re_match(bufp, string_arg, size, pos, regs)
      ( or ( and ) or ) has been seen for. Also set all registers to
      inactive and mark them as not having matched anything or ever
      failed. */
-  for (mcnt = 0; mcnt < num_regs; mcnt++) {
+  for (mcnt = 0; mcnt < (int)num_regs; mcnt++) {
     regstart[mcnt] = regend[mcnt]
       = old_regstart[mcnt] = old_regend[mcnt]
       = best_regstart[mcnt] = best_regend[mcnt] = REG_UNSET_VALUE;
@@ -3791,7 +3811,7 @@ re_match(bufp, string_arg, size, pos, regs)
 	    best_regs_set = 1;
 	    best_regend[0] = d;	/* Never use regstart[0].  */
 
-	    for (mcnt = 1; mcnt < num_regs; mcnt++) {
+	    for (mcnt = 1; mcnt < (int)num_regs; mcnt++) {
 	      best_regstart[mcnt] = regstart[mcnt];
 	      best_regend[mcnt] = regend[mcnt];
 	    }
@@ -3804,7 +3824,7 @@ re_match(bufp, string_arg, size, pos, regs)
 	  /* Restore best match.  */
 	  d = best_regend[0];
 
-	  for (mcnt = 0; mcnt < num_regs; mcnt++) {
+	  for (mcnt = 0; mcnt < (int)num_regs; mcnt++) {
 	    regstart[mcnt] = best_regstart[mcnt];
 	    regend[mcnt] = best_regend[mcnt];
 	  }
@@ -3816,7 +3836,7 @@ re_match(bufp, string_arg, size, pos, regs)
       if (regs) {
 	regs->beg[0] = pos;
 	regs->end[0] = d - string;
-	for (mcnt = 1; mcnt < num_regs; mcnt++) {
+	for (mcnt = 1; mcnt < (int)num_regs; mcnt++) {
 	  if (REG_UNSET(regend[mcnt])) {
 	    regs->beg[mcnt] = -1;
 	    regs->end[mcnt] = -1;
@@ -3867,7 +3887,7 @@ re_match(bufp, string_arg, size, pos, regs)
 	  register unsigned char *d2, *dend2;
 
 	  /* Check if there's corresponding group */
-	  if (regno >= num_regs) goto fail;
+	  if (regno >= (int)num_regs) goto fail;
 	  /* Check if corresponding group is still open */
 	  if (IS_ACTIVE(reg_info[regno])) goto fail;
 
@@ -4416,7 +4436,7 @@ re_match(bufp, string_arg, size, pos, regs)
   fail:
     if (stackp != stackb) {
       /* A restart point is known.  Restart there and pop it. */
-      short last_used_reg, this_reg;
+      long last_used_reg, this_reg;
 
       /* If this failure point is from a dummy_failure_point, just
 	 skip it.  */
@@ -4684,3 +4704,5 @@ re_mbctab_get(mbctype)
 
   return p;
 }
+
+#endif	/* HAVE_MBREGEX */

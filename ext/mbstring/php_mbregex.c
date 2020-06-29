@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_mbregex.c,v 1.2.2.1 2002/03/16 07:13:14 hirokawa Exp $ */
+/* $Id: php_mbregex.c,v 1.18.2.1 2002/11/13 23:01:17 edink Exp $ */
 
 
 #ifdef HAVE_CONFIG_H
@@ -25,12 +25,13 @@
 
 #include "php.h"
 #include "php_ini.h"
+#include "php_mbregex.h"
 #include "mbregex.h"
 #include "mbstring.h"
 
 #if HAVE_MBREGEX
 
-extern ZEND_DECLARE_MODULE_GLOBALS(mbstring)
+ZEND_EXTERN_MODULE_GLOBALS(mbstring)
 
 /*
  * string buffer
@@ -43,10 +44,10 @@ struct strbuf {
 };
 
 static void
-php_mbregex_strbuf_init(struct strbuf *pd)
+_php_mb_regex_strbuf_init(struct strbuf *pd)
 {
 	if (pd) {
-		pd->buffer = (char*)0;
+		pd->buffer = (unsigned char*)0;
 		pd->length = 0;
 		pd->pos = 0;
 		pd->allocsz = 64;
@@ -54,7 +55,7 @@ php_mbregex_strbuf_init(struct strbuf *pd)
 }
 
 static int
-php_mbregex_strbuf_ncat(struct strbuf *pd, const unsigned char *psrc, int len)
+_php_mb_regex_strbuf_ncat(struct strbuf *pd, const unsigned char *psrc, int len)
 {
 	if (pd == NULL || psrc == NULL) {
 		return -1;
@@ -83,29 +84,29 @@ php_mbregex_strbuf_ncat(struct strbuf *pd, const unsigned char *psrc, int len)
 /*
  * encoding name resolver
  */
-int
-php_mbregex_name2mbctype(const char *pname)
+static int _php_mb_regex_name2mbctype(const char *pname)
 {
 	int mbctype;
 
 	mbctype = -1;
 	if (pname != NULL) {
-		if (strcasecmp("EUC-JP", pname) == 0) {
+		if (strcasecmp("EUC-JP", pname) == 0
+		    || strcasecmp("X-EUC-JP", pname) == 0
+		    || strcasecmp("UJIS", pname) == 0
+		    || strcasecmp("EUCJP", pname) == 0
+		    || strcasecmp("EUC_JP", pname) == 0) {
 			mbctype = MBCTYPE_EUC;
-		} else if (strcasecmp("UTF-8", pname) == 0) {
+		} else if (strcasecmp("UTF-8", pname) == 0
+		           || strcasecmp("UTF8", pname) == 0) {
 			mbctype = MBCTYPE_UTF8;
-		} else if (strcasecmp("SJIS", pname) == 0) {
+		} else if (strcasecmp("SJIS", pname) == 0
+		           || strcasecmp("CP932", pname) == 0
+		           || strcasecmp("MS932", pname) == 0
+		           || strcasecmp("SHIFT_JIS", pname) == 0 ) {
 			mbctype = MBCTYPE_SJIS;
-		} else if (strcasecmp("ascii", pname) == 0) {
+		} else if (strcasecmp("ASCII", pname) == 0) {
 			mbctype = MBCTYPE_ASCII;
-		} else if (strcasecmp("euc", pname) == 0) {
 			mbctype = MBCTYPE_EUC;
-		} else if (strcasecmp("eucJP", pname) == 0) {
-			mbctype = MBCTYPE_EUC;
-		} else if (strcasecmp("EUC_JP", pname) == 0) {
-			mbctype = MBCTYPE_EUC;
-		} else if (strcasecmp("Shift_JIS", pname) == 0) {
-			mbctype = MBCTYPE_SJIS;
 		}
 	}
 
@@ -115,7 +116,7 @@ php_mbregex_name2mbctype(const char *pname)
 static const char*
 php_mbregex_mbctype2name(int mbctype)
 {
-	const char *p;
+	const char *p = NULL;
 
 	if (mbctype == MBCTYPE_EUC) {
 		p = "EUC-JP";
@@ -125,8 +126,6 @@ php_mbregex_mbctype2name(int mbctype)
 		p = "SJIS";
 	} else if(mbctype == MBCTYPE_ASCII) {
 		p = "ascii";
-	} else {
-		p = "unknown";
 	}
 
 	return p;
@@ -156,11 +155,11 @@ php_mbregex_compile_pattern(mb_regex_t *pre, const char *pattern, int patlen, in
 			} else {
 				efree(pre->fastmap);
 				pre->fastmap = (char*)0;
-				php_error(E_WARNING, "mbregex compile err: %s", err_str);
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "mbregex compile err: %s", err_str);
 				res = 1;
 			}
 		} else {
-			php_error(E_WARNING, "Unable to allocate memory in mbregex_compile_pattern");
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to allocate memory in mbregex_compile_pattern");
 			res = 1;
 		}
 	} else {
@@ -170,44 +169,111 @@ php_mbregex_compile_pattern(mb_regex_t *pre, const char *pattern, int patlen, in
 	return res;
 }
 
+static size_t 
+_php_mb_regex_get_option_string(char *str, size_t len, int option)
+{
+	size_t len_left = len;
+	size_t len_req = 0;
+	char *p = str;
+
+
+	if ((option & MBRE_OPTION_IGNORECASE) != 0) {
+		if (len_left > 0) {
+			--len_left;
+			*(p++) = 'i';
+		}
+		++len_req;	
+	}
+
+	if ((option & MBRE_OPTION_EXTENDED) != 0) {
+		if (len_left > 0) {
+			--len_left;
+			*(p++) = 'x';
+		}
+		++len_req;	
+	}
+
+	if ((option & MBRE_OPTION_POSIXLINE) == MBRE_OPTION_POSIXLINE) {
+		if (len_left > 0) {
+			--len_left;
+			*(p++) = 'p';
+		}
+		++len_req;	
+	} else {
+		if ((option & MBRE_OPTION_MULTILINE) != 0) {
+			if (len_left > 0) {
+				--len_left;
+				*(p++) = 'm';
+			}
+			++len_req;	
+		}
+
+		if ((option & MBRE_OPTION_SINGLELINE) != 0) {
+			if (len_left > 0) {
+				--len_left;
+				*(p++) = 's';
+			}
+			++len_req;	
+		}
+	}	
+	if ((option & MBRE_OPTION_LONGEST) != 0) {
+		if (len_left > 0) {
+			--len_left;
+			*(p++) = 'l';
+		}
+		++len_req;	
+	}
+	if (len_left > 0) {
+		--len_left;
+		*(p++) = '\0';
+	}
+
+	++len_req;	
+	if (len < len_req) {
+		return len_req;
+	}
+
+	return 0;
+}
+
 static void
-php_mbregex_init_option(const char *parg, int narg, int *option, int *eval) 
+_php_mb_regex_init_options(const char *parg, int narg, int *option, int *eval) 
 {
 	int n;
 	char c;
+	int optm = 0; 
 
-	if (parg) {
+	if (parg != NULL) {
 		n = 0;
 		while(n < narg) {
 			c = parg[n++];
-			if (option) {
-				switch (c) {
+			switch (c) {
 				case 'i':
-					*option |= MBRE_OPTION_IGNORECASE;
+					optm |= MBRE_OPTION_IGNORECASE;
 					break;
 				case 'x':
-					*option |= MBRE_OPTION_EXTENDED;
+					optm |= MBRE_OPTION_EXTENDED;
 					break;
 				case 'm':
-					*option |= MBRE_OPTION_MULTILINE;
+					optm |= MBRE_OPTION_MULTILINE;
 					break;
 				case 's':
-					*option |= MBRE_OPTION_SINGLELINE;
+					optm |= MBRE_OPTION_SINGLELINE;
 					break;
 				case 'p':
-					*option |= MBRE_OPTION_POSIXLINE;
+					optm |= MBRE_OPTION_POSIXLINE;
 					break;
 				case 'l':
-					*option |= MBRE_OPTION_LONGEST;
+					optm |= MBRE_OPTION_LONGEST;
+					break;
+				case 'e':
+					if (eval != NULL) *eval = 1; 
 					break;
 				default:
 					break;
-				}
-			}
-			if (eval && (c == 'e')) {
-				*eval = 1;
 			}
 		}
+		if (option != NULL) *option|=optm; 
 	}
 }
 
@@ -224,12 +290,18 @@ PHP_FUNCTION(mb_regex_encoding)
 	int mbctype;
 
 	if (ZEND_NUM_ARGS() == 0) {
-		RETVAL_STRING((char*)php_mbregex_mbctype2name(MBSTRG(current_mbctype)), 1);
-	} else if (ZEND_NUM_ARGS() == 1 && zend_get_parameters_ex(1, &arg1) != FAILURE) {
+		const char *retval = php_mbregex_mbctype2name(MBSTRG(current_mbctype));
+		if ( retval != NULL ) {
+			RETVAL_STRING((char *)retval, 1);
+		} else {
+			RETVAL_FALSE;
+		}
+	} else if (ZEND_NUM_ARGS() == 1 &&
+	           zend_get_parameters_ex(1, &arg1) != FAILURE) {
 		convert_to_string_ex(arg1);
-		mbctype = php_mbregex_name2mbctype(Z_STRVAL_PP(arg1));
+		mbctype = _php_mb_regex_name2mbctype(Z_STRVAL_PP(arg1));
 		if (mbctype < 0) {
-			php_error(E_WARNING, "unknown encoding \"%s\"", Z_STRVAL_PP(arg1));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unknown encoding \"%s\"", Z_STRVAL_PP(arg1));
 			RETVAL_FALSE;
 		} else {
 			MBSTRG(current_mbctype) = mbctype;
@@ -242,66 +314,53 @@ PHP_FUNCTION(mb_regex_encoding)
 /* }}} */
 
 
-/* regex match */
+/* {{{ _php_mb_regex_ereg_exec */
 static void
-php_mbereg_exec(INTERNAL_FUNCTION_PARAMETERS, int icase)
+_php_mb_regex_ereg_exec(INTERNAL_FUNCTION_PARAMETERS, int icase)
 {
-	zval **arg_pattern, **arg_string, **array = NULL;
+	zval *arg_pattern, *array;
+	char *string;
+	int string_len;
 	mb_regex_t re;
 	struct mbre_registers regs = {0, 0, 0, 0};
-	int i, err, match_len, string_len, option, beg, end;
+	int i, err, match_len, option, beg, end;
 	char *str;
 
-	switch(ZEND_NUM_ARGS()) {
-	case 2:
-		if (zend_get_parameters_ex(2, &arg_pattern, &arg_string) == FAILURE) {
-			WRONG_PARAM_COUNT;
-		}
-		break;
+	array = NULL;
 
-	case 3:
-		if (zend_get_parameters_ex(3, &arg_pattern, &arg_string, &array) == FAILURE) {
-			WRONG_PARAM_COUNT;
-		}
-		break;
-
-	default:
-		WRONG_PARAM_COUNT;
-		break;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zs|z", &arg_pattern, &string, &string_len, &array) == FAILURE) {
+		RETURN_FALSE;
 	}
 
-	option = 0;
+	option = MBSTRG(regex_default_options);
 	if (icase) {
 		option |= MBRE_OPTION_IGNORECASE;
 	}
 
 	/* compile the regular expression from the supplied regex */
-	if (Z_TYPE_PP(arg_pattern) == IS_STRING) {
-		option |= MBRE_OPTION_EXTENDED;
-	} else {
+	if (Z_TYPE_P(arg_pattern) != IS_STRING) {
 		/* we convert numbers to integers and treat them as a string */
-		if (Z_TYPE_PP(arg_pattern) == IS_DOUBLE) {
-			convert_to_long_ex(arg_pattern);	/* get rid of decimal places */
+		if (Z_TYPE_P(arg_pattern) == IS_DOUBLE) {
+			convert_to_long_ex(&arg_pattern);	/* get rid of decimal places */
 		}
-		convert_to_string_ex(arg_pattern);
+		convert_to_string_ex(&arg_pattern);
 		/* don't bother doing an extended regex with just a number */
 	}
 	err = php_mbregex_compile_pattern(
 	     &re,
-	     Z_STRVAL_PP(arg_pattern),
-	     Z_STRLEN_PP(arg_pattern),
+	     Z_STRVAL_P(arg_pattern),
+	     Z_STRLEN_P(arg_pattern),
 	     option, MBSTRG(current_mbctype) TSRMLS_CC);
 	if (err) {
 		RETURN_FALSE;
 	}
 
 	/* actually execute the regular expression */
-	convert_to_string_ex(arg_string);
 	err = mbre_search(
 	     &re,
-	     Z_STRVAL_PP(arg_string),
-	     Z_STRLEN_PP(arg_string),
-	      0, Z_STRLEN_PP(arg_string),
+	     string,
+	     string_len,
+	      0, string_len,
 	     &regs);
 	if (err < 0) {
 		mbre_free_registers(&regs);
@@ -309,19 +368,18 @@ php_mbereg_exec(INTERNAL_FUNCTION_PARAMETERS, int icase)
 	}
 
 	match_len = 1;
-	str = Z_STRVAL_PP(arg_string);
+	str = string;
 	if (array) {
 		match_len = regs.end[0] - regs.beg[0];
-		string_len = Z_STRLEN_PP(arg_string);
-		zval_dtor(*array);	/* start with clean array */
-		array_init(*array);
+		zval_dtor(array);	/* start with clean array */
+		array_init(array);
 		for (i = 0; i < regs.num_regs; i++) {
 			beg = regs.beg[i];
 			end = regs.end[i];
 			if (beg >= 0 && beg < end && end <= string_len) {
-				add_index_stringl(*array, i, &str[beg], end - beg, 1);
+				add_index_stringl(array, i, (char *)&str[beg], end - beg, 1);
 			} else {
-				add_index_bool(*array, i, 0);
+				add_index_bool(array, i, 0);
 			}
 		}
 	}
@@ -337,7 +395,7 @@ php_mbereg_exec(INTERNAL_FUNCTION_PARAMETERS, int icase)
    Regular expression match for multibyte string */
 PHP_FUNCTION(mb_ereg)
 {
-	php_mbereg_exec(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0);
+	_php_mb_regex_ereg_exec(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0);
 }
 /* }}} */
 
@@ -345,69 +403,79 @@ PHP_FUNCTION(mb_ereg)
    Case-insensitive regular expression match for multibyte string */
 PHP_FUNCTION(mb_eregi)
 {
-	php_mbereg_exec(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1);
+	_php_mb_regex_ereg_exec(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1);
 }
 /* }}} */
 
 
 
-/* regex replacement */
+/* {{{ _php_mb_regex_ereg_replace_exec */
 static void
-php_mbereg_replace_exec(INTERNAL_FUNCTION_PARAMETERS, int option)
+_php_mb_regex_ereg_replace_exec(INTERNAL_FUNCTION_PARAMETERS, int option)
 {
-	zval **arg_pattern, **arg_replace, **arg_string, **arg_option;
-	char *p, *string, *replace;
+	zval *arg_pattern_zval;
+
+	char *arg_pattern;
+	int arg_pattern_len;
+
+	char *replace;
+	int replace_len;
+
+	char *string;
+	int string_len;
+
+	char *p;
 	mb_regex_t re;
 	struct mbre_registers regs = {0, 0, 0, 0};
 	struct strbuf outdev, evaldev, *pdevice;
-	int i, n, err, pos, replace_len, string_len, eval;
+	int i, n, err, pos, eval;
 	char *description = NULL;
-	zval retval;
+	char pat_buf[2];
 
 	eval = 0;
-	switch(ZEND_NUM_ARGS()) {
-	case 3:
-		if (zend_get_parameters_ex(3, &arg_pattern, &arg_replace, &arg_string) == FAILURE) {
-			WRONG_PARAM_COUNT;
-		}
-		break;
+	{
+		char *option_str = NULL;
+		int option_str_len = 0;
 
-	case 4:
-		if (zend_get_parameters_ex(4, &arg_pattern, &arg_replace, &arg_string, &arg_option) == FAILURE) {
-			WRONG_PARAM_COUNT;
+		if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zss|s",
+									&arg_pattern_zval,
+									&replace, &replace_len,
+									&string, &string_len,
+									&option_str, &option_str_len) == FAILURE) {
+			RETURN_FALSE;
 		}
-		convert_to_string_ex(arg_option);
-		option = 0;
-		php_mbregex_init_option(Z_STRVAL_PP(arg_option), Z_STRLEN_PP(arg_option), &option, &eval);
-		break;
 
-	default:
-		WRONG_PARAM_COUNT;
-		break;
+		if (option_str != NULL) {
+			_php_mb_regex_init_options(option_str, option_str_len, &option, &eval);
+		} else {
+			option |= MBSTRG(regex_default_options);
+		}
 	}
+	if (Z_TYPE_P(arg_pattern_zval) == IS_STRING) {
+		arg_pattern = Z_STRVAL_P(arg_pattern_zval);
+		arg_pattern_len = Z_STRLEN_P(arg_pattern_zval);
+	} else {
+		/* FIXME: this code is not multibyte aware! */
+		convert_to_long_ex(&arg_pattern_zval);
+		pat_buf[0] = (char)Z_LVAL_P(arg_pattern_zval);	
+		pat_buf[1] = '\0';
 
-	convert_to_string_ex(arg_pattern);
+		arg_pattern = pat_buf;
+		arg_pattern_len = 1;	
+	}
 	/* create regex pattern buffer */
 	err = php_mbregex_compile_pattern(
 	    &re,
-	    Z_STRVAL_PP(arg_pattern),
-	    Z_STRLEN_PP(arg_pattern),
+	    arg_pattern,
+	    arg_pattern_len,
 	    option, MBSTRG(current_mbctype) TSRMLS_CC);
 	if (err) {
 		RETURN_FALSE;
 	}
 
-	convert_to_string_ex(arg_replace);
-	replace = Z_STRVAL_PP(arg_replace);
-	replace_len = Z_STRLEN_PP(arg_replace);
-
-	convert_to_string_ex(arg_string);
-	string = Z_STRVAL_PP(arg_string);
-	string_len = Z_STRLEN_PP(arg_string);
-
 	/* initialize string buffer (auto reallocate buffer) */
-	php_mbregex_strbuf_init(&outdev);
-	php_mbregex_strbuf_init(&evaldev);
+	_php_mb_regex_strbuf_init(&outdev);
+	_php_mb_regex_strbuf_init(&evaldev);
 	outdev.allocsz = (string_len >> 2) + 8;
 
 	if (eval) {
@@ -424,13 +492,20 @@ php_mbereg_replace_exec(INTERNAL_FUNCTION_PARAMETERS, int option)
 	while (err >= 0) {
 		err = mbre_search(&re, string, string_len, pos, string_len - pos, &regs);
 		if (err <= -2) {
-			php_error(E_WARNING, "mbregex search failure in php_mbereg_replace_exec()");
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "mbregex search failure in php_mbereg_replace_exec()");
 			break;
 		}
 		if (err >= 0) {
+#if moriyoshi_0
+			if ( regs.beg[0] == regs.end[0] ) {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Empty regular expression");
+				break;
+			}
+#endif
 			/* copy the part of the string before the match */
-			php_mbregex_strbuf_ncat(&outdev, &string[pos], regs.beg[0] - pos);
+			_php_mb_regex_strbuf_ncat(&outdev, (const unsigned char *)&string[pos], regs.beg[0] - pos);
 			/* copy replacement and backrefs */
+			/* FIXME: this code (\\digit replacement) is not mbyte aware! */ 
 			i = 0;
 			p = replace;
 			while (i < replace_len) {
@@ -440,37 +515,39 @@ php_mbereg_replace_exec(INTERNAL_FUNCTION_PARAMETERS, int option)
 				}
 				if (n >= 0 && n < regs.num_regs) {
 					if (regs.beg[n] >= 0 && regs.beg[n] < regs.end[n] && regs.end[n] <= string_len) {
-						php_mbregex_strbuf_ncat(pdevice, &string[regs.beg[n]], regs.end[n] - regs.beg[n]);
+						_php_mb_regex_strbuf_ncat(pdevice, (const unsigned char *)&string[regs.beg[n]], regs.end[n] - regs.beg[n]);
 					}
 					p += 2;
 					i += 2;
 				} else {
-					php_mbregex_strbuf_ncat(pdevice, p, 1);
+					_php_mb_regex_strbuf_ncat(pdevice, (const unsigned char *)p, 1);
 					p++;
 					i++;
 				}
 			}
 			if (eval) {
+				zval v;
 				/* null terminate buffer */
-				php_mbregex_strbuf_ncat(&evaldev, "\0", 1);
+				_php_mb_regex_strbuf_ncat(&evaldev, (const unsigned char *)"\0", 1);
 				/* do eval */
-				zend_eval_string(evaldev.buffer, &retval, description TSRMLS_CC);
+				zend_eval_string((char *)evaldev.buffer, &v, description TSRMLS_CC);
 				/* result of eval */
-				convert_to_string(&retval);
-				php_mbregex_strbuf_ncat(&outdev, retval.value.str.val, retval.value.str.len);
+				convert_to_string(&v);
+				_php_mb_regex_strbuf_ncat(&outdev, Z_STRVAL(v), Z_STRLEN(v));
 				/* Clean up */
 				evaldev.pos = 0;
-				zval_dtor(&retval);
+				zval_dtor(&v);
 			}
 			n = regs.end[0];
 			if (pos < n) {
 				pos = n;
 			} else {
+				_php_mb_regex_strbuf_ncat(&outdev, (const unsigned char *)&string[pos], 1 ); 
 				pos++;
 			}
 		} else { /* nomatch */
 			/* stick that last bit of string on our output */
-			php_mbregex_strbuf_ncat(&outdev, &string[pos], string_len - pos);
+			_php_mb_regex_strbuf_ncat(&outdev, (const unsigned char *)&string[pos], string_len - pos);
 		}
 	}
 
@@ -482,22 +559,22 @@ php_mbereg_replace_exec(INTERNAL_FUNCTION_PARAMETERS, int option)
 		efree((void*)evaldev.buffer);
 	}
 	n = outdev.pos;
-	php_mbregex_strbuf_ncat(&outdev, "\0", 1);
+	_php_mb_regex_strbuf_ncat(&outdev, (const unsigned char *)"\0", 1);
 	if (err <= -2) {
 		if (outdev.buffer) {
 			efree((void*)outdev.buffer);
 		}
 		RETVAL_FALSE;
 	} else {
-		RETVAL_STRINGL(outdev.buffer, n, 0);
+		RETVAL_STRINGL((char *)outdev.buffer, n, 0);
 	}
 }
-
+/* }}} */
 /* {{{ proto string mb_ereg_replace(string pattern, string replacement, string string [, string option])
    Replace regular expression for multibyte string */
 PHP_FUNCTION(mb_ereg_replace)
 {
-	php_mbereg_replace_exec(INTERNAL_FUNCTION_PARAM_PASSTHRU, MBRE_OPTION_EXTENDED);
+	_php_mb_regex_ereg_replace_exec(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0);
 }
 /* }}} */
 
@@ -505,7 +582,7 @@ PHP_FUNCTION(mb_ereg_replace)
    Case insensitive replace regular expression for multibyte string */
 PHP_FUNCTION(mb_eregi_replace)
 {
-	php_mbereg_replace_exec(INTERNAL_FUNCTION_PARAM_PASSTHRU, MBRE_OPTION_EXTENDED | MBRE_OPTION_IGNORECASE);
+	_php_mb_regex_ereg_replace_exec(INTERNAL_FUNCTION_PARAM_PASSTHRU, MBRE_OPTION_IGNORECASE);
 }
 /* }}} */
 
@@ -514,83 +591,60 @@ PHP_FUNCTION(mb_eregi_replace)
    split multibyte string into array by regular expression */
 PHP_FUNCTION(mb_split)
 {
-	zval **arg_pat, **arg_str, **arg_count = NULL;
+	zval *arg_pat;
 	mb_regex_t re;
 	struct mbre_registers regs = {0, 0, 0, 0};
 	char *string;
 	int n, err, count, string_len, pos;
 
 	count = -1;
-	switch (ZEND_NUM_ARGS()) {
-	case 2:
-		if (zend_get_parameters_ex(2, &arg_pat, &arg_str) == FAILURE) {
-			WRONG_PARAM_COUNT;
-		}
-		break;
 
-	case 3:
-		if (zend_get_parameters_ex(3, &arg_pat, &arg_str, &arg_count) == FAILURE) {
-			WRONG_PARAM_COUNT;
-		}
-		convert_to_long_ex(arg_count);
-		count = Z_LVAL_PP(arg_count);
-		break;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zs|l", &arg_pat,
+	                        &string, &string_len, &count) == FAILURE) {
+		RETURN_FALSE;
+	} 
 
-	default:
-		WRONG_PARAM_COUNT;
-		break;
-	}
+	if (count == 0) count = 1;
 
 	if (array_init(return_value) == FAILURE) {
 		RETURN_FALSE;
 	}
 
-	convert_to_string_ex(arg_pat);
-	convert_to_string_ex(arg_str);
-
 	/* create regex pattern buffer */
 	err = php_mbregex_compile_pattern(
 	     &re,
-	     Z_STRVAL_PP(arg_pat),
-	     Z_STRLEN_PP(arg_pat),
-	     MBRE_OPTION_EXTENDED, MBSTRG(current_mbctype) TSRMLS_CC);
+	     Z_STRVAL_P(arg_pat),
+	     Z_STRLEN_P(arg_pat),
+	     MBSTRG(regex_default_options), MBSTRG(current_mbctype) TSRMLS_CC);
 	if (err) {
 		RETURN_FALSE;
 	}
 
-	string = Z_STRVAL_PP(arg_str);
-	string_len = Z_STRLEN_PP(arg_str);
 	pos = 0;
 	err = 0;
 	/* churn through str, generating array entries as we go */
-	while ((count != 0) &&
+	while ((--count != 0) &&
 		   (err = mbre_search(&re, string, string_len, pos, string_len - pos, &regs)) >= 0) {
-		n = regs.beg[0];
-		if (n == pos) {
-			/* match is at start of string, return empty string */
-			add_next_index_stringl(return_value, empty_string, 0, 1);
+		if ( regs.beg[0] == regs.end[0] ) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Empty regular expression");
+			break;
+		}
+
+
+		/* add it to the array */
+		if ( regs.beg[0] < string_len && regs.beg[0] >= pos) {
+			add_next_index_stringl(return_value, (char *)&string[pos], regs.beg[0]-pos, 1);
 		} else {
-			/* On a real match */
-			/* add it to the array */
-			if (n < string_len) {
-				n -= pos;
-				add_next_index_stringl(return_value, &string[pos], n, 1);
-			} else {
-				err = -2;
-				break;
-			}
+			err = -2;
+			break;
 		}
 		/* point at our new starting point */
 		n = regs.end[0];
 		if (pos < n) {
 			pos = n;
-		} else {
-			pos++;
 		}
-		/* if we're only looking for a certain number of points,
-		   stop looking once we hit it */
-		if (count > 0) {
-			count--;
+		if (count < 0) {
+			count = 0;
 		}
 	}
 
@@ -598,7 +652,7 @@ PHP_FUNCTION(mb_split)
 
 	/* see if we encountered an error */
 	if (err <= -2) {
-		php_error(E_WARNING, "mbregex search failure in mbsplit()");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "mbregex search failure in mbsplit()");
 		zval_dtor(return_value);
 		RETURN_FALSE;
 	}
@@ -606,9 +660,9 @@ PHP_FUNCTION(mb_split)
 	/* otherwise we just have one last element to add to the array */
 	n = string_len - pos;
 	if (n > 0) {
-		add_next_index_stringl(return_value, &string[pos], n, 1);
+		add_next_index_stringl(return_value, (char *)&string[pos], n, 1);
 	} else {
-		add_next_index_stringl(return_value, empty_string, 0, 1);
+		add_next_index_stringl(return_value, (char *)empty_string, 0, 1);
 	}
 }
 /* }}} */
@@ -618,44 +672,45 @@ PHP_FUNCTION(mb_split)
    Regular expression match for multibyte string */
 PHP_FUNCTION(mb_ereg_match)
 {
-	zval **arg_pattern, **arg_str, **arg_option;
+	zval *arg_pattern;
+
+	char *string;
+	int string_len;
+
 	mb_regex_t re;
 	int option, err;
 
-	option = MBRE_OPTION_EXTENDED;
-	switch (ZEND_NUM_ARGS()) {
-	case 2:
-		if (zend_get_parameters_ex(2, &arg_pattern, &arg_str) == FAILURE) {
-			WRONG_PARAM_COUNT;
-		}
-		break;
-	case 3:
-		if (zend_get_parameters_ex(3, &arg_pattern, &arg_str, &arg_option) == FAILURE) {
-			WRONG_PARAM_COUNT;
-		}
-		convert_to_string_ex(arg_option);
-		option = 0;
-		php_mbregex_init_option(Z_STRVAL_PP(arg_option), Z_STRLEN_PP(arg_option), &option, NULL);
-		break;
-	default:
-		WRONG_PARAM_COUNT;
-		break;
-	}
+	option = 0;	
+	{
+		char *option_str = NULL;
+		int option_str_len = 0;
 
-	/* create regex pattern buffer */
-	convert_to_string_ex(arg_pattern);
+		if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zs|s",
+		                          &arg_pattern, &string, &string_len,
+		                          &option_str, &option_str_len)==FAILURE) {
+			RETURN_FALSE;
+		}
+
+		if (option_str != NULL) {
+			_php_mb_regex_init_options(option_str, option_str_len, &option, NULL);
+		} else {
+			option |= MBSTRG(regex_default_options);
+		}
+	}
+	convert_to_string_ex(&arg_pattern);
+
 	err = php_mbregex_compile_pattern(
 	    &re,
-	    Z_STRVAL_PP(arg_pattern),
-	    Z_STRLEN_PP(arg_pattern),
+	    Z_STRVAL_P(arg_pattern),
+	    Z_STRLEN_P(arg_pattern),
 	    option, MBSTRG(current_mbctype) TSRMLS_CC);
+
 	if (err) {
 		RETURN_FALSE;
 	}
 
 	/* match */
-	convert_to_string_ex(arg_str);
-	err = mbre_match(&re, Z_STRVAL_PP(arg_str), Z_STRLEN_PP(arg_str), 0, NULL);
+	err = mbre_match(&re, string, string_len, 0, NULL);
 	if (err >= 0) {
 		RETVAL_TRUE;
 	} else {
@@ -667,13 +722,13 @@ PHP_FUNCTION(mb_ereg_match)
 
 /* regex search */
 static void
-php_mbereg_search_exec(INTERNAL_FUNCTION_PARAMETERS, int mode)
+_php_mb_regex_ereg_search_exec(INTERNAL_FUNCTION_PARAMETERS, int mode)
 {
-	zval **arg_pattern, **arg_option;
+	zval **arg_pattern, **arg_options;
 	int n, i, err, pos, len, beg, end, option;
 	unsigned char *str;
 
-	option = MBRE_OPTION_EXTENDED;
+	option = MBSTRG(regex_default_options);
 	switch (ZEND_NUM_ARGS()) {
 	case 0:
 		break;
@@ -683,12 +738,12 @@ php_mbereg_search_exec(INTERNAL_FUNCTION_PARAMETERS, int mode)
 		}
 		break;
 	case 2:
-		if (zend_get_parameters_ex(2, &arg_pattern, &arg_option) == FAILURE) {
+		if (zend_get_parameters_ex(2, &arg_pattern, &arg_options) == FAILURE) {
 			WRONG_PARAM_COUNT;
 		}
-		convert_to_string_ex(arg_option);
+		convert_to_string_ex(arg_options);
 		option = 0;
-		php_mbregex_init_option(Z_STRVAL_PP(arg_option), Z_STRLEN_PP(arg_option), &option, NULL);
+		_php_mb_regex_init_options(Z_STRVAL_PP(arg_options), Z_STRLEN_PP(arg_options), &option, NULL);
 		break;
 	default:
 		WRONG_PARAM_COUNT;
@@ -716,16 +771,16 @@ php_mbereg_search_exec(INTERNAL_FUNCTION_PARAMETERS, int mode)
 	str = NULL;
 	len = 0;
 	if (Z_TYPE_PP(MBSTRG(search_str)) == IS_STRING){
-		str = Z_STRVAL_PP(MBSTRG(search_str));
+		str = (unsigned char *)Z_STRVAL_PP(MBSTRG(search_str));
 		len = Z_STRLEN_PP(MBSTRG(search_str));
 	}
 
 	if (!MBSTRG(search_re)) {
-		php_error(E_WARNING, "no regex for search");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "No regex given");
 		RETURN_FALSE;
 	}
 	if (!str) {
-		php_error(E_WARNING, "no string for search");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "No string given");
 		RETURN_FALSE;
 	}
 	if (MBSTRG(search_regs)) {
@@ -735,15 +790,17 @@ php_mbereg_search_exec(INTERNAL_FUNCTION_PARAMETERS, int mode)
 		MBSTRG(search_regs) = (struct mbre_registers*)ecalloc(1, sizeof(struct mbre_registers));
 	}
 
-	err = mbre_search(MBSTRG(search_re), str, len, pos, len - pos, MBSTRG(search_regs));
-
+	err = mbre_search(MBSTRG(search_re), (const char *)str, len, pos, len - pos, MBSTRG(search_regs));
 	if (err <= -2) {
-		php_error(E_WARNING, "mbregex search failure in mbregex_search()");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "mbregex search failure in mbregex_search()");
 		RETVAL_FALSE;
 	} else if (err < 0) {
 		MBSTRG(search_pos) = len;
 		RETVAL_FALSE;
 	} else {
+		if (MBSTRG(search_regs)->beg[0] == MBSTRG(search_regs)->end[0]) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Empty regular expression");
+		}
 		switch (mode) {
 		case 1:
 			if (array_init(return_value) != FAILURE) {
@@ -762,7 +819,7 @@ php_mbereg_search_exec(INTERNAL_FUNCTION_PARAMETERS, int mode)
 					beg = MBSTRG(search_regs)->beg[i];
 					end = MBSTRG(search_regs)->end[i];
 					if (beg >= 0 && beg <= end && end <= len) {
-						add_index_stringl(return_value, i, &str[beg], end - beg, 1);
+						add_index_stringl(return_value, i, (char *)&str[beg], end - beg, 1);
 					} else {
 						add_index_bool(return_value, i, 0);
 					}
@@ -796,7 +853,7 @@ php_mbereg_search_exec(INTERNAL_FUNCTION_PARAMETERS, int mode)
    Regular expression search for multibyte string */
 PHP_FUNCTION(mb_ereg_search)
 {
-	php_mbereg_search_exec(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0);
+	_php_mb_regex_ereg_search_exec(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0);
 }
 /* }}} */
 
@@ -805,7 +862,7 @@ PHP_FUNCTION(mb_ereg_search)
    Regular expression search for multibyte string */
 PHP_FUNCTION(mb_ereg_search_pos)
 {
-	php_mbereg_search_exec(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1);
+	_php_mb_regex_ereg_search_exec(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1);
 }
 /* }}} */
 
@@ -814,7 +871,7 @@ PHP_FUNCTION(mb_ereg_search_pos)
    Regular expression search for multibyte string */
 PHP_FUNCTION(mb_ereg_search_regs)
 {
-	php_mbereg_search_exec(INTERNAL_FUNCTION_PARAM_PASSTHRU, 2);
+	_php_mb_regex_ereg_search_exec(INTERNAL_FUNCTION_PARAM_PASSTHRU, 2);
 }
 /* }}} */
 
@@ -823,10 +880,10 @@ PHP_FUNCTION(mb_ereg_search_regs)
    Initialize string and regular expression for search. */
 PHP_FUNCTION(mb_ereg_search_init)
 {
-	zval **arg_str, **arg_pattern, **arg_option;
+	zval **arg_str, **arg_pattern, **arg_options;
 	int err, option;
 
-	option = MBRE_OPTION_EXTENDED;
+	option = MBSTRG(regex_default_options);
 	switch (ZEND_NUM_ARGS()) {
 	case 1:
 		if (zend_get_parameters_ex(1, &arg_str) == FAILURE) {
@@ -839,12 +896,12 @@ PHP_FUNCTION(mb_ereg_search_init)
 		}
 		break;
 	case 3:
-		if (zend_get_parameters_ex(3, &arg_str, &arg_pattern, &arg_option) == FAILURE) {
+		if (zend_get_parameters_ex(3, &arg_str, &arg_pattern, &arg_options) == FAILURE) {
 			WRONG_PARAM_COUNT;
 		}
-		convert_to_string_ex(arg_option);
+		convert_to_string_ex(arg_options);
 		option = 0;
-		php_mbregex_init_option(Z_STRVAL_PP(arg_option), Z_STRLEN_PP(arg_option), &option, NULL);
+		_php_mb_regex_init_options(Z_STRVAL_PP(arg_options), Z_STRLEN_PP(arg_options), &option, NULL);
 		break;
 	default:
 		WRONG_PARAM_COUNT;
@@ -915,14 +972,14 @@ PHP_FUNCTION(mb_ereg_search_getregs)
 
 	if (MBSTRG(search_regs) && Z_TYPE_PP(MBSTRG(search_str)) == IS_STRING &&
 	    Z_STRVAL_PP(MBSTRG(search_str)) && array_init(return_value) != FAILURE) {
-		str = Z_STRVAL_PP(MBSTRG(search_str));
+		str = (unsigned char *)Z_STRVAL_PP(MBSTRG(search_str));
 		len = Z_STRLEN_PP(MBSTRG(search_str));
 		n = MBSTRG(search_regs)->num_regs;
 		for (i = 0; i < n; i++) {
 			beg = MBSTRG(search_regs)->beg[i];
 			end = MBSTRG(search_regs)->end[i];
 			if (beg >= 0 && beg <= end && end <= len) {
-				add_index_stringl(return_value, i, &str[beg], end - beg, 1);
+				add_index_stringl(return_value, i, (char *)&str[beg], end - beg, 1);
 			} else {
 				add_index_bool(return_value, i, 0);
 			}
@@ -955,14 +1012,60 @@ PHP_FUNCTION(mb_ereg_search_setpos)
 	}
 	convert_to_long_ex(arg_pos);
 	n = Z_LVAL_PP(arg_pos);
-	if (n < 0) {
-		php_error(E_WARNING, "position is minus value");
+	if (n < 0
+	    || ( MBSTRG(search_str) != NULL && *MBSTRG(search_str) != NULL &&
+	         Z_TYPE_PP(MBSTRG(search_str)) == IS_STRING && 
+	         n >= Z_STRLEN_PP(MBSTRG(search_str)) ) ) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Position is out of range");
 		MBSTRG(search_pos) = 0;
 		RETVAL_FALSE;
 	} else {
 		MBSTRG(search_pos) = n;
 		RETVAL_TRUE;
 	}
+}
+/* }}} */
+
+/* {{{ php_mb_regex_set_options */
+int php_mb_regex_set_options( int options TSRMLS_DC) 
+{
+	int prev_opt = MBSTRG(regex_default_options);
+	MBSTRG(regex_default_options) = options;
+	return prev_opt;
+}
+/* }}} */
+
+/* {{{ php_mb_regex_set_options_by_string */
+int php_mb_regex_set_options_by_string( const char *opt_str, int len TSRMLS_DC)
+{
+	int new_opt = 0;
+	_php_mb_regex_init_options( opt_str, len, &new_opt, NULL);
+	return php_mb_regex_set_options( new_opt TSRMLS_CC);
+}
+/* }}} */
+
+/* {{{ proto string mb_regex_set_options([string options])
+   Set or get the default options for mbregex functions */
+PHP_FUNCTION(mb_regex_set_options)
+{
+	int opt;
+	char *string = NULL;
+	int string_len;
+	char buf[16];
+
+	if ( zend_parse_parameters( ZEND_NUM_ARGS() TSRMLS_CC, "|s",
+	                            &string, &string_len ) == FAILURE ) {
+		RETURN_FALSE;
+	}
+	if (string != NULL) {
+		opt = php_mb_regex_set_options_by_string( (const char*)string,
+		                                          string_len TSRMLS_CC );
+	} else {
+		opt = MBSTRG(regex_default_options);
+	}
+	_php_mb_regex_get_option_string(buf, sizeof(buf), opt);
+
+	RETVAL_STRING(buf, 1);
 }
 /* }}} */
 

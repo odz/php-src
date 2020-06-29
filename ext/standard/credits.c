@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: credits.c,v 1.17 2002/02/28 08:26:44 sebastian Exp $ */
+/* $Id: credits.c,v 1.21.2.2 2002/12/26 23:39:51 derick Exp $ */
 
 #include "php.h"
 #include "info.h"
@@ -31,19 +31,17 @@ PHPAPI void php_print_credits(int flag)
 	TSRMLS_FETCH();
 
 	if (flag & PHP_CREDITS_FULLPAGE) {
-		PUTS("<html><head><title>PHP Credits</title></head><body>\n");
+		php_print_info_htmlhead(TSRMLS_C);
 	}
 
-	php_info_print_style();
-
-	PUTS("<h1 align=\"center\">PHP 4 Credits</h1>\n");
+	PUTS("<h1>PHP Credits</h1>\n");
 
 	if (flag & PHP_CREDITS_GROUP) {
 		/* Group */
 
 		php_info_print_table_start();
 		php_info_print_table_header(1, "PHP Group");
-		php_info_print_table_row(1, "Thies C. Arntzen, Stig Bakken, Andi Gutmans, Rasmus Lerdorf, Sam Ruby, Sascha Schumann, Zeev Suraski, Jim Winstead, Andrei Zmievski");
+		php_info_print_table_row(1, "Thies C. Arntzen, Stig Bakken, Shane Caraveo, Andi Gutmans, Rasmus Lerdorf, Sam Ruby, Sascha Schumann, Zeev Suraski, Jim Winstead, Andrei Zmievski");
 		php_info_print_table_end();
 	}
 
@@ -63,6 +61,7 @@ PHPAPI void php_print_credits(int flag)
 		CREDIT_LINE("UNIX Build and Modularization", "Stig Bakken, Sascha Schumann");
 		CREDIT_LINE("Win32 Port", "Shane Caraveo, Zeev Suraski");
 		CREDIT_LINE("Server API (SAPI) Abstraction Layer", "Andi Gutmans, Shane Caraveo, Zeev Suraski");
+		CREDIT_LINE("Streams Abstraction Layer", "Wez Furlong");
 		php_info_print_table_end();
 	}
 
@@ -96,8 +95,8 @@ PHPAPI void php_print_credits(int flag)
 
 	if (flag & PHP_CREDITS_QA) {
 		php_info_print_table_start();
-		php_info_print_table_header(1, "PHP Quality Assurance Team");
-		php_info_print_table_row(1, "Andre Langhorst, Derick Rethans, Hellekin O. Wolf, Jalal Pushman, James Moore, Jani Taskinen, Joey Smith, Olivier Cahagne, Phil Driscoll, Sebastian Bergmann, Zak Greant");
+		php_info_print_table_header(1, "PHP 4.3 Quality Assurance Team");
+		php_info_print_table_row(1, "Ilia Alshanetsky, Stefan Esser, Moriyoshi Koizumi, Sebastian Nohn, Derick Rethans, Melvyn Sopacua, Jani Taskinen");
 		php_info_print_table_end();
 	}
 
@@ -110,7 +109,7 @@ PHPAPI void php_print_credits(int flag)
 	}
 
 	if (flag & PHP_CREDITS_FULLPAGE) {
-		PUTS("</body></html>\n");
+		PUTS("</center></body></html>\n");
 	}
 }
 /* }}} */

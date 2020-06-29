@@ -25,6 +25,9 @@
 #include "zend_API.h"
 #include "zend_fast_cache.h"
 
+#ifdef ZEND_MULTIBYTE
+#include "zend_multibyte.h"
+#endif /* ZEND_MULTIBYTE */
 
 ZEND_API zend_op_array *(*zend_compile_file)(zend_file_handle *file_handle, int type TSRMLS_DC);
 
@@ -81,6 +84,14 @@ void zend_init_compiler_data_structures(TSRMLS_D)
 	CG(handle_op_arrays) = 1;
 	CG(in_compilation) = 0;
 	init_compiler_declarables(TSRMLS_C);
+#ifdef ZEND_MULTIBYTE
+	CG(script_encoding_list) = NULL;
+	CG(script_encoding_list_size) = 0;
+	CG(internal_encoding) = NULL;
+	CG(encoding_detector) = NULL;
+	CG(encoding_converter) = NULL;
+	CG(multibyte_oddlen) = NULL;
+#endif /* ZEND_MULTIBYTE */
 }
 
 
@@ -105,6 +116,11 @@ void shutdown_compiler(TSRMLS_D)
 	zend_stack_destroy(&CG(list_stack));
 	zend_hash_destroy(&CG(filenames_table));
 	zend_llist_destroy(&CG(open_files));
+#ifdef ZEND_MULTIBYTE
+	if (CG(script_encoding_list)) {
+		efree(CG(script_encoding_list));
+	}
+#endif /* ZEND_MULTIBYTE */
 }
 
 
@@ -732,7 +748,17 @@ void zend_do_begin_function_declaration(znode *function_token, znode *function_n
 	op_array.return_reference = return_reference;
 
 	if (is_method) {
-		zend_hash_update(&CG(active_class_entry)->function_table, name, name_len+1, &op_array, sizeof(zend_op_array), (void **) &CG(active_op_array));
+		if (zend_hash_add(&CG(active_class_entry)->function_table, name, name_len+1, &op_array, sizeof(zend_op_array), (void **) &CG(active_op_array)) == FAILURE) {
+			zend_op_array *child_op_array, *parent_op_array;
+			if (CG(active_class_entry)->parent
+				&& (zend_hash_find(&CG(active_class_entry)->function_table, name, name_len+1, (void **) &child_op_array) == SUCCESS)
+				&& (zend_hash_find(&CG(active_class_entry)->parent->function_table, name, name_len+1, (void **) &parent_op_array) == SUCCESS)
+				&& (child_op_array->refcount == parent_op_array->refcount)) {
+				zend_hash_update(&CG(active_class_entry)->function_table, name, name_len+1, &op_array, sizeof(zend_op_array), (void **) &CG(active_op_array));
+			} else {
+				zend_error(E_COMPILE_ERROR, "Cannot redeclare %s()", name);
+			}
+		}
 	} else {
 		zend_op *opline = get_next_op(CG(active_op_array) TSRMLS_CC);
 
@@ -2203,17 +2229,45 @@ void zend_do_declare_stmt(znode *var, znode *val TSRMLS_DC)
 	if (!zend_binary_strcasecmp(var->u.constant.value.str.val, var->u.constant.value.str.len, "ticks", sizeof("ticks")-1)) {
 		convert_to_long(&val->u.constant);
 		CG(declarables).ticks = val->u.constant;
+#ifdef ZEND_MULTIBYTE
+	} else if (!zend_binary_strcasecmp(var->u.constant.value.str.val, var->u.constant.value.str.len, "encoding", sizeof("encoding")-1)) {
+		zend_encoding *new_encoding, *old_encoding;
+		zend_multibyte_filter old_input_filter;
+
+		if (val->u.constant.type == IS_CONSTANT) {
+			zend_error(E_COMPILE_ERROR, "Cannot use constants as encoding");
+		}
+		convert_to_string(&val->u.constant);
+		new_encoding = zend_multibyte_fetch_encoding(val->u.constant.value.str.val);
+		if (!new_encoding) {
+			zend_error(E_COMPILE_WARNING, "Unsupported encoding [%s]", val->u.constant.value.str.val);
+		} else {
+			old_input_filter = LANG_SCNG(input_filter);
+			old_encoding = LANG_SCNG(script_encoding);
+			zend_multibyte_set_filter(new_encoding TSRMLS_CC);
+
+			if (old_input_filter != LANG_SCNG(input_filter) ||
+				((old_input_filter == zend_multibyte_encoding_filter) &&
+				 (new_encoding != old_encoding))) {
+				zend_yyinput_again(old_input_filter, old_encoding TSRMLS_CC);
+			}
+		}
+		efree(val->u.constant.value.str.val);
+#endif /* ZEND_MULTIBYTE */
 	}
 	zval_dtor(&var->u.constant);
 }
 
 
-void zend_do_declare_end(TSRMLS_D)
+void zend_do_declare_end(znode *declare_token TSRMLS_DC)
 {
 	zend_declarables *declarables;
 
 	zend_stack_top(&CG(declare_stack), (void **) &declarables);
-	CG(declarables) = *declarables;
+	/* We should restore if there was more than (current - start) - (ticks?1:0) opcodes */
+	if ((get_next_op_number(CG(active_op_array)) - declare_token->u.opline_num) - ((CG(declarables).ticks.value.lval)?1:0)) {
+		CG(declarables) = *declarables;
+	}
 }
 
 
@@ -2387,7 +2441,6 @@ void zend_do_ticks(TSRMLS_D)
 		SET_UNUSED(opline->op2);
 	}
 }
-
 
 int zend_register_auto_global(char *name, uint name_len TSRMLS_DC)
 {

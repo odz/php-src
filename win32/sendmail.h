@@ -28,19 +28,22 @@
 #define BAD_MSG_FILE					18
 #define W32_SM_SENDMAIL_FROM_NOT_SET	19
 #define W32_SM_SENDMAIL_FROM_MALFORMED	20
-#define MAX_ERROR_INDEX					21 /* Always last error message + 1 */
+#define W32_SM_PCRE_ERROR				21
+#define MAX_ERROR_INDEX					22 /* Always last error message + 1 */
 
 
-int TSendMail(char *smtpaddr, int *returnerror,
-			  char *RPath, char *Subject, char *mailTo, char *data);
+int TSendMail(char *smtpaddr, int *returnerror, char **error_message,
+			  char *RPath, char *Subject, char *mailTo, char *data,
+			  char *mailCc, char *mailBcc, char *mailRPath);
 void TSMClose(void);
-int SendText(char *RPath, char *Subject, char *mailTo, char *data, char *headers);
+int SendText(char *RPath, char *Subject, char *mailTo, char *mailCc, char *mailBcc, char *data, 
+			 char *headers, char *headers_lc, char **error_message);
 char *GetSMErrorText(int index);
 
 int MailConnect();
-int PostHeader(char *, char *, char *, char *, char *);
+int PostHeader(char *, char *, char *, char *);
 int Post(LPCSTR);
-int Ack();
+int Ack(char **server_response);
 unsigned long GetAddr(LPSTR szHost);
 
 

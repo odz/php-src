@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.7 2001/11/30 18:59:58 sniper Exp $
+dnl $Id: config.m4,v 1.11 2002/09/04 14:30:36 sniper Exp $
 dnl
 
 PHP_ARG_ENABLE(sockets, whether to enable sockets support,
@@ -7,9 +7,15 @@ PHP_ARG_ENABLE(sockets, whether to enable sockets support,
 
 if test "$PHP_SOCKETS" != "no"; then
 
-  AC_CHECK_FUNCS(hstrerror)
-  AC_CHECK_HEADERS(netdb.h netinet/tcp.h sys/un.h errno.h)
-  AC_DEFINE(HAVE_SOCKETS, 1, [ ])
+  AC_CHECK_FUNCS([hstrerror])
+  AC_CHECK_HEADERS([netdb.h netinet/tcp.h sys/un.h errno.h])
+  AC_TRY_COMPILE([
+#include <sys/types.h>
+#include <sys/socket.h>
+  ], [static struct msghdr tp; int n = (int) tp.msg_flags; return n],[],
+    [AC_DEFINE(MISSING_MSGHDR_MSGFLAGS, 1, [ ])]
+  )
+  AC_DEFINE([HAVE_SOCKETS], 1, [ ])
 
-  PHP_EXTENSION(sockets, $ext_shared)
+  PHP_NEW_EXTENSION([sockets], [sockets.c], [$ext_shared])
 fi

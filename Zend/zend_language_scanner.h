@@ -27,6 +27,16 @@ typedef struct _zend_lex_state {
 	FILE *in;
 	uint lineno;
 	char *filename;
+#ifdef ZEND_MULTIBYTE
+	char *code;
+ 	int code_size;
+	char *current_code;
+	int current_code_size;
+	zend_multibyte_filter input_filter;
+	zend_multibyte_filter output_filter;
+	zend_encoding *script_encoding;
+	zend_encoding *internal_encoding;
+#endif /* ZEND_MULTIBYTE */
 } zend_lex_state;
 
 

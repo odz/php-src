@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: syslog.c,v 1.38 2002/02/28 08:26:49 sebastian Exp $ */
+/* $Id: syslog.c,v 1.40 2002/08/24 01:19:28 helly Exp $ */
 
 #include "php.h"
 
@@ -192,8 +192,7 @@ static void start_syslog(TSRMLS_D)
 PHP_FUNCTION(define_syslog_variables)
 {
 	if (ZEND_NUM_ARGS() != 0) {
-		php_error(E_WARNING, "%s() expects no parameters, %d given",
-				  get_active_function_name(TSRMLS_C), ZEND_NUM_ARGS());
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "expects no parameters, %d given", ZEND_NUM_ARGS());
 		return;
 	}
 
@@ -203,7 +202,7 @@ PHP_FUNCTION(define_syslog_variables)
 }
 /* }}} */
 
-/* {{{ proto int openlog(string ident, int option, int facility)
+/* {{{ proto bool openlog(string ident, int option, int facility)
    Open connection to system logger */
 /*
    ** OpenLog("nettopp", $LOG_PID, $LOG_LOCAL1);
@@ -229,13 +228,12 @@ PHP_FUNCTION(openlog)
 }
 /* }}} */
 
-/* {{{ proto int closelog(void)
+/* {{{ proto bool closelog(void)
    Close connection to system logger */
 PHP_FUNCTION(closelog)
 {
 	if (ZEND_NUM_ARGS() != 0) {
-		php_error(E_WARNING, "%s() expects no parameters, %d given",
-				  get_active_function_name(TSRMLS_C), ZEND_NUM_ARGS());
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "expects no parameters, %d given", ZEND_NUM_ARGS());
 		return;
 	}
 
@@ -248,7 +246,7 @@ PHP_FUNCTION(closelog)
 }
 /* }}} */
 
-/* {{{ proto int syslog(int priority, string message)
+/* {{{ proto bool syslog(int priority, string message)
    Generate a system log message */
 PHP_FUNCTION(syslog)
 {

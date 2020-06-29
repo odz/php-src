@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: assert.c,v 1.47 2002/02/28 08:26:44 sebastian Exp $ */
+/* $Id: assert.c,v 1.50 2002/11/10 21:24:45 derick Exp $ */
 
 /* {{{ includes/startup/misc */
 
@@ -157,7 +157,7 @@ PHP_FUNCTION(assert)
 		compiled_string_description = zend_make_compiled_string_description("assert code" TSRMLS_CC);
 		if (zend_eval_string(myeval, &retval, compiled_string_description TSRMLS_CC) == FAILURE) {
 			efree(compiled_string_description);
-			zend_error(E_ERROR, "Failure evaluating code:\n%s\n", myeval);
+			zend_error(E_ERROR, "Failure evaluating code:\n%s", myeval);
 			/* zend_error() does not return in this case. */
 		}
 		efree(compiled_string_description);
@@ -206,9 +206,9 @@ PHP_FUNCTION(assert)
 
 	if (ASSERTG(warning)) {
 		if (myeval) {
-			php_error(E_WARNING, "Assertion \"%s\" failed", myeval);
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Assertion \"%s\" failed", myeval);
 		} else {
-			php_error(E_WARNING, "Assertion failed");
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Assertion failed");
 		}
 	}
 
@@ -282,7 +282,7 @@ PHP_FUNCTION(assert_options)
 		break;
 
 	default:
-		php_error(E_WARNING, "Unknown value %d.", Z_LVAL_PP(what));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unknown value %d", Z_LVAL_PP(what));
 		break;
 	}
 

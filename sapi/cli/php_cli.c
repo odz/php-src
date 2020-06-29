@@ -33,8 +33,6 @@
 #include "win32/time.h"
 #include "win32/signal.h"
 #include <process.h>
-#else
-#include "build-defs.h"
 #endif
 #if HAVE_SYS_TIME_H
 #include <sys/time.h>
@@ -77,28 +75,66 @@
 
 #include "php_getopt.h"
 
-#define PHP_MODE_STANDARD	1
-#define PHP_MODE_HIGHLIGHT	2
-#define PHP_MODE_INDENT		3
-#define PHP_MODE_LINT		4
-#define PHP_MODE_STRIP		5
-#define PHP_MODE_CLI_DIRECT 6
+#define PHP_MODE_STANDARD    1
+#define PHP_MODE_HIGHLIGHT   2
+#define PHP_MODE_INDENT      3
+#define PHP_MODE_LINT        4
+#define PHP_MODE_STRIP       5
+#define PHP_MODE_CLI_DIRECT  6
 
 extern char *ap_php_optarg;
 extern int ap_php_optind;
 
 #define OPTSTRING "aCc:d:ef:g:hilmnqr:sw?vz:"
 
-static int _print_module_info(zend_module_entry *module, void *arg TSRMLS_DC)
+static int print_module_info(zend_module_entry *module, void *arg TSRMLS_DC)
 {
 	php_printf("%s\n", module->name);
 	return 0;
 }
 
-static int _print_extension_info(zend_extension *module, void *arg TSRMLS_DC)
+static int module_name_cmp(const void *a, const void *b TSRMLS_DC)
 {
-	php_printf("%s\n", module->name);
+	Bucket *f = *((Bucket **) a);
+	Bucket *s = *((Bucket **) b);
+
+	return strcmp(((zend_module_entry *)f->pData)->name,
+				  ((zend_module_entry *)s->pData)->name);
+}
+
+static void print_modules(TSRMLS_D)
+{
+	HashTable sorted_registry;
+	zend_module_entry tmp;
+
+	zend_hash_init(&sorted_registry, 50, NULL, NULL, 1);
+	zend_hash_copy(&sorted_registry, &module_registry, NULL, &tmp, sizeof(zend_module_entry));
+	zend_hash_sort(&sorted_registry, zend_qsort, module_name_cmp, 0 TSRMLS_CC);
+	zend_hash_apply_with_argument(&sorted_registry, (apply_func_arg_t) print_module_info, NULL TSRMLS_CC);
+	zend_hash_destroy(&sorted_registry);
+}
+
+static int print_extension_info(zend_extension *ext, void *arg TSRMLS_DC)
+{
+	php_printf("%s\n", ext->name);
 	return 0;
+}
+
+static int extension_name_cmp(const zend_llist_element **f,
+							  const zend_llist_element **s TSRMLS_DC)
+{
+	return strcmp(((zend_extension *)(*f)->data)->name,
+				  ((zend_extension *)(*s)->data)->name);
+}
+
+static void print_extensions(TSRMLS_D)
+{
+	zend_llist sorted_exts;
+
+	zend_llist_copy(&sorted_exts, &zend_extensions);
+	zend_llist_sort(&sorted_exts, extension_name_cmp TSRMLS_CC);
+	zend_llist_apply_with_argument(&sorted_exts, (llist_apply_with_arg_func_t) print_extension_info, NULL TSRMLS_CC);
+	zend_llist_destroy(&sorted_exts);
 }
 
 #ifndef STDOUT_FILENO
@@ -111,7 +147,9 @@ static inline size_t sapi_cli_single_write(const char *str, uint str_length)
 	long ret;
 
 	ret = write(STDOUT_FILENO, str, str_length);
-	if (ret <= 0) return 0;
+	if (ret <= 0) {
+		return 0;
+	}
 	return ret;
 #else
 	size_t ret;
@@ -148,6 +186,8 @@ static void sapi_cli_flush(void *server_context)
 	}
 }
 
+static char *php_self = "";
+static char *script_filename = "";
 
 static void sapi_cli_register_variables(zval *track_vars_array TSRMLS_DC)
 {
@@ -157,7 +197,13 @@ static void sapi_cli_register_variables(zval *track_vars_array TSRMLS_DC)
 	php_import_environment_variables(track_vars_array TSRMLS_CC);
 
 	/* Build the special-case PHP_SELF variable for the CLI version */
-	/*	php_register_variable("PHP_SELF", SG(request_info).argv[0], track_vars_array TSRMLS_CC);*/
+	php_register_variable("PHP_SELF", php_self, track_vars_array TSRMLS_CC);
+	php_register_variable("SCRIPT_NAME", php_self, track_vars_array TSRMLS_CC);
+	/* filenames are empty for stdin */
+	php_register_variable("SCRIPT_FILENAME", script_filename, track_vars_array TSRMLS_CC);
+	php_register_variable("PATH_TRANSLATED", script_filename, track_vars_array TSRMLS_CC);
+	/* just make it available */
+	php_register_variable("DOCUMENT_ROOT", "", track_vars_array TSRMLS_CC);
 }
 
 
@@ -192,13 +238,23 @@ static void sapi_cli_send_header(sapi_header_struct *sapi_header, void *server_c
 	PHPWRITE_H("\r\n", 2);
 }
 
+
+static int php_cli_startup(sapi_module_struct *sapi_module)
+{
+	if (php_module_startup(sapi_module, NULL, 0)==FAILURE) {
+		return FAILURE;
+	}
+	return SUCCESS;
+}
+
+
 /* {{{ sapi_module_struct cli_sapi_module
  */
 static sapi_module_struct cli_sapi_module = {
 	"cli",							/* name */
 	"Command Line Interface",    	/* pretty name */
 
-	php_module_startup,				/* startup */
+	php_cli_startup,				/* startup */
 	php_module_shutdown_wrapper,	/* shutdown */
 
 	NULL,							/* activate */
@@ -240,27 +296,28 @@ static void php_cli_usage(char *argv0)
 	} else {
 		prog = "php";
 	}
-
+	
 	php_printf( "Usage: %s [options] [-f] <file> [args...]\n"
 	            "       %s [options] -r <code> [args...]\n"
 	            "       %s [options] [-- args...]\n"
-				"  -s             Display colour syntax highlighted source.\n"
-				"  -w             Display source with stripped comments and whitespace.\n"
-				"  -f <file>      Parse <file>.\n"
-				"  -v             Version number\n"
-				"  -c <path>      Look for php.ini file in this directory\n"
-				"  -a             Run interactively\n"
-				"  -d foo[=bar]   Define INI entry foo with value 'bar'\n"
-				"  -e             Generate extended information for debugger/profiler\n"
-				"  -z <file>      Load Zend extension <file>.\n"
-				"  -l             Syntax check only (lint)\n"
-				"  -m             Show compiled in modules\n"
-				"  -i             PHP information\n"
-				"  -r <code>      Run PHP <code> without using script tags <?..?>\n"
-				"  -h             This help\n"
+				"  -a               Run interactively\n"
+				"  -c <path>|<file> Look for php.ini file in this directory\n"
+				"  -n               No php.ini file will be used\n"
+				"  -d foo[=bar]     Define INI entry foo with value 'bar'\n"
+				"  -e               Generate extended information for debugger/profiler\n"
+				"  -f <file>        Parse <file>.\n"
+				"  -h               This help\n"
+				"  -i               PHP information\n"
+				"  -l               Syntax check only (lint)\n"
+				"  -m               Show compiled in modules\n"
+				"  -r <code>        Run PHP <code> without using script tags <?..?>\n"
+				"  -s               Display colour syntax highlighted source.\n"
+				"  -v               Version number\n"
+				"  -w               Display source with stripped comments and whitespace.\n"
+				"  -z <file>        Load Zend extension <file>.\n"
 				"\n"
-				"  args...        Arguments passed to script. Use -- args when first argument \n"
-				"                 starts with - or script is read from stdin\n"
+				"  args...          Arguments passed to script. Use -- args when first argument \n"
+				"                   starts with - or script is read from stdin\n"
 				, prog, prog, prog);
 }
 /* }}} */
@@ -296,6 +353,52 @@ static void php_register_command_line_global_vars(char **arg TSRMLS_DC)
 	efree(*arg);
 }
 
+static void cli_register_file_handles(TSRMLS_D)
+{
+	zval *zin, *zout, *zerr;
+	php_stream *s_in, *s_out, *s_err;
+	php_stream_context *sc_in=NULL, *sc_out=NULL, *sc_err=NULL;
+	zend_constant ic, oc, ec;
+	
+	MAKE_STD_ZVAL(zin);
+	MAKE_STD_ZVAL(zout);
+	MAKE_STD_ZVAL(zerr);
+
+	s_in  = php_stream_open_wrapper_ex("php://stdin",  "rb", 0, NULL, sc_in);
+	s_out = php_stream_open_wrapper_ex("php://stdout", "wb", 0, NULL, sc_out);
+	s_err = php_stream_open_wrapper_ex("php://stderr", "wb", 0, NULL, sc_err);
+
+	if (s_in==NULL || s_out==NULL || s_err==NULL) {
+		return;
+	}
+
+	php_stream_to_zval(s_in,  zin);
+	php_stream_to_zval(s_out, zout);
+	php_stream_to_zval(s_err, zerr);
+	
+	ic.value = *zin;
+	ic.flags = CONST_CS;
+	ic.name = zend_strndup("STDIN", 6);
+	ic.name_len = 6;
+	zend_register_constant(&ic TSRMLS_CC);
+
+	oc.value = *zout;
+	oc.flags = CONST_CS;
+	oc.name = zend_strndup("STDOUT", 7);
+	oc.name_len = 7;
+	zend_register_constant(&oc TSRMLS_CC);
+
+	ec.value = *zerr;
+	ec.flags = CONST_CS;
+	ec.name = zend_strndup("STDERR", 7);
+	ec.name_len = 7;
+	zend_register_constant(&ec TSRMLS_CC);
+
+	FREE_ZVAL(zin);
+	FREE_ZVAL(zout);
+	FREE_ZVAL(zerr);
+}
+
 /* {{{ main
  */
 int main(int argc, char *argv[])
@@ -312,7 +415,9 @@ int main(int argc, char *argv[])
 	char *script_file=NULL;
 	zend_llist global_vars;
 	int interactive=0;
-    char *exec_direct=NULL;
+	int module_started = 0;
+	char *exec_direct=NULL;
+	char *param_error=NULL;
 /* end of temporary locals */
 #ifdef ZTS
 	zend_compiler_globals *compiler_globals;
@@ -354,16 +459,15 @@ int main(int argc, char *argv[])
 		case 'c':
 			cli_sapi_module.php_ini_path_override = strdup(ap_php_optarg);
 			break;
+		case 'n':
+			cli_sapi_module.php_ini_ignore = 1;
+			break;
 		}
-
 	}
 	ap_php_optind = orig_optind;
 	ap_php_optarg = orig_optarg;
 
-	/* startup after we get the above ini override se we get things right */
-	if (php_module_startup(&cli_sapi_module)==FAILURE) {
-		return FAILURE;
-	}
+	cli_sapi_module.executable_location = argv[0];
 
 #ifdef ZTS
 	compiler_globals = ts_resource(compiler_globals_id);
@@ -372,6 +476,18 @@ int main(int argc, char *argv[])
 	sapi_globals = ts_resource(sapi_globals_id);
 	tsrm_ls = ts_resource(0);
 #endif
+
+	/* startup after we get the above ini override se we get things right */
+	if (php_module_startup(&cli_sapi_module, NULL, 0)==FAILURE) {
+		/* there is no way to see if we must call zend_ini_deactivate()
+		 * since we cannot check if EG(ini_directives) has been initialised
+		 * because the executor's constructor does not set initialize it.
+		 * Apart from that there seems no need for zend_ini_deactivate() yet.
+		 * So we goto out_err.*/
+		exit_status = 1;
+		goto out_err;
+	}
+	module_started = 1;
 
 	zend_first_try {
 		while ((c=ap_php_getopt(argc, argv, OPTSTRING))!=-1) {
@@ -399,6 +515,15 @@ int main(int argc, char *argv[])
 		zend_alter_ini_entry("implicit_flush", 15, "1", 1, PHP_INI_SYSTEM, PHP_INI_STAGE_ACTIVATE);
 		zend_alter_ini_entry("max_execution_time", 19, "0", 1, PHP_INI_SYSTEM, PHP_INI_STAGE_ACTIVATE);
 
+		zend_uv.html_errors = 0; /* tell the engine we're in non-html mode */
+
+		if (cli_sapi_module.php_ini_path_override && cli_sapi_module.php_ini_ignore) {
+			SG(headers_sent) = 1;
+			SG(request_info).no_headers = 1;
+			PUTS("You cannot use both -n and -c switch. Use -h for help.\n");
+			exit(1);
+		}
+	
 		while ((c = ap_php_getopt(argc, argv, OPTSTRING)) != -1) {
 			switch (c) {
 
@@ -419,6 +544,10 @@ int main(int argc, char *argv[])
 				break;
 
 			case 'f': /* parse file */
+				if (behavior == PHP_MODE_CLI_DIRECT) {
+					param_error = "Either execute direct code or use a file.\n";
+					break;
+				}
 				script_file = ap_php_optarg;
 				no_headers = 1;
 				break;
@@ -444,8 +573,7 @@ int main(int argc, char *argv[])
 
 			case 'i': /* php info & quit */
 				if (php_request_startup(TSRMLS_C)==FAILURE) {
-					php_module_shutdown(TSRMLS_C);
-					return FAILURE;
+					goto err;
 				}
 				if (no_headers) {
 					SG(headers_sent) = 1;
@@ -457,6 +585,9 @@ int main(int argc, char *argv[])
 				break;
 
 			case 'l': /* syntax check mode */
+				if (behavior != PHP_MODE_STANDARD) {
+					break;
+				}
 				no_headers = 1;
 				behavior=PHP_MODE_LINT;
 				break;
@@ -465,18 +596,21 @@ int main(int argc, char *argv[])
 				php_output_startup();
 				php_output_activate(TSRMLS_C);
 				SG(headers_sent) = 1;
-				php_printf("Running PHP %s\n%s\n", PHP_VERSION , get_zend_version());
 				php_printf("[PHP Modules]\n");
-			zend_hash_apply_with_argument(&module_registry, (apply_func_arg_t) _print_module_info, NULL TSRMLS_CC);
-			php_printf("\n[Zend Modules]\n");
-			zend_llist_apply_with_argument(&zend_extensions, (llist_apply_with_arg_func_t) _print_extension_info, NULL TSRMLS_CC);
-			php_printf("\n");
-			php_end_ob_buffers(1 TSRMLS_CC);
-			exit(1);
+				print_modules(TSRMLS_C);
+				php_printf("\n[Zend Modules]\n");
+				print_extensions(TSRMLS_C);
+				php_printf("\n");
+				php_end_ob_buffers(1 TSRMLS_CC);
+				exit(1);
 			break;
 
 #if 0 /* not yet operational, see also below ... */
-			case 'n': /* generate indented source mode*/
+			case '': /* generate indented source mode*/
+				if (behavior == PHP_MODE_CLI_DIRECT) {
+					param_error = "Source indenting only works for files.\n";
+					break;
+				}
 				behavior=PHP_MODE_INDENT;
 				break;
 #endif
@@ -485,31 +619,42 @@ int main(int argc, char *argv[])
 				/* This is default so NOP */
 				break;
 
-			case 's': /* generate highlighted HTML from source */
-				behavior=PHP_MODE_HIGHLIGHT;
-				break;
-
 			case 'r': /* run code from command line */
+				if (behavior != PHP_MODE_STANDARD) {
+					param_error = "Either execute direct code or use a file.\n";
+					break;
+				}
 				behavior=PHP_MODE_CLI_DIRECT;
 				exec_direct=ap_php_optarg;
+				break;
+
+			case 's': /* generate highlighted HTML from source */
+				if (behavior == PHP_MODE_CLI_DIRECT) {
+					param_error = "Source highlighting only works for files.\n";
+					break;
+				}
+				behavior=PHP_MODE_HIGHLIGHT;
 				break;
 
 			case 'v': /* show php version & quit */
 				no_headers = 1;
 				if (php_request_startup(TSRMLS_C)==FAILURE) {
-					php_module_shutdown(TSRMLS_C);
-					return FAILURE;
+					goto err;
 				}
 				if (no_headers) {
 					SG(headers_sent) = 1;
 					SG(request_info).no_headers = 1;
 				}
-				php_printf("%s\n", PHP_VERSION);
+				php_printf("PHP %s (%s) (built: %s %s)\nCopyright (c) 1997-2002 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__, __TIME__, get_zend_version());
 				php_end_ob_buffers(1 TSRMLS_CC);
 				exit(1);
 				break;
 
 			case 'w':
+				if (behavior == PHP_MODE_CLI_DIRECT) {
+					param_error = "Source stripping only works for files.\n";
+					break;
+				}
 				behavior=PHP_MODE_STRIP;
 				break;
 
@@ -522,62 +667,72 @@ int main(int argc, char *argv[])
 			}
 		}
 
+		if (param_error) {
+			SG(headers_sent) = 1;
+			SG(request_info).no_headers = 1;
+			PUTS(param_error);
+			exit(1);
+		}
+
 		CG(interactive) = interactive;
 
 		/* only set script_file if not set already and not in direct mode and not at end of parameter list */
-		if (argc > ap_php_optind && !script_file && !exec_direct && strcmp(argv[ap_php_optind-1],"--")) {
+		if (argc > ap_php_optind && !script_file && behavior!=PHP_MODE_CLI_DIRECT && strcmp(argv[ap_php_optind-1],"--")) {
+			no_headers = 1;
 			script_file=argv[ap_php_optind];
 			ap_php_optind++;
 		}
-		/* before registering argv to modulule exchange the *new* argv[0] */
-		/* we can achieve this without allocating more memory */
-		SG(request_info).argc=argc-ap_php_optind+1;
-		arg_excp = argv+ap_php_optind-1;
-		arg_free = argv[ap_php_optind-1];
-		if (script_file) {
-			argv[ap_php_optind-1] = script_file;
-		} else {
-			argv[ap_php_optind-1] = "-"; /* should be stdin */
-		}
-		SG(request_info).argv=argv+ap_php_optind-1;
-
-		if (php_request_startup(TSRMLS_C)==FAILURE) {
-			php_module_shutdown(TSRMLS_C);
-			*arg_excp = arg_free;
-			return FAILURE;
-		}
-		*arg_excp = arg_free; /* reconstuct argv */
-		if (no_headers) {
-			SG(headers_sent) = 1;
-			SG(request_info).no_headers = 1;
-		}
 		if (script_file) {
 			if (!(file_handle.handle.fp = VCWD_FOPEN(script_file, "rb"))) {
-				PUTS("No input file specified.\n");
-				php_request_shutdown((void *) 0);
-				php_module_shutdown(TSRMLS_C);
-				return FAILURE;
+				SG(headers_sent) = 1;
+				SG(request_info).no_headers = 1;
+				php_printf("Could not open input file: %s.\n", script_file);
+				goto err;
 			}
-			php_register_variable("PHP_SELF", script_file, NULL TSRMLS_CC);
 			file_handle.filename = script_file;
+			script_filename = script_file;
 			/* #!php support */
 			c = fgetc(file_handle.handle.fp);
 			if (c == '#') {
 				while (c != 10 && c != 13) {
 					c = fgetc(file_handle.handle.fp);	/* skip to end of line */
 				}
-				CG(zend_lineno)++;
+				CG(zend_lineno) = -2;
 			} else {
 				rewind(file_handle.handle.fp);
 			}
 		} else {
-			php_register_variable("PHP_SELF", "-", NULL TSRMLS_CC);
 			file_handle.filename = "-";
 			file_handle.handle.fp = stdin;
 		}
 		file_handle.type = ZEND_HANDLE_FP;
 		file_handle.opened_path = NULL;
 		file_handle.free_filename = 0;
+		php_self = file_handle.filename;
+
+		/* before registering argv to modulule exchange the *new* argv[0] */
+		/* we can achieve this without allocating more memory */
+		SG(request_info).argc=argc-ap_php_optind+1;
+		arg_excp = argv+ap_php_optind-1;
+		arg_free = argv[ap_php_optind-1];
+		SG(request_info).path_translated = file_handle.filename;
+		argv[ap_php_optind-1] = file_handle.filename;
+		SG(request_info).argv=argv+ap_php_optind-1;
+
+		if (php_request_startup(TSRMLS_C)==FAILURE) {
+			*arg_excp = arg_free;
+			fclose(file_handle.handle.fp);
+			SG(headers_sent) = 1;
+			SG(request_info).no_headers = 1;
+			php_request_shutdown((void *) 0);
+			PUTS("Could not startup.\n");
+			goto err;
+		}
+		*arg_excp = arg_free; /* reconstuct argv */
+		if (no_headers) {
+			SG(headers_sent) = 1;
+			SG(request_info).no_headers = 1;
+		}
 
 		/* This actually destructs the elements of the list - ugly hack */
 		zend_llist_apply(&global_vars, (llist_apply_func_t) php_register_command_line_global_vars TSRMLS_CC);
@@ -585,6 +740,9 @@ int main(int argc, char *argv[])
 
 		switch (behavior) {
 		case PHP_MODE_STANDARD:
+			if (strcmp(file_handle.filename, "-")) {
+				cli_register_file_handles(TSRMLS_C);
+			}
 			php_execute_script(&file_handle TSRMLS_CC);
 			exit_status = EG(exit_status);
 			break;
@@ -602,7 +760,7 @@ int main(int argc, char *argv[])
 				zend_strip(TSRMLS_C);
 				fclose(file_handle.handle.fp);
 			}
-			return SUCCESS;
+			goto out;
 			break;
 		case PHP_MODE_HIGHLIGHT:
 			{
@@ -613,7 +771,7 @@ int main(int argc, char *argv[])
 					zend_highlight(&syntax_highlighter_ini TSRMLS_CC);
 					fclose(file_handle.handle.fp);
 				}
-				return SUCCESS;
+				goto out;
 			}
 			break;
 #if 0
@@ -622,33 +780,42 @@ int main(int argc, char *argv[])
 			open_file_for_scanning(&file_handle TSRMLS_CC);
 			zend_indent();
 			fclose(file_handle.handle.fp);
-			return SUCCESS;
+			goto out;
 			break;
 #endif
 		case PHP_MODE_CLI_DIRECT:
-        if (zend_eval_string(exec_direct, NULL, "Command line code" TSRMLS_CC) == FAILURE) {
-            exit_status=254;
-        }
+			cli_register_file_handles(TSRMLS_C);
+			if (zend_eval_string(exec_direct, NULL, "Command line code" TSRMLS_CC) == FAILURE) {
+				exit_status=254;
+			}
+			break;
 		}
-
-		php_request_shutdown((void *) 0);
 
 		if (cli_sapi_module.php_ini_path_override) {
 			free(cli_sapi_module.php_ini_path_override);
 		}
 
-
 	} zend_catch {
 		exit_status = EG(exit_status);
 	} zend_end_try();
 
-	php_module_shutdown(TSRMLS_C);
-
+out:
+	php_request_shutdown((void *) 0);
+out_err:	
+	if (module_started) {
+		php_module_shutdown(TSRMLS_C);
+	}
+	sapi_shutdown();
 #ifdef ZTS
 	tsrm_shutdown();
 #endif
 
-	return exit_status;
+	exit(exit_status);
+
+err:
+	zend_ini_deactivate(TSRMLS_C);
+	exit_status = 1;
+	goto out_err;
 }
 /* }}} */
 

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: formatted_print.c,v 1.46 2002/02/28 08:26:45 sebastian Exp $ */
+/* $Id: formatted_print.c,v 1.59 2002/10/26 22:18:40 iliaa Exp $ */
 
 #include <math.h>				/* modf() */
 #include "php.h"
@@ -24,6 +24,10 @@
 #include "php_string.h"
 #include "zend_execute.h"
 #include <stdio.h>
+
+#ifdef HAVE_LOCALE_H
+#include <locale.h>
+#endif
 
 #define ALIGN_LEFT 0
 #define ALIGN_RIGHT 1
@@ -140,7 +144,7 @@ php_sprintf_appendchar(char **buffer, int *pos, int *size, char add TSRMLS_DC)
 {
 	if ((*pos + 1) >= *size) {
 		*size <<= 1;
-		PRINTF_DEBUG(("%s: ereallocing buffer to %d bytes\n", get_active_function_name(TSRMLS_C), *size));
+		PRINTF_DEBUG(("%s(): ereallocing buffer to %d bytes\n", get_active_function_name(TSRMLS_C), *size));
 		*buffer = erealloc(*buffer, *size);
 	}
 	PRINTF_DEBUG(("sprintf: appending '%c', pos=\n", add, *pos));
@@ -154,6 +158,10 @@ php_sprintf_appendstring(char **buffer, int *pos, int *size, char *add,
 						   int alignment, int len, int sign, int expprec)
 {
 	register int npad;
+
+	if (max_width && min_width) {
+		expprec = max_width = 0;	
+	}
 
 	npad = min_width - MIN(len, (expprec ? max_width : len));
 
@@ -196,7 +204,8 @@ php_sprintf_appendstring(char **buffer, int *pos, int *size, char *add,
 
 inline static void
 php_sprintf_appendint(char **buffer, int *pos, int *size, long number,
-						int width, char padding, int alignment)
+						int width, char padding, int alignment, 
+						int always_sign)
 {
 	char numbuf[NUM_BUF_SIZE];
 	register unsigned long magn, nmagn;
@@ -225,6 +234,8 @@ php_sprintf_appendint(char **buffer, int *pos, int *size, long number,
 	while (magn > 0 && i > 0);
 	if (neg) {
 		numbuf[--i] = '-';
+	} else if (always_sign) {
+		numbuf[--i] = '+';
 	}
 	PRINTF_DEBUG(("sprintf: appending %d as \"%s\", i=%d\n",
 				  number, &numbuf[i], i));
@@ -236,7 +247,7 @@ php_sprintf_appendint(char **buffer, int *pos, int *size, long number,
 inline static void
 php_sprintf_appenduint(char **buffer, int *pos, int *size,
 					   unsigned long number,
-					   int width, char padding, int alignment)
+					   int width, char padding, int alignment, int always_sign)
 {
 	char numbuf[NUM_BUF_SIZE];
 	register unsigned long magn, nmagn;
@@ -256,8 +267,10 @@ php_sprintf_appenduint(char **buffer, int *pos, int *size,
 
 		numbuf[--i] = (unsigned char)(magn - (nmagn * 10)) + '0';
 		magn = nmagn;
-	}
-	while (magn > 0 && i > 0);
+	} while (magn > 0 && i > 0);
+
+	if (always_sign)
+		numbuf[--i] = '+';
 	PRINTF_DEBUG(("sprintf: appending %d as \"%s\", i=%d\n", number, &numbuf[i], i));
 	php_sprintf_appendstring(buffer, pos, size, &numbuf[i], width, 0,
 							 padding, alignment, (NUM_BUF_SIZE - 1) - i, 0, 0);
@@ -268,12 +281,15 @@ php_sprintf_appenddouble(char **buffer, int *pos,
 						 int *size, double number,
 						 int width, char padding,
 						 int alignment, int precision,
-						 int adjust, char fmt)
+						 int adjust, char fmt,
+						 int always_sign
+						 TSRMLS_DC)
 {
 	char numbuf[NUM_BUF_SIZE];
 	char *cvt;
 	register int i = 0, j = 0;
 	int sign, decpt;
+	char decimal_point = EG(float_separator)[0];
 
 	PRINTF_DEBUG(("sprintf: appenddouble(%x, %x, %x, %f, %d, '%c', %d, %c)\n",
 				  *buffer, pos, size, number, width, padding, alignment, fmt));
@@ -301,6 +317,8 @@ php_sprintf_appenddouble(char **buffer, int *pos,
 
 	if (sign) {
 		numbuf[i++] = '-';
+	} else if (always_sign) {
+		numbuf[i++] = '+';
 	}
 
 	if (fmt == 'f') {
@@ -308,7 +326,7 @@ php_sprintf_appenddouble(char **buffer, int *pos,
 			numbuf[i++] = '0';
 			if (precision > 0) {
 				int k = precision;
-				numbuf[i++] = '.';
+				numbuf[i++] = decimal_point;
 				while ((decpt++ < 0) && k--) {
 					numbuf[i++] = '0';
 				}
@@ -317,12 +335,37 @@ php_sprintf_appenddouble(char **buffer, int *pos,
 			while (decpt-- > 0)
 				numbuf[i++] = cvt[j++];
 			if (precision > 0)
-				numbuf[i++] = '.';
+				numbuf[i++] = decimal_point;
+		}
+	} else if (fmt == 'e' || fmt == 'E') {
+		char *exp_p;
+		int dec2;
+		
+		decpt--;
+		
+		numbuf[i++] = cvt[j++];
+		numbuf[i++] = decimal_point;	
+
+		if (precision > 0) {
+			int k = precision;
+				
+			while (k-- && cvt[j]) {
+				numbuf[i++] = cvt[j++];
+			}
+		} else {
+			numbuf[i++] = '0';
+		}
+		
+		numbuf[i++] = fmt;
+		exp_p = php_convert_to_decimal(decpt, 0, &dec2, &sign, 0);
+		numbuf[i++] = sign ? '-' : '+';
+		while (*exp_p) {
+			numbuf[i++] = *(exp_p++);
 		}
 	} else {
 		numbuf[i++] = cvt[j++];
 		if (precision > 0)
-			numbuf[i++] = '.';
+			numbuf[i++] = decimal_point;
 	}
 
 	while (cvt[j]) {
@@ -393,6 +436,7 @@ php_sprintf_getnumber(char *buffer, int *pos)
  *  "-"   left adjusted field
  *   n    field size
  *  "."n  precision (floats only)
+ *  "+"   Always place a sign (+ or -) in front of a number
  *
  * Type specifiers:
  *
@@ -414,6 +458,7 @@ php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 	int argc, size = 240, inpos = 0, outpos = 0, temppos;
 	int alignment, width, precision, currarg, adjusting, argnum;
 	char *format, *result, padding;
+	int always_sign;
 
 	argc = ZEND_NUM_ARGS();
 
@@ -463,13 +508,14 @@ php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 			if (currarg >= argc && format[inpos + 1] != '%') {
 				efree(result);
 				efree(args);
-				php_error(E_WARNING, "%s(): too few arguments", get_active_function_name(TSRMLS_C));
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Too few arguments");
 				return NULL;
 			}
 			/* starting a new format specifier, reset variables */
 			alignment = ALIGN_RIGHT;
 			adjusting = 0;
 			padding = ' ';
+			always_sign = 0;
 			inpos++;			/* skip the '%' */
 
 			PRINTF_DEBUG(("sprintf: first looking at '%c', inpos=%d\n",
@@ -480,6 +526,14 @@ php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 				while (isdigit((int)format[temppos])) temppos++;
 				if (format[temppos] == '$') {
 					argnum = php_sprintf_getnumber(format, &inpos);
+
+					if (argnum == 0) {
+						efree(result);
+						efree(args);
+						php_error_docref(NULL TSRMLS_CC, E_WARNING, "Zero is not a valid argument number");
+						return NULL;
+					}
+	
 					inpos++;  /* skip the '$' */
 				} else {
 					argnum = currarg++;
@@ -487,7 +541,7 @@ php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 				if (argnum >= argc) {
 					efree(result);
 					efree(args);
-					php_error(E_WARNING, "%s(): too few arguments", get_active_function_name(TSRMLS_C));
+					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Too few arguments");
 					return NULL;
 				}
 
@@ -501,6 +555,8 @@ php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 					} else if (format[inpos] == '-') {
 						alignment = ALIGN_LEFT;
 						/* space padding, the default */
+					} else if (format[inpos] == '+') {
+						always_sign = 1;
 					} else if (format[inpos] == '\'') {
 						padding = format[++inpos];
 					} else {
@@ -563,14 +619,16 @@ php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 					convert_to_long_ex(args[argnum]);
 					php_sprintf_appendint(&result, &outpos, &size,
 										  Z_LVAL_PP(args[argnum]),
-										  width, padding, alignment);
+										  width, padding, alignment,
+										  always_sign);
 					break;
 
 				case 'u':
 					convert_to_long_ex(args[argnum]);
 					php_sprintf_appenduint(&result, &outpos, &size,
 										  Z_LVAL_PP(args[argnum]),
-										  width, padding, alignment);
+										  width, padding, alignment,
+										  always_sign);
 					break;
 
 				case 'e':
@@ -581,9 +639,10 @@ php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 											 Z_DVAL_PP(args[argnum]),
 											 width, padding, alignment,
 											 precision, adjusting,
-											 format[inpos]);
+											 format[inpos], always_sign
+											 TSRMLS_CC);
 					break;
-
+					
 				case 'c':
 					convert_to_long_ex(args[argnum]);
 					php_sprintf_appendchar(&result, &outpos, &size,

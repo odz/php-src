@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: link.c,v 1.37.2.1 2002/06/23 17:18:17 sesser Exp $ */
+/* $Id: link.c,v 1.42.2.3 2002/12/05 21:09:18 helly Exp $ */
 
 #include "php.h"
 #include "php_filestat.h"
@@ -33,6 +33,8 @@
 #if HAVE_PWD_H
 #ifdef PHP_WIN32
 #include "win32/pwd.h"
+#elif defined(NETWARE)
+#include "netware/pwd.h"
 #else
 #include <pwd.h>
 #endif
@@ -55,7 +57,7 @@
 PHP_FUNCTION(readlink)
 {
 	zval **filename;
-	char buff[256];
+	char buff[MAXPATHLEN];
 	int ret;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &filename) == FAILURE) {
@@ -63,13 +65,15 @@ PHP_FUNCTION(readlink)
 	}
 	convert_to_string_ex(filename);
 
-	ret = readlink(Z_STRVAL_PP(filename), buff, 255);
+	ret = readlink(Z_STRVAL_PP(filename), buff, MAXPATHLEN-1);
+
 	if (ret == -1) {
-		php_error(E_WARNING, "readlink failed (%s)", strerror(errno));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", strerror(errno));
 		RETURN_FALSE;
 	}
 	/* Append NULL to the end of the string */
 	buff[ret] = '\0';
+
 	RETURN_STRING(buff, 1);
 }
 /* }}} */
@@ -79,7 +83,11 @@ PHP_FUNCTION(readlink)
 PHP_FUNCTION(linkinfo)
 {
 	zval **filename;
+#if defined(NETWARE) && defined(CLIB_STAT_PATCH)
+	struct stat_libc sb;
+#else
 	struct stat sb;
+#endif
 	int ret;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &filename) == FAILURE) {
@@ -89,7 +97,7 @@ PHP_FUNCTION(linkinfo)
 
 	ret = VCWD_LSTAT(Z_STRVAL_PP(filename), &sb);
 	if (ret == -1) {
-		php_error(E_WARNING, "Linkinfo failed (%s)", strerror(errno));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", strerror(errno));
 		RETURN_LONG(-1L);
 	}
 
@@ -103,6 +111,8 @@ PHP_FUNCTION(symlink)
 {
 	zval **topath, **frompath;
 	int ret;
+	char source_p[MAXPATHLEN];
+	char dest_p[MAXPATHLEN];
 
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &topath, &frompath) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -110,30 +120,39 @@ PHP_FUNCTION(symlink)
 	convert_to_string_ex(topath);
 	convert_to_string_ex(frompath);
 
-	if (PG(safe_mode) && !php_checkuid(Z_STRVAL_PP(topath), NULL, CHECKUID_CHECK_FILE_AND_DIR)) {
+	expand_filepath(Z_STRVAL_PP(frompath), source_p TSRMLS_CC);
+	expand_filepath(Z_STRVAL_PP(topath), dest_p TSRMLS_CC);
+
+	if (php_stream_locate_url_wrapper(source_p, NULL, STREAM_LOCATE_WRAPPERS_ONLY TSRMLS_CC) ||
+		php_stream_locate_url_wrapper(dest_p, NULL, STREAM_LOCATE_WRAPPERS_ONLY TSRMLS_CC) ) 
+	{
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to symlink to a URL");
+		RETURN_FALSE;	
+	}
+
+	if (PG(safe_mode) && !php_checkuid(dest_p, NULL, CHECKUID_CHECK_FILE_AND_DIR)) {
 		RETURN_FALSE;
 	}
 
-	if (PG(safe_mode) && !php_checkuid(Z_STRVAL_PP(frompath), NULL, CHECKUID_CHECK_FILE_AND_DIR)) {
+	if (PG(safe_mode) && !php_checkuid(source_p, NULL, CHECKUID_CHECK_FILE_AND_DIR)) {
 		RETURN_FALSE;
 	}
 
-	if (php_check_open_basedir(Z_STRVAL_PP(topath) TSRMLS_CC)) {
+	if (php_check_open_basedir(dest_p TSRMLS_CC)) {
 		RETURN_FALSE;
 	}
 
-	if (php_check_open_basedir(Z_STRVAL_PP(frompath) TSRMLS_CC)) {
+	if (php_check_open_basedir(source_p TSRMLS_CC)) {
 		RETURN_FALSE;
 	}
 
-	if (!strncasecmp(Z_STRVAL_PP(topath), "http://", 7) || !strncasecmp(Z_STRVAL_PP(topath), "ftp://", 6)) {
-		php_error(E_WARNING, "Unable to symlink to a URL");
-		RETURN_FALSE;
-	}
-
+#ifndef ZTS
 	ret = symlink(Z_STRVAL_PP(topath), Z_STRVAL_PP(frompath));
+#else 
+	ret = symlink(dest_p, source_p);
+#endif	
 	if (ret == -1) {
-		php_error(E_WARNING, "Symlink failed (%s)", strerror(errno));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", strerror(errno));
 		RETURN_FALSE;
 	}
 
@@ -147,6 +166,8 @@ PHP_FUNCTION(link)
 {
 	zval **topath, **frompath;
 	int ret;
+	char source_p[MAXPATHLEN];
+	char dest_p[MAXPATHLEN];
 
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &topath, &frompath) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -154,30 +175,39 @@ PHP_FUNCTION(link)
 	convert_to_string_ex(topath);
 	convert_to_string_ex(frompath);
 
-	if (PG(safe_mode) && !php_checkuid(Z_STRVAL_PP(topath), NULL, CHECKUID_CHECK_FILE_AND_DIR)) {
+	expand_filepath(Z_STRVAL_PP(frompath), source_p TSRMLS_CC);
+	expand_filepath(Z_STRVAL_PP(topath), dest_p TSRMLS_CC);
+
+	if (php_stream_locate_url_wrapper(source_p, NULL, STREAM_LOCATE_WRAPPERS_ONLY TSRMLS_CC) ||
+		php_stream_locate_url_wrapper(dest_p, NULL, STREAM_LOCATE_WRAPPERS_ONLY TSRMLS_CC) ) 
+	{
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to link to a URL");
+		RETURN_FALSE;	
+	}
+
+	if (PG(safe_mode) && !php_checkuid(dest_p, NULL, CHECKUID_CHECK_FILE_AND_DIR)) {
 		RETURN_FALSE;
 	}
 
-	if (PG(safe_mode) && !php_checkuid(Z_STRVAL_PP(frompath), NULL, CHECKUID_CHECK_FILE_AND_DIR)) {
+	if (PG(safe_mode) && !php_checkuid(source_p, NULL, CHECKUID_CHECK_FILE_AND_DIR)) {
 		RETURN_FALSE;
 	}
 
-	if (php_check_open_basedir(Z_STRVAL_PP(topath) TSRMLS_CC)) {
+	if (php_check_open_basedir(dest_p TSRMLS_CC)) {
 		RETURN_FALSE;
 	}
 
-	if (php_check_open_basedir(Z_STRVAL_PP(frompath) TSRMLS_CC)) {
+	if (php_check_open_basedir(source_p TSRMLS_CC)) {
 		RETURN_FALSE;
 	}
 
-	if (!strncasecmp(Z_STRVAL_PP(topath), "http://", 7) || !strncasecmp(Z_STRVAL_PP(topath), "ftp://", 6)) {
-		php_error(E_WARNING, "Unable to link to a URL");
-		RETURN_FALSE;
-	}
-
+#ifndef ZTS
 	ret = link(Z_STRVAL_PP(topath), Z_STRVAL_PP(frompath));
+#else 
+	ret = link(dest_p, source_p);	
+#endif	
 	if (ret == -1) {
-		php_error(E_WARNING, "Link failed (%s)", strerror(errno));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", strerror(errno));
 		RETURN_FALSE;
 	}
 

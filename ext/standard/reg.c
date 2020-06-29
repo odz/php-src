@@ -17,19 +17,16 @@
    |          Jaakko Hyvätti <jaakko@hyvatti.iki.fi>                      | 
    +----------------------------------------------------------------------+
  */
-/* $Id: reg.c,v 1.58.2.3 2002/08/23 08:00:48 zeev Exp $ */
+/* $Id: reg.c,v 1.66.2.2 2002/12/05 22:46:40 iliaa Exp $ */
 
 #include <stdio.h>
+#include <ctype.h>
 #include "php.h"
 #include "php_string.h"
 #include "reg.h"
 #include "ext/standard/info.h"
 
-#ifdef ZTS
-int reg_globals_id;
-#else
-static php_reg_globals reg_globals;
-#endif
+ZEND_DECLARE_MODULE_GLOBALS(reg)
 
 typedef struct {
 	regex_t preg;
@@ -74,25 +71,28 @@ static void _free_reg_cache(reg_cache *rc)
 #undef regcomp
 #define regcomp(a, b, c) _php_regcomp(a, b, c)
 	
-static void php_reg_init_globals(php_reg_globals *reg_globals TSRMLS_DC)
+static void php_reg_init_globals(zend_reg_globals *reg_globals TSRMLS_DC)
 {
 	zend_hash_init(&reg_globals->ht_rc, 0, NULL, (void (*)(void *)) _free_reg_cache, 1);
 }
 
+static void php_reg_destroy_globals(zend_reg_globals *reg_globals TSRMLS_DC)
+{
+	zend_hash_destroy(&reg_globals->ht_rc);
+}
+
 PHP_MINIT_FUNCTION(regex)
 {
-#ifdef ZTS
-	ts_allocate_id(&reg_globals_id, sizeof(php_reg_globals), (ts_allocate_ctor) php_reg_init_globals, NULL);
-#else
-	php_reg_init_globals(&reg_globals TSRMLS_CC);
-#endif
-
+	ZEND_INIT_MODULE_GLOBALS(reg, php_reg_init_globals, php_reg_destroy_globals);
 	return SUCCESS;
 }
 
 PHP_MSHUTDOWN_FUNCTION(regex)
 {
-	zend_hash_destroy(&REG(ht_rc));
+#ifndef ZTS
+	php_reg_destroy_globals(&reg_globals TSRMLS_CC);
+#endif
+
 	return SUCCESS;
 }
 
@@ -128,6 +128,8 @@ static void php_reg_eprint(int err, regex_t *re) {
 #endif
 	len = regerror(err, re, NULL, 0);
 	if (len) {
+		TSRMLS_FETCH();
+
 		message = (char *)emalloc((buf_len + len + 2) * sizeof(char));
 		if (!message) {
 			return; /* fail silently */
@@ -139,7 +141,7 @@ static void php_reg_eprint(int err, regex_t *re) {
 		/* drop the message into place */
 		regerror(err, re, message + buf_len, len);
 
-		php_error(E_WARNING, "%s", message);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", message);
 	}
 
 	STR_FREE(buf);
@@ -198,10 +200,6 @@ static void php_ereg(INTERNAL_FUNCTION_PARAMETERS, int icase)
 
 	/* allocate storage for (sub-)expression-matches */
 	subs = (regmatch_t *)ecalloc(sizeof(regmatch_t),re.re_nsub+1);
-	if (!subs) {
-		php_error(E_WARNING, "Unable to allocate memory in php_ereg");
-		RETURN_FALSE;
-	}
 	
 	/* actually execute the regular expression */
 	err = regexec(&re, string, re.re_nsub+1, subs, 0);
@@ -218,11 +216,6 @@ static void php_ereg(INTERNAL_FUNCTION_PARAMETERS, int icase)
 		string_len = Z_STRLEN_PP(findin) + 1;
 
 		buf = emalloc(string_len);
-		if (!buf) {
-			php_error(E_WARNING, "Unable to allocate memory in php_ereg");
-			efree(subs);
-			RETURN_FALSE;
-		}
 
 		zval_dtor(*array);	/* start with clean array */
 		array_init(*array);
@@ -299,21 +292,11 @@ PHPAPI char *php_reg_replace(const char *pattern, const char *replace, const cha
 
 	/* allocate storage for (sub-)expression-matches */
 	subs = (regmatch_t *)ecalloc(sizeof(regmatch_t),re.re_nsub+1);
-	if (!subs) {
-		php_error(E_WARNING, "Unable to allocate memory in php_ereg_replace");
-		return ((char *) -1);
-	}
 
 	/* start with a buffer that is twice the size of the stringo
 	   we're doing replacements in */
 	buf_len = 2 * string_len + 1;
 	buf = emalloc(buf_len * sizeof(char));
-	if (!buf) {
-		php_error(E_WARNING, "Unable to allocate memory in php_ereg_replace");
-		efree(subs);
-		regfree(&re);
-		return ((char *) -1);
-	}
 
 	err = pos = 0;
 	buf[0] = '\0';
@@ -339,13 +322,10 @@ PHPAPI char *php_reg_replace(const char *pattern, const char *replace, const cha
 			new_l = strlen(buf) + subs[0].rm_so; /* part before the match */
 			walk = replace;
 			while (*walk)
-				if ('\\' == *walk
-					&& '0' <= walk[1] && '9' >= walk[1]
-					&& walk[1] - '0' <= ((char) re.re_nsub)
-					&& subs[walk[1] - '0'].rm_so > -1
-					&& subs[walk[1] - '0'].rm_eo > -1) {
-					new_l += subs[walk[1] - '0'].rm_eo
-						- subs[walk[1] - '0'].rm_so;
+				if ('\\' == *walk && isdigit(walk[1]) && walk[1] - '0' <= ((char) re.re_nsub)) {
+					if (subs[walk[1] - '0'].rm_so > -1 && subs[walk[1] - '0'].rm_eo > -1) {
+						new_l += subs[walk[1] - '0'].rm_eo - subs[walk[1] - '0'].rm_so;
+					}    
 					walk += 2;
 				} else {
 					new_l++;
@@ -367,22 +347,19 @@ PHPAPI char *php_reg_replace(const char *pattern, const char *replace, const cha
 			walkbuf = &buf[tmp + subs[0].rm_so];
 			walk = replace;
 			while (*walk)
-				if ('\\' == *walk
-					&& '0' <= walk[1] && '9' >= walk[1]
-					&& walk[1] - '0' <= re.re_nsub
-					&& subs[walk[1] - '0'].rm_so > -1
-					&& subs[walk[1] - '0'].rm_eo > -1
-					/* this next case shouldn't happen. it does. */
-					&& subs[walk[1] - '0'].rm_so <= subs[walk[1] - '0'].rm_eo) {
-					tmp = subs[walk[1] - '0'].rm_eo
-						- subs[walk[1] - '0'].rm_so;
-					memcpy (walkbuf,
-							&string[pos + subs[walk[1] - '0'].rm_so],
-							tmp);
-					walkbuf += tmp;
+				if ('\\' == *walk && isdigit(walk[1]) && walk[1] - '0' <= re.re_nsub) {
+					if (subs[walk[1] - '0'].rm_so > -1 && subs[walk[1] - '0'].rm_eo > -1
+						/* this next case shouldn't happen. it does. */
+						&& subs[walk[1] - '0'].rm_so <= subs[walk[1] - '0'].rm_eo) {
+						
+						tmp = subs[walk[1] - '0'].rm_eo - subs[walk[1] - '0'].rm_so;
+						memcpy (walkbuf, &string[pos + subs[walk[1] - '0'].rm_so], tmp);
+						walkbuf += tmp;
+					}
 					walk += 2;
-				} else
+				} else {
 					*walkbuf++ = *walk++;
+				}	
 			*walkbuf = '\0';
 
 			/* and get ready to keep looking for replacements */
@@ -540,10 +517,7 @@ static void php_split(INTERNAL_FUNCTION_PARAMETERS, int icase)
 		RETURN_FALSE;
 	}
 
-	if (array_init(return_value) == FAILURE) {
-		regfree(&re);
-		RETURN_FALSE;
-	}
+	array_init(return_value);
 
 	/* churn through str, generating array entries as we go */
 	while ((count == -1 || count > 1) && !(err = regexec(&re, strp, 1, subs, 0))) {
@@ -555,7 +529,7 @@ static void php_split(INTERNAL_FUNCTION_PARAMETERS, int icase)
 		} else if (subs[0].rm_so == 0 && subs[0].rm_eo == 0) {
 			/* No more matches */
 			regfree(&re);
-			php_error(E_WARNING, "Invalid Regular Expression to split()");
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid Regular Expression to split()");
 			zend_hash_destroy(Z_ARRVAL_P(return_value));
 			efree(Z_ARRVAL_P(return_value));
 			RETURN_FALSE;

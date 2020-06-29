@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: basic_functions.h,v 1.103.2.1 2002/04/11 12:53:22 derick Exp $ */
+/* $Id: basic_functions.h,v 1.109 2002/11/05 06:05:48 ssb Exp $ */
 
 #ifndef BASIC_FUNCTIONS_H
 #define BASIC_FUNCTIONS_H
@@ -50,6 +50,8 @@ PHP_FUNCTION(long2ip);
 PHP_FUNCTION(getenv);
 PHP_FUNCTION(putenv);
 
+PHP_FUNCTION(getopt);
+
 PHP_FUNCTION(get_current_user);
 PHP_FUNCTION(set_time_limit);
 
@@ -76,6 +78,9 @@ PHP_FUNCTION(ini_get);
 PHP_FUNCTION(ini_get_all);
 PHP_FUNCTION(ini_set);
 PHP_FUNCTION(ini_restore);
+PHP_FUNCTION(get_include_path);
+PHP_FUNCTION(set_include_path);
+PHP_FUNCTION(restore_include_path);
 
 PHP_FUNCTION(print_r);
 
@@ -141,7 +146,7 @@ typedef struct {
 
 	HashTable sm_protected_env_vars;
 	char *sm_allowed_env_vars;
- 
+	
 	/* pageinfo.c */
 	long page_uid;
 	long page_gid;
@@ -181,9 +186,7 @@ typedef struct {
 	size_t mmap_len;
 #endif
 
-#ifdef HAVE_AGGREGATE
 	HashTable *aggregation_table;
-#endif
 } php_basic_globals;
 
 #ifdef ZTS

@@ -31,6 +31,7 @@
 #include "zend_extensions.h"
 #include "zend_fast_cache.h"
 #include "zend_execute_locks.h"
+#include "zend_ini.h"
 
 #define get_zval_ptr(node, Ts, should_free, type) _get_zval_ptr(node, Ts, should_free TSRMLS_CC)
 #define get_zval_ptr_ptr(node, Ts, type) _get_zval_ptr_ptr(node, Ts TSRMLS_CC)
@@ -757,7 +758,11 @@ static void zend_fetch_dimension_address(znode *result, znode *op1, znode *op2, 
 				zval *new_zval = &EG(uninitialized_zval);
 
 				new_zval->refcount++;
-				zend_hash_next_index_insert(container->value.ht, &new_zval, sizeof(zval *), (void **) retval);
+				if (zend_hash_next_index_insert(container->value.ht, &new_zval, sizeof(zval *), (void **) retval) == FAILURE) {
+					zend_error(E_WARNING, "Cannot add element to the array as the next element is already occupied");
+					*retval = &EG(uninitialized_zval_ptr);
+					new_zval->refcount--; 
+				}
 			} else {
 				*retval = zend_fetch_dimension_address_inner(container->value.ht, op2, Ts, type TSRMLS_CC);
 			}
@@ -990,30 +995,20 @@ static int zend_check_symbol(zval **pz TSRMLS_DC)
 	EX(opline)++;			\
 	continue;
 
-typedef struct _object_info {
-	zval *ptr;
-} object_info;
-
-typedef struct _zend_execute_data {
-	zend_op *opline;
-	zend_function_state function_state;
-	zend_function *fbc; /* Function Being Called */
-	object_info object;
-	temp_variable *Ts;
-	zend_bool original_in_execution;
-} zend_execute_data;
-
-#define EX(element) execute_data.element
-
 ZEND_API void execute(zend_op_array *op_array TSRMLS_DC)
 {
 	zend_execute_data execute_data;
 
 	/* Initialize execute_data */
 	EX(fbc) = NULL;
+	EX(ce) = NULL;
 	EX(object).ptr = NULL;
+	EX(op_array) = op_array;
 	EX(Ts) = (temp_variable *) do_alloca(sizeof(temp_variable)*op_array->T);
+	EX(prev_execute_data) = EG(current_execute_data);
 	EX(original_in_execution)=EG(in_execution);
+
+	EG(current_execute_data) = &execute_data;
 
 	EG(in_execution) = 1;
 	if (op_array->start_op) {
@@ -1167,8 +1162,7 @@ binary_assign_op_addr: {
 						EX(Ts)[EX(opline)->result.u.var].var.ptr_ptr = &EG(uninitialized_zval_ptr);
 						SELECTIVE_PZVAL_LOCK(*EX(Ts)[EX(opline)->result.u.var].var.ptr_ptr, &EX(opline)->result);
 						AI_USE_PTR(EX(Ts)[EX(opline)->result.u.var].var);
-						EX(opline)++;
-						continue;
+						NEXT_OPCODE();
 					}
 					
 					SEPARATE_ZVAL_IF_NOT_REF(var_ptr);
@@ -1194,8 +1188,7 @@ binary_assign_op_addr: {
 						EX(Ts)[EX(opline)->result.u.var].var.ptr_ptr = &EG(uninitialized_zval_ptr);
 						SELECTIVE_PZVAL_LOCK(*EX(Ts)[EX(opline)->result.u.var].var.ptr_ptr, &EX(opline)->result);
 						AI_USE_PTR(EX(Ts)[EX(opline)->result.u.var].var);
-						EX(opline)++;
-						continue;
+						NEXT_OPCODE();
 					}
 
 					get_incdec_op(incdec_op, EX(opline)->opcode);
@@ -1443,6 +1436,8 @@ binary_assign_op_addr: {
 				EX(Ts)[EX(opline)->result.u.var].tmp_var.value.str.val[0] = 0;
 				EX(Ts)[EX(opline)->result.u.var].tmp_var.value.str.len = 0;
 				EX(Ts)[EX(opline)->result.u.var].tmp_var.refcount = 1;
+				EX(Ts)[EX(opline)->result.u.var].tmp_var.type = IS_STRING;
+				EX(Ts)[EX(opline)->result.u.var].tmp_var.is_ref = 0;
 				NEXT_OPCODE();
 			case ZEND_ADD_CHAR:
 				add_char_to_string(	&EX(Ts)[EX(opline)->result.u.var].tmp_var,
@@ -1486,7 +1481,7 @@ binary_assign_op_addr: {
 					HashTable *active_function_table;
 					zval tmp;
 
-					zend_ptr_stack_n_push(&EG(arg_types_stack), 2, EX(fbc), EX(object).ptr);
+					zend_ptr_stack_n_push(&EG(arg_types_stack), 3, EX(fbc), EX(object).ptr, EX(ce));
 					if (EX(opline)->extended_value & ZEND_CTOR_CALL) {
 						/* constructor call */
 
@@ -1504,13 +1499,12 @@ binary_assign_op_addr: {
 					convert_to_string(&tmp);
 					function_name = &tmp;
 					zend_str_tolower(tmp.value.str.val, tmp.value.str.len);
-						
+					EX(ce) = NULL;						
 					if (EX(opline)->op1.op_type != IS_UNUSED) {
 						if (EX(opline)->op1.op_type==IS_CONST) { /* used for class_name::function() */
-							zend_class_entry *ce;
 							zval **object_ptr_ptr;
 
-							if (zend_hash_find(EG(active_symbol_table), "this", sizeof("this"), (void **) &object_ptr_ptr)==FAILURE) {
+							if (zend_hash_find(EG(active_symbol_table), "this", sizeof("this"), (void **) &object_ptr_ptr)==FAILURE || Z_TYPE_PP(object_ptr_ptr) != IS_OBJECT) {
 								EX(object).ptr=NULL;
 							} else {
 								/* We assume that "this" is already is_ref and pointing to the object.
@@ -1518,10 +1512,10 @@ binary_assign_op_addr: {
 								EX(object).ptr = *object_ptr_ptr;
 								EX(object).ptr->refcount++; /* For this pointer */
 							}
-							if (zend_hash_find(EG(class_table), EX(opline)->op1.u.constant.value.str.val, EX(opline)->op1.u.constant.value.str.len+1, (void **) &ce)==FAILURE) { /* class doesn't exist */
+							if (zend_hash_find(EG(class_table), EX(opline)->op1.u.constant.value.str.val, EX(opline)->op1.u.constant.value.str.len+1, (void **) &EX(ce))==FAILURE) { /* class doesn't exist */
 								zend_error(E_ERROR, "Undefined class name '%s'", EX(opline)->op1.u.constant.value.str.val);
 							}
-							active_function_table = &ce->function_table;
+							active_function_table = &EX(ce)->function_table;
 						} else { /* used for member function calls */
 							EX(object).ptr = _get_object_zval_ptr(&EX(opline)->op1, EX(Ts), &EG(free_op1) TSRMLS_CC);
 							
@@ -1550,7 +1544,7 @@ binary_assign_op_addr: {
 								zend_error(E_ERROR, "Call to a member function on a non-object");
 							}
 							if (!EX(object).ptr->is_ref && EX(object).ptr->refcount > 1) {
-								zend_error(E_ERROR, "Bug: Problem in method call\n");
+								zend_error(E_ERROR, "Bug: Problem in method call");
 							}
 							EX(object).ptr->is_ref=1;
 							EX(object).ptr->refcount++; /* For $this pointer */
@@ -1576,11 +1570,12 @@ overloaded_function_call_cont:
 					zval *fname = get_zval_ptr(&EX(opline)->op1, EX(Ts), &EG(free_op1), BP_VAR_R);
 
 					if (zend_hash_find(EG(function_table), fname->value.str.val, fname->value.str.len+1, (void **) &EX(function_state).function)==FAILURE) {
-						zend_error(E_ERROR, "Unknown function:  %s()\n", fname->value.str.val);
+						zend_error(E_ERROR, "Unknown function:  %s()", fname->value.str.val);
 					}
 					FREE_OP(EX(Ts), &EX(opline)->op1, EG(free_op1));
-					zend_ptr_stack_push(&EG(arg_types_stack), EX(object).ptr);
+					zend_ptr_stack_n_push(&EG(arg_types_stack), 2, EX(object).ptr, EX(ce));
 					EX(object).ptr = NULL;
+					EX(ce) = NULL;
 					goto do_fcall_common;
 				}
 do_fcall_common:
@@ -1595,7 +1590,14 @@ do_fcall_common:
 					if (EX(function_state).function->type==ZEND_INTERNAL_FUNCTION) {	
 						ALLOC_ZVAL(EX(Ts)[EX(opline)->result.u.var].var.ptr);
 						INIT_ZVAL(*(EX(Ts)[EX(opline)->result.u.var].var.ptr));
-						((zend_internal_function *) EX(function_state).function)->handler(EX(opline)->extended_value, EX(Ts)[EX(opline)->result.u.var].var.ptr, EX(object).ptr, return_value_used TSRMLS_CC);
+
+						if (!zend_execute_internal) {
+							/* saves one function call if the zend_execute_internal is not used */
+							((zend_internal_function *) EX(function_state).function)->handler(EX(opline)->extended_value, EX(Ts)[EX(opline)->result.u.var].var.ptr, EX(object).ptr, return_value_used TSRMLS_CC);
+						} else {
+							zend_execute_internal(&execute_data, return_value_used TSRMLS_CC);
+						}
+						EG(current_execute_data) = &execute_data;
 						if (EX(object).ptr) {
 							EX(object).ptr->refcount--;
 						}
@@ -1629,7 +1631,7 @@ do_fcall_common:
 								zend_error(E_WARNING, "Problem with method call - please report this bug");
                 			}
 							*this_ptr = EX(object).ptr;
-							EX(object).ptr = NULL;
+							/* EX(object).ptr = NULL; */
 						}
 						original_return_value = EG(return_value_ptr_ptr);
 						EG(return_value_ptr_ptr) = EX(Ts)[EX(opline)->result.u.var].var.ptr_ptr;
@@ -1664,9 +1666,9 @@ do_fcall_common:
 						}
 					}
 					if (EX(opline)->opcode == ZEND_DO_FCALL_BY_NAME) {
-						zend_ptr_stack_n_pop(&EG(arg_types_stack), 2, &EX(object).ptr, &EX(fbc));
+						zend_ptr_stack_n_pop(&EG(arg_types_stack), 3, &EX(ce), &EX(object).ptr, &EX(fbc));
 					} else {
-						EX(object).ptr = zend_ptr_stack_pop(&EG(arg_types_stack));
+						zend_ptr_stack_n_pop(&EG(arg_types_stack), 2, &EX(ce), &EX(object).ptr);
 					}
 					EX(function_state).function = (zend_function *) op_array;
 					EG(function_state_ptr) = &EX(function_state);
@@ -1682,6 +1684,10 @@ do_fcall_common:
 						(EX(opline)->op1.op_type != IS_TMP_VAR)) {
 						
 						retval_ptr_ptr = get_zval_ptr_ptr(&EX(opline)->op1, EX(Ts), BP_VAR_W);
+
+						if (!retval_ptr_ptr) {
+							zend_error(E_ERROR, "Cannot return overloaded elements or string offsets by reference");
+						}
 
 						SEPARATE_ZVAL_TO_MAKE_IS_REF(retval_ptr_ptr);
 						(*retval_ptr_ptr)->refcount++;
@@ -1710,6 +1716,7 @@ do_fcall_common:
 					}
 					free_alloca(EX(Ts));
 					EG(in_execution) = EX(original_in_execution);
+					EG(current_execute_data) = EX(prev_execute_data);
 					return;
 				}
 				break;
@@ -1802,7 +1809,7 @@ send_by_ref:
 					zval **param;
 
 					if (zend_ptr_stack_get_arg(EX(opline)->op1.u.constant.value.lval, (void **) &param TSRMLS_CC)==FAILURE) {
-						zend_error(E_WARNING, "Missing argument %d for %s()\n", EX(opline)->op1.u.constant.value.lval, get_active_function_name(TSRMLS_C));
+						zend_error(E_WARNING, "Missing argument %d for %s()", EX(opline)->op1.u.constant.value.lval, get_active_function_name(TSRMLS_C));
 						if (EX(opline)->result.op_type == IS_VAR) {
 							PZVAL_UNLOCK(*EX(Ts)[EX(opline)->result.u.var].var.ptr_ptr);
 						}
@@ -2094,7 +2101,11 @@ send_by_ref:
 								file_handle.free_filename = 0;
 
 								if (file_handle.handle.fp) {
-									if (!opened_path || zend_hash_add(&EG(included_files), opened_path, strlen(opened_path)+1, (void *)&dummy, sizeof(int), NULL)==SUCCESS) {
+									if( !opened_path ) {
+										opened_path = file_handle.opened_path = estrndup(inc_filename->value.str.val, inc_filename->value.str.len);
+									}	
+								
+									if (zend_hash_add(&EG(included_files), opened_path, strlen(opened_path)+1, (void *)&dummy, sizeof(int), NULL)==SUCCESS) {
 										new_op_array = zend_compile_file(&file_handle, (EX(opline)->op2.u.constant.value.lval==ZEND_INCLUDE_ONCE?ZEND_INCLUDE:ZEND_REQUIRE) TSRMLS_CC);
 										zend_destroy_file_handle(&file_handle TSRMLS_CC);
 										opened_path = NULL; /* zend_destroy_file_handle() already frees it */
@@ -2134,12 +2145,25 @@ send_by_ref:
 					FREE_OP(EX(Ts), &EX(opline)->op1, EG(free_op1));
 					EX(Ts)[EX(opline)->result.u.var].var.ptr_ptr = &EX(Ts)[EX(opline)->result.u.var].var.ptr;
 					if (new_op_array) {
+						zend_class_entry *saved_ce;
+						zend_function *saved_function;
+
+						
 						EG(return_value_ptr_ptr) = EX(Ts)[EX(opline)->result.u.var].var.ptr_ptr;
 						EG(active_op_array) = new_op_array;
 						EX(Ts)[EX(opline)->result.u.var].var.ptr = NULL;
 
+						saved_ce = EX(ce);
+						saved_function = EX(function_state).function;
+
+						EX(function_state).function = (zend_function *) new_op_array;
+						EX(ce) = NULL;
+
 						zend_execute(new_op_array TSRMLS_CC);
-						
+
+						EX(function_state).function = saved_function;
+						EX(ce) = saved_ce;
+
 						if (!return_value_used) {
 							if (EX(Ts)[EX(opline)->result.u.var].var.ptr) {
 								zval_ptr_dtor(&EX(Ts)[EX(opline)->result.u.var].var.ptr);
@@ -2182,7 +2206,7 @@ send_by_ref:
 					zend_hash_del(EG(active_symbol_table), variable->value.str.val, variable->value.str.len+1);
 
 					if (variable == &tmp) {
-						zval_dtor(&tmp);
+						zval_dtor(&tmp); 
 					}
 					FREE_OP(EX(Ts), &EX(opline)->op1, EG(free_op1));
 				}
@@ -2401,10 +2425,17 @@ send_by_ref:
 			case ZEND_BEGIN_SILENCE:
 				EX(Ts)[EX(opline)->result.u.var].tmp_var.value.lval = EG(error_reporting);
 				EX(Ts)[EX(opline)->result.u.var].tmp_var.type = IS_LONG;  /* shouldn't be necessary */
-				EG(error_reporting) = 0;
+				zend_alter_ini_entry("error_reporting", sizeof("error_reporting"), "0", 1, ZEND_INI_USER, ZEND_INI_STAGE_RUNTIME);
 				NEXT_OPCODE();
-			case ZEND_END_SILENCE:
-				EG(error_reporting) = EX(Ts)[EX(opline)->op1.u.var].tmp_var.value.lval;
+			case ZEND_END_SILENCE: {
+					zval restored_error_reporting;
+
+					restored_error_reporting.type = IS_LONG;
+					restored_error_reporting.value.lval = EX(Ts)[EX(opline)->op1.u.var].tmp_var.value.lval;
+					convert_to_string(&restored_error_reporting);
+					zend_alter_ini_entry("error_reporting", sizeof("error_reporting"), Z_STRVAL(restored_error_reporting), Z_STRLEN(restored_error_reporting), ZEND_INI_USER, ZEND_INI_STAGE_RUNTIME);
+					zendi_zval_dtor(restored_error_reporting);
+				}						
 				NEXT_OPCODE();
 			case ZEND_QM_ASSIGN: {
 					zval *value = get_zval_ptr(&EX(opline)->op1, EX(Ts), &EG(free_op1), BP_VAR_R);
@@ -2415,7 +2446,7 @@ send_by_ref:
 					}
 				}
 				NEXT_OPCODE();
-			case ZEND_EXT_STMT: 
+			case ZEND_EXT_STMT:
 				if (!EG(no_extensions)) {
 					zend_llist_apply_with_argument(&zend_extensions, (llist_apply_with_arg_func_t) zend_extension_statement_handler, op_array TSRMLS_CC);
 				}
@@ -2434,7 +2465,7 @@ send_by_ref:
 				do_bind_function_or_class(EX(opline), EG(function_table), EG(class_table), 0);
 				NEXT_OPCODE();
 			case ZEND_TICKS:
-				if (++EG(ticks_count)==EX(opline)->op1.u.constant.value.lval) {
+				if (++EG(ticks_count)>=EX(opline)->op1.u.constant.value.lval) {
 					EG(ticks_count)=0;
 					if (zend_ticks_function) {
 						zend_ticks_function(EX(opline)->op1.u.constant.value.lval);

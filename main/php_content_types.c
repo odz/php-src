@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_content_types.c,v 1.20 2002/02/28 08:27:03 sebastian Exp $ */
+/* $Id: php_content_types.c,v 1.24.2.1 2002/11/29 14:07:28 martin Exp $ */
 
 #include "php.h"
 #include "SAPI.h"
@@ -37,11 +37,36 @@ static sapi_post_entry php_post_entries[] = {
  */
 SAPI_API SAPI_POST_READER_FUNC(php_default_post_reader)
 {
-	char *data;
+	char *data = NULL;
+	int length = 0;
 
-	if(!SG(request_info).post_data) sapi_read_standard_form_data(TSRMLS_C);
-	data = estrndup(SG(request_info).post_data, SG(request_info).post_data_length);
-	SET_VAR_STRINGL("HTTP_RAW_POST_DATA", data, SG(request_info).post_data_length);
+	/* $HTTP_RAW_POST_DATA registration */
+	if(!strcmp(SG(request_info).request_method, "POST")) {
+		if(NULL == SG(request_info).post_entry) {
+			/* no post handler registered, so we just swallow the data */
+			sapi_read_standard_form_data(TSRMLS_C);
+			length = SG(request_info).post_data_length;
+			data = estrndup(SG(request_info).post_data, length);
+		} else if(PG(always_populate_raw_post_data) && SG(request_info).post_data) {
+			length = SG(request_info).post_data_length;
+			data = estrndup(SG(request_info).post_data, length);
+		}
+		if(data) {
+			SET_VAR_STRINGL("HTTP_RAW_POST_DATA", data, length);
+		}
+	}
+
+	/* for php://input stream:
+	 some post handlers modify the content of request_info.post_data
+	 so for now we need a copy for the php://input stream
+	 in the long run post handlers should be changed to not touch
+	 request_info.post_data for memory preservation reasons
+	*/
+	if(SG(request_info).post_data) {
+		SG(request_info).raw_post_data = estrndup(SG(request_info).post_data, SG(request_info).post_data_length);
+		SG(request_info).raw_post_data_length = SG(request_info).post_data_length;
+	}
+
 }
 /* }}} */
 
@@ -51,6 +76,7 @@ int php_startup_sapi_content_types(void)
 {
 	sapi_register_post_entries(php_post_entries);
 	sapi_register_default_post_reader(php_default_post_reader);
+	sapi_register_treat_data(php_default_treat_data);
 	return SUCCESS;
 }
 /* }}} */

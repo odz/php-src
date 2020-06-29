@@ -1,11 +1,11 @@
 dnl
-dnl $Id: config.m4,v 1.4.2.1 2002/04/11 12:53:24 derick Exp $
+dnl $Id: config.m4,v 1.5 2002/03/12 16:27:22 sas Exp $
 dnl
 
 PHP_ARG_ENABLE(overload,whether to enable user-space object overloading support,
-[  --enable-overload       EXPERIMENTAL: Enable user-space object overloading support.], no)
+[  --disable-overload      Disable user-space object overloading support.], yes)
 
 if test "$PHP_OVERLOAD" != "no"; then
 	AC_DEFINE(HAVE_OVERLOAD, 1, [ ])
-	PHP_EXTENSION(overload, $ext_shared)
+	PHP_NEW_EXTENSION(overload, overload.c, $ext_shared)
 fi

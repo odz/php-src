@@ -16,15 +16,17 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: ftok.c,v 1.4 2002/02/28 08:26:45 sebastian Exp $ */
+/* $Id: ftok.c,v 1.9 2002/11/04 20:08:09 dreid Exp $ */
 
 #include "php.h"
 
-#if HAVE_SYSVSEM || HAVE_SYSVSHM  || HAVE_SHMOP
-
 #include <sys/types.h>                                                                                                        
-#include <sys/ipc.h>
 
+#ifdef HAVE_SYS_IPC_H
+#include <sys/ipc.h>
+#endif
+
+#if HAVE_FTOK
 /* {{{ proto int ftok(string pathname, string proj)
    Convert a pathname and a project identifier to a System V IPC key */
 PHP_FUNCTION(ftok)
@@ -41,12 +43,12 @@ PHP_FUNCTION(ftok)
     convert_to_string_ex(proj);
 
     if (Z_STRLEN_PP(pathname)==0){
-        php_error(E_WARNING, "Invalid argument 1 in ftok");
+        php_error_docref(NULL TSRMLS_CC, E_WARNING, "First argument invalid");
         RETURN_LONG(-1);
     }
 
     if (Z_STRLEN_PP(proj)!=1){
-        php_error(E_WARNING, "Invalid argument 2 in ftok");
+        php_error_docref(NULL TSRMLS_CC, E_WARNING, "Second argument invalid");
         RETURN_LONG(-1);
     }
 
@@ -55,7 +57,6 @@ PHP_FUNCTION(ftok)
     RETURN_LONG(k);
 }
 /* }}} */
-
 #endif
 
 /*

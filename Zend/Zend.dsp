@@ -183,6 +183,10 @@ SOURCE=.\zend_llist.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\zend_multibyte.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\zend_opcode.c
 # End Source File
 # Begin Source File
@@ -300,6 +304,10 @@ SOURCE=.\zend_llist.h
 # Begin Source File
 
 SOURCE=.\zend_modules.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\zend_multibyte.h
 # End Source File
 # Begin Source File
 

@@ -31,6 +31,11 @@
 #include "zend_hash.h"
 #include "zend_llist.h"
 #include "zend_fast_cache.h"
+#include "zend_execute_globals.h"
+
+#ifdef ZEND_MULTIBYTE
+#include "zend_multibyte.h"
+#endif /* ZEND_MULTIBYTE */
 
 /* Define ZTS if you want a thread-safe Zend */
 /*#undef ZTS*/
@@ -114,6 +119,17 @@ struct _zend_compiler_globals {
 	int interactive;
 
 	zend_bool increment_lineno;
+
+#ifdef ZEND_MULTIBYTE
+	zend_encoding **script_encoding_list;
+	int script_encoding_list_size;
+
+	zend_encoding *internal_encoding;
+
+	zend_encoding_detector encoding_detector;
+	zend_encoding_converter encoding_converter;
+	zend_multibyte_oddlen multibyte_oddlen;
+#endif /* ZEND_MULTIBYTE */
 };
 
 
@@ -136,6 +152,8 @@ struct _zend_executor_globals {
 
 	zend_op **opline_ptr;
 
+	zend_execute_data *current_execute_data;
+    
 	HashTable *active_symbol_table;
 	HashTable symbol_table;		/* main symbol table */
 
@@ -187,7 +205,10 @@ struct _zend_executor_globals {
 
 	int lambda_count;
 
-	HashTable ini_directives;
+	HashTable *ini_directives;
+
+	/* locale stuff */
+	char float_separator[1];
 
 	void *reserved[ZEND_MAX_RESERVED_RESOURCES];
 };
@@ -195,7 +216,6 @@ struct _zend_executor_globals {
 
 struct _zend_alloc_globals {
 	zend_mem_header *head;		/* standard list */
-	zend_mem_header *phead;		/* persistent list */
 	void *cache[MAX_CACHED_MEMORY][MAX_CACHED_ENTRIES];
 	unsigned int cache_count[MAX_CACHED_MEMORY];
 	void *fast_cache_list_head[MAX_FAST_CACHE_TYPES];
@@ -238,6 +258,19 @@ struct _zend_scanner_globals {
 	int yy_start_stack_ptr;
 	int yy_start_stack_depth;
 	int *yy_start_stack;
+	
+	int lineno;		/* line number */
+
+#ifdef ZEND_MULTIBYTE
+	char *code;				/* original */
+	int code_size;
+	char *current_code;		/* filtered */
+	int current_code_size;
+	zend_multibyte_filter input_filter;
+	zend_multibyte_filter output_filter;
+	zend_encoding *script_encoding;
+	zend_encoding *internal_encoding;
+#endif /* ZEND_MULTIBYTE */
 };
 
 #endif /* ZEND_GLOBALS_H */

@@ -15,9 +15,14 @@
    | Author: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                        |
    +----------------------------------------------------------------------+
  */
-/* $Id: head.c,v 1.55.2.1 2002/07/24 10:03:49 derick Exp $ */
+/* $Id: head.c,v 1.66 2002/11/07 00:23:58 iliaa Exp $ */
 
 #include <stdio.h>
+
+#if defined(NETWARE) && !defined(NEW_LIBC)
+#include <sys/socket.h>
+#endif
+
 #include "php.h"
 #include "ext/standard/php_standard.h"
 #include "SAPI.h"
@@ -35,19 +40,18 @@
 
 
 /* Implementation of the language Header() function */
-/* {{{ proto void header(string header [, bool replace])
+/* {{{ proto void header(string header [, bool replace, [int http_response_code]])
    Sends a raw HTTP header */
 PHP_FUNCTION(header)
 {
-	char *header;
-	int header_len;
-	zend_bool replace = 1;
+	zend_bool rep = 1;
+	sapi_header_line ctr = {0};
 	
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|b", &header,
-							  &header_len, &replace) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|bl", &ctr.line,
+				&ctr.line_len, &rep, &ctr.response_code) == FAILURE)
 		return;
-	}
-	sapi_add_header_ex(header, header_len, 1, replace TSRMLS_CC);
+	
+	sapi_header_op(rep ? SAPI_HEADER_REPLACE:SAPI_HEADER_ADD, &ctr TSRMLS_CC);
 }
 /* }}} */
 
@@ -69,7 +73,9 @@ PHPAPI int php_setcookie(char *name, int name_len, char *value, int value_len, t
 	int len=sizeof("Set-Cookie: ");
 	time_t t;
 	char *dt;
-
+	sapi_header_line ctr = {0};
+	int result;
+	
 	len += name_len;
 	if (value) {
 		int encoded_value_len;
@@ -121,7 +127,12 @@ PHPAPI int php_setcookie(char *name, int name_len, char *value, int value_len, t
 		strcat(cookie, "; secure");
 	}
 
-	return sapi_add_header_ex(cookie, strlen(cookie), 0, 0 TSRMLS_CC);
+	ctr.line = cookie;
+	ctr.line_len = strlen(cookie);
+
+	result = sapi_header_op(SAPI_HEADER_ADD, &ctr TSRMLS_CC);
+	efree(cookie);
+	return result;
 }
 
 
@@ -150,14 +161,34 @@ PHP_FUNCTION(setcookie)
 /* }}} */
 
 
-/* {{{ proto int headers_sent(void)
+/* {{{ proto bool headers_sent([string &$file [, int &$line]])
    Returns true if headers have already been sent, false otherwise */
 PHP_FUNCTION(headers_sent)
 {
-	if (ZEND_NUM_ARGS() != 0) {
-		php_error(E_WARNING, "%s() expects no parameters, %d given",
-				  get_active_function_name(TSRMLS_C), ZEND_NUM_ARGS());
+	zval *arg1, *arg2;
+	char *file="";
+	int line=0;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|zz", &arg1, &arg2) == FAILURE)
 		return;
+
+	if (SG(headers_sent)) {
+		line = php_get_output_start_lineno(TSRMLS_C);
+		file = php_get_output_start_filename(TSRMLS_C);
+	}
+
+	switch(ZEND_NUM_ARGS()) {
+	case 2:
+		zval_dtor(arg2);
+		ZVAL_LONG(arg2, line);
+	case 1:
+		zval_dtor(arg1);
+		if (file) { 
+			ZVAL_STRING(arg1, file, 1);
+		} else {
+			ZVAL_STRING(arg1, "", 1);
+		}	
+		break;
 	}
 
 	if (SG(headers_sent)) {

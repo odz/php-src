@@ -16,7 +16,7 @@
    |          Jim Winstead <jimw@php.net>                                 |
    +----------------------------------------------------------------------+
  */
-/* $Id: fopen_wrappers.c,v 1.142.2.3 2002/08/23 08:00:49 zeev Exp $ */
+/* $Id: fopen_wrappers.c,v 1.153.2.1 2002/12/01 23:23:48 shane Exp $ */
 
 /* {{{ includes
  */
@@ -36,6 +36,14 @@
 #include <winsock.h>
 #define O_RDONLY _O_RDONLY
 #include "win32/param.h"
+#elif defined(NETWARE)
+/*#include <ws2nlm.h>*/
+/*#include <sys/socket.h>*/
+#ifdef NEW_LIBC
+#include <sys/param.h>
+#else
+#include "netware/param.h"
+#endif
 #else
 #include <sys/param.h>
 #endif
@@ -49,6 +57,8 @@
 #if HAVE_PWD_H
 #ifdef PHP_WIN32
 #include "win32/pwd.h"
+#elif defined(NETWARE)
+#include "netware/pwd.h"
 #else
 #include <pwd.h>
 #endif
@@ -65,6 +75,9 @@
 
 #ifdef PHP_WIN32
 #include <winsock.h>
+#elif defined(NETWARE) && defined(USE_WINSOCK)
+/*#include <ws2nlm.h>*/
+#include <novsock2.h>
 #else
 #include <netinet/in.h>
 #include <netdb.h>
@@ -73,62 +86,13 @@
 #endif
 #endif
 
-#if defined(PHP_WIN32) || defined(__riscos__)
+#if defined(PHP_WIN32) || defined(__riscos__) || defined(NETWARE)
 #undef AF_UNIX
 #endif
 
 #if defined(AF_UNIX)
 #include <sys/un.h>
 #endif
-/* }}} */
-
-static FILE *php_fopen_url_wrapper(const char *, char *, int, int *, int *, char ** TSRMLS_DC);
-static HashTable fopen_url_wrappers_hash;
-
-/* {{{ php_register_url_wrapper
- */
-PHPAPI int php_register_url_wrapper(const char *protocol, php_fopen_url_wrapper_t wrapper TSRMLS_DC)
-{
-	if(PG(allow_url_fopen)) {
-		return zend_hash_add(&fopen_url_wrappers_hash, (char *) protocol, strlen(protocol), &wrapper, sizeof(wrapper), NULL);
-	} else {
-		return FAILURE;
-	}
-}
-/* }}} */
-
-/* {{{ php_unregister_url_wrapper
- */
-PHPAPI int php_unregister_url_wrapper(char *protocol TSRMLS_DC)
-{
-	if(PG(allow_url_fopen)) {
-		return zend_hash_del(&fopen_url_wrappers_hash, protocol, strlen(protocol));
-	} else {
-		return SUCCESS;
- 	}
-}
-/* }}} */
-
-/* {{{ php_init_fopen_wrappers
- */
-int php_init_fopen_wrappers(TSRMLS_D) 
-{
-	if(PG(allow_url_fopen)) {
-		return zend_hash_init(&fopen_url_wrappers_hash, 0, NULL, NULL, 1);
-	}
-	return SUCCESS;
-}
-/* }}} */
-
-/* {{{ php_shutdown_fopen_wrappers
- */
-int php_shutdown_fopen_wrappers(TSRMLS_D)
-{
-	if(PG(allow_url_fopen)) {
-		zend_hash_destroy(&fopen_url_wrappers_hash);
-	}
-	return SUCCESS;
-}
 /* }}} */
 
 /* {{{ php_check_specific_open_basedir
@@ -143,6 +107,8 @@ PHPAPI int php_check_specific_open_basedir(const char *basedir, const char *path
 	char resolved_basedir[MAXPATHLEN];
 	char local_open_basedir[MAXPATHLEN];
 	int local_open_basedir_pos;
+	int resolved_basedir_len;
+	int resolved_name_len;
 	
 	/* Special case basedir==".": Use script-directory */
 	if ((strcmp(basedir, ".") == 0) && 
@@ -164,11 +130,26 @@ PHPAPI int php_check_specific_open_basedir(const char *basedir, const char *path
 
 	/* Resolve the real path into resolved_name */
 	if ((expand_filepath(path, resolved_name TSRMLS_CC) != NULL) && (expand_filepath(local_open_basedir, resolved_basedir TSRMLS_CC) != NULL)) {
+		/* Handler for basedirs that end with a / */		
+		if (basedir[strlen(basedir)-1] == PHP_DIR_SEPARATOR) {
+			resolved_basedir_len = strlen(resolved_basedir);
+			resolved_basedir[resolved_basedir_len] = '/';
+			resolved_basedir[++resolved_basedir_len] = '\0';
+		} else {
+			resolved_basedir_len = strlen(resolved_basedir);	
+		}
+		
+		if (path[strlen(path)-1] == PHP_DIR_SEPARATOR) {
+			resolved_name_len = strlen(resolved_name);
+			resolved_name[resolved_name_len] = '/';
+			resolved_name[++resolved_name_len] = '\0';
+		}
+
 		/* Check the path */
 #ifdef PHP_WIN32
-		if (strncasecmp(resolved_basedir, resolved_name, strlen(resolved_basedir)) == 0) {
+		if (strncasecmp(resolved_basedir, resolved_name, resolved_basedir_len) == 0) {
 #else
-		if (strncmp(resolved_basedir, resolved_name, strlen(resolved_basedir)) == 0) {
+		if (strncmp(resolved_basedir, resolved_name, resolved_basedir_len) == 0) {
 #endif
 			/* File is in the right directory */
 			return 0;
@@ -210,7 +191,8 @@ PHPAPI int php_check_open_basedir(const char *path TSRMLS_DC)
 
 			ptr = end;
 		}
-		php_error(E_WARNING, "open_basedir restriction in effect. File is in wrong directory");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, 
+			"open_basedir restriction in effect. File(%s) is not within the allowed path(s): (%s)", path, pathbuf);
 		efree(pathbuf);
 		errno = EPERM; /* we deny permission to open it */
 		return -1;
@@ -225,9 +207,9 @@ PHPAPI int php_check_open_basedir(const char *path TSRMLS_DC)
  */
 PHPAPI int php_check_safe_mode_include_dir(char *path TSRMLS_DC)
 {
-	/* Only check when safe_mode on and safe_mode_include_dir is available */
-	if (PG(safe_mode) && PG(safe_mode_include_dir) &&
-			*PG(safe_mode_include_dir))
+	/* Only check when safe_mode or open_basedir is on and safe_mode_include_dir is available */
+	if (((PG(open_basedir) && *PG(open_basedir)) || PG(safe_mode)) && 
+			PG(safe_mode_include_dir) && *PG(safe_mode_include_dir))
 	{
 		char *pathbuf;
 		char *ptr;
@@ -268,7 +250,7 @@ PHPAPI int php_check_safe_mode_include_dir(char *path TSRMLS_DC)
 	}
 
 	/* Nothing to check... */
-	return -1;
+	return 0;
 }
 /* }}} */
 
@@ -286,36 +268,6 @@ static FILE *php_fopen_and_set_opened_path(const char *path, char *mode, char **
 		*opened_path = expand_filepath(path, NULL TSRMLS_CC);
 	}
 	return fp;
-}
-/* }}} */
-
-/* {{{ php_fopen_wrapper
- */
-PHPAPI FILE *php_fopen_wrapper(char *path, char *mode, int options, int *issock, int *socketd, char **opened_path TSRMLS_DC)
-{
-	if (opened_path) {
-		*opened_path = NULL;
-	}
-
-    if(!path || !*path) {
-		return NULL;
-	}
-
-
-	if(PG(allow_url_fopen)) {
-		if (!(options & IGNORE_URL)) {
-			return php_fopen_url_wrapper(path, mode, options, issock, socketd, opened_path TSRMLS_CC);
-		}
-	}
-
-	if (options & USE_PATH && PG(include_path) != NULL) {
-		return php_fopen_with_path(path, mode, PG(include_path), opened_path TSRMLS_CC);
-	} else {
-		if (options & ENFORCE_SAFE_MODE && PG(safe_mode) && (!php_checkuid(path, mode, CHECKUID_CHECK_MODE_PARAM))) {
-			return NULL;
-		}
-		return php_fopen_and_set_opened_path(path, mode, opened_path TSRMLS_CC);
-	}
 }
 /* }}} */
 
@@ -396,8 +348,8 @@ PHPAPI int php_fopen_primary_script(zend_file_handle *file_handle TSRMLS_DC)
 		fp = NULL;
 	}
 	if (!fp) {
-		php_error(E_ERROR, "Unable to open %s", filename);
 		STR_FREE(SG(request_info).path_translated);	/* for same reason as above */
+		SG(request_info).path_translated = NULL;
 		return FAILURE;
 	}
 
@@ -441,7 +393,7 @@ PHPAPI FILE *php_fopen_with_path(char *filename, char *mode, char *path, char **
 	}
 
 	filename_length = strlen(filename);
-
+	
 	/* Relative path open */
 	if (*filename == '.') {
 		if (PG(safe_mode) && (!php_checkuid(filename, mode, CHECKUID_CHECK_MODE_PARAM))) {
@@ -535,64 +487,6 @@ PHPAPI FILE *php_fopen_with_path(char *filename, char *mode, char *path, char **
 }
 /* }}} */
  
-/* {{{ php_fopen_url_wrapper
- */
-static FILE *php_fopen_url_wrapper(const char *path, char *mode, int options, int *issock, int *socketd, char **opened_path TSRMLS_DC)
-{
-	FILE *fp = NULL;
-	const char *p;
-	const char *protocol=NULL;
-	int n=0;
-
-	for (p=path; isalnum((int)*p); p++) {
-		n++;
-	}
-	if ((*p==':')&&(n>1)) {
-		protocol=path;
-	} 
-		
-	if (protocol) {
-		php_fopen_url_wrapper_t *wrapper=NULL;
-
-		if (FAILURE==zend_hash_find(&fopen_url_wrappers_hash, (char *) protocol, n, (void **)&wrapper)) {
-			wrapper=NULL;
-			protocol=NULL;
-		}
-		if (wrapper) {
-			return (*wrapper)(path, mode, options, issock, socketd, opened_path TSRMLS_CC);
-		}
-	} 
-
-	if (!protocol || !strncasecmp(protocol, "file", n)){
-		*issock = 0;
-		
-		if(protocol) {
-			if(path[n+1]=='/') {
-				if(path[n+2]=='/') { 
-					php_error(E_WARNING, "remote host file access not supported, %s", path);
-					return NULL;
-				}
-			}
-			path+= n+1; 			
-		}		
-
-		if (options & USE_PATH) {
-			fp = php_fopen_with_path((char *) path, mode, PG(include_path), opened_path TSRMLS_CC);
-		} else {
-			if (options & ENFORCE_SAFE_MODE && PG(safe_mode) && (!php_checkuid(path, mode, CHECKUID_CHECK_MODE_PARAM))) {
-				fp = NULL;
-			} else {
-				fp = php_fopen_and_set_opened_path(path, mode, opened_path TSRMLS_CC);
-			}
-		}
-		return (fp);
-	}
-			
-	php_error(E_WARNING, "Invalid URL specified, %s", path);
-	return NULL;
-}
-/* }}} */
-
 /* {{{ php_strip_url_passwd
  */
 PHPAPI char *php_strip_url_passwd(char *url)
@@ -643,7 +537,7 @@ PHPAPI char *expand_filepath(const char *filepath, char *real_path TSRMLS_DC)
 	new_state.cwd = strdup(cwd);
 	new_state.cwd_length = strlen(cwd);
 
-	if(virtual_file_ex(&new_state, filepath, NULL)) {
+	if(virtual_file_ex(&new_state, filepath, NULL, 1)) {
 		free(new_state.cwd);
 		return NULL;
 	}

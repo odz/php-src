@@ -1,11 +1,15 @@
 dnl
-dnl $Id: config.m4,v 1.14 2001/11/30 19:01:32 sniper Exp $
+dnl $Id: config.m4,v 1.17 2002/10/13 11:28:34 sas Exp $
 dnl
 
 AC_ARG_WITH(thttpd,
 [  --with-thttpd=SRCDIR    Build PHP as thttpd module],[
-  test -d $withval || AC_MSG_RESULT(thttpd directory does not exist ($withval))
-  egrep thttpd.2.21b $withval/version.h >/dev/null || AC_MSG_RESULT([This version only supports thttpd-2.21b])
+  if ! test -d $withval; then
+    AC_MSG_RESULT(thttpd directory does not exist ($withval))
+  fi
+  if ! egrep thttpd.2.21b $withval/version.h >/dev/null; then
+    AC_MSG_ERROR([This version only supports thttpd-2.21b])
+  fi
   PHP_EXPAND_PATH($withval, THTTPD)
   PHP_TARGET_RDYNAMIC
   INSTALL_IT="\
@@ -18,8 +22,7 @@ AC_ARG_WITH(thttpd,
     (cd $THTTPD && patch < $abs_srcdir/sapi/thttpd/thttpd_patch && touch php_patched)"
   PHP_THTTPD="yes, using $THTTPD"
   PHP_ADD_INCLUDE($THTTPD)
-  PHP_BUILD_STATIC
-  PHP_SAPI=thttpd
+  PHP_SELECT_SAPI(thttpd, static)
 ],[
   PHP_THTTPD=no
 ])

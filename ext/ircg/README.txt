@@ -2,7 +2,7 @@
 
 *** IMPORTANT WARNING ***
 
-IRCG WILL NOT WORK WITH APACHE OR ANY OTHER WEB-SERVERS
+IRCG WILL NOT WORK WITH APACHE OR ANY OTHER WEB SERVERS
 OTHER THAN THOSE DESCRIBED BELOW.
 
 PLEASE DO NOT SEND ENQUIRIES TO THE AUTHOR BY ANY MEANS
@@ -15,7 +15,7 @@ THE IRCG MAILING LIST.
 
 
 
-($Id: README.txt,v 1.13 2001/12/10 09:56:06 sas Exp $)
+($Id: README.txt,v 1.16 2002/10/15 07:26:49 sas Exp $)
 
 STATUS
 
@@ -25,38 +25,16 @@ STATUS
 
 
 	
-INSTALLATION: THE QUICK WAY
+INSTALLATION: THE QUICK AND EASY WAY
 
 
 1.  Download
 
     http://schumann.cx/ircg/install_ircg.sh
 
-2.  Edit some variables at the top of that script:
-
-    prefix
-        The directory where all software is installed in.  Note that
-        the user which runs the script shall have write permissions
-        for that directory.
-    
-    php4_sourcedir
-       	A compatible version of the PHP 4.0 source-code, fully buildconf'd.
-    
-    st_target
-        The State Threads target (e.g. freebsd-optimized)
-
-    st_targetdir
-        The State Threads directory name (e.g. FREEBSD_`uname -r`_OPT)
-
-        On Solaris 2.x, this is the output of "uname -r" minus 3
-        (e.g. 5.8 becomes 2.8).
-
-    thttpd, IRCG, st    (usually don't need to be changed)
-        The latest version numbers of the respective software package.
-
-    make
-        The name of GNU make on your system (some packages depend
-        on it).
+2.  Open the script in your favorite editor and set up the three
+    variables for installation prefix, PHP 4 source directory and
+    Operating System.  Please refer to the comments inside the script.
 
 3.  Run
 
@@ -68,7 +46,7 @@ INSTALLATION: THE QUICK WAY
 
     Note 1:  Currently, the shipped patches are in the unified diff
     format.  Some esoteric patch tools cannot handle that format.  On
-    those systems, installing GNU patch is recommened.
+    those systems, installing GNU patch is recommended.
 
         ftp://ftp.gnu.org/pub/gnu/patch/
 	
@@ -81,6 +59,10 @@ INSTALLATION: THE QUICK WAY
 
 
 THE LONG AND BORING WAY
+
+Unless there is a specific reason (like you are bored or generally
+have too much time on your hands), you are advised to use the
+installation script as outlined above.
 
 
 1.  Install SGI's State Threads Library

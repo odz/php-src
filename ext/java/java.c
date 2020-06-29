@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: java.c,v 1.65 2001/12/11 15:29:47 sebastian Exp $ */
+/* $Id: java.c,v 1.69.4.1 2002/12/04 08:27:58 sebastian Exp $ */
 
 
 #ifdef HAVE_CONFIG_H
@@ -34,14 +34,20 @@
 #include "php_ini.h"
 #include "php_globals.h"
 
-#ifdef PHP_WIN32
-  #include "win32/winutil.h"
-  #define DL_ERROR php_win_err()
+#if HAVE_JAVAVM_JAVAVM_H
+#include <JavaVM/JavaVM.h>
+#include <JavaVM/jni.h>
+#define JNI_12
 #else
-  #define DL_ERROR dlerror()
+#include <jni.h>
 #endif
 
-#include <jni.h>
+
+#ifdef PHP_WIN32
+#include "win32/winutil.h"
+#define DL_ERROR php_win_err
+#endif
+
 
 #include <stdio.h>
 
@@ -81,15 +87,17 @@ static char *libpath   = 0;
 static char *javahome  = 0;
 static char *javalib   = 0;
 
-static int iniUpdated  = 0;
 static void *dl_handle = 0;
 
+/* {{{ ZEND_BEGIN_MODULE_GLOBALS
+ */
 ZEND_BEGIN_MODULE_GLOBALS(java)
   JavaVM *jvm;
   JNIEnv *jenv;
   jobject php_reflect;
   jclass  reflect_class;
 ZEND_END_MODULE_GLOBALS(java)
+/* }}} */
 
 #ifdef ZTS
 # define JG(v) TSRMG(java_globals_id, zend_java_globals *, v)
@@ -104,41 +112,41 @@ static zend_class_entry java_class_entry;
 static PHP_INI_MH(OnIniUpdate)
 {
 	if (new_value) *(char**)mh_arg1 = new_value;
-	iniUpdated=1;
 	return SUCCESS;
 }
 
+/* {{{ PHP_INI_BEGIN 
+ */
 PHP_INI_BEGIN()
-  PHP_INI_ENTRY1("java.class.path",   NULL, PHP_INI_ALL, OnIniUpdate, &classpath)
+  PHP_INI_ENTRY1("java.class.path",   NULL, PHP_INI_SYSTEM, OnIniUpdate, &classpath)
 #ifndef JNI_11
-  PHP_INI_ENTRY1("java.home",         NULL, PHP_INI_ALL, OnIniUpdate, &javahome)
-  PHP_INI_ENTRY1("java.library.path", NULL, PHP_INI_ALL, OnIniUpdate, &libpath)
+  PHP_INI_ENTRY1("java.home",         NULL, PHP_INI_SYSTEM, OnIniUpdate, &javahome)
+  PHP_INI_ENTRY1("java.library.path", NULL, PHP_INI_SYSTEM,OnIniUpdate, &libpath)
 #endif
 #ifdef JAVALIB
-  PHP_INI_ENTRY1("java.library", JAVALIB, PHP_INI_ALL, OnIniUpdate, &javalib)
+  PHP_INI_ENTRY1("java.library", JAVALIB, PHP_INI_SYSTEM, OnIniUpdate, &javalib)
 #else
-  PHP_INI_ENTRY1("java.library", NULL,    PHP_INI_ALL, OnIniUpdate, &javalib)
+  PHP_INI_ENTRY1("java.library", NULL,    PHP_INI_SYSTEM, OnIniUpdate, &javalib)
 #endif
 PHP_INI_END()
+/* }}} */
 
 /***************************************************************************/
 
+/* {{{ jvm_destroy
+ */
 /*
  * Destroy a Java Virtual Machine.
  */
 void jvm_destroy(TSRMLS_D) 
 {
   if (JG(php_reflect)) (*JG(jenv))->DeleteGlobalRef(JG(jenv), JG(php_reflect));
-  if (JG(jvm)) {
-    (*JG(jvm))->DetachCurrentThread(JG(jvm));
-    (*JG(jvm))->DestroyJavaVM(JG(jvm));
-    JG(jvm) = 0;
-  }
-  if (dl_handle) DL_UNLOAD(dl_handle);
   JG(php_reflect) = 0;
-  JG(jenv) = 0;
 }
+/* }}} */
 
+/* {{{ addJVMOption
+ */
 /*
  * Create a Java Virtual Machine.
  *  - class.path, home, and library.path are read out of the INI file
@@ -155,7 +163,10 @@ static void addJVMOption(JavaVMInitArgs *vm_args, char *name, char *value)
   vm_args->options[vm_args->nOptions++].optionString = option;
 }
 #endif
+/* }}} */
 
+/* {{{ jvm_create
+ */
 static int jvm_create(TSRMLS_D) 
 {
   int rc;
@@ -176,14 +187,13 @@ static int jvm_create(TSRMLS_D)
 #endif
 #endif
 
-  iniUpdated=0;
 
   if (javalib) {
     dl_handle = DL_LOAD(javalib);
 
     if (!dl_handle) {
       php_error(E_ERROR, "Unable to load Java Library %s, error: %s", 
-        javalib, DL_ERROR);
+        javalib, DL_ERROR());
       return -1;
     }
   }
@@ -273,9 +283,12 @@ static int jvm_create(TSRMLS_D)
   JG(php_reflect) = (*JG(jenv))->NewGlobalRef(JG(jenv), local_php_reflect);
   return rc;
 }
+/* }}} */
 
 /***************************************************************************/
 
+/* {{{ _java_makeObject
+ */
 static jobject _java_makeObject(pval* arg TSRMLS_DC)
 {
   JNIEnv *jenv = JG(jenv);
@@ -369,9 +382,12 @@ static jobject _java_makeObject(pval* arg TSRMLS_DC)
 
   return result;
 }
+/* }}} */
 
 /***************************************************************************/
 
+/* {{{ _java_makeArray
+ */
 static jobjectArray _java_makeArray(int argc, pval** argv TSRMLS_DC)
 {
   JNIEnv *jenv = JG(jenv);
@@ -388,8 +404,10 @@ static jobjectArray _java_makeArray(int argc, pval** argv TSRMLS_DC)
   }
   return result;
 }
+/* }}} */
 
-
+/* {{{ checkError 
+ */
 static int checkError(pval *value)
 {
   if (Z_TYPE_P(value) == IS_EXCEPTION) {
@@ -400,10 +418,12 @@ static int checkError(pval *value)
   };
   return 0;
 }
-
+/* }}} */
 
 /***************************************************************************/
 
+/* {{{ java_call_function_handler
+ */
 /*
  * Invoke a method on an object.  If method name is "java", create a new
  * object instead.
@@ -422,7 +442,6 @@ void java_call_function_handler(INTERNAL_FUNCTION_PARAMETERS, zend_property_refe
 
   getParametersArray(ht, arg_count, arguments);
 
-  if (iniUpdated && JG(jenv)) jvm_destroy(TSRMLS_C);
   if (!JG(jenv)) jvm_create(TSRMLS_C);
   if (!JG(jenv)) return;
   jenv = JG(jenv);
@@ -477,6 +496,7 @@ void java_call_function_handler(INTERNAL_FUNCTION_PARAMETERS, zend_property_refe
 
   checkError((pval*)(long)result);
 }
+/* }}} */
 
 /***************************************************************************/
 
@@ -522,6 +542,8 @@ PHP_FUNCTION(java_last_exception_clear)
 
 /***************************************************************************/
 
+/* {{{ _java_getset_property
+ */
 static pval _java_getset_property
   (zend_property_reference *property_reference, jobjectArray value TSRMLS_DC)
 {
@@ -563,8 +585,10 @@ static pval _java_getset_property
   pval_destructor(&property->element);
   return presult;
 }
+/* }}} */
 
-
+/* {{{ java_get_property_handler
+ */
 pval java_get_property_handler(zend_property_reference *property_reference)
 {
   pval presult;
@@ -574,8 +598,10 @@ pval java_get_property_handler(zend_property_reference *property_reference)
   checkError(&presult);
   return presult;
 }
+/* }}} */
 
-
+/* {{{ java_set_property_handler
+ */
 int java_set_property_handler(zend_property_reference *property_reference, pval *value)
 {
   pval presult;
@@ -584,21 +610,30 @@ int java_set_property_handler(zend_property_reference *property_reference, pval 
   presult = _java_getset_property(property_reference, _java_makeArray(1, &value TSRMLS_CC) TSRMLS_CC);
   return checkError(&presult) ? FAILURE : SUCCESS;
 }
+/* }}} */
 
 /***************************************************************************/
 
+/* {{{ _php_java_destructor
+ */
 static void _php_java_destructor(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	void *jobject = (void *)rsrc->ptr;
 
 	if (JG(jenv)) (*JG(jenv))->DeleteGlobalRef(JG(jenv), jobject);
 }
+/* }}} */
 
+/* {{{ alloc_java_globals_ctor
+ */
 static void alloc_java_globals_ctor(zend_java_globals *java_globals TSRMLS_DC)
 {
 	memset(java_globals, 0, sizeof(zend_java_globals));
 }
+/* }}} */
 
+/* {{{ PHP_MINIT_FUNCTION
+ */
 PHP_MINIT_FUNCTION(java)
 {
   INIT_OVERLOADED_CLASS_ENTRY(java_class_entry, "java", NULL,
@@ -622,15 +657,17 @@ PHP_MINIT_FUNCTION(java)
 
   return SUCCESS;
 }
+/* }}} */
 
-
+/* {{{ PHP_MSHUTDOWN_FUNCTION
+ */
 PHP_MSHUTDOWN_FUNCTION(java) 
 {
   UNREGISTER_INI_ENTRIES();
   if (JG(jvm)) jvm_destroy(TSRMLS_C);
   return SUCCESS;
 }
-
+/* }}} */
 
 function_entry java_functions[] = {
   PHP_FE(java_last_exception_get, NULL)
@@ -660,6 +697,8 @@ ZEND_GET_MODULE(java)
 
 /***************************************************************************/
 
+/* {{{ Java_net_php_reflect_setResultFromString 
+ */
 JNIEXPORT void JNICALL Java_net_php_reflect_setResultFromString
   (JNIEnv *jenv, jclass self, jlong result, jbyteArray jvalue)
 {
@@ -673,7 +712,10 @@ JNIEXPORT void JNICALL Java_net_php_reflect_setResultFromString
   Z_STRVAL_P(presult)[Z_STRLEN_P(presult)]=0;
   if (isCopy) (*jenv)->ReleaseByteArrayElements(jenv, jvalue, value, 0);
 }
+/* }}} */
 
+/* {{{ Java_net_php_reflect_setResultFromLong
+ */
 JNIEXPORT void JNICALL Java_net_php_reflect_setResultFromLong
   (JNIEnv *jenv, jclass self, jlong result, jlong value)
 {
@@ -681,7 +723,10 @@ JNIEXPORT void JNICALL Java_net_php_reflect_setResultFromLong
   Z_TYPE_P(presult)=IS_LONG;
   Z_LVAL_P(presult)=(long)value;
 }
+/* }}} */
 
+/* {{{ Java_net_php_reflect_setResultFromDouble 
+ */
 JNIEXPORT void JNICALL Java_net_php_reflect_setResultFromDouble
   (JNIEnv *jenv, jclass self, jlong result, jdouble value)
 {
@@ -689,7 +734,10 @@ JNIEXPORT void JNICALL Java_net_php_reflect_setResultFromDouble
   Z_TYPE_P(presult)=IS_DOUBLE;
   Z_DVAL_P(presult)=value;
 }
+/* }}} */
 
+/* {{{ Java_net_php_reflect_setResultFromBoolean
+ */
 JNIEXPORT void JNICALL Java_net_php_reflect_setResultFromBoolean
   (JNIEnv *jenv, jclass self, jlong result, jboolean value)
 {
@@ -697,7 +745,10 @@ JNIEXPORT void JNICALL Java_net_php_reflect_setResultFromBoolean
   Z_TYPE_P(presult)=IS_BOOL;
   Z_LVAL_P(presult)=value;
 }
+/* }}} */
 
+/* {{{ Java_net_php_reflect_setResultFromObject 
+ */
 JNIEXPORT void JNICALL Java_net_php_reflect_setResultFromObject
   (JNIEnv *jenv, jclass self, jlong result, jobject value)
 {
@@ -720,13 +771,19 @@ JNIEXPORT void JNICALL Java_net_php_reflect_setResultFromObject
   INIT_PZVAL(handle);
   zend_hash_index_update(Z_OBJPROP_P(presult), 0, &handle, sizeof(pval *), NULL);
 }
+/* }}} */
 
+/* {{{ Java_net_php_reflect_setResultFromArray
+ */
 JNIEXPORT void JNICALL Java_net_php_reflect_setResultFromArray
   (JNIEnv *jenv, jclass self, jlong result)
 {
   array_init( (pval*)(long)result );
 }
+/* }}} */
 
+/* {{{ Java_net_php_reflect_nextElement
+ */
 JNIEXPORT jlong JNICALL Java_net_php_reflect_nextElement
   (JNIEnv *jenv, jclass self, jlong array)
 {
@@ -736,7 +793,10 @@ JNIEXPORT jlong JNICALL Java_net_php_reflect_nextElement
   zend_hash_next_index_insert(Z_ARRVAL_P(handle), &result, sizeof(zval *), NULL);
   return (jlong)(long)result;
 }
+/* }}} */
 
+/* {{{ Java_net_php_reflect_hashIndexUpdate
+ */
 JNIEXPORT jlong JNICALL Java_net_php_reflect_hashIndexUpdate
   (JNIEnv *jenv, jclass self, jlong array, jlong key)
 {
@@ -747,7 +807,10 @@ JNIEXPORT jlong JNICALL Java_net_php_reflect_hashIndexUpdate
     &result, sizeof(zval *), NULL);
   return (jlong)(long)result;
 }
+/* }}} */
 
+/* {{{ Java_net_php_reflect_hashUpdate
+ */
 JNIEXPORT jlong JNICALL Java_net_php_reflect_hashUpdate
   (JNIEnv *jenv, jclass self, jlong array, jbyteArray key)
 {
@@ -760,7 +823,10 @@ JNIEXPORT jlong JNICALL Java_net_php_reflect_hashUpdate
     &result, sizeof(zval *), NULL);
   return (jlong)(long)result;
 }
+/* }}} */
 
+/* {{{ Java_net_php_reflect_setException 
+ */
 JNIEXPORT void JNICALL Java_net_php_reflect_setException
   (JNIEnv *jenv, jclass self, jlong result, jbyteArray value)
 {
@@ -768,13 +834,15 @@ JNIEXPORT void JNICALL Java_net_php_reflect_setException
   Java_net_php_reflect_setResultFromString(jenv, self, result, value);
   Z_TYPE_P(presult)=IS_EXCEPTION;
 }
+/* }}} */
 
+/* {{{ Java_net_php_reflect_setEnv
+ */
 JNIEXPORT void JNICALL Java_net_php_reflect_setEnv
   (JNIEnv *newJenv, jclass self TSRMLS_DC)
 {
   jobject local_php_reflect;
 
-  iniUpdated=0;
   JG(jenv)=newJenv;
 
   if (!self) self = (*JG(jenv))->FindClass(JG(jenv), "net/php/reflect");
@@ -784,3 +852,13 @@ JNIEXPORT void JNICALL Java_net_php_reflect_setEnv
   local_php_reflect = (*JG(jenv))->AllocObject(JG(jenv), JG(reflect_class));
   JG(php_reflect) = (*JG(jenv))->NewGlobalRef(JG(jenv), local_php_reflect);
 }
+/* }}} */
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
+ */

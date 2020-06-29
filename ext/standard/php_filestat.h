@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_filestat.h,v 1.15 2001/12/11 15:30:35 sebastian Exp $ */
+/* $Id: php_filestat.h,v 1.17 2002/07/03 06:45:01 derick Exp $ */
 
 #ifndef PHP_FILESTAT_H
 #define PHP_FILESTAT_H
@@ -36,7 +36,9 @@ PHP_FUNCTION(filesize);
 PHP_FUNCTION(filetype);
 PHP_FUNCTION(is_writable);
 PHP_FUNCTION(is_readable);
+#ifndef PHP_WIN32
 PHP_FUNCTION(is_executable);
+#endif
 PHP_FUNCTION(is_file);
 PHP_FUNCTION(is_dir);
 PHP_FUNCTION(is_link);
@@ -48,7 +50,9 @@ PHP_FUNCTION(disk_free_space);
 PHP_FUNCTION(chown);
 PHP_FUNCTION(chgrp);
 PHP_FUNCTION(chmod);
+#if HAVE_UTIME
 PHP_FUNCTION(touch);
+#endif
 PHP_FUNCTION(clearstatcache);
 
 #define MAKE_LONG_ZVAL_INCREF(name, val)\

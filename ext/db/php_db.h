@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_db.h,v 1.16.2.1 2002/08/27 01:07:36 helly Exp $ */
+/* $Id: php_db.h,v 1.18 2002/08/27 00:44:07 helly Exp $ */
 
 
 #ifndef PHP_DB_H
@@ -55,10 +55,10 @@ dbm_info *php_find_dbm(pval *id TSRMLS_DC);
 void php_dbm_close(zend_rsrc_list_entry *rsrc TSRMLS_DC);
 dbm_info *php_dbm_open(char *filename, char *mode TSRMLS_DC);
 char *php_dbm_fetch(dbm_info *info, char *key TSRMLS_DC);
-int php_dbm_insert_replace(dbm_info *info, char *key, char *value, int insert_mode TSRMLS_DC);
-int php_dbm_exists(dbm_info *info, char *key);
-int php_dbm_delete(dbm_info *info, char *key);
-char *php_dbm_first_key(dbm_info *info);
+int php_dbm_insert_replace(dbm_info *info, char *key, char *value, int replace_mode TSRMLS_DC);
+int php_dbm_exists(dbm_info *info, char *key TSRMLS_DC);
+int php_dbm_delete(dbm_info *info, char *key TSRMLS_DC);
+char *php_dbm_first_key(dbm_info *info TSRMLS_DC);
 char *php_dbm_nextkey(dbm_info *info, char *key TSRMLS_DC);
 
 /* db file functions */

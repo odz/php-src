@@ -128,6 +128,10 @@ SOURCE=..\ext\standard\aggregation.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\ext\standard\css.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\ext\standard\cyr_convert.c
 # End Source File
 # Begin Source File
@@ -201,11 +205,27 @@ SOURCE=..\main\SAPI.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\main\snprintf.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\main\spprintf.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\main\streams.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\main\strlcat.c
 # End Source File
 # Begin Source File
 
 SOURCE=..\main\strlcpy.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\main\user_streams.c
 # End Source File
 # End Group
 # Begin Group "Header Files"
@@ -213,11 +233,34 @@ SOURCE=..\main\strlcpy.c
 # PROP Default_Filter ""
 # Begin Source File
 
-SOURCE=..\main\config.w32.h
+SOURCE=..\ext\standard\aggregation.h
 # End Source File
 # Begin Source File
 
-SOURCE=..\ext\standard\aggregation.h
+SOURCE=..\main\config.w32.h.in
+
+!IF  "$(CFG)" == "php4dll - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "php4dll - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "php4dll - Win32 Release_inline"
+
+# Begin Custom Build - Generating main/config.w32.h
+InputPath=..\main\config.w32.h.in
+
+"config.w32.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	if not exist ..\main\config.w32.h ( 
+	copy ..\main\config.w32.h.in ..\main\config.w32.h > nul 
+	) 
+	
+# End Custom Build
+
+!ENDIF 
+
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\standard\css.h
 # End Source File
 # Begin Source File
 
@@ -298,6 +341,14 @@ SOURCE=..\main\safe_mode.h
 # Begin Source File
 
 SOURCE=..\main\SAPI.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\main\snprintf.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\main\spprintf.h
 # End Source File
 # Begin Source File
 
@@ -834,6 +885,18 @@ SOURCE=..\ext\pcre\pcrelib\pcre.h
 # Begin Group "Source Files No. 4"
 
 # PROP Default_Filter ".c"
+# Begin Source File
+
+SOURCE=..\ext\ctype\ctype.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\overload\overload.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\tokenizer\tokenizer.c
+# End Source File
 # Begin Source File
 
 SOURCE=..\ext\wddx\wddx.c
@@ -1631,7 +1694,7 @@ SOURCE=..\ext\standard\parsedate.y
 
 !IF  "$(CFG)" == "php4dll - Win32 Debug"
 
-# Begin Custom Build
+# Begin Custom Build - Generating ext/standard/parsedate.c
 InputPath=..\ext\standard\parsedate.y
 
 "..\ext\standard\parsedate.c" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
@@ -1642,7 +1705,7 @@ InputPath=..\ext\standard\parsedate.y
 
 !ELSEIF  "$(CFG)" == "php4dll - Win32 Release"
 
-# Begin Custom Build
+# Begin Custom Build - Generating ext/standard/parsedate.c
 InputPath=..\ext\standard\parsedate.y
 
 "..\ext\standard\parsedate.c" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
@@ -1653,7 +1716,7 @@ InputPath=..\ext\standard\parsedate.y
 
 !ELSEIF  "$(CFG)" == "php4dll - Win32 Release_inline"
 
-# Begin Custom Build
+# Begin Custom Build - Generating ext/standard/parsedate.c
 InputPath=..\ext\standard\parsedate.y
 
 "..\ext\standard\parsedate.c" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"

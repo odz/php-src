@@ -12,16 +12,19 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Rasmus Lerdorf <rasmus@php.net>                              |
+   | Authors: Rasmus Lerdorf <rasmus@php.net>                             |
+   |          Marcus Boerger <helly@php.net>                              |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_image.h,v 1.9.2.1 2002/03/11 19:04:29 helly Exp $ */
+/* $Id: php_image.h,v 1.19 2002/06/24 19:36:26 helly Exp $ */
 
 #ifndef PHP_IMAGE_H
 #define PHP_IMAGE_H
 
 PHP_FUNCTION(getimagesize);
+
+PHP_FUNCTION(image_type_to_mime_type);
 
 /* {{{ enum image_filetype
    This enum is used to have ext/standard/image.c and ext/exif/exif.c use
@@ -37,7 +40,20 @@ typedef enum
   IMAGE_FILETYPE_BMP,
   IMAGE_FILETYPE_TIFF_II, /* intel */
   IMAGE_FILETYPE_TIFF_MM, /* motorola */
+  IMAGE_FILETYPE_JPC,
+  IMAGE_FILETYPE_JP2,
+  IMAGE_FILETYPE_JPX,
+  IMAGE_FILETYPE_JB2,
+  IMAGE_FILETYPE_SWC,
+  IMAGE_FILETYPE_IFF,
+/* WHEN EXTENDING: PLEASE ALSO REGISTER IN image.c:PHP_MINIT_FUNCTION(imagetypes) */
 } image_filetype;
 /* }}} */
+
+PHP_MINIT_FUNCTION(imagetypes);
+
+PHPAPI int php_getimagetype(php_stream *stream, char *filetype TSRMLS_DC);
+
+PHPAPI const char * php_image_type_to_mime_type(int image_type);
 
 #endif /* PHP_IMAGE_H */

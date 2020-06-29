@@ -16,7 +16,7 @@
    |          Zeev Suraski <zeev@zend.com>                                |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_variables.c,v 1.35.2.3 2002/08/01 02:21:00 yohgaki Exp $ */
+/* $Id: php_variables.c,v 1.45.2.1 2002/12/07 16:06:40 iliaa Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -28,6 +28,9 @@
 
 #include "zend_globals.h"
 
+/* for systems that need to override reading of environment variables */
+void _php_import_environment_variables(zval *array_ptr TSRMLS_DC);
+PHPAPI void (*php_import_environment_variables)(zval *array_ptr TSRMLS_DC) = _php_import_environment_variables;
 
 PHPAPI void php_register_variable(char *var, char *strval, zval *track_vars_array TSRMLS_DC)
 {
@@ -39,7 +42,8 @@ PHPAPI void php_register_variable(char *var, char *strval, zval *track_vars_arra
 PHPAPI void php_register_variable_safe(char *var, char *strval, int str_len, zval *track_vars_array TSRMLS_DC)
 {
 	zval new_entry;
-
+	assert(strval != NULL);
+	
 	/* Prepare value */
 	Z_STRLEN(new_entry) = str_len;
 	if (PG(magic_quotes_gpc)) {
@@ -61,19 +65,20 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_arra
 	int var_len, index_len;
 	zval *gpc_element, **gpc_element_p, **top_gpc_p=NULL;
 	zend_bool is_array;
-	zend_bool free_index;
 	HashTable *symtable1=NULL;
 	HashTable *symtable2=NULL;
 
-	if (PG(register_globals)) {
-		symtable1 = EG(active_symbol_table);
-	}
+	assert(var != NULL);
+	
 	if (track_vars_array) {
+		symtable1 = Z_ARRVAL_P(track_vars_array);
+	}
+	if (PG(register_globals)) {
 		if (symtable1) {
-			symtable2 = Z_ARRVAL_P(track_vars_array);
+			symtable2 = EG(active_symbol_table);
 		} else {
-			symtable1 = Z_ARRVAL_P(track_vars_array);
-		}
+			symtable1 = EG(active_symbol_table);
+		}	
 	}
 	if (!symtable1) {
 		/* Nothing to do */
@@ -112,7 +117,6 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_arra
 
 	index = var;
 	index_len = var_len;
-	free_index = 0;
 
 	while (1) {
 		if (is_array) {
@@ -154,7 +158,7 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_arra
 			} else {
 				ip = strchr(ip, ']');
 				if (!ip) {
-					php_error(E_WARNING, "Missing ] in %s variable", var);
+					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Missing ] in %s variable", var);
 					return;
 				}
 				*ip = 0;
@@ -218,8 +222,7 @@ SAPI_API SAPI_POST_HANDLER_FUNC(php_std_post_handler)
 	}
 }
 
-
-void php_treat_data(int arg, char *str, zval* destArray TSRMLS_DC)
+SAPI_API SAPI_TREAT_DATA_FUNC(php_default_treat_data)
 {
 	char *res = NULL, *var, *val, *separator=NULL;
 	const char *c_var;
@@ -302,11 +305,10 @@ void php_treat_data(int arg, char *str, zval* destArray TSRMLS_DC)
 			php_url_decode(var, strlen(var));
 			val_len = php_url_decode(val, strlen(val));
 			php_register_variable_safe(var, val, val_len, array_ptr TSRMLS_CC);
-		}
-		else {
+		} else {
+			php_url_decode(var, strlen(var));
 			php_register_variable_safe(var, "", 0, array_ptr TSRMLS_CC);
 		}
-		
 		var = php_strtok_r(NULL, separator, &strtok_buf);
 	}
 
@@ -319,8 +321,7 @@ void php_treat_data(int arg, char *str, zval* destArray TSRMLS_DC)
 	}
 }
 
-
-void php_import_environment_variables(zval *array_ptr TSRMLS_DC)
+void _php_import_environment_variables(zval *array_ptr TSRMLS_DC)
 {
 	char **env, *p, *t;
 

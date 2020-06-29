@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: swf.c,v 1.44 2001/12/11 15:30:38 sebastian Exp $ */
+/* $Id: swf.c,v 1.46 2002/09/11 22:43:58 sterling Exp $ */
 
 
 #ifdef HAVE_CONFIG_H
@@ -138,10 +138,20 @@ PHP_MINFO_FUNCTION(swf)
 }
 /* }}} */
 
+/* {{{ _swf_init_globals
+ */
+static void _swf_init_globals(zend_swf_globals *sg)
+{
+	memset(sg, 0, sizeof(zend_swf_globals));
+}
+/* }}} */
+
 /* {{{ PHP_MINIT_FUNCTION
  */
 PHP_MINIT_FUNCTION(swf)
 {
+	ZEND_INIT_MODULE_GLOBALS(swf, _swf_init_globals, NULL);
+
 	REGISTER_LONG_CONSTANT("MOD_COLOR", MOD_COLOR, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("MOD_MATRIX", MOD_MATRIX, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("TYPE_PUSHBUTTON", TYPE_PUSHBUTTON, CONST_CS | CONST_PERSISTENT);
@@ -162,6 +172,7 @@ PHP_MINIT_FUNCTION(swf)
 	REGISTER_LONG_CONSTANT("ButtonExit", ButtonExit, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("MenuEnter", MenuEnter, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("MenuExit", MenuExit, CONST_CS | CONST_PERSISTENT);
+
 	return SUCCESS;
 }
 /* }}} */
@@ -181,7 +192,7 @@ PHP_FUNCTION(swf_openfile)
 {
 	zval **name, **sizeX, **sizeY, **frameRate, **r, **g, **b;
 	char *na, *tmpna;
-	zend_bool free_na;
+	zend_bool free_na = 0;
 	
 	if (ZEND_NUM_ARGS() != 7 ||
 	    zend_get_parameters_ex(7, &name, &sizeX, &sizeY, &frameRate, &r, &g, &b) == FAILURE) {
@@ -262,6 +273,7 @@ PHP_FUNCTION(swf_closefile)
 		fclose(f);
 		
 		VCWD_UNLINK((const char *)SWFG(tmpfile_name));
+		efree(SWFG(tmpfile_name));
 	}
 }
 /* }}} */

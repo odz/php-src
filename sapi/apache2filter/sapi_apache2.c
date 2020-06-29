@@ -18,6 +18,8 @@
    +----------------------------------------------------------------------+
  */
 
+/* $Id: sapi_apache2.c,v 1.91.2.2 2002/12/21 21:52:41 moriyoshi Exp $ */
+
 #include <fcntl.h>
 
 #include "php.h"
@@ -27,6 +29,7 @@
 #include "SAPI.h"
 
 #include "ext/standard/php_smart_str.h"
+#include "ext/standard/php_standard.h"
 
 #include "apr_strings.h"
 #include "ap_config.h"
@@ -149,6 +152,23 @@ php_apache_sapi_read_post(char *buf, uint count_bytes TSRMLS_DC)
 	return n;
 }
 
+static struct stat*
+php_apache_sapi_get_stat(TSRMLS_D)
+{
+	php_struct *ctx = SG(server_context);
+
+	ctx->finfo.st_uid = ctx->r->finfo.user;
+	ctx->finfo.st_gid = ctx->r->finfo.group;
+	ctx->finfo.st_ino = ctx->r->finfo.inode;
+	ctx->finfo.st_atime = ctx->r->finfo.atime/1000000;
+	ctx->finfo.st_mtime = ctx->r->finfo.mtime/1000000;
+	ctx->finfo.st_ctime = ctx->r->finfo.ctime/1000000;
+	ctx->finfo.st_size = ctx->r->finfo.size;
+	ctx->finfo.st_nlink = ctx->r->finfo.nlink;
+
+	return &ctx->finfo;
+}
+
 static char *
 php_apache_sapi_read_cookies(TSRMLS_D)
 {
@@ -159,6 +179,17 @@ php_apache_sapi_read_cookies(TSRMLS_D)
 
 	/* The SAPI interface should use 'const char *' */
 	return (char *) http_cookie;
+}
+
+static char *
+php_apache_sapi_getenv(char *name, size_t name_len TSRMLS_DC)
+{
+	php_struct *ctx = SG(server_context);
+	const char *env_var;
+	
+	env_var = apr_table_get(ctx->r->subprocess_env, name);
+
+	return (char *) env_var;
 }
 
 static void
@@ -230,11 +261,22 @@ static void php_apache_sapi_log_message(char *msg)
 	}
 }
 
+
+extern zend_module_entry php_apache_module;
+
+static int php_apache2_startup(sapi_module_struct *sapi_module)
+{
+	if (php_module_startup(sapi_module, &php_apache_module, 1)==FAILURE) {
+		return FAILURE;
+	}
+	return SUCCESS;
+}
+
 static sapi_module_struct apache2_sapi_module = {
 	"apache2filter",
 	"Apache 2.0 Filter",
 
-	php_module_startup,						/* startup */
+	php_apache2_startup,						/* startup */
 	php_module_shutdown_wrapper,			/* shutdown */
 
 	NULL,									/* activate */
@@ -242,8 +284,8 @@ static sapi_module_struct apache2_sapi_module = {
 
 	php_apache_sapi_ub_write,				/* unbuffered write */
 	php_apache_sapi_flush,					/* flush */
-	NULL,									/* get uid */
-	NULL,									/* getenv */
+	php_apache_sapi_get_stat,						/* get uid */
+	php_apache_sapi_getenv,					/* getenv */
 
 	php_error,								/* error handler */
 
@@ -291,7 +333,7 @@ static int php_input_filter(ap_filter_t *f, apr_bucket_brigade *bb,
 		return rv;
 	}
 
-	APR_BRIGADE_FOREACH(b, bb) {
+	for (b = APR_BRIGADE_FIRST(bb); b != APR_BRIGADE_SENTINEL(bb); b = APR_BUCKET_NEXT(b)) {
 		apr_bucket_read(b, &str, &n, 1);
 		if (n > 0) {
 			old_index = ctx->post_len;
@@ -327,8 +369,13 @@ static void php_apache_request_ctor(ap_filter_t *f, php_struct *ctx TSRMLS_DC)
 	apr_table_unset(f->r->headers_out, "Expires");
 	apr_table_unset(f->r->headers_out, "ETag");
 	apr_table_unset(f->r->headers_in, "Connection");
-	auth = apr_table_get(f->r->headers_in, "Authorization");
-	php_handle_auth_data(auth TSRMLS_CC);
+	if (!PG(safe_mode)) {
+		auth = apr_table_get(f->r->headers_in, "Authorization");
+		php_handle_auth_data(auth TSRMLS_CC);
+	} else {
+		SG(request_info).auth_user = NULL;
+		SG(request_info).auth_password = NULL;
+	}
 
 	php_request_startup(TSRMLS_C);
 }
@@ -340,7 +387,7 @@ static void php_apache_request_dtor(ap_filter_t *f TSRMLS_DC)
 	if (SG(request_info).query_string) {
 		free(SG(request_info).query_string);
 	}
-	if (SG(request_info).query_string) {
+	if (SG(request_info).request_uri) {
 		free(SG(request_info).request_uri);
 	}
 }
@@ -350,9 +397,15 @@ static int php_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 	php_struct *ctx;
 	apr_bucket *b;
 	void *conf = ap_get_module_config(f->r->per_dir_config, &php4_module);
+	char *p = get_php_config(conf, "engine", sizeof("engine"));
 	TSRMLS_FETCH();
 
 	if (f->r->proxyreq) {
+		return ap_pass_brigade(f->next, bb);
+	}
+	
+	/* handle situations where user turns the engine off */
+	if (*p == '0') {
 		return ap_pass_brigade(f->next, bb);
 	}
 
@@ -372,7 +425,7 @@ static int php_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 		return ap_pass_brigade(f->next, bb);
 	}
 
-	APR_BRIGADE_FOREACH(b, bb) {
+	for (b = APR_BRIGADE_FIRST(bb); b != APR_BRIGADE_SENTINEL(bb); b = APR_BUCKET_NEXT(b)) {
 		zend_file_handle zfd;
 
 		if (!ctx->request_processed && APR_BUCKET_IS_FILE(b)) {
@@ -401,12 +454,23 @@ static int php_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 			php_apache_request_ctor(f, ctx TSRMLS_CC);
 
 			apr_file_name_get(&path, ((apr_bucket_file *) b->data)->fd);
-			zfd.type = ZEND_HANDLE_FILENAME;
-			zfd.filename = (char *) path;
-			zfd.free_filename = 0;
-			zfd.opened_path = NULL;
+			
+			/* Determine if we need to parse the file or show the source */
+			if (strncmp(ctx->r->handler, "application/x-httpd-php-source", sizeof("application/x-httpd-php-source"))) { 
+				zfd.type = ZEND_HANDLE_FILENAME;
+				zfd.filename = (char *) path;
+				zfd.free_filename = 0;
+				zfd.opened_path = NULL;
 
-			php_execute_script(&zfd TSRMLS_CC);
+				php_execute_script(&zfd TSRMLS_CC);
+			} else { 
+				zend_syntax_highlighter_ini syntax_highlighter_ini;
+				
+				php_get_highlight_struct(&syntax_highlighter_ini);
+				
+ 				highlight_file((char *)path, &syntax_highlighter_ini TSRMLS_CC);
+			}	
+			
 			php_apache_request_dtor(f TSRMLS_CC);
 			
 			ctx->request_processed = 1;
@@ -491,7 +555,6 @@ php_apache_server_startup(apr_pool_t *pconf, apr_pool_t *plog,
 	sapi_startup(&apache2_sapi_module);
 	apache2_sapi_module.startup(&apache2_sapi_module);
 	apr_pool_cleanup_register(pconf, NULL, php_apache_server_shutdown, apr_pool_cleanup_null);
-	php_apache_register_module();
 	php_apache_add_version(pconf);
 
 	return OK;
@@ -522,10 +585,13 @@ static void php_add_filter(request_rec *r, ap_filter_t *f)
 
 static void php_insert_filter(request_rec *r)
 {
-	if (r->content_type &&
-	    strcmp(r->content_type, "application/x-httpd-php") == 0) {
-		php_add_filter(r, r->output_filters);
-		php_add_filter(r, r->input_filters);
+	int content_type_len = strlen("application/x-httpd-php");
+
+	if (r->content_type && !strncmp(r->content_type, "application/x-httpd-php", content_type_len-1)) {
+		if (r->content_type[content_type_len] == '\0' || !strncmp(r->content_type+content_type_len, "-source", sizeof("-source"))) { 
+			php_add_filter(r, r->output_filters);
+			php_add_filter(r, r->input_filters);
+		}	
 	}
 }
 

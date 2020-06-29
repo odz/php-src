@@ -22,7 +22,7 @@
 #include "zend_API.h"
 #include "zend_builtin_functions.h"
 #include "zend_constants.h"
-
+#include "zend_ini.h"
 #undef ZEND_TEST_EXCEPTIONS
 
 static ZEND_FUNCTION(zend_version);
@@ -43,9 +43,11 @@ static ZEND_FUNCTION(get_parent_class);
 static ZEND_FUNCTION(method_exists);
 static ZEND_FUNCTION(class_exists);
 static ZEND_FUNCTION(function_exists);
+#if ZEND_DEBUG
 static ZEND_FUNCTION(leak);
 #ifdef ZEND_TEST_EXCEPTIONS
 static ZEND_FUNCTION(crash);
+#endif
 #endif
 static ZEND_FUNCTION(get_included_files);
 static ZEND_FUNCTION(is_subclass_of);
@@ -65,6 +67,7 @@ static ZEND_FUNCTION(get_loaded_extensions);
 static ZEND_FUNCTION(extension_loaded);
 static ZEND_FUNCTION(get_extension_funcs);
 static ZEND_FUNCTION(get_defined_constants);
+static ZEND_FUNCTION(debug_backtrace);
 #if ZEND_DEBUG
 static ZEND_FUNCTION(zend_test_func);
 #endif
@@ -92,9 +95,11 @@ static zend_function_entry builtin_functions[] = {
 	ZEND_FE(method_exists,		NULL)
 	ZEND_FE(class_exists,		NULL)
 	ZEND_FE(function_exists,	NULL)
+#if ZEND_DEBUG
 	ZEND_FE(leak,				NULL)
 #ifdef ZEND_TEST_EXCEPTIONS
 	ZEND_FE(crash,				NULL)
+#endif
 #endif
 	ZEND_FE(get_included_files,	NULL)
 	ZEND_FALIAS(get_required_files,	get_included_files,		NULL)
@@ -116,6 +121,7 @@ static zend_function_entry builtin_functions[] = {
 	ZEND_FE(extension_loaded,			NULL)
 	ZEND_FE(get_extension_funcs,		NULL)
 	ZEND_FE(get_defined_constants,		NULL)
+	ZEND_FE(debug_backtrace,			NULL)
 #if ZEND_DEBUG
 	ZEND_FE(zend_test_func,		NULL)
 #endif
@@ -177,6 +183,11 @@ ZEND_FUNCTION(func_get_arg)
 	}
 	convert_to_long_ex(z_requested_offset);
 	requested_offset = (*z_requested_offset)->value.lval;
+
+	if (requested_offset < 0) {
+		zend_error(E_WARNING, "func_get_arg():  The argument number should be >= 0");
+		RETURN_FALSE;
+	}
 
 	p = EG(argument_stack).top_element-1-1;
 	arg_count = (ulong) *p;		/* this is the amount of arguments passed to func_get_arg(); */
@@ -391,8 +402,8 @@ ZEND_FUNCTION(error_reporting)
 			if (zend_get_parameters_ex(1, &arg) == FAILURE) {
 				RETURN_FALSE;
 			}
-			convert_to_long_ex(arg);
-			EG(error_reporting)=(*arg)->value.lval;
+			convert_to_string_ex(arg);
+			zend_alter_ini_entry("error_reporting", sizeof("error_reporting"), Z_STRVAL_PP(arg), Z_STRLEN_PP(arg), ZEND_INI_USER, ZEND_INI_STAGE_RUNTIME);
 			break;
 		default:
 			ZEND_WRONG_PARAM_COUNT();
@@ -456,9 +467,9 @@ ZEND_FUNCTION(define)
 	c.name = zend_strndup((*var)->value.str.val, (*var)->value.str.len);
 	c.name_len = (*var)->value.str.len+1;
 	if (zend_register_constant(&c TSRMLS_CC) == SUCCESS) {
-	  RETURN_TRUE;
+		RETURN_TRUE;
 	} else {
-	  RETURN_FALSE;
+		RETURN_FALSE;
 	}
 }
 /* }}} */
@@ -556,7 +567,7 @@ static void is_a_impl(INTERNAL_FUNCTION_PARAMETERS, zend_bool only_subclass)
 	else
 		ce = Z_OBJCE_PP(obj);
 	for (; ce != NULL; ce = ce->parent) {
-		if ((ce->name_length == (uint)Z_STRLEN_PP(class_name)) && !memcmp(ce->name, lcname, ce->name_length)) {
+		if ((ce->name_length == (uint)Z_STRLEN_PP(class_name)) && !zend_binary_strcasecmp(ce->name, ce->name_length, lcname, Z_STRLEN_PP(class_name))) {
 			efree(lcname);
 			RETURN_TRUE;
 		}
@@ -735,8 +746,9 @@ ZEND_FUNCTION(class_exists)
 ZEND_FUNCTION(function_exists)
 {
 	zval **function_name;
+	zend_function *func;
 	char *lcname;
-	int retval;
+	zend_bool retval;
 	
 	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &function_name)==FAILURE) {
 		ZEND_WRONG_PARAM_COUNT();
@@ -745,14 +757,23 @@ ZEND_FUNCTION(function_exists)
 	lcname = estrndup((*function_name)->value.str.val, (*function_name)->value.str.len);
 	zend_str_tolower(lcname, (*function_name)->value.str.len);
 
-	retval = zend_hash_exists(EG(function_table), lcname, (*function_name)->value.str.len+1);
+	retval = (zend_hash_find(EG(function_table), lcname, (*function_name)->value.str.len+1, (void **)&func) == SUCCESS);
 	efree(lcname);
+
+	/*
+	 * A bit of a hack, but not a bad one: we see if the handler of the function
+	 * is actually one that displays "function is disabled" message.
+	 */
+	if (retval &&
+		func->internal_function.handler == zif_display_disabled_function) {
+		retval = 0;
+	}
 
 	RETURN_BOOL(retval);
 }
 /* }}} */
 
-
+#if ZEND_DEBUG
 /* {{{ proto void leak(int num_bytes=3)
    Cause an intentional memory leak, for testing/debugging purposes */
 ZEND_FUNCTION(leak)
@@ -781,6 +802,7 @@ ZEND_FUNCTION(crash)
 }
 #endif
 
+#endif /* ZEND_DEBUG */
 
 /* {{{ proto array get_included_files(void)
    Returns an array with the file names that were include_once()'d */
@@ -846,13 +868,21 @@ ZEND_FUNCTION(trigger_error)
 ZEND_FUNCTION(set_error_handler)
 {
 	zval **error_handler;
+	char *error_handler_name;
 	zend_bool had_orig_error_handler=0;
 
 	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &error_handler)==FAILURE) {
 		ZEND_WRONG_PARAM_COUNT();
 	}
 
-	convert_to_string_ex(error_handler);
+	if (!zend_is_callable(*error_handler, 0, &error_handler_name)) {
+		zend_error(E_WARNING, "%s() expects argument 1, '%s', to be a valid callback",
+				   get_active_function_name(TSRMLS_C), error_handler_name);
+		efree(error_handler_name);
+		return;
+	}
+	efree(error_handler_name);
+
 	if (EG(user_error_handler)) {
 		had_orig_error_handler = 1;
 		*return_value = *EG(user_error_handler);
@@ -1119,6 +1149,169 @@ ZEND_FUNCTION(get_defined_constants)
 
 	array_init(return_value);
 	zend_hash_apply_with_argument(EG(zend_constants), (apply_func_arg_t) add_constant_info, return_value TSRMLS_CC);
+}
+
+/* }}} */
+
+static zval *debug_backtrace_get_args(void ***curpos TSRMLS_DC) {
+	void **p = *curpos - 2;
+	zval *arg_array, **arg;
+	int arg_count = (ulong) *p;
+
+	*curpos -= (arg_count+2); 
+
+	MAKE_STD_ZVAL(arg_array);
+	array_init(arg_array);
+	p -= arg_count;
+
+	while (--arg_count >= 0) {
+		arg = (zval **) p++;
+		SEPARATE_ZVAL_TO_MAKE_IS_REF(arg);
+		(*arg)->refcount++;
+		add_next_index_zval(arg_array, *arg);
+	}
+	return arg_array;
+}
+
+/* {{{ proto void debug_backtrace(void)
+   Prints out a backtrace */
+ZEND_FUNCTION(debug_backtrace)
+{
+	zend_execute_data *ptr;
+	int lineno;
+	char *function_name;
+	char *filename;
+	char *class_name;
+	char *call_type;
+	char *include_filename = NULL;
+	zval *stack_frame;
+	void **cur_arg_pos = EG(argument_stack).top_element;
+	void **args = cur_arg_pos;
+	int arg_stack_consistent = 0;
+	int frames_on_stack = 0;
+
+	if (ZEND_NUM_ARGS()) {
+		ZEND_WRONG_PARAM_COUNT();
+	}
+
+	while (--args >= EG(argument_stack).elements) {
+		if (*args--) {
+			break;
+		}
+		args -= *(ulong*)args;
+		frames_on_stack++;
+
+		if (args == EG(argument_stack).elements) {
+			arg_stack_consistent = 1;
+			break;
+		}
+	}
+
+	ptr = EG(current_execute_data);
+
+	/* skip debug_backtrace() */
+	ptr = ptr->prev_execute_data;
+	cur_arg_pos -= 2;
+	frames_on_stack--;
+
+	array_init(return_value);
+
+	while (ptr) {
+		MAKE_STD_ZVAL(stack_frame);
+		array_init(stack_frame);
+
+		if (ptr->op_array) {
+			filename = ptr->op_array->filename;
+			lineno = ptr->opline->lineno;
+			add_assoc_string_ex(stack_frame, "file", sizeof("file"), filename, 1);
+			add_assoc_long_ex(stack_frame, "line", sizeof("line"), lineno);
+
+			/* try to fetch args only if an FCALL was just made - elsewise we're in the middle of a function
+			 * and debug_baktrace() might have been called by the error_handler. in this case we don't 
+			 * want to pop anything of the argument-stack */
+		} else {
+			filename = NULL;
+		}
+
+		function_name = ptr->function_state.function->common.function_name;
+
+		if (function_name) {
+			add_assoc_string_ex(stack_frame, "function", sizeof("function"), function_name, 1);
+
+			if (ptr->ce) {
+				class_name = ptr->ce->name;
+				call_type = "::";
+			} else if (ptr->object.ptr) {
+				class_name = ptr->object.ptr->value.obj.ce->name;
+				call_type = "->";
+			} else {
+				class_name = NULL;
+				call_type = NULL;
+			}
+
+			if (class_name) {
+				add_assoc_string_ex(stack_frame, "class", sizeof("class"), class_name, 1);
+				add_assoc_string_ex(stack_frame, "type", sizeof("type"), call_type, 1);
+			}
+
+			if ((! ptr->opline) || ((ptr->opline->opcode == ZEND_DO_FCALL_BY_NAME) || (ptr->opline->opcode == ZEND_DO_FCALL))) {
+				if (arg_stack_consistent && (frames_on_stack > 0)) {
+					add_assoc_zval_ex(stack_frame, "args", sizeof("args"), debug_backtrace_get_args(&cur_arg_pos TSRMLS_CC));
+					frames_on_stack--;
+				}
+			}	
+		} else {
+			/* i know this is kinda ugly, but i'm trying to avoid extra cycles in the main execution loop */
+			zend_bool build_filename_arg = 1;
+
+			switch (ptr->opline->op2.u.constant.value.lval) {
+				case ZEND_EVAL:
+					function_name = "eval";
+					build_filename_arg = 0;
+					break;
+				case ZEND_INCLUDE:
+					function_name = "include";
+					break;
+				case ZEND_REQUIRE:
+					function_name = "require";
+					break;
+				case ZEND_INCLUDE_ONCE:
+					function_name = "include_once";
+					break;
+				case ZEND_REQUIRE_ONCE:
+					function_name = "require_once";
+					break;
+				default:
+					/* this can actually happen if you use debug_backtrace() in your error_handler and 
+					 * you're in the top-scope */
+					function_name = "unknown"; 
+					build_filename_arg = 0;
+					break;
+			}
+
+			if (build_filename_arg && include_filename) {
+				zval *arg_array;
+
+				MAKE_STD_ZVAL(arg_array);
+				array_init(arg_array);
+				
+				/* include_filename always points to the last filename of the last last called-fuction.
+				   if we have called include in the frame above - this is the file we have included.
+				 */
+
+				add_next_index_string(arg_array, include_filename, 1);
+				add_assoc_zval_ex(stack_frame, "args", sizeof("args"), arg_array);
+			}
+
+			add_assoc_string_ex(stack_frame, "function", sizeof("function"), function_name, 1);
+		}
+
+		add_next_index_zval(return_value, stack_frame);
+
+		include_filename = filename; 
+
+		ptr = ptr->prev_execute_data;
+	}
 }
 
 

@@ -16,11 +16,13 @@
 // | Authors: Tomas V.V.Cox <cox@idecnet.com>                             |
 // +----------------------------------------------------------------------+
 //
-// $Id: System.php,v 1.11 2002/02/28 08:27:05 sebastian Exp $
+// $Id: System.php,v 1.21.2.2 2002/12/22 01:43:19 ssb Exp $
 //
 
 require_once 'PEAR.php';
 require_once 'Console/Getopt.php';
+
+$GLOBALS['_System_temp_files'] = array();
 
 /**
 * System offers cross plattform compatible system functions
@@ -41,11 +43,11 @@ require_once 'Console/Getopt.php';
 *
 * @package  System
 * @author   Tomas V.V.Cox <cox@idecnet.com>
-* @version  $Revision: 1.11 $
+* @version  $Revision: 1.21.2.2 $
 * @access   public
 * @see      http://pear.php.net/manual/
 */
-class System extends PEAR
+class System
 {
     /**
     * returns the commandline arguments of a function
@@ -59,7 +61,7 @@ class System extends PEAR
     function _parseArgs($argv, $short_options, $long_options = null)
     {
         if (!is_array($argv) && $argv !== null) {
-            $argv = preg_split('/\s+/', $argv);
+            $argv = preg_split('/\s+/', ': '.$argv);
         }
         return Console_Getopt::getopt($argv, $short_options);
     }
@@ -145,7 +147,8 @@ class System extends PEAR
     function _multipleToStruct($files)
     {
         $struct = array('dirs' => array(), 'files' => array());
-        foreach($files as $file) {
+        settype($files, 'array');
+        foreach ($files as $file) {
             if (is_dir($file)) {
                 $tmp = System::_dirToStruct($file, 0);
                 $struct = array_merge_recursive($tmp, $struct);
@@ -179,19 +182,19 @@ class System extends PEAR
         if (isset($do_recursive)) {
             $struct = System::_multipleToStruct($opts[1]);
             foreach($struct['files'] as $file) {
-                if (!unlink($file)) {
+                if (!@unlink($file)) {
                     $ret = false;
                 }
             }
             foreach($struct['dirs'] as $dir) {
-                if (!rmdir($dir)) {
+                if (!@rmdir($dir)) {
                     $ret = false;
                 }
             }
         } else {
             foreach ($opts[1] as $file) {
                 $delete = (is_dir($file)) ? 'rmdir' : 'unlink';
-                if (!$delete($file)) {
+                if (!@$delete($file)) {
                     $ret = false;
                 }
             }
@@ -200,7 +203,8 @@ class System extends PEAR
     }
 
     /**
-    * Make directories
+    * Make directories. Note that we use call_user_func('mkdir') to avoid
+    * a problem with ZE2 calling System::mkDir instead of the native PHP func.
     *
     * @param    string  $args    the name of the director(y|ies) to create
     * @return   bool    True for success
@@ -229,14 +233,14 @@ class System extends PEAR
                     $dir = dirname($dir);
                 }
                 while ($newdir = array_shift($dirstack)) {
-                    if (!mkdir($newdir, $mode)) {
+                    if (!call_user_func('mkdir', $newdir, $mode)) {
                         $ret = false;
                     }
                 }
             }
         } else {
             foreach($opts[1] as $dir) {
-                if (!@is_dir($dir) && !mkdir($dir, $mode)) {
+                if (!@is_dir($dir) && !call_user_func('mkdir', $dir, $mode)) {
                     $ret = false;
                 }
             }
@@ -289,8 +293,7 @@ class System extends PEAR
                 System::raiseError("Could not open $file");
                 continue;
             }
-            while(!feof($fd)) {
-                $cont = fread($fd, 2048);
+            while ($cont = fread($fd, 2048)) {
                 if (isset($outputfd)) {
                     fwrite($outputfd, $cont);
                 } else {
@@ -306,7 +309,8 @@ class System extends PEAR
     }
 
     /**
-    * Creates temporal files or directories
+    * Creates temporary files or directories. This function will remove
+    * the created files when the scripts finish its execution.
     *
     * Usage:
     *   1) $tempfile = System::mktemp("prefix");
@@ -316,8 +320,8 @@ class System extends PEAR
     *
     * prefix -> The string that will be prepended to the temp name
     *           (defaults to "tmp").
-    * -d     -> A temporal dir will be created instead of a file.
-    * -t     -> The target dir where the temporal (file|dir) will be created. If
+    * -d     -> A temporary dir will be created instead of a file.
+    * -t     -> The target dir where the temporary (file|dir) will be created. If
     *           this param is missing by default the env vars TMP on Windows or
     *           TMPDIR in Unix will be used. If these vars are also missing
     *           c:\windows\temp or /tmp will be used.
@@ -329,6 +333,7 @@ class System extends PEAR
     */
     function mktemp($args = null)
     {
+        static $first_time = true;
         $opts = System::_parseArgs($args, 't:d');
         if (PEAR::isError($opts)) {
             return System::raiseError($opts);
@@ -350,63 +355,93 @@ class System extends PEAR
         $tmp = tempnam($tmpdir, $prefix);
         if (isset($tmp_is_dir)) {
             unlink($tmp); // be careful possible race condition here
-            if (!mkdir($tmp, 0700)) {
+            if (!call_user_func('mkdir', $tmp, 0700)) {
                 return System::raiseError("Unable to create temporary directory $tmpdir");
             }
+        }
+        $GLOBALS['_System_temp_files'][] = $tmp;
+        if ($first_time) {
+            PEAR::registerShutdownFunc(array('System', '_removeTmpFiles'));
+            $first_time = false;
         }
         return $tmp;
     }
 
     /**
+    * Remove temporary files created my mkTemp. This function is executed
+    * at script shutdown time
+    *
+    * @access private
+    */
+    function _removeTmpFiles()
+    {
+        if (count($GLOBALS['_System_temp_files'])) {
+            $delete = $GLOBALS['_System_temp_files'];
+            array_unshift($delete, '-r');
+            System::rm($delete);
+        }
+    }
+
+    /**
     * Get the path of the temporal directory set in the system
     * by looking in its environments variables.
+    * Note: php.ini-recommended removes the "E" from the variables_order setting,
+    * making unavaible the $_ENV array, that s why we do tests with _ENV
     *
     * @return string The temporal directory on the system
     */
     function tmpdir()
     {
-        if (OS_WINDOWS){
-            if (isset($_ENV['TEMP'])) {
-                return $_ENV['TEMP'];
+        if (OS_WINDOWS) {
+            if ($var = isset($_ENV['TEMP']) ? $_ENV['TEMP'] : getenv('TEMP')) {
+                return $var;
             }
-            if (isset($_ENV['TMP'])) {
-                return $_ENV['TMP'];
+            if ($var = isset($_ENV['TMP']) ? $_ENV['TMP'] : getenv('TMP')) {
+                return $var;
             }
-            if (isset($_ENV['windir'])) {
-                return $_ENV['windir'] . '\temp';
+            if ($var = isset($_ENV['windir']) ? $_ENV['windir'] : getenv('windir')) {
+                return $var;
             }
-            return $_ENV['SystemRoot'] . '\temp';
+            return getenv('SystemRoot') . '\temp';
         }
-        if (isset($_ENV['TMPDIR'])) {
-            return $_ENV['TMPDIR'];
+        if ($var = isset($_ENV['TMPDIR']) ? $_ENV['TMPDIR'] : getenv('TMPDIR')) {
+            return $var;
         }
         return '/tmp';
     }
 
     /**
-    * The "type" command (show the full path of a command)
+    * The "which" command (show the full path of a command)
     *
     * @param string $program The command to search for
     * @return mixed A string with the full path or false if not found
     * @author Stig Bakken <ssb@fast.no>
     */
-    function type($program)
+    function which($program, $fallback = false)
     {
+    	// is_executable() is not available on windows
+    	if (OS_WINDOWS) {
+            $pear_is_executable = 'is_file';
+        } else {
+            $pear_is_executable = 'is_executable';
+        }
+
         // full path given
         if (basename($program) != $program) {
-            return (@is_executable($program)) ? $program : false;
+            return (@$pear_is_executable($program)) ? $program : $fallback;
         }
+
         // XXX FIXME honor safe mode
         $path_delim = OS_WINDOWS ? ';' : ':';
         $exe_suffix = OS_WINDOWS ? '.exe' : '';
         $path_elements = explode($path_delim, getenv('PATH'));
         foreach ($path_elements as $dir) {
             $file = $dir . DIRECTORY_SEPARATOR . $program . $exe_suffix;
-            if (@is_file($file) && @is_executable($file)) {
+            if (@is_file($file) && @$pear_is_executable($file)) {
                 return $file;
             }
         }
-        return false;
+        return $fallback;
     }
 }
 ?>

@@ -1,9 +1,13 @@
 dnl
-dnl $Id: config.m4,v 1.12 2001/11/30 18:59:29 sniper Exp $
+dnl $Id: config.m4,v 1.20 2002/11/10 21:26:13 derick Exp $
 dnl
 
 PHP_ARG_WITH(curl, for CURL support,
 [  --with-curl[=DIR]       Include CURL support])
+
+dnl Temporary option while we develop this aspect of the extension
+dnl PHP_ARG_WITH(curlwrappers, if we should use CURL for url streams,
+dnl [  --with-curlwrappers     Use CURL for url streams], no, no)
 
 if test "$PHP_CURL" != "no"; then
   if test -r $PHP_CURL/include/curl/easy.h; then
@@ -25,7 +29,7 @@ if test "$PHP_CURL" != "no"; then
   fi
 
   CURL_CONFIG="curl-config"
-  AC_MSG_CHECKING(for cURL 7.9 or greater)
+  AC_MSG_CHECKING(for cURL 7.9.8 or greater)
 
   if ${CURL_DIR}/bin/curl-config --libs print > /dev/null 2>&1; then
     CURL_CONFIG=${CURL_DIR}/bin/curl-config
@@ -37,11 +41,11 @@ if test "$PHP_CURL" != "no"; then
 
   curl_version_full=`$CURL_CONFIG --version`
   curl_version=`echo ${curl_version_full} | sed -e 's/libcurl //' | awk 'BEGIN { FS = "."; } { printf "%d", ($1 * 1000 + $2) * 1000 + $3;}'`
-  if test "$curl_version" -ge 7009000; then
+  if test "$curl_version" -ge 7009008; then
     AC_MSG_RESULT($curl_version_full)
     CURL_LIBS=`$CURL_CONFIG --libs`
   else
-    AC_MSG_ERROR(cURL version 7.9 or later is required to compile php with cURL support)
+    AC_MSG_ERROR(cURL version 7.9.8 or later is required to compile php with cURL support)
   fi
 
   PHP_ADD_INCLUDE($CURL_DIR/include)
@@ -57,6 +61,17 @@ if test "$PHP_CURL" != "no"; then
     $CURL_LIBS -L$CURL_DIR/lib
   ])
 
-  PHP_EXTENSION(curl, $ext_shared)
+  PHP_CHECK_LIBRARY(curl,curl_version_info,
+  [
+    AC_DEFINE(HAVE_CURL_VERSION_INFO,1,[ ])
+  ],[],[
+    $CURL_LIBS -L$CURL_DIR/lib
+  ])
+
+dnl  if test "$PHP_CURLWRAPPERS" != "no" ; then
+dnl    AC_DEFINE(PHP_CURL_URL_WRAPPERS,1,[ ])
+dnl  fi
+
+  PHP_NEW_EXTENSION(curl, curl.c curlstreams.c, $ext_shared)
   PHP_SUBST(CURL_SHARED_LIBADD)
 fi

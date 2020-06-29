@@ -17,7 +17,7 @@
 */
 
 
-/* $Id: reg.h,v 1.15 2002/02/28 08:26:49 sebastian Exp $ */
+/* $Id: reg.h,v 1.17 2002/09/25 17:48:10 andrei Exp $ */
 
 #ifndef REG_H
 #define REG_H
@@ -32,9 +32,9 @@ PHP_FUNCTION(split);
 PHP_FUNCTION(spliti);
 PHPAPI PHP_FUNCTION(sql_regcase);
 
-typedef struct {
+ZEND_BEGIN_MODULE_GLOBALS(reg)
 	HashTable ht_rc;
-} php_reg_globals;
+ZEND_END_MODULE_GLOBALS(reg)
 
 PHP_MINIT_FUNCTION(regex);
 PHP_MSHUTDOWN_FUNCTION(regex);
@@ -42,7 +42,7 @@ PHP_MINFO_FUNCTION(regex);
 
 
 #ifdef ZTS
-#define REG(v) TSRMG(reg_globals_id, php_reg_globals *, v)
+#define REG(v) TSRMG(reg_globals_id, zend_reg_globals *, v)
 #else
 #define REG(v) (reg_globals.v)
 #endif

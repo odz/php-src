@@ -18,7 +18,7 @@
 */
 
 
-/* $Id: zend_ini_parser.y,v 1.16 2002/01/06 15:21:09 sebastian Exp $ */
+/* $Id: zend_ini_parser.y,v 1.18 2002/10/14 23:29:13 iliaa Exp $ */
 
 #define DEBUG_CFG_PARSER 0
 #include "zend.h"
@@ -57,7 +57,6 @@ zval yylval;
 #ifndef ZTS
 extern int ini_lex(zval *ini_lval TSRMLS_DC);
 extern FILE *ini_in;
-extern int ini_lineno;
 extern void init_cfg_scanner(void);
 #endif
 
@@ -147,7 +146,7 @@ static void ini_error(char *str)
 }
 
 
-int zend_parse_ini_file(zend_file_handle *fh, zend_bool unbuffered_errors, zend_ini_parser_cb_t ini_parser_cb, void *arg)
+ZEND_API int zend_parse_ini_file(zend_file_handle *fh, zend_bool unbuffered_errors, zend_ini_parser_cb_t ini_parser_cb, void *arg)
 {
 	int retval;
 	zend_ini_parser_param ini_parser_param;

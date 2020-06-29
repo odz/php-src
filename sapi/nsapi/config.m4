@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.10.2.2 2002/08/20 23:06:46 kalowsky Exp $
+dnl $Id: config.m4,v 1.16 2002/09/29 22:24:20 sniper Exp $
 dnl
 
 AC_MSG_CHECKING(for NSAPI support)
@@ -19,21 +19,23 @@ if test "$PHP_NSAPI" != "no"; then
   if test -d $PHP_NSAPI/include ; then
     NSAPI_INCLUDE=$PHP_NSAPI/include
     AC_MSG_RESULT(Netscape-Enterprise/3.x style)
+    AC_CHECK_HEADERS([$NSAPI_INCLUDE/nsapi.h])
   fi
   if test -d $PHP_NSAPI/plugins/include ; then
-    NSAPI_INCLUDE="$NSAPI_INCLUDE -I$PHP_NSAPI/plugins/include"
+    test -n "$NSAPI_INCLUDE" && NSAPI_INC_DIR="-I$NSAPI_INCLUDE"
+    NSAPI_INCLUDE="$PHP_NSAPI/plugins/include"
     AC_MSG_RESULT(iPlanet/4.x style)
+    AC_CHECK_HEADERS([$NSAPI_INCLUDE/nsapi.h])
+    NSAPI_INCLUDE="$NSAPI_INC_DIR -I$NSAPI_INCLUDE"
   fi
-
   if test "$NSAPI_INCLUDE" = ""; then
-    AC_MSG_ERROR(Please check you have nsapi.h in either DIR/include or DIR/plugins/include)
+    AC_MSG_ERROR(Please check you have nsapi.h in either $PHP_NSAPI/include or $PHP_NSAPI/plugins/include)
   fi
 
-  PHP_ADD_INCLUDE($NSAPI_INCLUDE)
+  PHP_EVAL_INCLINE($NSAPI_INCLUDE)
   PHP_BUILD_THREAD_SAFE
   AC_DEFINE(HAVE_NSAPI,1,[Whether you have a Netscape Server])
-  PHP_SAPI=nsapi
-  PHP_BUILD_SHARED
+  PHP_SELECT_SAPI(nsapi, shared, nsapi.c)
   INSTALL_IT="\$(INSTALL) -m 0755 $SAPI_SHARED \$(INSTALL_ROOT)$PHP_NSAPI/bin/"
 fi
 

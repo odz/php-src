@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dba_gdbm.c,v 1.10.2.1 2002/04/18 12:31:19 derick Exp $ */
+/* $Id: dba_gdbm.c,v 1.16.2.1 2002/12/20 20:25:19 helly Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -49,7 +49,7 @@ DBA_OPEN_FUNC(gdbm)
 		info->mode == DBA_TRUNC ? GDBM_NEWDB : -1;
 		
 	if(gmode == -1) 
-		return FAILURE;
+		return FAILURE; /* not possible */
 
 	if(info->argc > 0) {
 		convert_to_long_ex(info->argv[0]);
@@ -59,11 +59,12 @@ DBA_OPEN_FUNC(gdbm)
 	dbf = gdbm_open(info->path, 0, gmode, filemode, NULL);
 	
 	if(dbf) {
-		info->dbf = malloc(sizeof(dba_gdbm_data));
+		info->dbf = pemalloc(sizeof(dba_gdbm_data), info->flags&DBA_PERSISTENT);
 		memset(info->dbf, 0, sizeof(dba_gdbm_data));
 		((dba_gdbm_data *) info->dbf)->dbf = dbf;
 		return SUCCESS;
 	}
+	*error = gdbm_strerror(gdbm_errno);
 	return FAILURE;
 }
 
@@ -73,7 +74,7 @@ DBA_CLOSE_FUNC(gdbm)
 	
 	if(dba->nextkey.dptr) free(dba->nextkey.dptr);
 	gdbm_close(dba->dbf);
-	free(dba);
+	pefree(dba, info->flags&DBA_PERSISTENT);
 }
 
 DBA_FETCH_FUNC(gdbm)
@@ -104,7 +105,7 @@ DBA_UPDATE_FUNC(gdbm)
 	if(gdbm_store(dba->dbf, gkey, gval, 
 				mode == 1 ? GDBM_INSERT : GDBM_REPLACE) == 0)
 		return SUCCESS;
-	printf("XXX %s\n", gdbm_strerror(gdbm_errno));
+	php_error_docref2(NULL TSRMLS_CC, key, val, E_WARNING, "%s", gdbm_strerror(gdbm_errno));
 	return FAILURE;
 }
 

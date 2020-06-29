@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: dbx.c,v 1.34.2.3 2002/07/23 13:48:11 sas Exp $ */
+/* $Id: dbx.c,v 1.42 2002/11/10 21:24:44 derick Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -136,6 +136,8 @@ int switch_dbx_getrow(zval **rv, zval **result_handle, long row_number, INTERNAL
 	/* returns array[0..columncount-1] as strings on success or 0 as long on failure */
 int switch_dbx_error(zval **rv, zval **dbx_handle, INTERNAL_FUNCTION_PARAMETERS, zval **dbx_module);
 	/* returns string */
+int switch_dbx_esc(zval **rv, zval **dbx_handle, zval **string, INTERNAL_FUNCTION_PARAMETERS, zval **dbx_module);
+	/* returns escaped string */
 
 /* Every user visible function must have an entry in dbx_functions[].
 */
@@ -144,6 +146,7 @@ function_entry dbx_functions[] = {
 	ZEND_FE(dbx_close,		NULL)
 	ZEND_FE(dbx_query,		NULL)
 	ZEND_FE(dbx_error,		NULL)
+	ZEND_FE(dbx_escape_string,	NULL)
 
 	ZEND_FE(dbx_sort,		NULL)
 	ZEND_FE(dbx_compare,	NULL)
@@ -168,8 +171,14 @@ zend_module_entry dbx_module_entry = {
 ZEND_GET_MODULE(dbx)
 #endif
 
+ZEND_INI_BEGIN()
+    ZEND_INI_ENTRY("dbx.colnames_case", "unchanged", ZEND_INI_SYSTEM, NULL)
+ZEND_INI_END()
+
 ZEND_MINIT_FUNCTION(dbx)
 {
+    REGISTER_INI_ENTRIES();
+
 	REGISTER_LONG_CONSTANT("DBX_MYSQL", DBX_MYSQL, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("DBX_ODBC", DBX_ODBC, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("DBX_PGSQL", DBX_PGSQL, CONST_CS | CONST_PERSISTENT);
@@ -184,6 +193,10 @@ ZEND_MINIT_FUNCTION(dbx)
 	REGISTER_LONG_CONSTANT("DBX_RESULT_INDEX", DBX_RESULT_INDEX, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("DBX_RESULT_ASSOC", DBX_RESULT_ASSOC, CONST_CS | CONST_PERSISTENT);
 
+	REGISTER_LONG_CONSTANT("DBX_COLNAMES_UNCHANGED", DBX_COLNAMES_UNCHANGED, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("DBX_COLNAMES_UPPERCASE", DBX_COLNAMES_UPPERCASE, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("DBX_COLNAMES_LOWERCASE", DBX_COLNAMES_LOWERCASE, CONST_CS | CONST_PERSISTENT);
+
 	REGISTER_LONG_CONSTANT("DBX_CMP_NATIVE", DBX_CMP_NATIVE, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("DBX_CMP_TEXT", DBX_CMP_TEXT, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("DBX_CMP_NUMBER", DBX_CMP_NUMBER, CONST_CS | CONST_PERSISTENT);
@@ -195,6 +208,7 @@ ZEND_MINIT_FUNCTION(dbx)
 
 ZEND_MSHUTDOWN_FUNCTION(dbx)
 {
+    UNREGISTER_INI_ENTRIES();
 	return SUCCESS;
 }
 
@@ -213,8 +227,9 @@ ZEND_MINFO_FUNCTION(dbx)
 	php_info_print_table_start();
 	php_info_print_table_row(2, "dbx support", "enabled");
 	php_info_print_table_row(2, "dbx version", "1.0.0");
-	php_info_print_table_row(2, "supported databases", "MySQL\nODBC\nPostgreSQL\nMicrosoft SQL Server\nFrontBase\nOracle 8 (not really)\nSybase-CT");
+	php_info_print_table_row(2, "supported databases", "MySQL\nODBC\nPostgreSQL\nMicrosoft SQL Server\nFrontBase\nOracle 8 (oci8)\nSybase-CT");
 	php_info_print_table_end();
+    DISPLAY_INI_ENTRIES();
 }
 
 /*
@@ -247,19 +262,19 @@ ZEND_FUNCTION(dbx_connect)
 
 	if (Z_TYPE_PP(arguments[0]) == IS_LONG) {
 		if (!module_identifier_exists(Z_LVAL_PP(arguments[0]))) {
-			zend_error(E_WARNING, "dbx: module '%ld' not loaded or not supported.\n", Z_LVAL_PP(arguments[0]));
+			zend_error(E_WARNING, "dbx: module '%ld' not loaded or not supported.", Z_LVAL_PP(arguments[0]));
 			return;
 		}
 		module_identifier = Z_LVAL_PP(arguments[0]);
 	} else {
 		convert_to_string_ex(arguments[0]);
 		if (!module_exists(Z_STRVAL_PP(arguments[0]))) {
-			zend_error(E_WARNING, "dbx: module '%s' not loaded.\n", Z_STRVAL_PP(arguments[0]));
+			zend_error(E_WARNING, "dbx: module '%s' not loaded.", Z_STRVAL_PP(arguments[0]));
 			return;
 		}
 		module_identifier=get_module_identifier(Z_STRVAL_PP(arguments[0]));
 		if (!module_identifier) {
-			zend_error(E_WARNING, "dbx: unsupported module '%s'.\n", Z_STRVAL_PP(arguments[0]));
+			zend_error(E_WARNING, "dbx: unsupported module '%s'.", Z_STRVAL_PP(arguments[0]));
 			return;
 		}
 	}
@@ -353,10 +368,20 @@ ZEND_FUNCTION(dbx_query)
 	long col_index;
 	long row_count;
 	zval *info;
-	long info_flags;
+	long query_flags;
+	long result_flags;
 	zval *data;
 	zval **row_ptr;
 	zval **inforow_ptr;
+	/* default values for colname-case */
+	char * colnames_case = INI_STR("dbx.colnames_case");
+	long colcase = DBX_COLNAMES_UNCHANGED;
+	if (!strcmp(colnames_case, "uppercase")) {
+		colcase = DBX_COLNAMES_UPPERCASE;
+	}
+	if (!strcmp(colnames_case, "lowercase")) {
+		colcase = DBX_COLNAMES_LOWERCASE;
+	}
 
 	if (ZEND_NUM_ARGS()<min_number_of_arguments || ZEND_NUM_ARGS()>number_of_arguments || zend_get_parameters_array_ex(ZEND_NUM_ARGS(), arguments) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -366,14 +391,26 @@ ZEND_FUNCTION(dbx_query)
 		RETURN_LONG(0);
 	}
 	/* default values */
-	info_flags = DBX_RESULT_INFO | DBX_RESULT_INDEX | DBX_RESULT_ASSOC;
+	result_flags = DBX_RESULT_INFO | DBX_RESULT_INDEX | DBX_RESULT_ASSOC;
 	/* parameter overrides */
 	if (ZEND_NUM_ARGS()>2) {
 		convert_to_long_ex(arguments[2]);
-		info_flags = Z_LVAL_PP(arguments[2]);
+		query_flags = Z_LVAL_PP(arguments[2]);
 		/* fieldnames are needed for association! */
-		if (info_flags & DBX_RESULT_ASSOC) {
-			info_flags |= DBX_RESULT_INFO;
+		result_flags = (query_flags & DBX_RESULT_INFO) | (query_flags & DBX_RESULT_INDEX) | (query_flags & DBX_RESULT_ASSOC);
+		if (result_flags & DBX_RESULT_ASSOC) {
+			result_flags |= DBX_RESULT_INFO;
+		}
+		if (!result_flags) result_flags = DBX_RESULT_INFO | DBX_RESULT_INDEX | DBX_RESULT_ASSOC;
+		/* override ini-setting for colcase */
+		if (query_flags & DBX_COLNAMES_UNCHANGED) {
+			colcase = DBX_COLNAMES_UNCHANGED;
+		}
+		if (query_flags & DBX_COLNAMES_UPPERCASE) {
+			colcase = DBX_COLNAMES_UPPERCASE;
+		}
+		if (query_flags & DBX_COLNAMES_LOWERCASE) {
+			colcase = DBX_COLNAMES_LOWERCASE;
 		}
 	}
 	MAKE_STD_ZVAL(rv_result_handle); 
@@ -398,7 +435,7 @@ ZEND_FUNCTION(dbx_query)
 	/* add result_handle property to return_value */
 	zend_hash_update(Z_OBJPROP_P(return_value), "handle", 7, (void *)&(rv_result_handle), sizeof(zval *), NULL);
 	/* init info property as array and add to return_value as a property */
-	if (info_flags & DBX_RESULT_INFO) {
+	if (result_flags & DBX_RESULT_INFO) {
 		MAKE_STD_ZVAL(info); 
 		if (array_init(info) != SUCCESS) {
 			zend_error(E_ERROR, "dbx_query: unable to create info-array for results...");
@@ -426,7 +463,7 @@ ZEND_FUNCTION(dbx_query)
 	}
 	zend_hash_update(Z_OBJPROP_P(return_value), "cols", 5, (void *)&(rv_column_count), sizeof(zval *), NULL);
 	/* fill the info array with columnnames and types (indexed and assoc) */
-	if (info_flags & DBX_RESULT_INFO) {
+	if (result_flags & DBX_RESULT_INFO) {
 		zval *info_row_name;
 		zval *info_row_type;
 		MAKE_STD_ZVAL(info_row_name);
@@ -450,6 +487,13 @@ ZEND_FUNCTION(dbx_query)
 			MAKE_STD_ZVAL(rv_column_name);
 			ZVAL_LONG(rv_column_name, 0);
 			result = switch_dbx_getcolumnname(&rv_column_name, &rv_result_handle, col_index, INTERNAL_FUNCTION_PARAM_PASSTHRU, dbx_module);
+			/* modify case if requested */
+			if (colcase==DBX_COLNAMES_UPPERCASE) {
+				php_strtoupper(Z_STRVAL_P(rv_column_name), Z_STRLEN_P(rv_column_name));
+				}
+			if (colcase==DBX_COLNAMES_LOWERCASE) {
+				php_strtolower(Z_STRVAL_P(rv_column_name), Z_STRLEN_P(rv_column_name));
+				}
 			if (result) { 
 				zend_hash_index_update(Z_ARRVAL_P(info_row_name), col_index, (void *)&(rv_column_name), sizeof(zval *), NULL);
 			} else {
@@ -479,7 +523,7 @@ ZEND_FUNCTION(dbx_query)
 		if (result) {
 			zend_hash_index_update(Z_ARRVAL_P(data), row_count, (void *)&(rv_row), sizeof(zval *), (void **) &row_ptr);
 			/* associate results with fieldnames */
-			if (info_flags & DBX_RESULT_ASSOC) {
+			if (result_flags & DBX_RESULT_ASSOC) {
 				zval **columnname_ptr, **actual_ptr;
 				for (col_index=0; col_index<Z_LVAL_P(rv_column_count); ++col_index) {
 					zend_hash_index_find(Z_ARRVAL_PP(inforow_ptr), col_index, (void **) &columnname_ptr);
@@ -529,6 +573,40 @@ ZEND_FUNCTION(dbx_error)
 		RETURN_STRING("", 1); 
 	}
 	MOVE_RETURNED_TO_RV(&return_value, rv_errormsg);
+}
+/* }}} */
+
+/* {{{ proto string dbx_esc(dbx_link_object dbx_link, string sz)
+   Returns escaped string or NULL on error
+*/
+ZEND_FUNCTION(dbx_escape_string)
+{
+	int number_of_arguments=2;
+	zval **arguments[2];
+
+	int result;
+	zval **dbx_handle;
+	zval **dbx_module;
+	zval **dbx_database;
+	zval *rv;
+
+	if (ZEND_NUM_ARGS() !=number_of_arguments || zend_get_parameters_array_ex(number_of_arguments, arguments) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+	if (!split_dbx_handle_object(arguments[0], &dbx_handle, &dbx_module, &dbx_database)) {
+		zend_error(E_WARNING, "dbx_esc: not a valid dbx_handle-object...");
+		RETURN_NULL();
+	}
+	convert_to_string_ex(arguments[1]);
+
+	MAKE_STD_ZVAL(rv); 
+	ZVAL_LONG(rv, 0);
+	result = switch_dbx_esc(&rv, dbx_handle, arguments[1], INTERNAL_FUNCTION_PARAM_PASSTHRU, dbx_module);
+	if (!result) { /* this will probably never happen */
+		FREE_ZVAL(rv);
+		RETURN_NULL();
+	}
+	MOVE_RETURNED_TO_RV(&return_value, rv);
 }
 /* }}} */
 
@@ -635,7 +713,6 @@ ZEND_FUNCTION(dbx_sort)
 	zval **arguments[2];
 	zval **zval_data;
 	zval *returned_zval;
-	int result=0;
 	if (ZEND_NUM_ARGS() !=number_of_arguments || zend_get_parameters_array_ex(number_of_arguments, arguments) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
@@ -674,8 +751,7 @@ int switch_dbx_connect(zval **rv, zval **host, zval **db, zval **username, zval 
 		case DBX_PGSQL: return dbx_pgsql_connect(rv, host, db, username, password, INTERNAL_FUNCTION_PARAM_PASSTHRU);
 		case DBX_MSSQL: return dbx_mssql_connect(rv, host, db, username, password, INTERNAL_FUNCTION_PARAM_PASSTHRU);
 		case DBX_FBSQL: return dbx_fbsql_connect(rv, host, db, username, password, INTERNAL_FUNCTION_PARAM_PASSTHRU);
-		case DBX_OCI8:  zend_error(E_WARNING, "dbx_connect: OCI8 extension is still highly experimental!"); 
-			return dbx_oci8_connect(rv, host, db, username, password, INTERNAL_FUNCTION_PARAM_PASSTHRU);
+		case DBX_OCI8:  return dbx_oci8_connect(rv, host, db, username, password, INTERNAL_FUNCTION_PARAM_PASSTHRU);
 		case DBX_SYBASECT: return dbx_sybasect_connect(rv, host, db, username, password, INTERNAL_FUNCTION_PARAM_PASSTHRU);
 	}
 	zend_error(E_WARNING, "dbx_connect: not supported in this module");
@@ -691,8 +767,7 @@ int switch_dbx_pconnect(zval **rv, zval **host, zval **db, zval **username, zval
 		case DBX_PGSQL: return dbx_pgsql_pconnect(rv, host, db, username, password, INTERNAL_FUNCTION_PARAM_PASSTHRU);
 		case DBX_MSSQL: return dbx_mssql_pconnect(rv, host, db, username, password, INTERNAL_FUNCTION_PARAM_PASSTHRU);
 		case DBX_FBSQL: return dbx_fbsql_pconnect(rv, host, db, username, password, INTERNAL_FUNCTION_PARAM_PASSTHRU);
-		case DBX_OCI8:  zend_error(E_WARNING, "dbx_pconnect: OCI8 extension is still highly experimental!"); 
-			return dbx_oci8_pconnect(rv, host, db, username, password, INTERNAL_FUNCTION_PARAM_PASSTHRU);
+		case DBX_OCI8:  return dbx_oci8_pconnect(rv, host, db, username, password, INTERNAL_FUNCTION_PARAM_PASSTHRU);
 		case DBX_SYBASECT: return dbx_sybasect_pconnect(rv, host, db, username, password, INTERNAL_FUNCTION_PARAM_PASSTHRU);
 	}
 	zend_error(E_WARNING, "dbx_pconnect: not supported in this module");
@@ -804,10 +879,26 @@ int switch_dbx_error(zval **rv, zval **dbx_handle, INTERNAL_FUNCTION_PARAMETERS,
 		case DBX_PGSQL: return dbx_pgsql_error(rv, dbx_handle, INTERNAL_FUNCTION_PARAM_PASSTHRU);
 		case DBX_MSSQL: return dbx_mssql_error(rv, dbx_handle, INTERNAL_FUNCTION_PARAM_PASSTHRU);
 		case DBX_FBSQL: return dbx_fbsql_error(rv, dbx_handle, INTERNAL_FUNCTION_PARAM_PASSTHRU);
-		case DBX_OCI8:  return dbx_oci8_error(rv, dbx_handle, INTERNAL_FUNCTION_PARAM_PASSTHRU);
+		/* case DBX_OCI8:  return dbx_oci8_error(rv, dbx_handle, INTERNAL_FUNCTION_PARAM_PASSTHRU); */
 		case DBX_SYBASECT: return dbx_sybasect_error(rv, dbx_handle, INTERNAL_FUNCTION_PARAM_PASSTHRU);
 	}
 	zend_error(E_WARNING, "dbx_error: not supported in this module");
+	return 0;
+}
+
+int switch_dbx_esc(zval **rv, zval **dbx_handle, zval **string, INTERNAL_FUNCTION_PARAMETERS, zval **dbx_module)
+{
+	/* returns escaped string */
+	switch (Z_LVAL_PP(dbx_module)) {
+		case DBX_MYSQL: return dbx_mysql_esc(rv, dbx_handle, string, INTERNAL_FUNCTION_PARAM_PASSTHRU);
+		case DBX_ODBC:  return dbx_odbc_esc(rv, dbx_handle, string, INTERNAL_FUNCTION_PARAM_PASSTHRU);
+		case DBX_PGSQL: return dbx_pgsql_esc(rv, dbx_handle, string, INTERNAL_FUNCTION_PARAM_PASSTHRU);
+		case DBX_MSSQL: return dbx_mssql_esc(rv, dbx_handle, string, INTERNAL_FUNCTION_PARAM_PASSTHRU);
+		case DBX_FBSQL: return dbx_fbsql_esc(rv, dbx_handle, string, INTERNAL_FUNCTION_PARAM_PASSTHRU);
+		case DBX_OCI8:  return dbx_oci8_esc(rv, dbx_handle, string, INTERNAL_FUNCTION_PARAM_PASSTHRU);
+		case DBX_SYBASECT: return dbx_sybasect_esc(rv, dbx_handle, string, INTERNAL_FUNCTION_PARAM_PASSTHRU);
+	}
+	zend_error(E_WARNING, "dbx_esc: not supported in this module");
 	return 0;
 }
 

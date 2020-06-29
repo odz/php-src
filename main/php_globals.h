@@ -71,11 +71,16 @@ struct _php_core_globals {
 	char *safe_mode_exec_dir;
 
 	long memory_limit;
+	long max_input_time;
 
 	zend_bool track_errors;
 	zend_bool display_errors;
 	zend_bool display_startup_errors;
 	zend_bool log_errors;
+	long      log_errors_max_len;
+	zend_bool ignore_repeated_errors;
+	zend_bool ignore_repeated_source;
+	zend_bool report_memleaks;
 	char *error_log;
 
 	char *doc_root;
@@ -116,6 +121,9 @@ struct _php_core_globals {
 
 	zend_bool y2k_compliance;
 
+	char *docref_root;
+	char *docref_ext;
+
 	zend_bool html_errors;
 	zend_bool xmlrpc_errors;
 
@@ -131,6 +139,7 @@ struct _php_core_globals {
 	zend_bool allow_url_fopen;
 
 	zend_bool always_populate_raw_post_data;
+	
 };
 
 

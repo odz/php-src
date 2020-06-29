@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.7 2001/11/30 18:59:33 sniper Exp $
+dnl $Id: config.m4,v 1.12 2002/10/07 11:08:11 sniper Exp $
 dnl
 
 PHP_ARG_WITH(fbsql, for FrontBase SQL92 (fbsql) support,
@@ -8,12 +8,12 @@ PHP_ARG_WITH(fbsql, for FrontBase SQL92 (fbsql) support,
 if test "$PHP_FBSQL" != "no"; then
 
   AC_DEFINE(HAVE_FBSQL, 1, [Whether you have FrontBase])
-  PHP_EXTENSION(fbsql,$ext_shared)
+  PHP_NEW_EXTENSION(fbsql, php_fbsql.c, $ext_shared)
 
   FBSQL_INSTALLATION_DIR=""
   if test "$PHP_FBSQL" = "yes"; then
 
-    for i in /Local/Library /usr /usr/local /opt /Library; do
+    for i in /Local/Library /usr /usr/local /opt /Library /usr/lib; do
       if test -f $i/FrontBase/include/FBCAccess/FBCAccess.h; then
         FBSQL_INSTALLATION_DIR=$i/FrontBase
         break
@@ -21,7 +21,7 @@ if test "$PHP_FBSQL" != "no"; then
     done
 
     if test -z "$FBSQL_INSTALLATION_DIR"; then
-      AC_MSG_ERROR(Cannot find FrontBase in well know installation directories)
+      AC_MSG_ERROR(Cannot find FrontBase in known installation directories)
     fi
 
   elif test "$PHP_FBSQL" != "no"; then
@@ -33,10 +33,11 @@ if test "$PHP_FBSQL" != "no"; then
     fi
   fi  
 
-  if test -z "$FBSQL_INSTALLATION_DIR/lib/libFBCAccess.a"; then
+  if test ! -r "$FBSQL_INSTALLATION_DIR/lib/libFBCAccess.a"; then
      AC_MSG_ERROR(Could not find $FBSQL_INSTALLATION_DIR/lib/libFBCAccess.a)
   fi
 
-  PHP_ADD_LIBRARY_WITH_PATH(FBCAccess, $FBSQL_INSTALLATION_DIR/lib, $FBSQL_INSTALLATION_DIR/lib)
+  PHP_ADD_LIBRARY_WITH_PATH(FBCAccess, $FBSQL_INSTALLATION_DIR/lib, FBSQL_SHARED_LIBADD)
   PHP_ADD_INCLUDE($FBSQL_INSTALLATION_DIR/include)
+  PHP_SUBST(FBSQL_SHARED_LIBADD)
 fi

@@ -37,7 +37,7 @@ ZEND_API void _zval_dtor(zval *zvalue ZEND_FILE_LINE_DC)
 	if (zvalue->type==IS_LONG) {
 		return;
 	}
-	switch(zvalue->type) {
+	switch(zvalue->type & ~IS_CONSTANT_INDEX) {
 		case IS_STRING:
 		case IS_CONSTANT:
 			CHECK_ZVAL_STRING_REL(zvalue);
@@ -136,37 +136,6 @@ ZEND_API int _zval_copy_ctor(zval *zvalue ZEND_FILE_LINE_DC)
 				zend_hash_init(zvalue->value.obj.properties, 0, NULL, ZVAL_PTR_DTOR, 0);
 				zend_hash_copy(zvalue->value.obj.properties, original_ht, (copy_ctor_func_t) zval_add_ref, (void *) &tmp, sizeof(zval *));
 			}
-			break;
-	}
-	return SUCCESS;
-}
-
-
-ZEND_API int zval_persist(zval *zvalue TSRMLS_DC)
-{
-	switch (zvalue->type) {
-		case IS_OBJECT:
-		case IS_RESOURCE:
-			return FAILURE; /* resources and objects cannot be persisted */
-			break;
-		case IS_BOOL:
-		case IS_LONG:
-		case IS_NULL:
-			break;
-		case IS_CONSTANT:
-		case IS_STRING:
-			if (zvalue->value.str.val) {
-				if (zvalue->value.str.len==0) {
-					zvalue->value.str.val = empty_string;
-					return SUCCESS;
-				}
-			}
-			persist_alloc(zvalue->value.str.val);
-			break;
-		case IS_ARRAY:
-		case IS_CONSTANT_ARRAY:
-			persist_alloc(zvalue->value.ht);
-			zend_hash_apply(zvalue->value.ht, (apply_func_t) zval_persist TSRMLS_CC);
 			break;
 	}
 	return SUCCESS;

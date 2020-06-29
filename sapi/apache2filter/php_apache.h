@@ -16,6 +16,8 @@
    +----------------------------------------------------------------------+
  */
 
+/* $Id: php_apache.h,v 1.18 2002/11/02 16:04:27 imajes Exp $ */
+
 #ifndef PHP_APACHE_H
 #define PHP_APACHE_H
 
@@ -38,15 +40,17 @@ typedef struct php_struct {
 	int post_len;
 	/* Index for reading from buffer */
 	int post_idx;
+	/* stat structure of the current file */	
+	struct stat finfo;
 	/* Buffer for request body filter */
 	char *post_data;
 	/* Whether or not we've processed PHP in the output filters yet. */
 	int request_processed;
 } php_struct;
 
-int php_apache_register_module(void);
 void *merge_php_config(apr_pool_t *p, void *base_conf, void *new_conf);
 void *create_php_config(apr_pool_t *p, char *dummy);
+char *get_php_config(void *conf, char *name, size_t name_len);
 void apply_config(void *);
 extern const command_rec php_dir_cmds[];
 

@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.27.2.2 2002/08/01 10:19:17 sas Exp $
+dnl $Id: config.m4,v 1.34 2002/06/26 13:07:40 derick Exp $
 dnl
 
 AC_DEFUN(PHP_PGSQL_CHECK_FUNCTIONS,[
@@ -23,6 +23,9 @@ if test "$PHP_PGSQL" != "no"; then
       if test -r "$i/$j/libpq-fe.h"; then
         PGSQL_INC_BASE=$i
         PGSQL_INCLUDE=$i/$j
+        if test -r "$i/$j/pg_config.h"; then
+          AC_DEFINE(HAVE_PG_CONFIG_H,1,[Whether to have pg_config.h])
+        fi
       fi
     done
 
@@ -45,16 +48,16 @@ if test "$PHP_PGSQL" != "no"; then
     AC_MSG_ERROR([Unable to find libpq anywhere under $withval])
   fi
 
-  AC_DEFINE(HAVE_PGSQL,1,[ ])
+  AC_DEFINE(HAVE_PGSQL,1,[Whether to build PostgreSQL support or not])
   old_LIBS=$LIBS
   old_LDFLAGS=$LDFLAGS
   LDFLAGS="$LDFLAGS -L$PGSQL_LIBDIR"
-  AC_CHECK_LIB(pq, PQescapeString,AC_DEFINE(HAVE_PQESCAPE,1,[ ]))
-  AC_CHECK_LIB(pq, PQsetnonblocking,AC_DEFINE(HAVE_PQSETNONBLOCKING,1,[ ]))
-  AC_CHECK_LIB(pq, PQcmdTuples,AC_DEFINE(HAVE_PQCMDTUPLES,1,[ ]))
-  AC_CHECK_LIB(pq, PQoidValue,AC_DEFINE(HAVE_PQOIDVALUE,1,[ ]))
-  AC_CHECK_LIB(pq, PQclientEncoding,AC_DEFINE(HAVE_PQCLIENTENCODING,1,[ ]))
-  AC_CHECK_LIB(pq, pg_encoding_to_char,AC_DEFINE(HAVE_PGSQL_WITH_MULTIBYTE_SUPPORT,1,[ ]))
+  AC_CHECK_LIB(pq, PQescapeString,AC_DEFINE(HAVE_PQESCAPE,1,[PostgreSQL 7.2.0 or later]))
+  AC_CHECK_LIB(pq, PQsetnonblocking,AC_DEFINE(HAVE_PQSETNONBLOCKING,1,[PostgreSQL 7.0.x or later]))
+  AC_CHECK_LIB(pq, PQcmdTuples,AC_DEFINE(HAVE_PQCMDTUPLES,1,[Broken libpq under windows]))
+  AC_CHECK_LIB(pq, PQoidValue,AC_DEFINE(HAVE_PQOIDVALUE,1,[Older PostgreSQL]))
+  AC_CHECK_LIB(pq, PQclientEncoding,AC_DEFINE(HAVE_PQCLIENTENCODING,1,[PostgreSQL 7.0.x or later]))
+  AC_CHECK_LIB(pq, pg_encoding_to_char,AC_DEFINE(HAVE_PGSQL_WITH_MULTIBYTE_SUPPORT,1,[Whether libpq is compiled with --enable-multibye]))
   LIBS=$old_LIBS
   LDFLAGS=$old_LDFLAGS
 
@@ -63,7 +66,7 @@ if test "$PHP_PGSQL" != "no"; then
 
   PHP_ADD_INCLUDE($PGSQL_INCLUDE)
 
-  PHP_EXTENSION(pgsql,$ext_shared)
+  PHP_NEW_EXTENSION(pgsql, pgsql.c, $ext_shared)
 fi
 
 

@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: dbx_sybasect.c,v 1.1.2.1 2002/08/20 08:55:27 edink Exp $ */
+/* $Id: dbx_sybasect.c,v 1.6 2002/10/30 15:03:01 mboeren Exp $ */
 
 #include "dbx.h"
 #include "dbx_sybasect.h"
@@ -186,7 +186,7 @@ int dbx_sybasect_getcolumnname(zval **rv, zval **result_handle, long column_inde
 		FREE_ZVAL(zval_column_index);
 		return 0;
 	}
-	if (zend_hash_find(returned_zval->value.obj.properties, "name", 5, (void **) &zv_name)==FAILURE) {
+	if (zend_hash_find(Z_OBJPROP_P(returned_zval), "name", 5, (void **) &zv_name)==FAILURE) {
 		zval_ptr_dtor(&returned_zval);
 		FREE_ZVAL(zval_column_index);
 		return 0;
@@ -223,7 +223,7 @@ int dbx_sybasect_getcolumntype(zval **rv, zval **result_handle, long column_inde
 		FREE_ZVAL(zval_column_index);
 		return 0;
 	}
-	if (zend_hash_find(returned_zval->value.obj.properties, "type", 5, (void **) &zv_type)==FAILURE) {
+	if (zend_hash_find(Z_OBJPROP_P(returned_zval), "type", 5, (void **) &zv_type)==FAILURE) {
 		zval_ptr_dtor(&returned_zval);
 		FREE_ZVAL(zval_column_index);
 		return 0;
@@ -271,6 +271,31 @@ int dbx_sybasect_error(zval **rv, zval **dbx_handle, INTERNAL_FUNCTION_PARAMETER
 		return 0;
 	}
 	MOVE_RETURNED_TO_RV(rv, returned_zval);
+	return 1;
+}
+
+int dbx_sybasect_esc(zval **rv, zval **dbx_handle, zval **string, INTERNAL_FUNCTION_PARAMETERS)
+{
+	/* returns escaped string */
+	/* replace ' with '' */
+	char * str;
+	int len;
+	char * tmpstr;
+	int tmplen;
+
+	if (Z_STRLEN_PP(string) == 0) {
+		ZVAL_EMPTY_STRING(*rv);
+		return 1;
+	}
+	tmpstr = estrdup(Z_STRVAL_PP(string));
+	tmplen = Z_STRLEN_PP(string);
+	/* php_str_to_str uses a smart_str that allocates memory */
+	/* this memory must be freed or passed on to rv */
+	str = php_str_to_str(tmpstr, tmplen, "'", 1, "''", 2, &len);
+	efree(tmpstr);
+
+	ZVAL_STRINGL(*rv, str, len, 0);
+
 	return 1;
 }
 

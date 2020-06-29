@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: php_sybase_db.c,v 1.36 2002/03/06 15:59:42 derick Exp $ */
+/* $Id: php_sybase_db.c,v 1.38.2.4 2002/12/20 19:37:39 sesser Exp $ */
 
 
 #ifdef HAVE_CONFIG_H
@@ -406,6 +406,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 	/* set a DBLOGIN record */	
 	if ((sybase.login=dblogin())==NULL) {
 		php_error(E_WARNING,"Sybase:  Unable to allocate login record");
+		efree(hashed_details);
 		RETURN_FALSE;
 	}
 	
@@ -479,6 +480,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 		} else {  /* we do */
 			if (Z_TYPE_P(le) != php_sybase_module.le_plink) {
 				php_error(E_WARNING,"Sybase:  Hashed persistent link is not a Sybase link!");
+				efree(hashed_details);
 				RETURN_FALSE;
 			}
 			
@@ -513,6 +515,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 			void *ptr;
 
 			if (Z_TYPE_P(index_ptr) != le_index_ptr) {
+				efree(hashed_details);
 				RETURN_FALSE;
 			}
 			link = (int) index_ptr->ptr;
@@ -717,15 +720,18 @@ static void php_sybase_get_column_content(sybase_link *sybase_ptr,int offset,pva
 			if (dbwillconvert(coltype(offset),SYBCHAR)) {
 				char *res_buf;
 				int res_length = dbdatlen(sybase_ptr->link,offset);
+				int src_length = res_length;
 				register char *p;
 			
 				switch (coltype(offset)) {
 					case SYBBINARY:
 					case SYBVARBINARY:
+					case SYBIMAGE:
+						res_length *= 2;
+						break;
 					case SYBCHAR:
 					case SYBVARCHAR:
 					case SYBTEXT:
-					case SYBIMAGE:
 						break;
 					default:
 						/* take no chances, no telling how big the result would really be */
@@ -737,15 +743,16 @@ static void php_sybase_get_column_content(sybase_link *sybase_ptr,int offset,pva
 				memset(res_buf,' ',res_length+1);  /* XXX i'm sure there's a better way
 													  but i don't have sybase here to test
 													  991105 thies@thieso.net  */
-				dbconvert(NULL,coltype(offset),dbdata(sybase_ptr->link,offset), res_length,SYBCHAR,res_buf,-1);
+				dbconvert(NULL,coltype(offset),dbdata(sybase_ptr->link,offset), src_length,SYBCHAR,res_buf,res_length);
 		
 				/* get rid of trailing spaces */
 				p = res_buf + res_length;
-				while (*p == ' ') {
+				while (p >= res_buf && (*p == ' ' || *p == '\0')) {
 					p--;
-					res_length--;
 				}
 				*(++p) = 0; /* put a trailing NULL */
+				res_length = p - res_buf;
+				
 		
 				Z_STRLEN_P(result) = res_length;
 				Z_STRVAL_P(result) = res_buf;
@@ -1074,7 +1081,7 @@ PHP_FUNCTION(sybase_fetch_object)
 	if (Z_TYPE_P(return_value)==IS_ARRAY) {
 		Z_TYPE_P(return_value)=IS_OBJECT;
 		Z_OBJPROP_P(return_value) = Z_ARRVAL_P(return_value);
-		Z_OBJCE_P(return_value) = &zend_standard_class_def;
+		Z_OBJCE_P(return_value) = ZEND_STANDARD_CLASS_DEF_PTR;
 	}
 }
 /* }}} */

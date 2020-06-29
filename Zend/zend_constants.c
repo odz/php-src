@@ -27,8 +27,7 @@
 
 void free_zend_constant(zend_constant *c)
 {
-	if (!(c->flags & CONST_PERSISTENT)
-		|| (c->flags & CONST_EFREE_PERSISTENT)) {
+	if (!(c->flags & CONST_PERSISTENT)) {
 		zval_dtor(&c->value);
 	}
 	free(c->name);
@@ -40,9 +39,6 @@ void copy_zend_constant(zend_constant *c)
 	c->name = zend_strndup(c->name, c->name_len);
 	if (!(c->flags & CONST_PERSISTENT)) {
 		zval_copy_ctor(&c->value);
-		if (c->flags & CONST_EFREE_PERSISTENT) { /* persist_alloc()'d data */
-			persist_alloc(&c->value);
-		}
 	}
 }
 
@@ -221,26 +217,27 @@ ZEND_API int zend_get_constant(char *name, uint name_len, zval *result TSRMLS_DC
 {
 	zend_constant *c;
 	char *lookup_name;
-	int retval;
+	int retval = 1;
 
-	lookup_name = do_alloca(name_len+1);
-	memcpy(lookup_name, name, name_len+1);
+	if (zend_hash_find(EG(zend_constants), name, name_len+1, (void **) &c) == FAILURE) {
+		lookup_name = do_alloca(name_len+1);
+		memcpy(lookup_name, name, name_len+1);
+		zend_str_tolower(lookup_name, name_len);
 
-	zend_str_tolower(lookup_name, name_len);
-
-	if (zend_hash_find(EG(zend_constants), lookup_name, name_len+1, (void **) &c)==SUCCESS) {
-		if ((c->flags & CONST_CS) && memcmp(c->name, name, name_len)!=0) {
-			retval=0;
+		if (zend_hash_find(EG(zend_constants), lookup_name, name_len+1, (void **) &c)==SUCCESS) {
+			if ((c->flags & CONST_CS) && memcmp(c->name, name, name_len)!=0) {
+				retval=0;
+			}
 		} else {
-			retval=1;
-			*result = c->value;
-			zval_copy_ctor(result);
+			retval=0;
 		}
-	} else {
-		retval=0;
+		free_alloca(lookup_name);
 	}
 
-	free_alloca(lookup_name);
+	if (retval) {
+		*result = c->value;
+		zval_copy_ctor(result);
+	}
 
 	return retval;
 }
@@ -248,24 +245,30 @@ ZEND_API int zend_get_constant(char *name, uint name_len, zval *result TSRMLS_DC
 
 ZEND_API int zend_register_constant(zend_constant *c TSRMLS_DC)
 {
-	char *lowercase_name = zend_strndup(c->name, c->name_len);
+	char *lowercase_name;
 	int ret = SUCCESS;
 
 #if 0
 	printf("Registering constant for module %d\n", c->module_number);
 #endif
 
-	zend_str_tolower(lowercase_name, c->name_len);
+	lowercase_name = do_alloca(c->name_len);
+
+	memcpy(lowercase_name, c->name, c->name_len);
+
+	if (!(c->flags & CONST_CS)) {
+		zend_str_tolower(lowercase_name, c->name_len);
+	}	
+
 	if (zend_hash_add(EG(zend_constants), lowercase_name, c->name_len, (void *) c, sizeof(zend_constant), NULL)==FAILURE) {
 		free(c->name);
-		if (!(c->flags & CONST_PERSISTENT)
-			|| (c->flags & CONST_EFREE_PERSISTENT)) {
+		if (!(c->flags & CONST_PERSISTENT)) {
 			zval_dtor(&c->value);
 		}
 		zend_error(E_NOTICE,"Constant %s already defined", lowercase_name);
 		ret = FAILURE;
 	}
-	free(lowercase_name);
+	free_alloca(lowercase_name);
 	return ret;
 }
 

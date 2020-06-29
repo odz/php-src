@@ -5,22 +5,22 @@
 # define TSRM_WIN32
 #endif
 
-#ifndef TSRM_WIN32
+#ifdef TSRM_WIN32
+# include "tsrm_config.w32.h"
+#elif defined(NETWARE)
+# include "tsrm_config.nw.h"
+#else
 # include "tsrm_config.h"
 # include <sys/param.h>
-#else
-# include "tsrm_config.w32.h"
 #endif
 
-#ifdef TSRM_WIN32
-#include <malloc.h>
+#if HAVE_ALLOCA_H && !defined(_ALLOCA_H)
+#  include <alloca.h>
 #endif
 
 /* AIX requires this to be the first thing in the file.  */
 #ifndef __GNUC__
-# if HAVE_ALLOCA_H
-#  include <alloca.h>
-# else
+# ifndef HAVE_ALLOCA_H
 #  ifdef _AIX
  #pragma alloca
 #  else

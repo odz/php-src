@@ -207,7 +207,7 @@ static int sapi_isapi_ub_write(const char *str, uint str_length TSRMLS_DC)
 	LPEXTENSION_CONTROL_BLOCK ecb;
 	
 	ecb = (LPEXTENSION_CONTROL_BLOCK) SG(server_context);
-	if (ecb->WriteClient(ecb->ConnID, (char *) str, &num_bytes, HSE_IO_SYNC ) == FALSE) {
+	if (ecb->WriteClient(ecb->ConnID, (char *) str, &num_bytes, HSE_IO_SYNC) == FALSE) {
 		php_handle_aborted_connection();
 	}
 	return num_bytes;
@@ -296,8 +296,7 @@ static int sapi_isapi_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 
 static int php_isapi_startup(sapi_module_struct *sapi_module)
 {
-	if (php_module_startup(sapi_module)==FAILURE
-		|| zend_startup_module(&php_isapi_module)==FAILURE) {
+	if (php_module_startup(sapi_module, &php_isapi_module, 1)==FAILURE) {
 		return FAILURE;
 	} else {
 		bTerminateThreadsOnError = (zend_bool) INI_INT("isapi.terminate_threads_on_error");
@@ -743,7 +742,7 @@ DWORD WINAPI HttpExtensionProc(LPEXTENSION_CONTROL_BLOCK lpECB)
 					 * variable won't be present, so fall back to old behaviour.
 					 */
 					efree( file_handle.filename );
-					file_handle.filename = sapi_globals->request_info.path_translated;
+					file_handle.filename = SG(request_info.path_translated);
 					file_handle.free_filename = 0;
 				}
 			}

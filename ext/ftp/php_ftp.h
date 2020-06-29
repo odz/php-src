@@ -12,11 +12,12 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Andrew Skalski <askalski@chek.com>                           |
+   | Authors: Andrew Skalski <askalski@chek.com>                          |
+   |          Stefan Esser <sesser@php.net> (resume functions)            |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_ftp.h,v 1.17 2002/02/28 08:26:10 sebastian Exp $ */
+/* $Id: php_ftp.h,v 1.21 2002/10/03 11:33:05 sesser Exp $ */
 
 #ifndef	_INCLUDED_FTP_H
 #define	_INCLUDED_FTP_H
@@ -27,11 +28,16 @@ extern zend_module_entry php_ftp_module_entry;
 #define php_ftp_module_ptr &php_ftp_module_entry
 
 #define PHP_FTP_OPT_TIMEOUT_SEC	0
+#define PHP_FTP_OPT_AUTOSEEK	1
+#define PHP_FTP_AUTORESUME		-1
 
 PHP_MINIT_FUNCTION(ftp);
 PHP_MINFO_FUNCTION(ftp);
 
 PHP_FUNCTION(ftp_connect);
+#if HAVE_OPENSSL_EXT
+PHP_FUNCTION(ftp_ssl_connect);
+#endif
 PHP_FUNCTION(ftp_login);
 PHP_FUNCTION(ftp_pwd);
 PHP_FUNCTION(ftp_cdup);
@@ -55,6 +61,11 @@ PHP_FUNCTION(ftp_site);
 PHP_FUNCTION(ftp_close);
 PHP_FUNCTION(ftp_set_option);
 PHP_FUNCTION(ftp_get_option);
+PHP_FUNCTION(ftp_nb_get);
+PHP_FUNCTION(ftp_nb_fget);
+PHP_FUNCTION(ftp_nb_put);
+PHP_FUNCTION(ftp_nb_fput);
+PHP_FUNCTION(ftp_nb_continue);
 
 #define phpext_ftp_ptr php_ftp_module_ptr
 

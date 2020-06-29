@@ -16,21 +16,24 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dns.c,v 1.38.2.2 2002/08/29 15:59:54 iliaa Exp $ */
+/* $Id: dns.c,v 1.44.2.1 2002/12/05 22:46:40 iliaa Exp $ */
 
 /* {{{ includes
  */
+
 #include "php.h"
+
 #if HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
+
 #ifdef PHP_WIN32
 #if HAVE_LIBBIND
 #ifndef WINNT
 #define WINNT 1
 #endif
 /* located in www.php.net/extra/bindlib.zip */
-#if HAVE_ARPA_INET_H
+#if HAVE_ARPA_INET_H 
 #include "arpa/inet.h"
 #endif
 #include "netdb.h"
@@ -40,9 +43,9 @@
 #if HAVE_RESOLV_H
 #include "resolv.h"
 #endif
-#endif
+#endif /* HAVE_LIBBIND */
 #include <winsock.h>
-#else
+#else	/* This holds good for NetWare too, both for Winsock and Berkeley sockets */
 #include <netinet/in.h>
 #if HAVE_ARPA_INET_H
 #include <arpa/inet.h>
@@ -58,6 +61,11 @@
 #if HAVE_RESOLV_H
 #include <resolv.h>
 #endif
+#endif
+
+/* Borrowed from SYS/SOCKET.H */
+#if defined(NETWARE) && defined(USE_WINSOCK)
+#define AF_INET 2   /* internetwork: UDP, TCP, etc. */
 #endif
 
 #include "dns.h"
@@ -85,9 +93,9 @@ PHP_FUNCTION(gethostbyaddr)
 #if HAVE_IPV6 && !defined(__MacOSX__)
 /* MacOSX at this time has support for IPv6, but not inet_pton()
  * so disabling IPv6 until further notice.  MacOSX 10.1.2 (kalowsky) */
-		php_error(E_WARNING, "Address is not a valid IPv4 or IPv6 address");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Address is not a valid IPv4 or IPv6 address");
 #else
-		php_error(E_WARNING, "Address is not in a.b.c.d form");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Address is not in a.b.c.d form");
 #endif
 		RETVAL_FALSE;
 	} else {
@@ -166,9 +174,7 @@ PHP_FUNCTION(gethostbynamel)
 	}
 	convert_to_string_ex(arg);
 
-	if (array_init(return_value) == FAILURE) {
-		RETURN_FALSE;
-	}
+	array_init(return_value);
 
 	hp = gethostbyname(Z_STRVAL_PP(arg));
 	if (hp == NULL || hp->h_addr_list == NULL) {
@@ -201,7 +207,7 @@ static char *php_gethostbyname(char *name)
 }
 /* }}} */
 
-#if HAVE_RES_SEARCH && !(defined(__BEOS__)||defined(PHP_WIN32))
+#if HAVE_RES_SEARCH && !(defined(__BEOS__)||defined(PHP_WIN32) || defined(NETWARE))
 
 /* {{{ proto int checkdnsrr(string host [, string type])
    Check DNS records corresponding to a given Internet host name or IP address */
@@ -215,38 +221,44 @@ PHP_FUNCTION(checkdnsrr)
 	u_char ans[MAXPACKET];
 	
 	switch (ZEND_NUM_ARGS()) {
-	case 1:
-		if (zend_get_parameters_ex(1, &arg1) == FAILURE) {
+		case 1:
+			if (zend_get_parameters_ex(1, &arg1) == FAILURE) {
+				WRONG_PARAM_COUNT;
+			}
+			type = T_MX;
+			convert_to_string_ex(arg1);
+			break;
+
+		case 2:
+			if (zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE) {
+				WRONG_PARAM_COUNT;
+			}
+			convert_to_string_ex(arg1);
+			convert_to_string_ex(arg2);
+
+			if (!strcasecmp("A", Z_STRVAL_PP(arg2))) type = T_A;
+			else if (!strcasecmp("NS",    Z_STRVAL_PP(arg2))) type = T_NS;
+			else if (!strcasecmp("MX",    Z_STRVAL_PP(arg2))) type = T_MX;
+			else if (!strcasecmp("PTR",   Z_STRVAL_PP(arg2))) type = T_PTR;
+			else if (!strcasecmp("ANY",   Z_STRVAL_PP(arg2))) type = T_ANY;
+			else if (!strcasecmp("SOA",   Z_STRVAL_PP(arg2))) type = T_SOA;
+			else if (!strcasecmp("CNAME", Z_STRVAL_PP(arg2))) type = T_CNAME;
+			else {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Type '%s' not supported", Z_STRVAL_PP(arg2));
+				RETURN_FALSE;
+			}
+			break;
+
+		default:
 			WRONG_PARAM_COUNT;
-		}
-		type = T_MX;
-		convert_to_string_ex(arg1);
-		break;
-	case 2:
-		if (zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE) {
-			WRONG_PARAM_COUNT;
-		}
-		convert_to_string_ex(arg1);
-		convert_to_string_ex(arg2);
-		if ( !strcasecmp("A", Z_STRVAL_PP(arg2)) ) type = T_A;
-		else if ( !strcasecmp("NS", Z_STRVAL_PP(arg2)) ) type = T_NS;
-		else if ( !strcasecmp("MX", Z_STRVAL_PP(arg2)) ) type = T_MX;
-		else if ( !strcasecmp("PTR", Z_STRVAL_PP(arg2)) ) type = T_PTR;
-		else if ( !strcasecmp("ANY", Z_STRVAL_PP(arg2)) ) type = T_ANY;
-		else if ( !strcasecmp("SOA", Z_STRVAL_PP(arg2)) ) type = T_SOA;
-		else if ( !strcasecmp("CNAME", Z_STRVAL_PP(arg2)) ) type = T_CNAME;
-		else {
-			php_error(E_WARNING, "Type '%s' not supported", Z_STRVAL_PP(arg2));
-			RETURN_FALSE;
-		}
-		break;
-	default:
-		WRONG_PARAM_COUNT;
 	}
+
 	i = res_search(Z_STRVAL_PP(arg1), C_IN, type, ans, sizeof(ans));
-	if ( i < 0 ) {
+
+	if (i < 0) {
 		RETURN_FALSE;
 	}
+
 	RETURN_TRUE;
 }
 /* }}} */
@@ -278,65 +290,65 @@ PHP_FUNCTION(getmxrr)
 	int i;
 
 	switch(ZEND_NUM_ARGS()) {
-	case 2:
-		if (zend_get_parameters(ht, 2, &host, &mx_list) == FAILURE) {
-			WRONG_PARAM_COUNT;
-		}
-        break;
-    case 3:
-		if (zend_get_parameters(ht, 3, &host, &mx_list, &weight_list) == FAILURE) {
-			WRONG_PARAM_COUNT;
-		}
-        need_weight = 1;
-		pval_destructor(weight_list); /* start with clean array */
-		if ( array_init(weight_list) == FAILURE ) {
-			RETURN_FALSE;
-		}
-        break;
-    default:
-		WRONG_PARAM_COUNT;
-    }
+		case 2:
+			if (zend_get_parameters(ht, 2, &host, &mx_list) == FAILURE) {
+				WRONG_PARAM_COUNT;
+			}
+			break;
 
-    convert_to_string( host );
-    pval_destructor(mx_list); /* start with clean array */
-    if ( array_init(mx_list) == FAILURE ) {
-        RETURN_FALSE;
-    }
+		case 3:
+			if (zend_get_parameters(ht, 3, &host, &mx_list, &weight_list) == FAILURE) {
+				WRONG_PARAM_COUNT;
+			}
+			need_weight = 1;
+			pval_destructor(weight_list); /* start with clean array */
+			array_init(weight_list);
+			break;
+
+		default:
+			WRONG_PARAM_COUNT;
+	}
+
+	convert_to_string(host);
+	pval_destructor(mx_list); /* start with clean array */
+	array_init(mx_list);
 
 	/* Go! */
 	i = res_search(Z_STRVAL_P(host), C_IN, T_MX, (u_char *)&ans, sizeof(ans));
-	if ( i < 0 ) {
+	if (i < 0) {
 		RETURN_FALSE;
 	}
-	if ( i > sizeof(ans) ) i = sizeof(ans);
+	if (i > sizeof(ans)) {
+		i = sizeof(ans);
+	}
 	hp = (HEADER *)&ans;
 	cp = (u_char *)&ans + HFIXEDSZ;
 	end = (u_char *)&ans +i;
-	for ( qdc = ntohs((unsigned short)hp->qdcount); qdc--; cp += i + QFIXEDSZ) {
-		if ( (i = dn_skipname(cp, end)) < 0 ) {
+	for (qdc = ntohs((unsigned short)hp->qdcount); qdc--; cp += i + QFIXEDSZ) {
+		if ((i = dn_skipname(cp, end)) < 0 ) {
 			RETURN_FALSE;
 		}
 	}
 	count = ntohs((unsigned short)hp->ancount);
-	while ( --count >= 0 && cp < end ) {
-		if ( (i = dn_skipname(cp, end)) < 0 ) {
+	while (--count >= 0 && cp < end) {
+		if ((i = dn_skipname(cp, end)) < 0 ) {
 			RETURN_FALSE;
 		}
 		cp += i;
 		GETSHORT(type, cp);
 		cp += INT16SZ + INT32SZ;
 		GETSHORT(i, cp);
-		if ( type != T_MX ) {
+		if (type != T_MX) {
 			cp += i;
 			continue;
 		}
 		GETSHORT(weight, cp);
-		if ( (i = dn_expand(ans, end, cp, buf, sizeof(buf)-1)) < 0 ) {
+		if ((i = dn_expand(ans, end, cp, buf, sizeof(buf)-1)) < 0) {
 			RETURN_FALSE;
 		}
 		cp += i;
 		add_next_index_string(mx_list, buf, 1);
-		if ( need_weight ) {
+		if (need_weight) {
 			add_next_index_long(weight_list, weight);
 		}
 	}

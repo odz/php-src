@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: metaphone.c,v 1.20.2.1 2002/03/20 08:40:33 mfischer Exp $ */
+/* $Id: metaphone.c,v 1.21 2002/03/20 08:17:06 mfischer Exp $ */
 
 /*
 	Based on CPANs "Text-Metaphone-1.96" by Michael G Schwern <schwern@pobox.com> 

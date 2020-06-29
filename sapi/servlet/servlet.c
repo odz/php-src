@@ -29,8 +29,6 @@
 #include "win32/time.h"
 #include "win32/signal.h"
 #include <process.h>
-#else
-#include "build-defs.h"
 #endif
 #if HAVE_SYS_TIME_H
 #include <sys/time.h>
@@ -205,15 +203,25 @@ static char *sapi_servlet_read_cookies(TSRMLS_D)
 
 /***************************************************************************/
 
+
 /*
  * sapi maintenance
  */
+
+static int php_servlet_startup(sapi_module_struct *sapi_module)
+{
+	if (php_module_startup(sapi_module, NULL, 0)==FAILURE) {
+		return FAILURE;
+	} else {
+		return SUCCESS;
+	}
+}
 
 static sapi_module_struct servlet_sapi_module = {
 	"java_servlet",					/* name */
 	"Java Servlet",					/* pretty name */
 									
-	php_module_startup,				/* startup */
+	php_servlet_startup,				/* startup */
 	php_module_shutdown_wrapper,	/* shutdown */
 
 	NULL,							/* activate */
@@ -253,16 +261,10 @@ JNIEXPORT void JNICALL Java_net_php_servlet_startup
 
 	sapi_startup(&servlet_sapi_module);
 
-	if (php_module_startup(&servlet_sapi_module)==FAILURE) {
+	if (php_module_startup(&servlet_sapi_module, additional_php_extensions, EXTCOUNT)==FAILURE) {
 		ThrowServletException(jenv,"module startup failure");
 		return;
 	}
-
-	if (php_startup_extensions(additional_php_extensions, EXTCOUNT)==FAILURE) {
-		ThrowServletException(jenv,"extension startup failure");
-		return;
-	}
-
 }
 
 

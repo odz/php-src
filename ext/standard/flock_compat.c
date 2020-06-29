@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: flock_compat.c,v 1.16 2002/02/28 08:26:45 sebastian Exp $ */
+/* $Id: flock_compat.c,v 1.21.2.1 2002/12/27 03:22:13 andrei Exp $ */
 
 #include <php.h>
 #include <errno.h>
@@ -25,6 +25,7 @@
 #if HAVE_STRUCT_FLOCK
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/file.h>
 #endif
 
 #ifdef PHP_WIN32
@@ -32,8 +33,22 @@
 #include <io.h>
 #endif
 
+#ifdef NETWARE
+#ifdef NEW_LIBC
+#include <netinet/in.h>
+#else
+#include <sys/socket.h>
+#endif
+#endif
+
 #ifndef HAVE_FLOCK
-int flock(int fd, int operation)
+PHPAPI int flock(int fd, int operation)
+{
+	return php_flock(fd, operation);
+}
+#endif /* !defined(HAVE_FLOCK) */
+
+PHPAPI int php_flock(int fd, int operation)
 #if HAVE_STRUCT_FLOCK
 {
 	struct flock flck;
@@ -149,7 +164,6 @@ int flock(int fd, int operation)
 	return 0;
 }
 #endif
-#endif /* !defined(HAVE_FLOCK) */
 
 #if !(HAVE_INET_ATON)
 /* {{{ inet_aton

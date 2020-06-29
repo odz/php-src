@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dba_ndbm.c,v 1.11.2.1 2002/04/18 12:31:19 derick Exp $ */
+/* $Id: dba_ndbm.c,v 1.14 2002/11/06 17:59:03 sas Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -55,7 +55,7 @@ DBA_OPEN_FUNC(ndbm)
 			gmode = O_RDWR | O_CREAT | O_TRUNC;
 			break;
 		default:
-			return FAILURE;
+			return FAILURE; /* not possible */
 	}
 
 	if(info->argc > 0) {
@@ -65,11 +65,8 @@ DBA_OPEN_FUNC(ndbm)
 
 	dbf = dbm_open(info->path, gmode, filemode);
 	
-	if(dbf) {
-		pinfo->dbf = dbf;
-		return SUCCESS;
-	}
-	return FAILURE;
+	pinfo->dbf = dbf;
+	return SUCCESS;
 }
 
 DBA_CLOSE_FUNC(ndbm)

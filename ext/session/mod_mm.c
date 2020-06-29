@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mod_mm.c,v 1.38 2002/03/06 12:25:01 sas Exp $ */
+/* $Id: mod_mm.c,v 1.39.4.2 2002/12/05 20:42:05 helly Exp $ */
 
 #include "php.h"
 
@@ -124,7 +124,9 @@ static ps_sd *ps_sd_new(ps_mm *data, const char *key)
 	
 	sd = mm_malloc(data->mm, sizeof(ps_sd) + keylen);
 	if (!sd) {
-		php_error(E_WARNING, "mm_malloc failed, avail %d, err %s", mm_available(data->mm), mm_error());
+		TSRMLS_FETCH();
+
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "mm_malloc failed, avail %d, err %s", mm_available(data->mm), mm_error());
 		return NULL;
 	}
 
@@ -359,7 +361,7 @@ PS_WRITE_FUNC(mm)
 
 			if (!sd->data) {
 				ps_sd_destroy(data, sd);
-				php_error(E_WARNING, "cannot allocate new data segment");
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "cannot allocate new data segment");
 				sd = NULL;
 			}
 		}
@@ -422,17 +424,6 @@ PS_GC_FUNC(mm)
 	
 	return SUCCESS;
 }
-
-zend_module_entry php_session_mm_module = {
-	STANDARD_MODULE_HEADER,
-	"session mm",
-	NULL,
-	PHP_MINIT(ps_mm), PHP_MSHUTDOWN(ps_mm),
-	NULL, NULL,
-	NULL,
-    NO_VERSION_YET,
-	STANDARD_MODULE_PROPERTIES
-};
 
 #endif
 

@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: pdf.c,v 1.106 2001/12/11 15:30:08 sebastian Exp $ */
+/* $Id: pdf.c,v 1.112.2.2 2002/12/03 19:25:48 iliaa Exp $ */
 
 /* pdflib 2.02 ... 3.0x is subject to the ALADDIN FREE PUBLIC LICENSE.
    Copyright (C) 1997-1999 Thomas Merz. 2000-2001 PDFlib GmbH */
@@ -36,10 +36,15 @@
 #include "ext/standard/head.h"
 #include "ext/standard/info.h"
 #include "ext/standard/file.h"
+#include "php_streams.h"
 
 #if HAVE_LIBGD13
 #include "ext/gd/php_gd.h"
+#if HAVE_GD_BUNDLED
+#include "ext/gd/libgd/gd.h"
+#else
 #include "gd.h"
+#endif
 static int le_gd;
 #endif
 
@@ -181,8 +186,6 @@ function_entry pdf_functions[] = {
 	PHP_FE(pdf_add_annotation, NULL)
 #if HAVE_LIBGD13
 	PHP_FE(pdf_open_memory_image, NULL)
-#else
-	PHP_FALIAS(pdf_open_memory_image, warn_not_available, NULL)
 #endif
 	/* depreciatet after V4.0 of PDFlib */
 	PHP_FE(pdf_setgray_fill, NULL)
@@ -211,24 +214,6 @@ function_entry pdf_functions[] = {
 	PHP_FE(pdf_add_thumbnail, NULL)
 	PHP_FE(pdf_initgraphics, NULL)
 	PHP_FE(pdf_setmatrix, NULL)
-#else
-	PHP_FALIAS(pdf_open_pdi, warn_not_available, NULL)
-	PHP_FALIAS(pdf_close_pdi, warn_not_available, NULL)
-	PHP_FALIAS(pdf_open_pdi_page, warn_not_available, NULL)
-	PHP_FALIAS(pdf_place_pdi_page, warn_not_available, NULL)
-	PHP_FALIAS(pdf_close_pdi_page, warn_not_available, NULL)
-	PHP_FALIAS(pdf_get_pdi_parameter, warn_not_available, NULL)
-	PHP_FALIAS(pdf_get_pdi_value, warn_not_available, NULL)
-	PHP_FALIAS(pdf_begin_pattern, warn_not_available, NULL)
-	PHP_FALIAS(pdf_end_pattern, warn_not_available, NULL)
-	PHP_FALIAS(pdf_begin_template, warn_not_available, NULL)
-	PHP_FALIAS(pdf_end_template, warn_not_available, NULL)
-	PHP_FALIAS(pdf_setcolor, warn_not_available, NULL)
-	PHP_FALIAS(pdf_makespotcolor, warn_not_available, NULL)
-	PHP_FALIAS(pdf_arcn, warn_not_available, NULL)
-	PHP_FALIAS(pdf_add_thumbnail, warn_not_available, NULL)
-	PHP_FALIAS(pdf_initgraphics, warn_not_available, NULL)
-	PHP_FALIAS(pdf_setmatrix, warn_not_available, NULL)
 #endif /* PDFlib >= V4 */
 
 	{NULL, NULL, NULL}
@@ -291,7 +276,6 @@ static void custom_errorhandler(PDF *p, int type, const char *shortmsg)
 		case PDF_SystemError:
 		case PDF_UnknownError:
 		default:
-			if (p !=NULL) PDF_delete(p); /* clean up PDFlib */
 			php_error(E_ERROR,"PDFlib error: %s", shortmsg);
 		}
 }
@@ -347,7 +331,7 @@ PHP_MINFO_FUNCTION(pdf)
 #else
 	php_info_print_table_row(2, "PDFlib GmbH Version", tmp );
 #endif
-	php_info_print_table_row(2, "Revision", "$Revision: 1.106 $" );
+	php_info_print_table_row(2, "Revision", "$Revision: 1.112.2.2 $" );
 	php_info_print_table_end();
 
 }
@@ -464,23 +448,30 @@ PHP_FUNCTION(pdf_set_info_keywords)
 PHP_FUNCTION(pdf_open)
 {
 	zval **file;
-	FILE *fp;
+	FILE *fp = NULL;
 	PDF *pdf;
 	int argc = ZEND_NUM_ARGS();
 
-	if(argc > 1) 
+	if(argc > 1)  {
 		WRONG_PARAM_COUNT;
-	if (argc != 1 || zend_get_parameters_ex(1, &file) == FAILURE) {
+	} else if (argc != 1 || zend_get_parameters_ex(1, &file) == FAILURE) {
 		fp = NULL;
 	} else {
-		ZEND_FETCH_RESOURCE(fp, FILE *, file, -1, "File-Handle", php_file_le_fopen());
-		/* XXX should do a zend_list_addref for <fp> here! */
+		php_stream *stream;
+
+		php_stream_from_zval(stream, file);
+		
+		if (php_stream_cast(stream, PHP_STREAM_AS_STDIO, (void*)&fp, 1) == FAILURE)	{
+			RETURN_FALSE;
+		}
 	}
 
 	pdf = PDF_new2(custom_errorhandler, pdf_emalloc, pdf_realloc, pdf_efree, NULL);
 
 	if(fp) {
-		if (PDF_open_fp(pdf, fp) < 0) RETURN_FALSE;
+		if (PDF_open_fp(pdf, fp) < 0) {
+			RETURN_FALSE;
+		}
 	} else {
 		PDF_open_mem(pdf, pdf_flushwrite);
 	}
@@ -1972,17 +1963,30 @@ PHP_FUNCTION(pdf_open_memory_image)
 	ZEND_FETCH_RESOURCE(im, gdImagePtr, arg2, -1, "Image", le_gd);
 
 	count = 3 * im->sx * im->sy;
-	if(NULL == (buffer = (unsigned char *) emalloc(count))) {
-		RETURN_FALSE;
-	}
+	buffer = (unsigned char *) emalloc(count);
 
 	ptr = buffer;
 	for(i=0; i<im->sy; i++) {
 		for(j=0; j<im->sx; j++) {
-			color = im->pixels[i][j];
-			*ptr++ = im->red[color];
-			*ptr++ = im->green[color];
-			*ptr++ = im->blue[color];
+#if HAVE_LIBGD20
+			if(gdImageTrueColor(im)) {
+				if (im->tpixels && gdImageBoundsSafe(im, j, i)) {
+					color = gdImageTrueColorPixel(im, j, i);
+					*ptr++ = (color >> 16) & 0xFF;
+					*ptr++ = (color >> 8) & 0xFF;
+					*ptr++ = color & 0xFF;
+				}
+			} else {
+#endif
+				if (im->pixels && gdImageBoundsSafe(im, j, i)) {
+					color = im->pixels[im->sy][im->sx];
+					*ptr++ = im->red[color];
+					*ptr++ = im->green[color];
+					*ptr++ = im->blue[color];
+				}
+#if HAVE_LIBGD20
+			}
+#endif		
 		}
 	}
 

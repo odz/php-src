@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: db.c,v 1.70.2.1 2002/08/27 01:07:36 helly Exp $ */
+/* $Id: db.c,v 1.81.2.1 2002/12/05 19:50:40 helly Exp $ */
 #define IS_EXT_MODULE
 
 #ifdef HAVE_CONFIG_H
@@ -38,14 +38,8 @@
 #include <unistd.h>
 #endif
 
-#ifdef PHP_31
-#include "os/nt/flock.h"
-#else
-#ifdef PHP_WIN32
-#include "win32/flock.h"
-#else
+#ifdef HAVE_SYS_FILE_H
 #include <sys/file.h>
-#endif
 #endif
 
 #if HAVE_FCNTL_H
@@ -166,8 +160,8 @@ dbm_info *php_find_dbm(pval *id TSRMLS_DC)
 	int info_type;
 
 	if (Z_TYPE_P(id) == IS_STRING) {
-		numitems = zend_hash_num_elements(&EG(regular_list));
-		for (i=1; i<=numitems; i++) {
+		numitems = zend_hash_next_free_element(&EG(regular_list));
+		for (i=1; i<numitems; i++) {
 			if (zend_hash_index_find(&EG(regular_list), i, (void **) &le)==FAILURE) {
 				continue;
 			}
@@ -188,6 +182,39 @@ dbm_info *php_find_dbm(pval *id TSRMLS_DC)
 	return info;
 }
 /* }}} */
+
+/* {{{ proto array dblist(void)
+   Return an associative array id->filename */ 
+#if HELLY_0
+/* New function not needed yet */
+PHP_FUNCTION(db_id_list)
+{
+	ulong numitems, i;
+	zend_rsrc_list_entry *le;
+	dbm_info *info;
+
+	if (ZEND_NUM_ARGS()!=0) {
+		ZEND_WRONG_PARAM_COUNT();
+		RETURN_FALSE;
+	}
+
+	if (array_init(return_value) == FAILURE) {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Unable to initialize array");
+		RETURN_FALSE;
+	}
+	numitems = zend_hash_next_free_element(&EG(regular_list));
+	for (i=1; i<numitems; i++) {
+		if (zend_hash_index_find(&EG(regular_list), i, (void **) &le)==FAILURE) {
+			continue;
+		}
+		if (Z_TYPE_P(le) == le_db) {
+			info = (dbm_info *)(le->ptr);
+			add_next_index_string(return_value, info->filename, 1);
+		}
+	}
+}
+/* }}} */
+#endif
 
 /* {{{ php_get_info_db
  */
@@ -295,7 +322,7 @@ dbm_info *php_dbm_open(char *filename, char *mode TSRMLS_DC)
 	DBM_MODE_TYPE imode;
 
 	if (filename == NULL) {
-		php_error(E_WARNING, "NULL filename passed to php_dbm_open()");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "NULL filename passed");
 		return NULL;
 	}
 
@@ -341,7 +368,7 @@ dbm_info *php_dbm_open(char *filename, char *mode TSRMLS_DC)
 			lockfd = open(lockfn, O_RDWR|O_CREAT, 0644);
 			close(lockfd);
 		} else {
-			php_error(E_WARNING, "File appears to be locked [%s]\n", lockfn);
+			php_error_docref1(NULL TSRMLS_CC, filename, E_WARNING, "File appears to be locked [%s]", lockfn);
 			return -1;
 		}
 #else /* NFS_HACK */
@@ -352,7 +379,7 @@ dbm_info *php_dbm_open(char *filename, char *mode TSRMLS_DC)
 			flock(lockfd, LOCK_EX);
 			close(lockfd);
 		} else {
-			php_error(E_WARNING, "Unable to establish lock: %s", filename);
+			php_error_docref1(NULL TSRMLS_CC, filename, E_WARNING, "Unable to establish lock");
 		}
 #endif /* else NFS_HACK */
 
@@ -369,7 +396,7 @@ dbm_info *php_dbm_open(char *filename, char *mode TSRMLS_DC)
 	if (dbf) {
 		info = (dbm_info *)emalloc(sizeof(dbm_info));
 		if (!info) {
-			php_error(E_ERROR, "problem allocating memory!");
+			php_error_docref1(NULL TSRMLS_CC, filename, E_ERROR, "Problem allocating memory!");
 			return NULL;
 		}
 
@@ -381,7 +408,7 @@ dbm_info *php_dbm_open(char *filename, char *mode TSRMLS_DC)
 		return info;
 	} else {
 #if GDBM 
-		php_error(E_WARNING, "dbmopen_gdbm(%s): %d [%s], %d [%s]", filename, gdbm_errno, gdbm_strerror(gdbm_errno), errno, strerror(errno));
+		php_error_docref1(NULL TSRMLS_CC, filename, E_WARNING, "%d [%s], %d [%s]", gdbm_errno, gdbm_strerror(gdbm_errno), errno, strerror(errno));
 		if (gdbm_errno)
 			ret = gdbm_errno;
 		else if (errno)
@@ -391,13 +418,13 @@ dbm_info *php_dbm_open(char *filename, char *mode TSRMLS_DC)
 #else 
 #if NDBM 
 #if PHP_DEBUG
-		php_error(E_WARNING, "dbmopen_ndbm(%s): errno = %d [%s]\n", filename, errno, strerror(errno));
+		php_error_docref1(NULL TSRMLS_CC, filename, E_WARNING, "errno = %d [%s]\n", errno, strerror(errno));
 #endif
 		if (errno) ret=errno;
 		else ret = -1;
 #else
 #if PHP_DEBUG
-		php_error(E_WARNING, "dbmopen_flatfile(%s): errno = %d [%s]\n", filename, errno, strerror(errno));
+		php_error_docref1(NULL TSRMLS_CC, filename, E_WARNING, "errno = %d [%s]\n", errno, strerror(errno));
 #endif
 		if (errno) ret=errno;
 		else ret = -1;
@@ -486,7 +513,7 @@ PHP_FUNCTION(dbminsert)
 
 	info = php_find_dbm(id TSRMLS_CC);
 	if (!info) {
-		php_error(E_WARNING, "not a valid database identifier %d", Z_LVAL_P(id));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid database identifier %d", Z_LVAL_P(id));
 		RETURN_FALSE;
 	}
 	
@@ -512,7 +539,7 @@ PHP_FUNCTION(dbmreplace)
 
 	info = php_find_dbm(id TSRMLS_CC);
 	if (!info) {
-		php_error(E_WARNING, "not a valid database identifier %d", Z_LVAL_P(id));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid database identifier %d", Z_LVAL_P(id));
 		RETURN_FALSE;
 	}
 	
@@ -548,7 +575,7 @@ int php_dbm_insert_replace(dbm_info *info, char *key, char *value, int replace_m
 
 	dbf = info->dbf;
 	if (!dbf) {
-		php_error(E_WARNING, "%s(): Unable to locate dbm file", get_active_function_name(TSRMLS_C));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to locate dbm file");
 		ret = 1;
 	} else {
 		if (!replace_mode) {
@@ -580,7 +607,7 @@ PHP_FUNCTION(dbmfetch)
 
 	info = php_find_dbm(id TSRMLS_CC);
 	if (!info) {
-		php_error(E_WARNING, "not a valid database identifier %d", Z_LVAL_P(id));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid database identifier %d", Z_LVAL_P(id));
 		RETURN_FALSE;
 	}
 
@@ -611,7 +638,7 @@ char *php_dbm_fetch(dbm_info *info, char *key TSRMLS_DC)
 
 	dbf = info->dbf;
 	if (!dbf) {
-		php_error(E_WARNING, "Unable to locate dbm file");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to locate dbm file");
 		return(NULL);
 	}
 
@@ -656,18 +683,18 @@ PHP_FUNCTION(dbmexists)
 
 	info = php_find_dbm(id TSRMLS_CC);
 	if (!info) {
-		php_error(E_WARNING, "not a valid database identifier %d", Z_LVAL_P(id));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid database identifier %d", Z_LVAL_P(id));
 		RETURN_FALSE;
 	}
 
-	ret = php_dbm_exists(info, Z_STRVAL_P(key));
+	ret = php_dbm_exists(info, Z_STRVAL_P(key) TSRMLS_CC);
 	RETURN_LONG(ret);
 }
 /* }}} */
 
 /* {{{ php_dbm_exists
  */
-int php_dbm_exists(dbm_info *info, char *key) {
+int php_dbm_exists(dbm_info *info, char *key TSRMLS_DC) {
 	datum key_datum;
 	int ret;
 	DBM_TYPE dbf;
@@ -680,7 +707,7 @@ int php_dbm_exists(dbm_info *info, char *key) {
 
 	dbf = info->dbf;
 	if (!dbf) {
-		php_error(E_WARNING, "Unable to locate dbm file");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to locate dbm file");
 		return(0);
 	}
 
@@ -705,18 +732,18 @@ PHP_FUNCTION(dbmdelete)
 
 	info = php_find_dbm(id TSRMLS_CC);
 	if (!info) {
-		php_error(E_WARNING, "not a valid database identifier %d", Z_LVAL_P(id));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid database identifier %d", Z_LVAL_P(id));
 		RETURN_FALSE;
 	}
 
-	ret = php_dbm_delete(info, Z_STRVAL_P(key));
+	ret = php_dbm_delete(info, Z_STRVAL_P(key) TSRMLS_CC);
 	RETURN_LONG(ret);
 }
 /* }}} */
 
 /* {{{ php_dbm_delete
  */
-int php_dbm_delete(dbm_info *info, char *key) {
+int php_dbm_delete(dbm_info *info, char *key TSRMLS_DC) {
 	datum key_datum;
 	int ret;
 	DBM_TYPE dbf;
@@ -729,7 +756,7 @@ int php_dbm_delete(dbm_info *info, char *key) {
 
 	dbf = info->dbf;
 	if (!dbf) {
-		php_error(E_WARNING, "Unable to locate dbm file");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to locate dbm file");
 		return(0);
 	}
 
@@ -752,11 +779,11 @@ PHP_FUNCTION(dbmfirstkey)
 
 	info = php_find_dbm(id TSRMLS_CC);
 	if (!info) {
-		php_error(E_WARNING, "not a valid database identifier %d", Z_LVAL_P(id));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid database identifier %d", Z_LVAL_P(id));
 		RETURN_FALSE;
 	}
 
-	ret = php_dbm_first_key(info);
+	ret = php_dbm_first_key(info TSRMLS_CC);
 	if (!ret) {
 		RETURN_FALSE;
 	} else {
@@ -767,14 +794,14 @@ PHP_FUNCTION(dbmfirstkey)
 
 /* {{{ php_dbm_first_key
  */
-char *php_dbm_first_key(dbm_info *info) {
+char *php_dbm_first_key(dbm_info *info TSRMLS_DC) {
 	datum ret_datum;
 	char *ret;
 	DBM_TYPE dbf;
 
 	dbf = info->dbf;
 	if (!dbf) {
-		php_error(E_WARNING, "Unable to locate dbm file");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to locate dbm file");
 		return(NULL);
 	}
 
@@ -814,7 +841,7 @@ PHP_FUNCTION(dbmnextkey)
 
 	info = php_find_dbm(id TSRMLS_CC);
 	if (!info) {
-		php_error(E_WARNING, "not a valid database identifier %d", Z_LVAL_P(id));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid database identifier %d", Z_LVAL_P(id));
 		RETURN_FALSE;
 	}
 
@@ -843,7 +870,7 @@ char *php_dbm_nextkey(dbm_info *info, char *key TSRMLS_DC)
 
 	dbf = info->dbf;
 	if (!dbf) {
-		php_error(E_WARNING, "Unable to locate dbm file");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to locate dbm file");
 		return(NULL);
 	}
 
@@ -889,17 +916,17 @@ int flatfile_store(FILE *dbf, datum key_datum, datum value_datum, int mode) {
 		fseek(dbf, 0L, SEEK_END);
 		fprintf(dbf, "%d\n", key_datum.dsize);
 		fflush(dbf);
-		ret = write(fileno(dbf), key_datum.dptr, key_datum.dsize);
+		ret = fwrite(key_datum.dptr, sizeof(char), key_datum.dsize, dbf);
 		fprintf(dbf, "%d\n", value_datum.dsize);
 		fflush(dbf);
-		ret = write(fileno(dbf), value_datum.dptr, value_datum.dsize);
+		ret = fwrite(value_datum.dptr, sizeof(char), value_datum.dsize, dbf);
 	} else { /* DBM_REPLACE */
 		flatfile_delete(dbf, key_datum);
 		fprintf(dbf, "%d\n", key_datum.dsize);
 		fflush(dbf);
-		ret = write(fileno(dbf), key_datum.dptr, key_datum.dsize);
+		ret = fwrite(key_datum.dptr, sizeof(char), key_datum.dsize, dbf);
 		fprintf(dbf, "%d\n", value_datum.dsize);
-		ret = write(fileno(dbf), value_datum.dptr, value_datum.dsize);
+		ret = fwrite(value_datum.dptr, sizeof(char), value_datum.dsize, dbf);
 	}
 
 	if (ret>0)
@@ -921,9 +948,9 @@ datum flatfile_fetch(FILE *dbf, datum key_datum) {
 			num = atoi(buf);
 			if (num > buf_size) {
 				buf_size+=num;
-				buf = emalloc((buf_size+1)*sizeof(char));
+				buf = erealloc(buf, (buf_size+1)*sizeof(char));
 			}
-			read(fileno(dbf), buf, num);
+			fread(buf, sizeof(char), num, dbf);
 			value_datum.dptr = buf;
 			value_datum.dsize = num;
 		}
@@ -952,8 +979,7 @@ int flatfile_delete(FILE *dbf, datum key_datum) {
 		num = atoi(buf);
 		if (num > buf_size) {
 			buf_size += num;
-			if (buf) efree(buf);
-			buf = emalloc((buf_size+1)*sizeof(char));
+			buf = erealloc(buf, (buf_size+1)*sizeof(char));
 		}
 		pos = ftell(dbf);
 
@@ -1053,7 +1079,7 @@ datum flatfile_firstkey(FILE *dbf) {
 			if (buf.dptr) efree(buf.dptr);
 			buf.dptr = emalloc((buf_size+1)*sizeof(char));
 		}
-		num=read(fileno(dbf), buf.dptr, num);
+		num = fread(buf.dptr, sizeof(char), num, dbf);
 		if (num<0) break;
 		buf.dsize = num;
 		if (*(buf.dptr)!=0) {
@@ -1067,7 +1093,7 @@ datum flatfile_firstkey(FILE *dbf) {
 			if (buf.dptr) efree(buf.dptr);
 			buf.dptr = emalloc((buf_size+1)*sizeof(char));
 		}
-		num=read(fileno(dbf), buf.dptr, num);
+		num = fread(buf.dptr, sizeof(char), num, dbf);
 		if (num<0) break;
 	}
 	if (buf.dptr) efree(buf.dptr);
@@ -1093,7 +1119,7 @@ datum flatfile_nextkey(FILE *dbf) {
 			if (buf.dptr) efree(buf.dptr);
 			buf.dptr = emalloc((buf_size+1)*sizeof(char));
 		}
-		num=read(fileno(dbf), buf.dptr, num);
+		num = fread(buf.dptr, sizeof(char), num, dbf);
 		if (num<0) break;
 		if (!fgets(buf.dptr, 15, dbf)) break;
 		num = atoi(buf.dptr);
@@ -1102,7 +1128,7 @@ datum flatfile_nextkey(FILE *dbf) {
 			if (buf.dptr) efree(buf.dptr);
 			buf.dptr = emalloc((buf_size+1)*sizeof(char));
 		}
-		num=read(fileno(dbf), buf.dptr, num);
+		num = fread(buf.dptr, sizeof(char), num, dbf);
 		if (num<0) break;
 		buf.dsize = num;
 		if (*(buf.dptr)!=0) {
@@ -1150,6 +1176,9 @@ function_entry dbm_functions[] = {
 	PHP_FE(dbmdelete,								NULL)
 	PHP_FE(dbmfirstkey,								NULL)
 	PHP_FE(dbmnextkey,								NULL)
+#if HELLY_0
+	PHP_FE(db_id_list,                              NULL)
+#endif
 	{NULL, NULL, NULL}
 };
 /* }}} */

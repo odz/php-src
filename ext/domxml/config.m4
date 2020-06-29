@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.33.2.2 2002/05/15 12:43:00 chregu Exp $
+dnl $Id: config.m4,v 1.44 2002/10/30 17:42:36 helly Exp $
 dnl
 
 AC_DEFUN(PHP_DOM_CHECK_VERSION,[
@@ -7,10 +7,10 @@ AC_DEFUN(PHP_DOM_CHECK_VERSION,[
   CPPFLAGS=-I$DOMXML_DIR/include$DOMXML_DIR_ADD
   AC_MSG_CHECKING(for libxml version)
   AC_EGREP_CPP(yes,[
-  #include <libxml/xmlversion.h>
-  #if LIBXML_VERSION >= 20414
+#include <libxml/xmlversion.h>
+#if LIBXML_VERSION >= 20414
   yes
-  #endif
+#endif
   ],[
     AC_MSG_RESULT(>= 2.4.14)
   ],[
@@ -22,6 +22,11 @@ AC_DEFUN(PHP_DOM_CHECK_VERSION,[
 PHP_ARG_WITH(dom, for DOM support,
 [  --with-dom[=DIR]        Include DOM support (requires libxml >= 2.4.14).
                           DIR is the libxml install directory.])
+
+if test -z "$PHP_ZLIB_DIR"; then
+  PHP_ARG_WITH(zlib-dir, for the location of libz,
+  [  --with-zlib-dir[=DIR]     DOMXML: Set the path to libz install prefix.], no, no)
+fi
 
 if test "$PHP_DOM" != "no"; then
 
@@ -69,7 +74,7 @@ if test "$PHP_DOM" != "no"; then
   fi
   
   AC_DEFINE(HAVE_DOMXML,1,[ ])
-  PHP_EXTENSION(domxml, $ext_shared)
+  PHP_NEW_EXTENSION(domxml, php_domxml.c, $ext_shared)
   PHP_SUBST(DOMXML_SHARED_LIBADD)
 fi
 
@@ -78,14 +83,14 @@ AC_DEFUN(PHP_DOM_XSLT_CHECK_VERSION,[
   CPPFLAGS=-I$DOMXSLT_DIR/include
   AC_MSG_CHECKING(for libxslt version)
   AC_EGREP_CPP(yes,[
-  #include <libxslt/xsltconfig.h>
-  #if LIBXSLT_VERSION >= 10003
+#include <libxslt/xsltconfig.h>
+#if LIBXSLT_VERSION >= 10018
   yes
-  #endif
+#endif
   ],[
-    AC_MSG_RESULT(>= 1.0.3)
+    AC_MSG_RESULT(>= 1.0.18)
   ],[
-    AC_MSG_ERROR(libxslt version 1.0.3 or greater required.)
+    AC_MSG_ERROR(libxslt version 1.0.18 or greater required.)
   ])
   CPPFLAGS=$old_CPPFLAGS
 ])
@@ -95,10 +100,10 @@ AC_DEFUN(PHP_DOM_EXSLT_CHECK_VERSION,[
   CPPFLAGS=-I$DOMEXSLT_DIR/include
   AC_MSG_CHECKING(for libexslt version)
   AC_EGREP_CPP(yes,[
-  #include <libexslt/exsltconfig.h>
-  #if LIBEXSLT_VERSION >= 600
+#include <libexslt/exsltconfig.h>
+#if LIBEXSLT_VERSION >= 600
   yes
-  #endif
+#endif
   ],[
     AC_MSG_RESULT(>= 1.0.3)
   ],[
@@ -108,12 +113,12 @@ AC_DEFUN(PHP_DOM_EXSLT_CHECK_VERSION,[
 ])
 
 PHP_ARG_WITH(dom-xslt, for DOM XSLT support,
-[  --with-dom-xslt[=DIR]   Include DOM XSLT support (requires libxslt >= 1.0.3).
-                          DIR is the libxslt install directory.])
+[  --with-dom-xslt[=DIR]     DOMXML: Include DOM XSLT support (requires libxslt >= 1.0.18).
+                            DIR is the libxslt install directory.], no, no)
 
 PHP_ARG_WITH(dom-exslt, for DOM EXSLT support,
-[  --with-dom-exslt[=DIR]  Include DOM EXSLT support (requires libxslt >= 1.0.3).
-                          DIR is the libexslt install directory.])
+[  --with-dom-exslt[=DIR]    DOMXML: Include DOM EXSLT support (requires libxslt >= 1.0.18).
+                            DIR is the libexslt install directory.], no, no)
 
 if test "$PHP_DOM_XSLT" != "no"; then
 

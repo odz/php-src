@@ -43,7 +43,7 @@ ZEND_API int zend_atoi(const char *str, int str_len)
 	if (!str_len) {
 		str_len = strlen(str);
 	}
-	retval = atoi(str);
+	retval = strtol(str, NULL, 0);
 	if (str_len>0) {
 		switch (str[str_len-1]) {
 			case 'k':
@@ -797,7 +797,7 @@ ZEND_API int boolean_xor_function(zval *result, zval *op1, zval *op2 TSRMLS_DC)
 }
 
 
-ZEND_API int boolean_not_function(zval *result, zval *op1 TSRMLS_DC)
+ZEND_API int boolean_not_function(zval *result, zval *op1)
 {
 	zval op1_copy;
 	
@@ -809,7 +809,7 @@ ZEND_API int boolean_not_function(zval *result, zval *op1 TSRMLS_DC)
 }
 
 
-ZEND_API int bitwise_not_function(zval *result, zval *op1 TSRMLS_DC)
+ZEND_API int bitwise_not_function(zval *result, zval *op1)
 {
 	zval op1_copy = *op1;
 	
@@ -1501,6 +1501,7 @@ ZEND_API int increment_function(zval *op1)
 ZEND_API int decrement_function(zval *op1)
 {
 	long lval;
+	double dval;
 	
 	switch (op1->type) {
 		case IS_LONG:
@@ -1520,16 +1521,23 @@ ZEND_API int decrement_function(zval *op1)
 				op1->value.lval = -1;
 				op1->type = IS_LONG;
 				break;
-			} else if (is_numeric_string(op1->value.str.val, op1->value.str.len, &lval, NULL, 0)==IS_LONG) { /* long */
-				STR_FREE(op1->value.str.val);
-				if(lval == LONG_MIN) {
-					double d = (double)lval;
-					ZVAL_DOUBLE(op1, d-1);
-				} else {
-					op1->value.lval = lval-1;
-					op1->type = IS_LONG;
-				}
-				break;
+			}
+			switch(is_numeric_string(op1->value.str.val, op1->value.str.len, &lval, &dval, 0)) {
+				case IS_LONG:
+					STR_FREE(op1->value.str.val);
+					if(lval == LONG_MIN) {
+						double d = (double)lval;
+						ZVAL_DOUBLE(op1, d-1);
+					} else {
+						op1->value.lval = lval-1;
+						op1->type = IS_LONG;
+					}
+					break;
+				case IS_DOUBLE:
+					STR_FREE(op1->value.str.val);
+					op1->value.dval = dval - 1;
+					op1->type = IS_DOUBLE;
+					break;
 			}
 			break;
 		default:
@@ -1546,17 +1554,17 @@ ZEND_API int zval_is_true(zval *op)
 	return (op->value.lval ? 1 : 0);
 }
 
-
 ZEND_API void zend_str_tolower(char *str, unsigned int length)
 {
 	register char *p=str, *end=p+length;
 	
 	while (p<end) {
-		*p = tolower(*p);
+		if (*p >= 'A' && *p <= 'Z') {
+			*p = (*p)+32;
+		}	
 		p++;
 	}
 }
-
 
 ZEND_API int zend_binary_strcmp(char *s1, uint len1, char *s2, uint len2)
 {
@@ -1725,4 +1733,22 @@ ZEND_API void zend_compare_objects(zval *result, zval *o1, zval *o2 TSRMLS_DC)
 		return;
 	}
 	zend_compare_symbol_tables(result, Z_OBJPROP_P(o1), Z_OBJPROP_P(o2) TSRMLS_CC);
+}
+
+ZEND_API void zend_locale_sprintf_double(zval *op ZEND_FILE_LINE_DC)
+{
+	double dval = op->value.dval;
+	
+	TSRMLS_FETCH();
+	
+	op->value.str.val = (char *) emalloc_rel(MAX_LENGTH_OF_DOUBLE + EG(precision) + 1);
+	sprintf(op->value.str.val, "%.*G", (int) EG(precision), dval);
+	op->value.str.len = strlen(op->value.str.val);
+
+	if (EG(float_separator)[0] != '.') { 
+		char *p = op->value.str.val;
+		if ((p = strchr(p, '.'))) {
+			*p = EG(float_separator)[0];
+		}	
+	}
 }

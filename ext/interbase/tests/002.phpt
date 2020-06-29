@@ -6,7 +6,7 @@ InterBase: connect, close and pconnect
 --GET--
 --FILE--
 <?
-/* $Id: 002.phpt,v 1.1.10.1 2002/03/21 14:51:45 ludoo Exp $ */
+/* $Id: 002.phpt,v 1.2 2002/03/19 16:52:41 ludoo Exp $ */
 
     require(dirname(__FILE__)."/interbase.inc");
     

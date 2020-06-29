@@ -6,9 +6,9 @@ include('config.inc');
 $db = pg_connect($conn_str);
 if (!@pg_num_rows(@pg_query($db, "SELECT * FROM ".$table_name))) 
 {
-	@pg_query($db,$table_def);
+	@pg_query($db,$table_def); // Create table here
 	for ($i=0; $i < $num_test_record; $i++) {
-		pg_query($db,"INSERT INTO php_pgsql_test VALUES ($i, 'ABC');");
+		pg_query($db,"INSERT INTO ".$table_name." VALUES ($i, 'ABC');");
 	}
 }
 else {

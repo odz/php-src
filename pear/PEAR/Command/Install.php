@@ -13,13 +13,14 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Author: Stig Bakken <ssb@fast.no>                                    |
+// | Author: Stig Sæther Bakken <ssb@fast.no>                             |
 // +----------------------------------------------------------------------+
 //
-// $Id: Install.php,v 1.3.2.2 2002/04/09 19:04:23 ssb Exp $
+// $Id: Install.php,v 1.38.2.3 2002/12/13 02:14:23 ssb Exp $
 
 require_once "PEAR/Command/Common.php";
 require_once "PEAR/Installer.php";
+require_once "Console/Getopt.php";
 
 /**
  * PEAR commands for installation or deinstallation/upgrading of
@@ -28,6 +29,177 @@ require_once "PEAR/Installer.php";
  */
 class PEAR_Command_Install extends PEAR_Command_Common
 {
+    // {{{ properties
+
+    var $commands = array(
+        'install' => array(
+            'summary' => 'Install Package',
+            'function' => 'doInstall',
+            'shortcut' => 'i',
+            'options' => array(
+                'force' => array(
+                    'shortopt' => 'f',
+                    'doc' => 'will overwrite newer installed packages',
+                    ),
+                'nodeps' => array(
+                    'shortopt' => 'n',
+                    'doc' => 'ignore dependencies, install anyway',
+                    ),
+                'register-only' => array(
+                    'shortopt' => 'r',
+                    'doc' => 'do not install files, only register the package as installed',
+                    ),
+                'soft' => array(
+                    'shortopt' => 's',
+                    'doc' => 'soft install, fail silently, or upgrade if already installed',
+                    ),
+                'nobuild' => array(
+                    'shortopt' => 'B',
+                    'doc' => 'don\'t build C extensions',
+                    ),
+                'nocompress' => array(
+                    'shortopt' => 'Z',
+                    'doc' => 'request uncompressed files when downloading',
+                    ),
+                'installroot' => array(
+                    'shortopt' => 'R',
+                    'arg' => 'DIR',
+                    'doc' => 'root directory used when installing files (ala PHP\'s INSTALL_ROOT)',
+                    ),
+                'ignore-errors' => array(
+                    'doc' => 'force install even if there were errors',
+                    ),
+                ),
+            'doc' => '<package> ...
+Installs one or more PEAR packages.  You can specify a package to
+install in four ways:
+
+"Package-1.0.tgz" : installs from a local file
+
+"http://example.com/Package-1.0.tgz" : installs from
+anywhere on the net.
+
+"package.xml" : installs the package described in
+package.xml.  Useful for testing, or for wrapping a PEAR package in
+another package manager such as RPM.
+
+"Package" : queries your configured server
+({config master_server}) and downloads the newest package with
+the preferred quality/state ({config preferred_state}).
+
+More than one package may be specified at once.  It is ok to mix these
+four ways of specifying packages.
+'),
+        'upgrade' => array(
+            'summary' => 'Upgrade Package',
+            'function' => 'doInstall',
+            'shortcut' => 'up',
+            'options' => array(
+                'force' => array(
+                    'shortopt' => 'f',
+                    'doc' => 'overwrite newer installed packages',
+                    ),
+                'nodeps' => array(
+                    'shortopt' => 'n',
+                    'doc' => 'ignore dependencies, upgrade anyway',
+                    ),
+                'register-only' => array(
+                    'shortopt' => 'r',
+                    'doc' => 'do not install files, only register the package as upgraded',
+                    ),
+                'nobuild' => array(
+                    'shortopt' => 'B',
+                    'doc' => 'don\'t build C extensions',
+                    ),
+                'nocompress' => array(
+                    'shortopt' => 'Z',
+                    'doc' => 'request uncompressed files when downloading',
+                    ),
+                'installroot' => array(
+                    'shortopt' => 'R',
+                    'arg' => 'DIR',
+                    'doc' => 'root directory used when installing files (ala PHP\'s INSTALL_ROOT)',
+                    ),
+                'ignore-errors' => array(
+                    'doc' => 'force install even if there were errors',
+                    ),
+                ),
+            'doc' => '<package> ...
+Upgrades one or more PEAR packages.  See documentation for the
+"install" command for ways to specify a package.
+
+When upgrading, your package will be updated if the provided new
+package has a higher version number (use the -f option if you need to
+upgrade anyway).
+
+More than one package may be specified at once.
+'),
+        'upgrade-all' => array(
+            'summary' => 'Upgrade All Packages',
+            'function' => 'doInstall',
+            'shortcut' => 'ua',
+            'options' => array(
+                'nodeps' => array(
+                    'shortopt' => 'n',
+                    'doc' => 'ignore dependencies, upgrade anyway',
+                    ),
+                'register-only' => array(
+                    'shortopt' => 'r',
+                    'doc' => 'do not install files, only register the package as upgraded',
+                    ),
+                'nobuild' => array(
+                    'shortopt' => 'B',
+                    'doc' => 'don\'t build C extensions',
+                    ),
+                'nocompress' => array(
+                    'shortopt' => 'Z',
+                    'doc' => 'request uncompressed files when downloading',
+                    ),
+                'installroot' => array(
+                    'shortopt' => 'R',
+                    'arg' => 'DIR',
+                    'doc' => 'root directory used when installing files (ala PHP\'s INSTALL_ROOT)',
+                    ),
+                'ignore-errors' => array(
+                    'doc' => 'force install even if there were errors',
+                    ),
+                ),
+            'doc' => '
+Upgrades all packages that have a newer release available.  Upgrades are
+done only if there is a release available of the state specified in
+"preferred_state" (currently {config preferred_state}), or a state considered
+more stable.
+'),
+        'uninstall' => array(
+            'summary' => 'Un-install Package',
+            'function' => 'doUninstall',
+            'shortcut' => 'un',
+            'options' => array(
+                'nodeps' => array(
+                    'shortopt' => 'n',
+                    'doc' => 'ignore dependencies, uninstall anyway',
+                    ),
+                'register-only' => array(
+                    'shortopt' => 'r',
+                    'doc' => 'do not remove files, only register the packages as not installed',
+                    ),
+                'installroot' => array(
+                    'shortopt' => 'R',
+                    'arg' => 'DIR',
+                    'doc' => 'root directory used when installing files (ala PHP\'s INSTALL_ROOT)',
+                    ),
+                'ignore-errors' => array(
+                    'doc' => 'force install even if there were errors',
+                    ),
+                ),
+            'doc' => '<package> ...
+Uninstalls one or more PEAR packages.  More than one package may be
+specified at once.
+'),
+
+    );
+
+    // }}}
     // {{{ constructor
 
     /**
@@ -42,101 +214,84 @@ class PEAR_Command_Install extends PEAR_Command_Common
 
     // }}}
 
-    // {{{ getCommands()
+    // {{{ doInstall()
 
-    /**
-     * Return a list of all the commands defined by this class.
-     * @return array list of commands
-     * @access public
-     */
-    function getCommands()
+    function doInstall($command, $options, $params)
     {
-        return array('install', 'uninstall', 'upgrade');
-    }
-
-    function getHelp($command)
-    {
-        switch ($command) {
-            case 'install':
-                $ret = array('<pear package>',
-                             'Installs a PEAR package created by the "package" command');
-                break;
-            case 'uninstall':
-                $ret = array('<package>',
-                             'Uninstalls a previously installed PEAR package');
-                break;
-            case 'upgrade':
-                $ret = array('<pear package>',
-                             'Upgrades a PEAR package installed in the system');
-                break;
+        if (empty($this->installer)) {
+            $this->installer = &new PEAR_Installer($this->ui);
         }
-        $ret[0] = "[-n] [-f] [-s] [-Z] {$ret[0]}";
-        $ret[1] = "{$ret[1]}\n" .
-                  "   -f    forces the installation of the package\n".
-                  "         when it is already installed\n".
-                  "   -n    do not take care of package dependencies\n".
-                  "   -s    soft update: install or upgrade only if needed\n".
-                  "   -Z    no compression: download plain .tar files";
-        return $ret;
+        if ($command == 'upgrade') {
+            $options[$command] = true;
+        }
+        if ($command == 'upgrade-all') {
+            include_once "PEAR/Remote.php";
+            $options['upgrade'] = true;
+            $remote = new PEAR_Remote($this->config);
+            $state = $this->config->get('preferred_state');
+            if (empty($state) || $state == 'any') {
+                $latest = $remote->call("package.listLatestReleases");
+            } else {
+                $latest = $remote->call("package.listLatestReleases", $state);
+            }
+            if (PEAR::isError($latest)) {
+                return $latest;
+            }
+            $reg = new PEAR_Registry($this->config->get('php_dir'));
+            $installed = array_flip($reg->listPackages());
+            $params = array();
+            foreach ($latest as $package => $info) {
+                if (!isset($installed[$package])) {
+                    // skip packages we don't have installed
+                    continue;
+                }
+                $inst_version = $reg->packageInfo($package, 'version');
+                if (version_compare("$info[version]", "$inst_version", "le")) {
+                    // installed version is up-to-date
+                    continue;
+                }
+                $params[] = $package;
+                $this->ui->outputData("will upgrade $package", $command);
+            }
+        }
+        foreach ($params as $pkg) {
+            $bn = basename($pkg);
+            $info = $this->installer->install($pkg, $options, $this->config);
+            if (is_array($info)) {
+                if ($this->config->get('verbose') > 0) {
+                    $label = "$info[package] $info[version]";
+                    $out = array('data' => "$command ok: $label");
+                    if (isset($info['release_warnings'])) {
+                        $out['release_warnings'] = $info['release_warnings'];
+                    }
+                    $this->ui->outputData($out, $command);
+                }
+            } else {
+                return $this->raiseError("$command failed");
+            }
+        }
+        return true;
     }
 
     // }}}
-    // {{{ getOptions()
+    // {{{ doUninstall()
 
-    function getOptions()
+    function doUninstall($command, $options, $params)
     {
-        return array('f', 'n', 's', 'Z');
-    }
-
-    // }}}
-    // {{{ run()
-
-    function run($command, $options, $params)
-    {
-        $installer = &new PEAR_Installer($this->config);
-        $installer->setFrontend($this->ui);
-        $installer->debug = $this->config->get('verbose');
-
-        $failmsg = '';
-        $opts = array();
-        if (isset($options['f'])) {
-            $opts['force'] = true;
+        if (empty($this->installer)) {
+            $this->installer = &new PEAR_Installer($this->ui);
         }
-        if (isset($options['n'])) {
-            $opts['nodeps'] = true;
+        if (sizeof($params) < 1) {
+            return $this->raiseError("Please supply the package(s) you want to uninstall");
         }
-        if (isset($options['s'])) {
-            $opts['soft'] = true;
-        }
-        if (isset($options['Z'])) {
-            $opts['nocompress'] = true;
-        }
-        switch ($command) {
-            case 'upgrade':
-                $opts['upgrade'] = true;
-                // fall through
-            case 'install': {
-                if ($installer->install(@$params[0], $opts, $this->config)) {
-                    $this->ui->displayLine("install ok");
-                } else {
-                    $failmsg = "install failed";
+        foreach ($params as $pkg) {
+            if ($this->installer->uninstall($pkg, $options)) {
+                if ($this->config->get('verbose') > 0) {
+                    $this->ui->outputData("uninstall ok: $pkg", $command);
                 }
-                break;
+            } else {
+                return $this->raiseError("uninstall failed: $pkg");
             }
-            case 'uninstall': {
-                if ($installer->uninstall($params[0], $options)) {
-                    $this->ui->displayLine("uninstall ok");
-                } else {
-                    $failmsg = "uninstall failed";
-                }
-                break;
-            }
-            default: {
-                return false;
-            }
-        }
-        if ($failmsg) {
-            return $this->raiseError($failmsg);
         }
         return true;
     }

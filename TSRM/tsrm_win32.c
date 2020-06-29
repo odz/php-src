@@ -16,9 +16,8 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_win32.c,v 1.12 2001/12/11 15:16:20 sebastian Exp $ */
+/* $Id: tsrm_win32.c,v 1.14 2002/10/29 07:32:52 shane Exp $ */
 
-#include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <io.h>
@@ -28,7 +27,6 @@
 #include "TSRM.h"
 
 #ifdef TSRM_WIN32
-#include <windows.h>
 #include "tsrm_win32.h"
 
 #ifdef ZTS
@@ -151,6 +149,11 @@ static HANDLE dupHandle(HANDLE fh, BOOL inherit) {
 
 TSRM_API FILE *popen(const char *command, const char *type)
 {
+	return popen_ex(command, type, NULL, NULL);
+}
+
+TSRM_API FILE *popen_ex(const char *command, const char *type, const char *cwd, char *env)
+{
 	FILE *stream = NULL;
 	int fno, str_len = strlen(type), read, mode;
 	STARTUPINFO startup;
@@ -192,7 +195,7 @@ TSRM_API FILE *popen(const char *command, const char *type)
 
 	cmd = (char*)malloc(strlen(command)+strlen(TWG(comspec))+sizeof(" /c "));
 	sprintf(cmd, "%s /c %s", TWG(comspec), command);
-	if (!CreateProcess(NULL, cmd, &security, &security, security.bInheritHandle, NORMAL_PRIORITY_CLASS, NULL, NULL, &startup, &process)) {
+	if (!CreateProcess(NULL, cmd, &security, &security, security.bInheritHandle, NORMAL_PRIORITY_CLASS, env, cwd, &startup, &process)) {
 		return NULL;
 	}
 	free(cmd);

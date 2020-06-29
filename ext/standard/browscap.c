@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: browscap.c,v 1.55 2002/02/28 08:26:44 sebastian Exp $ */
+/* $Id: browscap.c,v 1.60.2.2 2002/11/18 03:24:33 sniper Exp $ */
 
 #include "php.h"
 #include "php_regex.h"
@@ -58,7 +58,7 @@ static void convert_browscap_pattern(zval *pattern)
 		return;
 	}
 
-	t = (char *) malloc(Z_STRLEN_P(pattern)*2);
+	t = (char *) malloc(Z_STRLEN_P(pattern)*2 + 1);
 	
 	for (i=0, j=0; i<Z_STRLEN_P(pattern); i++, j++) {
 		switch (Z_STRVAL_P(pattern)[i]) {
@@ -78,6 +78,11 @@ static void convert_browscap_pattern(zval *pattern)
 				break;
 		}
 	}
+	
+	if (j && (t[j-1] == '.')) {
+		t[j++] = '*';
+	}
+	
 	t[j]=0;
 	Z_STRVAL_P(pattern) = t;
 	Z_STRLEN_P(pattern) = j;
@@ -88,9 +93,13 @@ static void convert_browscap_pattern(zval *pattern)
  */
 static void php_browscap_parser_cb(zval *arg1, zval *arg2, int callback_type, void *arg)
 {
+	if (!arg1) {
+		return;
+	}
+
 	switch (callback_type) {
 		case ZEND_INI_PARSER_ENTRY:
-			if (current_section) {
+			if (current_section && arg2) {
 				zval *new_property;
 				char *new_key;
 
@@ -108,6 +117,8 @@ static void php_browscap_parser_cb(zval *arg1, zval *arg2, int callback_type, vo
 			break;
 		case ZEND_INI_PARSER_SECTION: {
 				zval *processed;
+				HashTable *section_properties;
+				TSRMLS_FETCH();
 
 				/*printf("'%s' (%d)\n",$1.value.str.val,$1.value.str.len+1);*/
 				current_section = (zval *) malloc(sizeof(zval));
@@ -115,18 +126,17 @@ static void php_browscap_parser_cb(zval *arg1, zval *arg2, int callback_type, vo
 				processed = (zval *) malloc(sizeof(zval));
 				INIT_PZVAL(processed);
 
-				/* OBJECTS_FIXME */
-				Z_OBJCE_P(current_section) = &zend_standard_class_def;
-				Z_OBJPROP_P(current_section) = (HashTable *) malloc(sizeof(HashTable));
-				Z_TYPE_P(current_section) = IS_OBJECT;
-				zend_hash_init(Z_OBJPROP_P(current_section), 0, NULL, (dtor_func_t) browscap_entry_dtor, 1);
+				section_properties = (HashTable *) malloc(sizeof(HashTable));
+				_object_and_properties_init(current_section, ZEND_STANDARD_CLASS_DEF_PTR, section_properties ZEND_FILE_LINE_CC TSRMLS_CC);
+											
+				zend_hash_init(section_properties, 0, NULL, (dtor_func_t) browscap_entry_dtor, 1);
 				zend_hash_update(&browser_hash, Z_STRVAL_P(arg1), Z_STRLEN_P(arg1)+1, (void *) &current_section, sizeof(zval *), NULL);  
 
 				Z_STRVAL_P(processed) = Z_STRVAL_P(arg1);
 				Z_STRLEN_P(processed) = Z_STRLEN_P(arg1);
 				Z_TYPE_P(processed) = IS_STRING;
 				convert_browscap_pattern(processed);
-				zend_hash_update(Z_OBJPROP_P(current_section), "browser_name_pattern", sizeof("browser_name_pattern"), (void *) &processed, sizeof(zval *), NULL);
+				zend_hash_update(section_properties, "browser_name_pattern", sizeof("browser_name_pattern"), (void *) &processed, sizeof(zval *), NULL);
 			}
 			break;
 	}
@@ -148,7 +158,7 @@ PHP_MINIT_FUNCTION(browscap)
 
 		fh.handle.fp = VCWD_FOPEN(browscap, "r");
 		if (!fh.handle.fp) {
-			php_error(E_CORE_WARNING, "Cannot open '%s' for reading", browscap);
+			php_error_docref(NULL TSRMLS_CC, E_CORE_WARNING, "Cannot open '%s' for reading", browscap);
 			return FAILURE;
 		}
 		fh.filename = browscap;
@@ -210,6 +220,7 @@ PHP_FUNCTION(get_browser)
 	char *lookup_browser_name;
 
 	if (!INI_STR("browscap")) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "browscap ini directive not set.");
 		RETURN_FALSE;
 	}
 	

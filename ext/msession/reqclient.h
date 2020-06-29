@@ -34,7 +34,7 @@ enum REQ_TYPES
 {
 	REQ_ERR,
 	REQ_OK,
-	REQ_STAT,
+	REQ_CTL,
 	REQ_SETVAL,
 	REQ_GETVAL,
 	REQ_CREATE,
@@ -55,9 +55,10 @@ enum REQ_TYPES
 	REQ_RANDSTR,
 	REQ_PLUGIN,
 	REQ_CALL,
+	REQ_SERIALIZE,
 	REQ_LAST,
-	REQ_POPEN=1024,
-	REQ_PCLOSE
+	REQ_INTERNAL_BEGIN=1023,
+	REQ_INTERNALLAST,
 };
 enum REQ_ERRORS
 {
@@ -78,6 +79,10 @@ enum REQ_ERRORS
 	REQE_NOFN,
 	REQE_UNKNOWN
 };
+
+#define REQ_POPEN               1024
+#define REQ_PCLOSE              1025
+#define REQ_PING                1026
 
 typedef struct _requestPacket
 {
@@ -103,6 +108,15 @@ typedef struct _requestBuf
 #define REQB_STATIC	1
 #define REQB_DYNAMIC	2
 
+#define REQ_STAT_EXIST	0
+#define REQ_STAT_TTL	1	
+#define REQ_STAT_AGE	2
+#define REQ_STAT_TLA	3
+#define REQ_STAT_CTIM	4
+#define REQ_STAT_TOUCH	5
+#define REQ_STAT_NOW	6
+
+
 #define STATIC_REQB( len )	\
 	char buffer [ len ]; 	\
 	REQB *preq = StaticRequestBuffer(buffer, len);
@@ -123,15 +137,17 @@ int FormatRequestStrings(REQB **ppreq, int stat, char *session, int n, char **st
 int DoSingleRequest(char *hostname, int port, REQB **preq);
 void *OpenReqConn(char *hostname, int port);
 void CloseReqConn(void *conn);
+void DeleteReqConn(void *conn);
+unsigned char ReopenReqConn(void *conn);
 int DoRequest(void *conn, REQB **preq);
-char *ReqErr(int param);
+char *ReqbErr(REQB *reqb);
 
 #define ASSERT_STAT(PREQ) if(PREQ->stat != REQ_OK) \
 	{fprintf(stderr, "Error in Request %s %d %s\n", \
 		__FILE__,__LINE__, ReqErr(PREQ->param)); exit(-1); }
 
 #if defined (__cplusplus)
-	// C API but with class definitions
+	/* C API but with class definitions */
 	int ReadRequestTimeout(REQB **ppreq, MSock *sock, int timeout);
 	int ReadRequest(REQB **preq, MSock *sock);
 	int WriteRequest(REQB *preq, MSock *sock);

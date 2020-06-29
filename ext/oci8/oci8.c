@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: oci8.c,v 1.169.2.3 2002/04/14 18:28:32 thies Exp $ */
+/* $Id: oci8.c,v 1.183 2002/11/10 05:31:12 maxim Exp $ */
 
 /* TODO list:
  *
@@ -123,10 +123,6 @@ static zend_class_entry *oci_coll_class_entry_ptr;
 		OCI(in_call)=0; \
 	} \
 }
-
-#ifndef PHP_WIN32
-#include "build-defs.h"
-#endif
 
 #include <fcntl.h>
 
@@ -631,7 +627,7 @@ PHP_MINFO_FUNCTION(oci)
 
 	php_info_print_table_start();
 	php_info_print_table_row(2, "OCI8 Support", "enabled");
-	php_info_print_table_row(2, "Revision", "$Revision: 1.169.2.3 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.183 $");
 #ifndef PHP_WIN32
 	php_info_print_table_row(2, "Oracle Version", PHP_OCI8_VERSION );
 	php_info_print_table_row(2, "Compile-time ORACLE_HOME", PHP_OCI8_DIR );
@@ -1244,7 +1240,7 @@ _oci_make_zval(zval *value,oci_statement *statement,oci_out_column *column, char
 			oci_debug("_oci_make_zval: %16s,retlen = %4d,retlen4 = %d,storage_size4 = %4d,indicator %4d, retcode = %4d",
 					  column->name,column->retlen,column->retlen4,column->storage_size4,column->indicator,column->retcode);
 	
-	if (column->indicator == -1) { /* column is NULL */
+	if ((! statement->has_data) || (column->indicator == -1)) { /* column is NULL or statment has no current data */
 		ZVAL_NULL(value); 
 		return 0;
 	}
@@ -1392,7 +1388,9 @@ static oci_statement *oci_parse(oci_connection *connection, char *query, int len
 	if (query) {
 		statement->last_query = estrdup(query);
 	}
+
 	statement->conn = connection;
+	statement->has_data = 0;
 
 	statement->id = zend_list_insert(statement,le_stmt);
 
@@ -1668,7 +1666,14 @@ oci_execute(oci_statement *statement, char *func,ub4 mode)
 				case SQLT_BIN:
 				default:
 					define_type = SQLT_CHR;
-					if ((outcol->data_type == SQLT_DAT) || (outcol->data_type == SQLT_NUM)) {
+					if ((outcol->data_type == SQLT_DAT) || (outcol->data_type == SQLT_NUM)
+#ifdef SQLT_TIMESTAMP
+						|| (outcol->data_type == SQLT_TIMESTAMP)
+#endif
+#ifdef SQLT_TIMESTAMP_TZ
+						|| (outcol->data_type == SQLT_TIMESTAMP_TZ)
+#endif
+					   ) {
 						outcol->storage_size4 = 512; /* XXX this should fit "most" NLS date-formats and Numbers */
 					} else {
 						outcol->storage_size4++; /* add one for string terminator */
@@ -1758,7 +1763,7 @@ oci_fetch(oci_statement *statement, ub4 nrows, char *func TSRMLS_DC)
 
 	if ((statement->error == OCI_NO_DATA) || (nrows == 0)) {
 		if (statement->last_query == 0) {
-			/* reset define-list for refcursosrs */
+			/* reset define-list for refcursors */
 			if (statement->columns) {
 				zend_hash_destroy(statement->columns);
 				efree(statement->columns);
@@ -1769,6 +1774,7 @@ oci_fetch(oci_statement *statement, ub4 nrows, char *func TSRMLS_DC)
 		}
 
 		statement->error = 0; /* OCI_NO_DATA is NO error for us!!! */
+		statement->has_data = 0;
 
 		return 0;
 	}
@@ -1813,6 +1819,8 @@ oci_fetch(oci_statement *statement, ub4 nrows, char *func TSRMLS_DC)
 	}
 
 	if (statement->error == OCI_SUCCESS_WITH_INFO || statement->error == OCI_SUCCESS) {
+		statement->has_data = 1;
+
 		/* do the stuff needed for OCIDefineByName */
 		for (i = 0; i < statement->ncolumns; i++) {
 			column = oci_get_col(statement, i + 1, 0);
@@ -1833,6 +1841,8 @@ oci_fetch(oci_statement *statement, ub4 nrows, char *func TSRMLS_DC)
 
 	oci_error(statement->pError, func, statement->error);
 	oci_handle_error(statement->conn, statement->error);
+
+	statement->has_data = 0;
 
 	return 0;
 }
@@ -2692,7 +2702,7 @@ static void oci_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent,int exclu
 
 /************************* EXTENSION FUNCTIONS *************************/
 
-/* {{{ proto int ocidefinebyname(int stmt, string name, mixed &var [, int type])
+/* {{{ proto bool ocidefinebyname(int stmt, string name, mixed &var [, int type])
    Define a PHP variable to an Oracle column by name */
 /* if you want to define a LOB/CLOB etc make sure you allocate it via OCINewDescriptor BEFORE defining!!!
  */
@@ -2751,7 +2761,7 @@ PHP_FUNCTION(ocidefinebyname)
 
 /* }}} */
 
-/* {{{ proto int ocibindbyname(int stmt, string name, mixed &var, int maxlength [, int type])
+/* {{{ proto bool ocibindbyname(int stmt, string name, mixed &var, [, int maxlength] [, int type])
    Bind a PHP variable to an Oracle placeholder by name */
 /* if you want to bind a LOB/CLOB etc make sure you allocate it via OCINewDescriptor BEFORE binding!!!
  */
@@ -2929,7 +2939,7 @@ PHP_FUNCTION(ocibindbyname)
 
 /* }}} */
 
-/* {{{ proto string ocifreedesc(object lob)
+/* {{{ proto bool ocifreedesc(object lob)
    Deletes large object description */
 
 PHP_FUNCTION(ocifreedesc)
@@ -2953,7 +2963,7 @@ PHP_FUNCTION(ocifreedesc)
 }
 /* }}} */
 
-/* {{{ proto string ocisavelob(object lob)
+/* {{{ proto bool ocisavelob(object lob)
    Saves a large object */
 
 PHP_FUNCTION(ocisavelob)
@@ -3044,7 +3054,7 @@ PHP_FUNCTION(ocisavelob)
 
 /* }}} */
 
-/* {{{ proto string ocisavelobfile(object lob)
+/* {{{ proto bool ocisavelobfile(object lob)
    Saves a large object file */
 
 PHP_FUNCTION(ocisavelobfile)
@@ -3150,7 +3160,7 @@ PHP_FUNCTION(ociloadlob)
 }
 /* }}} */
 
-/* {{{ proto void ociwritelobtofile(object lob [, string filename] [, int start] [, int length])
+/* {{{ proto bool ociwritelobtofile(object lob [, string filename] [, int start] [, int length])
    Writes a large object into a file */
 
 PHP_FUNCTION(ociwritelobtofile)
@@ -3336,7 +3346,7 @@ PHP_FUNCTION(ociwritelobtofile)
 /* }}} */
 
 #ifdef HAVE_OCI8_TEMP_LOB
-/* {{{ proto int ociwritetemporarylob(int stmt, int loc, string var)
+/* {{{ proto bool ociwritetemporarylob(int stmt, int loc, string var)
    Return the row count of an OCI statement */
 
 PHP_FUNCTION(ociwritetemporarylob)
@@ -3433,7 +3443,7 @@ PHP_FUNCTION(ociwritetemporarylob)
 
 /* }}} */
 
-/* {{{ proto string ocicloselob(object lob)
+/* {{{ proto bool ocicloselob(object lob)
    Closes lob descriptor */
 
 PHP_FUNCTION(ocicloselob)
@@ -3530,7 +3540,7 @@ PHP_FUNCTION(ocinewdescriptor)
 
 /* }}} */
 
-/* {{{ proto string ocirollback(int conn)
+/* {{{ proto bool ocirollback(int conn)
    Rollback the current context */
 
 PHP_FUNCTION(ocirollback)
@@ -3566,7 +3576,7 @@ PHP_FUNCTION(ocirollback)
 
 /* }}} */
 
-/* {{{ proto string ocicommit(int conn)
+/* {{{ proto bool ocicommit(int conn)
    Commit the current context */
 
 PHP_FUNCTION(ocicommit)
@@ -3728,6 +3738,16 @@ PHP_FUNCTION(ocicolumntype)
 		RETURN_FALSE;
 	}
 	switch (outcol->data_type) {
+#ifdef SQLT_TIMESTAMP
+		case SQLT_TIMESTAMP:
+			RETVAL_STRING("TIMESTAMP",1);
+			break;
+#endif
+#ifdef SQLT_TIMESTAMP_TZ
+		case SQLT_TIMESTAMP_TZ:
+			RETVAL_STRING("TIMESTAMP_TZ",1);
+			break;
+#endif
 		case SQLT_DAT:
 			RETVAL_STRING("DATE",1);
 			break;
@@ -3795,7 +3815,7 @@ PHP_FUNCTION(ocicolumntyperaw)
 
 /* }}} */
 
-/* {{{ proto int ocicolumnisnull(int stmt, int col)
+/* {{{ proto bool ocicolumnisnull(int stmt, int col)
    Tell whether a column is NULL */
 
 PHP_FUNCTION(ocicolumnisnull)
@@ -3842,7 +3862,7 @@ PHP_FUNCTION(ociinternaldebug)
 
 /* }}} */
 
-/* {{{ proto int ociexecute(int stmt [, int mode])
+/* {{{ proto bool ociexecute(int stmt [, int mode])
    Execute a parsed statement */
 
 PHP_FUNCTION(ociexecute)
@@ -3871,7 +3891,7 @@ PHP_FUNCTION(ociexecute)
 
 /* }}} */
 
-/* {{{ proto int ocicancel(int stmt)
+/* {{{ proto bool ocicancel(int stmt)
    Prepare a new row of data for reading */
 
 PHP_FUNCTION(ocicancel)
@@ -3894,7 +3914,7 @@ PHP_FUNCTION(ocicancel)
 
 /* }}} */
 
-/* {{{ proto int ocifetch(int stmt)
+/* {{{ proto bool ocifetch(int stmt)
    Prepare a new row of data for reading */
 
 PHP_FUNCTION(ocifetch)
@@ -4119,7 +4139,7 @@ PHP_FUNCTION(ocifetchstatement)
 
 /* }}} */
 
-/* {{{ proto int ocifreestatement(int stmt)
+/* {{{ proto bool ocifreestatement(int stmt)
    Free all resources associated with a statement */
 
 PHP_FUNCTION(ocifreestatement)
@@ -4140,7 +4160,7 @@ PHP_FUNCTION(ocifreestatement)
 
 /* }}} */
 
-/* {{{ proto int ocilogoff(int conn)
+/* {{{ proto bool ocilogoff(int conn)
    Disconnect from database */
 
 PHP_FUNCTION(ocilogoff)
@@ -4227,16 +4247,39 @@ PHP_FUNCTION(ocierror)
 	zval **arg;
 	oci_statement *statement;
 	oci_connection *connection;
-    text errbuf[512];
-    sb4 errcode = 0;
+	text errbuf[512];
+	sb4 errcode = 0;
 	sword error = 0;
 	dvoid *errh = NULL;
+#ifdef HAVE_OCI8_ATTR_STATEMENT
+	ub2 errorofs = 0;
+	text *sqltext = NULL;
+#endif
 
 	if (zend_get_parameters_ex(1, &arg) == SUCCESS) {
 		statement = (oci_statement *) zend_fetch_resource(arg TSRMLS_CC, -1, NULL, NULL, 1, le_stmt);
 		if (statement) {
 			errh = statement->pError;
 			error = statement->error;
+
+#ifdef HAVE_OCI8_ATTR_STATEMENT
+			CALL_OCI_RETURN(statement->error, OCIAttrGet(
+				(dvoid *)statement->pStmt,
+				OCI_HTYPE_STMT,
+				(text *) &sqltext,
+				(ub4 *)0,
+				OCI_ATTR_STATEMENT,
+				statement->pError));
+
+			CALL_OCI_RETURN(statement->error, OCIAttrGet(
+				(dvoid *)statement->pStmt,
+				OCI_HTYPE_STMT,
+				(ub2 *)&errorofs,
+				(ub4 *)0,
+				OCI_ATTR_PARSE_ERROR_OFFSET,
+				statement->pError));
+#endif
+
 		} else {
 			connection = (oci_connection *) zend_fetch_resource(arg TSRMLS_CC, -1, NULL, NULL, 1, le_conn);
 			if (connection) {
@@ -4271,6 +4314,10 @@ PHP_FUNCTION(ocierror)
 		array_init(return_value);
 		add_assoc_long(return_value, "code", errcode);
 		add_assoc_string(return_value, "message", (char*) errbuf, 1);
+#ifdef HAVE_OCI8_ATTR_STATEMENT
+		add_assoc_long(return_value, "offset", errorofs);
+		add_assoc_string(return_value, "sqltext", sqltext ? (char *) sqltext : "", 1);
+#endif
 	} else {
 		RETURN_FALSE;
 	}
@@ -4429,7 +4476,7 @@ PHP_FUNCTION(ociserverversion)
 
 /* }}} */
 
-/* {{{ proto int ocistatementtype(int stmt)
+/* {{{ proto string ocistatementtype(int stmt)
    Return the query type of an OCI statement */
  
 /* XXX it would be better with a general interface to OCIAttrGet() */
@@ -4546,7 +4593,7 @@ static oci_collection *oci_get_coll(int ind TSRMLS_DC)
 }
 /* }}} */
 
-/* {{{ proto string ocifreecollection(object lob)
+/* {{{ proto bool ocifreecollection(object lob)
    Deletes collection object*/
 
 PHP_FUNCTION(ocifreecollection)
@@ -4586,7 +4633,7 @@ PHP_FUNCTION(ocifreecollection)
 }
 /* }}} */
 
-/* {{{ proto string ocicollappend(object collection,value)
+/* {{{ proto bool ocicollappend(object collection,value)
    Append an object to the collection */
 
 PHP_FUNCTION(ocicollappend)
@@ -4838,7 +4885,7 @@ PHP_FUNCTION(ocicollgetelem)
 }
 /* }}} */
 
-/* {{{ proto string ocicollassign(object collection,object)
+/* {{{ proto bool ocicollassign(object collection,object)
    Assign a collection from another existing collection */
 
 PHP_FUNCTION(ocicollassign)
@@ -4880,7 +4927,7 @@ PHP_FUNCTION(ocicollassign)
 }
 /* }}} */
 
-/* {{{ proto string ocicollassignelem(object collection,ndx,val)
+/* {{{ proto bool ocicollassignelem(object collection,ndx,val)
    Assign element val to collection at index ndx */
 
 PHP_FUNCTION(ocicollassignelem)
@@ -5043,7 +5090,7 @@ PHP_FUNCTION(ocicollassignelem)
 }
 /* }}} */
 
-/* {{{ proto string ocicollsize(object collection)
+/* {{{ proto int ocicollsize(object collection)
    Return the size of a collection */
 
 PHP_FUNCTION(ocicollsize)
@@ -5070,15 +5117,15 @@ PHP_FUNCTION(ocicollsize)
 			oci_error(connection->pError, "OCICollSize", connection->error);
 			RETURN_FALSE;
 		}
+
 		RETURN_LONG(sz);
 	}
 	RETURN_FALSE;
 }
 /* }}} */
 
-/* {{{ proto string ocicollmax(object collection)
-   Return the max value of a collection.  For a 
-   varray this is the maximum length of the array */
+/* {{{ proto int ocicollmax(object collection)
+   Return the max value of a collection.  For a varray this is the maximum length of the array */
 
 PHP_FUNCTION(ocicollmax)
 {
@@ -5099,7 +5146,7 @@ PHP_FUNCTION(ocicollmax)
 }
 /* }}} */
 
-/* {{{ proto string ocicolltrim(object collection,num)
+/* {{{ proto bool ocicolltrim(object collection,num)
    Trim num elements from the end of a collection */
 
 PHP_FUNCTION(ocicolltrim)
@@ -5133,7 +5180,7 @@ PHP_FUNCTION(ocicolltrim)
 }
 /* }}} */
 
-/* {{{ proto string ocinewcollection(int connection, string tdo,[string schema])
+/* {{{ proto bool ocinewcollection(int connection, string tdo,[string schema])
    Initialize a new collection */
 
 PHP_FUNCTION(ocinewcollection)

@@ -1,8 +1,21 @@
 /*
- * basic mcve php module
- *
- * $Id: php_mcve.h,v 1.2 2002/03/02 16:48:51 hholzgra Exp $
- */
+   +----------------------------------------------------------------------+
+   | PHP version 4.0                                                      |
+   +----------------------------------------------------------------------+
+   | Copyright (c) 1997-2002 The PHP Group                                |
+   +----------------------------------------------------------------------+
+   | This source file is subject to version 2.02 of the PHP license,      |
+   | that is bundled with this package in the file LICENSE, and is        |
+   | available at through the world-wide-web at                           |
+   | http://www.php.net/license/2_02.txt.                                 |
+   | If you did not receive a copy of the PHP license and are unable to   |
+   | obtain it through the world-wide-web, please send a note to          |
+   | license@php.net so we can mail you a copy immediately.               |
+   +----------------------------------------------------------------------+
+   | Authors: Brad House <brad@mainstreetsoftworks.com>                   |
+   |          Chris Faulhaber <jedgar@fxp.org>                            |
+   +----------------------------------------------------------------------+
+*/
 
 #ifndef _PHP_MCVE_H
 #define _PHP_MCVE_H
@@ -12,13 +25,7 @@ extern zend_module_entry php_mcve_module_entry;
 #define mcve_module_ptr &php_mcve_module_entry
 #define phpext_mcve_ptr mcve_module_ptr
 
-//#if COMPILE_DL
-//  DLEXPORT zend_module_entry *get_module(void) { return
-//&php_mcve_module_entry; }
-//#endif
-
-
-#define PHP_MCVE_VERSION	"1.0"
+#define PHP_MCVE_VERSION	"3.0"
 
 #define MCVE_CONST (CONST_CS | CONST_PERSISTENT)
 
@@ -32,8 +39,19 @@ PHP_FUNCTION(mcve_destroyconn);
 PHP_FUNCTION(mcve_setdropfile);
 PHP_FUNCTION(mcve_setip);
 PHP_FUNCTION(mcve_setssl);
+PHP_FUNCTION(mcve_setblocking);
 PHP_FUNCTION(mcve_settimeout);
+PHP_FUNCTION(mcve_verifyconnection);
+PHP_FUNCTION(mcve_verifysslcert);
+PHP_FUNCTION(mcve_maxconntimeout);
+PHP_FUNCTION(mcve_connectionerror);
+PHP_FUNCTION(mcve_deletetrans);
 PHP_FUNCTION(mcve_connect);
+PHP_FUNCTION(mcve_transnew);
+PHP_FUNCTION(mcve_transparam);
+PHP_FUNCTION(mcve_transsend);
+PHP_FUNCTION(mcve_ping);
+PHP_FUNCTION(mcve_responseparam);
 PHP_FUNCTION(mcve_returnstatus);
 PHP_FUNCTION(mcve_returncode);
 PHP_FUNCTION(mcve_transactionssent);
@@ -44,6 +62,7 @@ PHP_FUNCTION(mcve_transactionauth);
 PHP_FUNCTION(mcve_transactionavs);
 PHP_FUNCTION(mcve_transactioncv);
 PHP_FUNCTION(mcve_transactiontext);
+PHP_FUNCTION(mcve_getuserparam);
 PHP_FUNCTION(mcve_monitor);
 PHP_FUNCTION(mcve_transinqueue);
 PHP_FUNCTION(mcve_checkstatus);
@@ -72,7 +91,10 @@ PHP_FUNCTION(mcve_ub);
 PHP_FUNCTION(mcve_gl);
 PHP_FUNCTION(mcve_chkpwd);
 PHP_FUNCTION(mcve_bt);
-
+PHP_FUNCTION(mcve_uwait);
+PHP_FUNCTION(mcve_text_code);
+PHP_FUNCTION(mcve_text_avs);
+PHP_FUNCTION(mcve_text_cv);
 PHP_FUNCTION(mcve_chngpwd);
 PHP_FUNCTION(mcve_listusers);
 PHP_FUNCTION(mcve_adduser);

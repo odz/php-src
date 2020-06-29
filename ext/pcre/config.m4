@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.26.2.1 2002/07/23 13:03:03 edink Exp $
+dnl $Id: config.m4,v 1.29 2002/10/15 13:59:55 andrei Exp $
 dnl
 
 dnl By default we'll compile and link against the bundled PCRE library
@@ -12,21 +12,15 @@ PHP_ARG_WITH(pcre-regex,for PCRE support,
                           if not using bundled library.],yes)
 
 if test "$PHP_PCRE_REGEX" != "no"; then
-  PHP_EXTENSION(pcre, $ext_shared)
   if test "$PHP_PCRE_REGEX" = "yes"; then
-    PCRE_LIBADD=pcrelib/libpcre.la
-    PCRE_SHARED_LIBADD=pcrelib/libpcre.la
-    PCRE_SUBDIRS=pcrelib
-    PHP_SUBST(PCRE_LIBADD)
-    PHP_SUBST(PCRE_SUBDIRS)
+    PHP_NEW_EXTENSION(pcre, pcrelib/maketables.c pcrelib/get.c pcrelib/study.c pcrelib/pcre.c php_pcre.c, $ext_shared,,-DSUPPORT_UTF8 -DLINK_SIZE=2 -I@ext_srcdir@/pcrelib)
+    PHP_ADD_BUILD_DIR($ext_builddir/pcrelib)
     AC_DEFINE(HAVE_BUNDLED_PCRE, 1, [ ])
-    PHP_FAST_OUTPUT($ext_builddir/pcrelib/Makefile)
-    LIB_BUILD($ext_builddir/pcrelib,$ext_shared,yes)
   else
     test -f $PHP_PCRE_REGEX/pcre.h && PCRE_INCDIR=$PHP_PCRE_REGEX
     test -f $PHP_PCRE_REGEX/include/pcre.h && PCRE_INCDIR=$PHP_PCRE_REGEX/include
     test -f $PHP_PCRE_REGEX/include/pcre/pcre.h && PCRE_INCDIR=$PHP_PCRE_REGEX/include/pcre
-    
+
     if test -z "$PCRE_INCDIR"; then
       AC_MSG_RESULT(Could not find pcre.h in $PHP_PCRE_REGEX)
     fi
@@ -53,8 +47,9 @@ if test "$PHP_PCRE_REGEX" != "no"; then
 
     PHP_ADD_LIBRARY_WITH_PATH(pcre, $PCRE_LIBDIR, PCRE_SHARED_LIBADD)
     
-    PHP_ADD_INCLUDE($PCRE_INCDIR)
     AC_DEFINE(HAVE_PCRE, 1, [ ])
+    PHP_ADD_INCLUDE($PCRE_INCDIR)
+    PHP_NEW_EXTENSION(pcre, php_pcre.c, $ext_shared,,-DSUPPORT_UTF8 -DLINK_SIZE=2)
   fi
 fi
 PHP_SUBST(PCRE_SHARED_LIBADD)

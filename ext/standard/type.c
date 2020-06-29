@@ -16,9 +16,10 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: type.c,v 1.15 2002/02/28 08:26:49 sebastian Exp $ */
+/* $Id: type.c,v 1.20 2002/08/24 01:19:28 helly Exp $ */
 
 #include "php.h"
+#include "php_incomplete_class.h"
 
 /* {{{ proto string gettype(mixed var)
    Returns the type of the variable */
@@ -115,10 +116,10 @@ PHP_FUNCTION(settype)
 	} else if (!strcasecmp(new_type, "null")) {
 		convert_to_null(*var);
 	} else if (!strcasecmp(new_type, "resource")) {
-		php_error(E_WARNING, "settype: cannot convert to resource type");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Cannot convert to resource type");
 		RETURN_FALSE;
 	} else {
-		php_error(E_WARNING, "settype: invalid type");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid type");
 		RETURN_FALSE;
 	}
 	RETVAL_TRUE;
@@ -195,10 +196,18 @@ static void php_is_type(INTERNAL_FUNCTION_PARAMETERS, int type)
 	pval **arg;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Only one argument expected");
 		RETURN_FALSE;
 	}
 
 	if (Z_TYPE_PP(arg) == type) {
+		if (type == IS_OBJECT) {
+			zend_class_entry *ce;
+			ce = Z_OBJCE_PP(arg);
+			if (!strcmp(ce->name, INCOMPLETE_CLASS)) {
+				RETURN_FALSE;
+			}
+		}
 		RETURN_TRUE;
 	} else {
 		RETURN_FALSE;

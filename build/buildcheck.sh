@@ -16,10 +16,12 @@
 #  |          Sascha Schumann <sascha@schumann.cx>                        |
 #  +----------------------------------------------------------------------+
 #
-# $Id: buildcheck.sh,v 1.16 2002/03/04 08:28:57 sas Exp $ 
+# $Id: buildcheck.sh,v 1.21 2002/10/30 11:42:22 sas Exp $ 
 #
 
 echo "buildconf: checking installation..."
+
+stamp=$1
 
 # autoconf 2.13 or newer
 ac_version=`autoconf --version 2>/dev/null|head -1|sed -e 's/^[^0-9]*//' -e 's/[a-z]* *$//'`
@@ -37,6 +39,15 @@ echo "           to build PHP from CVS."
 exit 1
 else
 echo "buildconf: autoconf version $ac_version (ok)"
+fi
+
+
+if test "$1" = "2" && test "$2" -ge "50"; then
+  echo "buildconf: Your version of autoconf likely contains buggy cache code."
+  echo "           Running cvsclean for you."
+  echo "           To avoid this, install autoconf-2.13 and automake-1.5."
+  ./cvsclean
+  stamp=
 fi
 
 
@@ -60,8 +71,9 @@ echo "buildconf: automake version $am_version (ok)"
 fi
 
 # libtool 1.4 or newer
-libtool=`which libtool`
-if test ! -f "$libtool"; then libtool=`which glibtool`; fi
+# Prefer glibtool over libtool for Mac OS X compatibility
+libtool=`which glibtool 2> /dev/null`
+if test ! -f "$libtool"; then libtool=`which libtool`; fi
 lt_pversion=`$libtool --version 2>/dev/null|sed -n -e 's/^[^0-9]*//' -e 1's/[- ].*//p'`
 if test "$lt_pversion" = ""; then
 echo "buildconf: libtool not found."
@@ -89,5 +101,7 @@ if test "$am_prefix" != "$lt_prefix"; then
     echo "         directories.  This may cause aclocal to fail."
     echo "         continuing anyway"
 fi
+
+test -n "$stamp" && touch $stamp
 
 exit 0

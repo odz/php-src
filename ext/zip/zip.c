@@ -16,7 +16,11 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: zip.c,v 1.29.2.2 2002/04/14 08:50:22 derick Exp $ */
+/* $Id: zip.c,v 1.33 2002/10/17 04:42:22 sniper Exp $ */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif 
 
 #include "php.h"
 #include "php_ini.h"
@@ -56,7 +60,7 @@ function_entry zip_functions[] = {
 /* {{{ zip_module_entry
  */
 zend_module_entry zip_module_entry = {
-    STANDARD_MODULE_HEADER,
+	STANDARD_MODULE_HEADER,
 	"zip",
 	zip_functions,
 	PHP_MINIT(zip),
@@ -64,7 +68,7 @@ zend_module_entry zip_module_entry = {
 	NULL,
 	NULL,
 	PHP_MINFO(zip),
-    NO_VERSION_YET,
+	NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 /* }}} */
@@ -128,9 +132,18 @@ PHP_FUNCTION(zip_open)
 		return;
 	}
 
+	if (PG(safe_mode) && (!php_checkuid(filename, NULL, CHECKUID_ALLOW_FILE_NOT_EXISTS))) {
+		RETURN_FALSE;
+	}
+
+	if (php_check_open_basedir(filename TSRMLS_CC)) {
+		RETURN_FALSE;
+	}
+
 	archive_p = zzip_opendir(filename);
 	if (archive_p == NULL) {
-		php_error(E_WARNING, "Cannot open zip archive %s", filename);
+		php_error(E_WARNING, "%s() Cannot open zip archive %s", 
+				  get_active_function_name(TSRMLS_C), filename);
 		RETURN_FALSE;
 	}
 

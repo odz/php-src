@@ -16,15 +16,17 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_domxml.h,v 1.42.2.1 2002/05/03 15:16:15 chregu Exp $ */
+/* $Id: php_domxml.h,v 1.72 2002/08/23 15:26:19 chregu Exp $ */
 
 #ifndef PHP_DOMXML_H
 #define PHP_DOMXML_H
 
 #if HAVE_DOMXML
 #include <libxml/parser.h>
+#include <libxml/parserInternals.h>
 #include <libxml/tree.h>
 #include <libxml/xmlerror.h>
+#include <libxml/xinclude.h>
 #if defined(LIBXML_HTML_ENABLED)
 #include <libxml/HTMLparser.h>
 #include <libxml/HTMLtree.h>
@@ -47,8 +49,27 @@
 #endif
 #endif
 
+/* DOMXML API_VERSION, please bump it up, if you change anything in the API
+    therefore it's easier for the script-programmers to check, what's working how
+   Can be checked with phpversion("domxml");
+*/
+#define DOMXML_API_VERSION "20020814"
+
 extern zend_module_entry domxml_module_entry;
 #define domxml_module_ptr &domxml_module_entry
+
+#ifdef PHP_WIN32
+#ifdef PHPAPI
+#undef PHPAPI
+#endif
+#ifdef DOMXML_EXPORTS
+#define PHPAPI __declspec(dllexport)
+#else
+#define PHPAPI __declspec(dllimport)
+#endif /* DOMXML_EXPORTS */
+#endif /* PHP_WIN32 */
+
+PHPAPI zval *php_domobject_new(xmlNodePtr obj, int *found, zval* in TSRMLS_DC);
 
 /* directory functions */
 PHP_MINIT_FUNCTION(domxml);
@@ -68,8 +89,8 @@ PHP_FUNCTION(domxml_substitute_entities_default);
 /* Class Document methods */
 PHP_FUNCTION(domxml_doc_doctype);
 PHP_FUNCTION(domxml_doc_implementation);
-PHP_FUNCTION(domxml_doc_document_element);
 PHP_FUNCTION(domxml_doc_create_element);
+PHP_FUNCTION(domxml_doc_create_element_ns);
 PHP_FUNCTION(domxml_doc_create_text_node);
 PHP_FUNCTION(domxml_doc_create_comment);
 PHP_FUNCTION(domxml_doc_create_processing_instruction);
@@ -77,13 +98,16 @@ PHP_FUNCTION(domxml_doc_create_attribute);
 PHP_FUNCTION(domxml_doc_create_cdata_section);
 PHP_FUNCTION(domxml_doc_create_entity_reference);
 PHP_FUNCTION(domxml_doc_imported_node);
-PHP_FUNCTION(domxml_add_root);
+PHP_FUNCTION(domxml_doc_add_root);
+PHP_FUNCTION(domxml_doc_document_element);
+PHP_FUNCTION(domxml_doc_set_root);
 PHP_FUNCTION(domxml_intdtd);
 PHP_FUNCTION(domxml_doc_ids);
 PHP_FUNCTION(domxml_dump_mem);
 PHP_FUNCTION(domxml_dump_mem_file);
 PHP_FUNCTION(domxml_dump_node);
-
+PHP_FUNCTION(domxml_doc_validate);
+PHP_FUNCTION(domxml_doc_xinclude);
 #if defined(LIBXML_HTML_ENABLED)
 PHP_FUNCTION(domxml_html_dump_mem);
 #endif
@@ -117,6 +141,9 @@ PHP_FUNCTION(domxml_node_has_attributes);
 PHP_FUNCTION(domxml_node_has_child_nodes);
 PHP_FUNCTION(domxml_node_parent);
 PHP_FUNCTION(domxml_node_prefix);
+PHP_FUNCTION(domxml_node_namespace_uri);
+PHP_FUNCTION(domxml_node_add_namespace);
+PHP_FUNCTION(domxml_node_set_namespace);
 PHP_FUNCTION(domxml_node);
 PHP_FUNCTION(domxml_clone_node);
 PHP_FUNCTION(domxml_node_unlink_node);
@@ -137,13 +164,14 @@ PHP_FUNCTION(domxml_attr_value);
 PHP_FUNCTION(domxml_attr_specified);
 
 /* Class Element methods */
-PHP_FUNCTION(domxml_element);
 PHP_FUNCTION(domxml_elem_tagname);
 PHP_FUNCTION(domxml_elem_get_attribute);
 PHP_FUNCTION(domxml_elem_set_attribute);
 PHP_FUNCTION(domxml_elem_remove_attribute);
 PHP_FUNCTION(domxml_elem_get_attribute_node);
+/* since this function is not really implemented, outcomment it for the time beeing
 PHP_FUNCTION(domxml_elem_set_attribute_node);
+*/
 PHP_FUNCTION(domxml_elem_get_elements_by_tagname);
 PHP_FUNCTION(domxml_elem_has_attribute);
 /* Class CData methods */
@@ -167,6 +195,17 @@ PHP_FUNCTION(domxml_parser);
 PHP_FUNCTION(domxml_parser_add_chunk);
 PHP_FUNCTION(domxml_parser_end);
 PHP_FUNCTION(domxml_parser_set_keep_blanks);
+PHP_FUNCTION(domxml_parser_start_element);
+PHP_FUNCTION(domxml_parser_end_element);
+PHP_FUNCTION(domxml_parser_characters);
+PHP_FUNCTION(domxml_parser_entity_reference);
+PHP_FUNCTION(domxml_parser_comment);
+PHP_FUNCTION(domxml_parser_cdata_section);
+PHP_FUNCTION(domxml_parser_namespace_decl);
+PHP_FUNCTION(domxml_parser_processing_instruction);
+PHP_FUNCTION(domxml_parser_start_document);
+PHP_FUNCTION(domxml_parser_end_document);
+PHP_FUNCTION(domxml_parser_get_document);
 
 /* Class XPathContext methods */
 #if defined(LIBXML_XPATH_ENABLED)
@@ -190,11 +229,18 @@ PHP_FUNCTION(domxml_xslt_stylesheet);
 PHP_FUNCTION(domxml_xslt_stylesheet_doc);
 PHP_FUNCTION(domxml_xslt_stylesheet_file);
 PHP_FUNCTION(domxml_xslt_process);
+PHP_FUNCTION(domxml_xslt_result_dump_mem);
+PHP_FUNCTION(domxml_xslt_result_dump_file);
 PHP_FUNCTION(domxml_xslt_version);
 #endif
-
+typedef struct {
+   zval *errors;
+   xmlValidCtxtPtr valid;
+   xmlParserCtxtPtr parser;
+} domxml_ErrorCtxt;
 #else
 #define domxml_module_ptr NULL
+
 #endif /* HAVE_DOMXML */
 #define phpext_domxml_ptr domxml_module_ptr
 

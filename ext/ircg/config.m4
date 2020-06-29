@@ -1,14 +1,20 @@
 dnl
-dnl $Id: config.m4,v 1.9 2002/01/24 12:55:08 sas Exp $
+dnl $Id: config.m4,v 1.14 2002/03/18 15:00:57 sas Exp $
 dnl
 
 PHP_ARG_WITH(ircg, for IRCG support,
 [  --with-ircg             Include IRCG support])
 
 AC_ARG_WITH(ircg-config,
-[  --with-ircg-config        IRCG: Path to the ircg-config script],
+[  --with-ircg-config=PATH   IRCG: Path to the ircg-config script],
 [ IRCG_CONFIG=$withval ],
-[ IRCG_CONFIG=ircg-config ])
+[
+if test "$with_ircg" != "yes" && test "$with_ircg" != "no"; then
+  IRCG_CONFIG=$with_ircg/bin/ircg-config
+else
+  IRCG_CONFIG=ircg-config
+fi
+])
 
 if test "$PHP_IRCG" != "no"; then
   $IRCG_CONFIG --ldflags
@@ -25,5 +31,6 @@ if test "$PHP_IRCG" != "no"; then
     PHP_DISABLE_CLI
   fi
   AC_DEFINE(HAVE_IRCG, 1, [Whether you want IRCG support])
-  PHP_EXTENSION(ircg, $ext_shared)
+  PHP_NEW_EXTENSION(ircg, ircg.c ircg_scanner.c, $ext_shared)
+  PHP_ADD_MAKEFILE_FRAGMENT
 fi

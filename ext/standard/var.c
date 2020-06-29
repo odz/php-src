@@ -59,7 +59,8 @@ static int php_array_element_dump(zval **zv, int num_args, va_list args, zend_ha
 
 void php_var_dump(zval **struc, int level TSRMLS_DC)
 {
-	HashTable *myht;
+	HashTable *myht = NULL;
+	zend_object *object = NULL;
 
 	if (level > 1) {
 		php_printf("%*c", level - 1, ' ');
@@ -85,10 +86,19 @@ void php_var_dump(zval **struc, int level TSRMLS_DC)
 		break;
 	case IS_ARRAY:
 		myht = Z_ARRVAL_PP(struc);
+		if (myht->nApplyCount > 1) {
+			PUTS("*RECURSION*\n");
+			return;
+		}
 		php_printf("%sarray(%d) {\n", COMMON, zend_hash_num_elements(myht));
 		goto head_done;
 	case IS_OBJECT:
+		object = Z_OBJ_PP(struc);
 		myht = Z_OBJPROP_PP(struc);
+		if (myht->nApplyCount > 1) {
+			PUTS("*RECURSION*\n");
+			return;
+		}
 		php_printf("%sobject(%s)(%d) {\n", COMMON, Z_OBJCE_PP(struc)->name, zend_hash_num_elements(myht));
 head_done:
 		zend_hash_apply_with_arguments(myht, (apply_func_args_t) php_array_element_dump, 1, level);
@@ -157,7 +167,7 @@ static int zval_array_element_dump(zval **zv, int num_args, va_list args, zend_h
 
 void php_debug_zval_dump(zval **struc, int level TSRMLS_DC)
 {
-	HashTable *myht;
+	HashTable *myht = NULL;
 
 	if (level > 1) {
 		php_printf("%*c", level - 1, ' ');
@@ -253,6 +263,21 @@ static int php_array_element_export(zval **zv, int num_args, va_list args, zend_
 	return 0;
 }
 
+static int php_object_element_export(zval **zv, int num_args, va_list args, zend_hash_key *hash_key)
+{
+	int level;
+	TSRMLS_FETCH();
+
+	level = va_arg(args, int);
+
+	if (hash_key->nKeyLength != 0) {
+		php_printf("%*cvar $%s = ", level + 1, ' ', hash_key->arKey);
+		php_var_export(zv, level + 2 TSRMLS_CC);
+		PUTS (";\n");
+	}
+	return 0;
+}
+
 void php_var_export(zval **struc, int level TSRMLS_DC)
 {
 	HashTable *myht;
@@ -281,19 +306,27 @@ void php_var_export(zval **struc, int level TSRMLS_DC)
 		break;
 	case IS_ARRAY:
 		myht = Z_ARRVAL_PP(struc);
-		goto head_done;
-	case IS_OBJECT:
-		myht = Z_OBJPROP_PP(struc);
-head_done:
 		if (level > 1) {
 			php_printf("\n%*c", level - 1, ' ');
 		}
 		PUTS ("array (\n");
 		zend_hash_apply_with_arguments(myht, (apply_func_args_t) php_array_element_export, 1, level);
 		if (level > 1) {
-			php_printf("%*c", level-1, ' ');
+			php_printf("%*c", level - 1, ' ');
 		}
 		PUTS(")");
+		break;
+	case IS_OBJECT:
+		myht = Z_OBJPROP_PP(struc);
+		if (level > 1) {
+			php_printf("\n%*c", level - 1, ' ');
+		}
+		php_printf ("class %s {\n", Z_OBJCE_PP(struc)->name);
+		zend_hash_apply_with_arguments(myht, (apply_func_args_t) php_object_element_export, 1, level);
+		if (level > 1) {
+			php_printf("%*c", level - 1, ' ');
+		}
+		PUTS("}");
 		break;
 	default:
 		PUTS ("NULL");
@@ -305,23 +338,23 @@ head_done:
 
 
 /* {{{ proto mixed var_export(mixed var [, bool return])
-   Outputs or returns a string representation of avariable */
+   Outputs or returns a string representation of a variable */
 PHP_FUNCTION(var_export)
 {
 	zval *var;
-	zend_bool  i = 0;
+	zend_bool return_output = 0;
 	
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z|b", &var, &i) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z|b", &var, &return_output) == FAILURE) {
 		return;
 	}
 	
-	if (i) {
+	if (return_output) {
 		php_start_ob_buffer (NULL, 0, 1 TSRMLS_CC);
 	}
 	
 	php_var_export(&var, 1 TSRMLS_CC);
 
-	if (i) {
+	if (return_output) {
 		php_ob_get_buffer (return_value TSRMLS_CC);
 		php_end_ob_buffer (0, 0 TSRMLS_CC);
 	}
@@ -338,11 +371,13 @@ static inline int php_add_var_hash(HashTable *var_hash, zval *var, void *var_old
 {
 	ulong var_no;
 	char id[32], *p;
+	register int len;
 
-	p = smart_str_print_long(id, (long) var);
-	*p = '\0';
-
-	if (var_old && zend_hash_find(var_hash, id, p - id, var_old) == SUCCESS) {
+	/* relies on "(long)" being a perfect hash function for data pointers */
+	p = smart_str_print_long(id + sizeof(id) - 1, (long) var);
+	len = id + sizeof(id) - 1 - p;
+	
+	if (var_old && zend_hash_find(var_hash, p, len, var_old) == SUCCESS) {
 		if (!var->is_ref) {
 			/* we still need to bump up the counter, since non-refs will
 			   be counted separately by unserializer */
@@ -354,7 +389,7 @@ static inline int php_add_var_hash(HashTable *var_hash, zval *var, void *var_old
 	
 	/* +1 because otherwise hash will think we are trying to store NULL pointer */
 	var_no = zend_hash_num_elements(var_hash) + 1;
-	zend_hash_add(var_hash, id, p - id, &var_no, sizeof(var_no), NULL);
+	zend_hash_add(var_hash, p, len, &var_no, sizeof(var_no), NULL);
 	return SUCCESS;
 }
 
@@ -422,7 +457,7 @@ static void php_var_serialize_class(smart_str *buf, zval **struc, zval *retval_p
 					(void **) &name, &pos);
 
 			if (Z_TYPE_PP(name) != IS_STRING) {
-				php_error(E_NOTICE, "__sleep should return an array only "
+				php_error_docref(NULL TSRMLS_CC, E_NOTICE, "__sleep should return an array only "
 						"containing the names of instance-variables to "
 						"serialize.");
 				/* we should still add element even if it's not OK,
@@ -500,9 +535,15 @@ static void php_var_serialize_intern(smart_str *buf, zval **struc, HashTable *va
 
 				if (res == SUCCESS) {
 					if (retval_ptr) {
-					   	if (HASH_OF(retval_ptr))
+					   	if (HASH_OF(retval_ptr)) {
 							php_var_serialize_class(buf, struc, retval_ptr, 
 									var_hash TSRMLS_CC);
+						} else {
+							php_error_docref(NULL TSRMLS_CC, E_NOTICE, "__sleep should return an array only "
+												"containing the names of instance-variables to "
+												"serialize.");
+						}
+
 						zval_ptr_dtor(&retval_ptr);
 					}
 					return;	
@@ -554,7 +595,7 @@ static void php_var_serialize_intern(smart_str *buf, zval **struc, HashTable *va
 						|| data == struc) {
 						smart_str_appendl(buf, "N;", 2);
 					} else {
-					php_var_serialize_intern(buf, data, var_hash TSRMLS_CC);
+						php_var_serialize_intern(buf, data, var_hash TSRMLS_CC);
 					}
 				}
 			}
@@ -593,7 +634,12 @@ PHP_FUNCTION(serialize)
 	PHP_VAR_SERIALIZE_INIT(var_hash);
 	php_var_serialize(&buf, struc, &var_hash TSRMLS_CC);
 	PHP_VAR_SERIALIZE_DESTROY(var_hash);
-	RETVAL_STRINGL(buf.c, buf.len, 0);
+
+	if (buf.c) {
+		RETURN_STRINGL(buf.c, buf.len, 0);
+	} else {
+		RETURN_NULL();
+	}
 }
 
 /* }}} */
@@ -621,12 +667,12 @@ PHP_FUNCTION(unserialize)
 		if (!php_var_unserialize(&return_value, &p, p + Z_STRLEN_PP(buf),  &var_hash TSRMLS_CC)) {
 			PHP_VAR_UNSERIALIZE_DESTROY(var_hash);
 			zval_dtor(return_value);
-			php_error(E_NOTICE, "unserialize() failed at offset %d of %d bytes", p - Z_STRVAL_PP(buf), Z_STRLEN_PP(buf));
+			php_error_docref(NULL TSRMLS_CC, E_NOTICE, "Error at offset %d of %d bytes", p - Z_STRVAL_PP(buf), Z_STRLEN_PP(buf));
 			RETURN_FALSE;
 		}
 		PHP_VAR_UNSERIALIZE_DESTROY(var_hash);
 	} else {
-		php_error(E_NOTICE, "argument passed to unserialize() is not an string");
+		php_error_docref(NULL TSRMLS_CC, E_NOTICE, "Argument is not an string");
 		RETURN_FALSE;
 	}
 }

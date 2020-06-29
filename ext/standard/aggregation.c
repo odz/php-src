@@ -16,23 +16,25 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: aggregation.c,v 1.3.2.2 2002/04/11 12:53:19 derick Exp $ */
+/* $Id: aggregation.c,v 1.11.4.1 2002/12/05 12:44:21 helly Exp $ */
 
 #include "php.h"
 #include "basic_functions.h"
 #include "aggregation.h"
-
-#ifdef HAVE_AGGREGATE
-
 #if HAVE_PCRE || HAVE_BUNDLED_PCRE
 #include "ext/pcre/php_pcre.h"
 #endif
 
 static void aggregation_info_dtor(aggregation_info *info)
 {
+#ifndef ZEND_ENGINE_2
 	destroy_zend_class(info->new_ce);
 	efree(info->new_ce);
+#else
+	destroy_zend_class(&info->new_ce);
+#endif
 	zval_ptr_dtor(&info->aggr_members);
+
 }
 
 /* {{{ static zval* array_to_hash */
@@ -132,6 +134,7 @@ static void aggregate_methods(zend_class_entry *ce, zend_class_entry *from_ce, i
 			 */
 			if (zend_hash_add(&ce->function_table, func_name, func_name_len,
 							  (void*)function, sizeof(zend_function), NULL) == SUCCESS) {
+
 				add_next_index_stringl(aggr_methods, func_name, func_name_len-1, 1);
 			}
 
@@ -327,7 +330,7 @@ static void aggregate(INTERNAL_FUNCTION_PARAMETERS, int aggr_what, int aggr_type
 	zend_str_tolower(class_name_lc, class_name_len);
 	if (zend_hash_find(EG(class_table), class_name_lc,
 					   class_name_len+1, (void **)&ce) == FAILURE) {
-		php_error(E_WARNING, "%s() expects parameter 2 to be a valid class name, '%s' given\n", get_active_function_name(TSRMLS_C), class_name);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Expects the second parameter to be a valid class name, '%s' given", class_name);
 		efree(class_name_lc);
 		return;
 	}
@@ -358,13 +361,37 @@ static void aggregate(INTERNAL_FUNCTION_PARAMETERS, int aggr_what, int aggr_type
 		new_ce->name = estrndup(Z_OBJCE_P(obj)->name, Z_OBJCE_P(obj)->name_length);
 		new_ce->name_length = Z_OBJCE_P(obj)->name_length;
 		new_ce->parent = Z_OBJCE_P(obj)->parent;
+#ifdef ZEND_ENGINE_2
+		new_ce->refcount = 1;
+#else
 		new_ce->refcount = (int *) emalloc(sizeof(int));
 		*new_ce->refcount = 1;
+#endif
 		new_ce->constants_updated = Z_OBJCE_P(obj)->constants_updated;
 		zend_hash_init(&new_ce->function_table, 10, NULL, ZEND_FUNCTION_DTOR, 0);
 		zend_hash_init(&new_ce->default_properties, 10, NULL, ZVAL_PTR_DTOR, 0);
 		zend_hash_copy(&new_ce->function_table, &Z_OBJCE_P(obj)->function_table, (copy_ctor_func_t) function_add_ref, &tmp_zend_function, sizeof(zend_function));
 		zend_hash_copy(&new_ce->default_properties, &Z_OBJCE_P(obj)->default_properties, (copy_ctor_func_t) zval_add_ref, (void *) &tmp, sizeof(zval *));
+
+#ifdef ZEND_ENGINE_2
+		ALLOC_HASHTABLE(new_ce->static_members);
+		zend_hash_init(new_ce->static_members, 10, NULL, ZVAL_PTR_DTOR, 0);
+		zend_hash_copy(new_ce->static_members, Z_OBJCE_P(obj)->static_members, (copy_ctor_func_t) zval_add_ref, (void *) &tmp, sizeof(zval *));
+		zend_hash_init(&new_ce->constants_table, 10, NULL, ZVAL_PTR_DTOR, 0);
+		zend_hash_copy(&new_ce->constants_table, &Z_OBJCE_P(obj)->constants_table, (copy_ctor_func_t) zval_add_ref, (void *) &tmp, sizeof(zval *));
+		zend_hash_init(&new_ce->class_table, 10, NULL, ZVAL_PTR_DTOR, 0);
+		zend_hash_copy(&new_ce->class_table, &Z_OBJCE_P(obj)->class_table, (copy_ctor_func_t) zval_add_ref, (void *) &tmp, sizeof(zval *));
+
+		zend_hash_init(&new_ce->private_properties, 10, NULL, ZVAL_PTR_DTOR, 0);
+		zend_hash_copy(&new_ce->private_properties, &Z_OBJCE_P(obj)->private_properties, (copy_ctor_func_t) zval_add_ref, (void *) &tmp, sizeof(zval *));
+
+		zend_hash_init(&new_ce->protected_properties, 10, NULL, ZVAL_PTR_DTOR, 0);
+		zend_hash_copy(&new_ce->protected_properties, &Z_OBJCE_P(obj)->protected_properties, (copy_ctor_func_t) zval_add_ref, (void *) &tmp, sizeof(zval *));
+
+		new_ce->constructor = Z_OBJCE_P(obj)->constructor;
+		new_ce->destructor = Z_OBJCE_P(obj)->destructor;
+		new_ce->clone = Z_OBJCE_P(obj)->clone;
+#endif
 		new_ce->builtin_functions = Z_OBJCE_P(obj)->builtin_functions;
 		new_ce->handle_function_call = Z_OBJCE_P(obj)->handle_function_call;
 		new_ce->handle_property_get  = Z_OBJCE_P(obj)->handle_property_get;
@@ -375,7 +402,8 @@ static void aggregate(INTERNAL_FUNCTION_PARAMETERS, int aggr_what, int aggr_type
 		 * and stuff this where it belongs so we don't have to work so hard next
 		 * time.
 		 */
-		Z_OBJCE_P(obj) = new_ce;
+		/* OBJECT FIXME!! won't work with non-standard objects */
+		(Z_OBJ_P(obj))->ce = new_ce;
 		aggr_info_new.new_ce = new_ce;
 		MAKE_STD_ZVAL(aggr_info_new.aggr_members);
 		array_init(aggr_info_new.aggr_members);
@@ -580,7 +608,7 @@ PHP_FUNCTION(deaggregate)
 
 		if (zend_hash_find(EG(class_table), Z_OBJCE_P(obj)->name,
 						   Z_OBJCE_P(obj)->name_length+1, (void **)&orig_ce) == FAILURE) {
-			php_error(E_WARNING, "internal deaggregation error");
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Internal deaggregation error");
 			return;
 		}
 
@@ -595,13 +623,12 @@ PHP_FUNCTION(deaggregate)
 			}
 		}
 
-		Z_OBJCE_P(obj) = orig_ce;
+		/* OBJECT FIXME!! won't work with non-standard objects */
+		(Z_OBJ_P(obj))->ce = orig_ce;
 		zend_hash_index_del(BG(aggregation_table), (long)obj);
 	}
 }
 /* }}} */
-
-#endif /* HAVE_AGGREGATE */
 
 /*
  * Local variables:

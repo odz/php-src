@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: dl.c,v 1.66.2.1 2002/03/25 23:22:05 sniper Exp $ */
+/* $Id: dl.c,v 1.79.2.1 2002/12/05 21:09:18 helly Exp $ */
 
 #include "php.h"
 #include "dl.h"
@@ -26,15 +26,11 @@
 #include "ext/standard/info.h"
 #include "SAPI.h"
 
-#ifndef PHP_WIN32
-#include "build-defs.h"
-#endif
-
-#ifdef HAVE_LIBDL
+#if defined(HAVE_LIBDL) || HAVE_MACH_O_DYLD_H
 #include <stdlib.h>
 #include <stdio.h>
 
-#if HAVE_STRING_H
+#ifdef HAVE_STRING_H
 #include <string.h>
 #else
 #include <strings.h>
@@ -43,12 +39,19 @@
 #include "win32/param.h"
 #include "win32/winutil.h"
 #define GET_DL_ERROR()	php_win_err()
+#elif defined(NETWARE)
+#ifdef NEW_LIBC
+#include <sys/param.h>
+#else
+#include "netware/param.h"
+#endif
+#define GET_DL_ERROR()	dlerror()
 #else
 #include <sys/param.h>
-#define GET_DL_ERROR()	dlerror()
+#define GET_DL_ERROR()	DL_ERROR()
 #endif
 
-#endif
+#endif /* defined(HAVE_LIBDL) || HAVE_MACH_O_DYLD_H */
 
 
 /* {{{ proto int dl(string extension_filename)
@@ -58,8 +61,9 @@ PHP_FUNCTION(dl)
 	pval **file;
 
 #ifdef ZTS
-	if ((strcmp(sapi_module.name, "cgi")!=0) && (strcmp(sapi_module.name, "cli")!=0)) {
-		php_error(E_ERROR, "dl() is not supported in multithreaded Web servers - use extension statements in your php.ini");
+	if ((strncmp(sapi_module.name, "cgi", 3)!=0) && (strcmp(sapi_module.name, "cli")!=0)) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Not supported in multithreaded Web servers - use extension statements in your php.ini");
+		RETURN_FALSE;
 	}
 #endif
 
@@ -71,9 +75,9 @@ PHP_FUNCTION(dl)
 	convert_to_string_ex(file);
 
 	if (!PG(enable_dl)) {
-		php_error(E_ERROR, "Dynamically loaded extentions aren't enabled.");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Dynamically loaded extentions aren't enabled");
 	} else if (PG(safe_mode)) {
-		php_error(E_ERROR, "Dynamically loaded extensions aren't allowed when running in SAFE MODE.");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Dynamically loaded extensions aren't allowed when running in Safe Mode");
 	} else {
 		php_dl(*file, MODULE_TEMPORARY, return_value TSRMLS_CC);
 		EG(full_tables_cleanup) = 1;
@@ -83,7 +87,7 @@ PHP_FUNCTION(dl)
 /* }}} */
 
 
-#ifdef HAVE_LIBDL
+#if defined(HAVE_LIBDL) || HAVE_MACH_O_DYLD_H
 
 #ifdef ZTS
 #define USING_ZTS 1
@@ -125,7 +129,7 @@ void php_dl(pval *file, int type, pval *return_value TSRMLS_DC)
 		if (IS_SLASH(extension_dir[extension_dir_len-1])) {
 			sprintf(libpath, "%s%s", extension_dir, Z_STRVAL_P(file)); /* SAFE */
 		} else {
-			sprintf(libpath, "%s/%s", extension_dir, Z_STRVAL_P(file)); /* SAFE */
+			sprintf(libpath, "%s%c%s", extension_dir, DEFAULT_SLASH, Z_STRVAL_P(file)); /* SAFE */
 		}
 	} else {
 		libpath = estrndup(Z_STRVAL_P(file), Z_STRLEN_P(file));
@@ -134,14 +138,14 @@ void php_dl(pval *file, int type, pval *return_value TSRMLS_DC)
 	/* load dynamic symbol */
 	handle = DL_LOAD(libpath);
 	if (!handle) {
-		php_error(error_type, "Unable to load dynamic library '%s' - %s", libpath, GET_DL_ERROR());
+		php_error_docref(NULL TSRMLS_CC, error_type, "Unable to load dynamic library '%s' - %s", libpath, GET_DL_ERROR());
 		efree(libpath);
 		RETURN_FALSE;
 	}
 
 	efree(libpath);
 
-	
+#ifndef NETWARE
 	get_module = (zend_module_entry *(*)(void)) DL_FETCH_SYMBOL(handle, "get_module");
 
 	/*
@@ -152,10 +156,27 @@ void php_dl(pval *file, int type, pval *return_value TSRMLS_DC)
 
 	if (!get_module)
 		get_module = (zend_module_entry *(*)(void)) DL_FETCH_SYMBOL(handle, "_get_module");
+#else
+	/* NetWare doesn't support two NLMs exporting same symbol */
+	{
+		char symbol_name[64] = "\0";
+		int module_name_length = Z_STRLEN_P(file) - 4;  /* '.nlm' is 4 characters; knock it off */
+
+		/* Take the module name (e.g.: 'php_ldap') and append '@get_module' to it */
+		strncpy(symbol_name, Z_STRVAL_P(file), module_name_length);
+		symbol_name[module_name_length] = '\0';
+		strcat(symbol_name, "@");
+		strcat(symbol_name, "get_module");
+
+		get_module = (zend_module_entry *(*)(void)) DL_FETCH_SYMBOL(handle, symbol_name);
+	}
+	/* NetWare doesn't prepend '_' to symbol names; so the corresponding portion of code is also
+	   not required for NetWare */
+#endif
 
 	if (!get_module) {
 		DL_UNLOAD(handle);
-		php_error(error_type, "Invalid library (maybe not a PHP library) '%s' ", Z_STRVAL_P(file));
+		php_error_docref(NULL TSRMLS_CC, error_type, "Invalid library (maybe not a PHP library) '%s' ", Z_STRVAL_P(file));
 		RETURN_FALSE;
 	}
 	module_entry = get_module();
@@ -199,13 +220,13 @@ void php_dl(pval *file, int type, pval *return_value TSRMLS_DC)
 				zts        = module_entry->zts; 
 			}
 
-			php_error(error_type,
+			php_error_docref(NULL TSRMLS_CC, error_type,
 					  "%s: Unable to initialize module\n"
 					  "Module compiled with module API=%d, debug=%d, thread-safety=%d\n"
 					  "PHP    compiled with module API=%d, debug=%d, thread-safety=%d\n"
 					  "These options need to match\n",
 					  name, zend_api, zend_debug, zts,
-					  ZEND_MODULE_API_NO, ZEND_DEBUG, USING_ZTS);		
+					  ZEND_MODULE_API_NO, ZEND_DEBUG, USING_ZTS);
 			DL_UNLOAD(handle);
 			RETURN_FALSE;
 	}
@@ -213,7 +234,7 @@ void php_dl(pval *file, int type, pval *return_value TSRMLS_DC)
 	module_entry->module_number = zend_next_free_module();
 	if (module_entry->module_startup_func) {
 		if (module_entry->module_startup_func(type, module_entry->module_number TSRMLS_CC)==FAILURE) {
-			php_error(error_type, "%s:  Unable to initialize module", module_entry->name);
+			php_error_docref(NULL TSRMLS_CC, error_type, "Unable to initialize module '%s'", module_entry->name);
 			DL_UNLOAD(handle);
 			RETURN_FALSE;
 		}
@@ -222,7 +243,7 @@ void php_dl(pval *file, int type, pval *return_value TSRMLS_DC)
 
 	if ((type == MODULE_TEMPORARY) && module_entry->request_startup_func) {
 		if (module_entry->request_startup_func(type, module_entry->module_number TSRMLS_CC)) {
-			php_error(error_type, "%s:  Unable to initialize module", module_entry->name);
+			php_error_docref(NULL TSRMLS_CC, error_type, "Unable to initialize module '%s'", module_entry->name);
 			DL_UNLOAD(handle);
 			RETURN_FALSE;
 		}
@@ -230,7 +251,7 @@ void php_dl(pval *file, int type, pval *return_value TSRMLS_DC)
 	
 	/* update the .request_started property... */
 	if (zend_hash_find(&module_registry, module_entry->name, strlen(module_entry->name)+1, (void **) &tmp)==FAILURE) {
-		php_error(error_type, "%s:  Loaded module got lost", module_entry->name);
+		php_error_docref(NULL TSRMLS_CC, error_type, "Loaded module '%s' got lost", module_entry->name);
 		RETURN_FALSE;
 	}
 	tmp->handle = handle;
@@ -248,7 +269,7 @@ PHP_MINFO_FUNCTION(dl)
 
 void php_dl(pval *file, int type, pval *return_value TSRMLS_DC)
 {
-	php_error(E_WARNING, "Cannot dynamically load %s - dynamic modules are not supported", Z_STRVAL_P(file));
+	php_error_docref(NULL TSRMLS_CC, E_WARNING, "Cannot dynamically load %s - dynamic modules are not supported", Z_STRVAL_P(file));
 	RETURN_FALSE;
 }
 

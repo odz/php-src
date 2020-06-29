@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.3.2.1 2002/03/24 22:58:08 alexwaugh Exp $
+dnl $Id: config.m4,v 1.5 2002/03/24 22:57:00 alexwaugh Exp $
 dnl
 
 AC_ARG_WITH(webjames,
@@ -11,8 +11,7 @@ AC_ARG_WITH(webjames,
     echo 'PHP_CFLAGS = -DPHP \$(COMMON_FLAGS) \$(EXTRA_CFLAGS) -I$abs_srcdir/sapi/webjames' >> $WEBJAMES/build/php;"
   PHP_WEBJAMES="yes, using $WEBJAMES"
   PHP_ADD_INCLUDE($WEBJAMES)
-  PHP_BUILD_STATIC
-  PHP_SAPI=webjames
+  PHP_SELECT_SAPI(webjames, static, webjames.c)
 ],[
   PHP_WEBJAMES="no"
 ])

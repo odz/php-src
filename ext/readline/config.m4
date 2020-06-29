@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.15.2.1 2002/08/22 00:34:33 sniper Exp $
+dnl $Id: config.m4,v 1.17 2002/08/22 00:34:07 sniper Exp $
 dnl
 
 PHP_ARG_WITH(libedit,for libedit readline replacement, 
@@ -51,7 +51,7 @@ if test "$PHP_READLINE" != "no"; then
   PHP_SUBST(READLINE_SHARED_LIBADD)
 
   AC_DEFINE(HAVE_LIBREADLINE, 1, [ ])
-  PHP_EXTENSION(readline, $ext_shared, cli)
+  PHP_NEW_EXTENSION(readline, readline.c, $ext_shared, cli)
 fi
 
 if test "$PHP_LIBEDIT" != "no"; then
@@ -88,5 +88,5 @@ if test "$PHP_LIBEDIT" != "no"; then
   PHP_SUBST(READLINE_SHARED_LIBADD)
 
   AC_DEFINE(HAVE_LIBEDIT, 1, [ ])
-  PHP_EXTENSION(readline, $ext_shared, cli)
+  PHP_NEW_EXTENSION(readline, readline.c, $ext_shared, cli)
 fi

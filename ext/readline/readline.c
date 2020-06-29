@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: readline.c,v 1.28 2002/02/28 08:26:39 sebastian Exp $ */
+/* $Id: readline.c,v 1.31 2002/11/08 03:05:19 nicos Exp $ */
 
 /* {{{ includes & prototypes */
 
@@ -38,7 +38,9 @@ PHP_FUNCTION(readline);
 PHP_FUNCTION(readline_add_history);
 PHP_FUNCTION(readline_info);
 PHP_FUNCTION(readline_clear_history);
+#ifndef HAVE_LIBEDIT
 PHP_FUNCTION(readline_list_history);
+#endif
 PHP_FUNCTION(readline_read_history);
 PHP_FUNCTION(readline_write_history);
 PHP_FUNCTION(readline_completion_function);
@@ -57,10 +59,8 @@ static zend_function_entry php_readline_functions[] = {
 	PHP_FE(readline_info,  	            NULL)
 	PHP_FE(readline_add_history, 		NULL)
 	PHP_FE(readline_clear_history, 		NULL)
-#ifdef HAVE_LIBREADLINE
+#ifndef HAVE_LIBEDIT
 	PHP_FE(readline_list_history, 		NULL)
-#else
-	PHP_FALIAS(readline_list_history, warn_not_available,			NULL)
 #endif
 	PHP_FE(readline_read_history, 		NULL)
 	PHP_FE(readline_write_history, 		NULL)
@@ -77,7 +77,7 @@ zend_module_entry readline_module_entry = {
 	NULL,
 	PHP_RSHUTDOWN(readline),
 	NULL, 
-    NO_VERSION_YET,
+	NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 
@@ -87,8 +87,8 @@ ZEND_GET_MODULE(readline)
 
 PHP_MINIT_FUNCTION(readline)
 {
-    using_history();
-	return SUCCESS;
+    	using_history();
+    	return SUCCESS;
 }
 
 PHP_RSHUTDOWN_FUNCTION(readline)
@@ -229,7 +229,7 @@ PHP_FUNCTION(readline_add_history)
 	pval **arg;
 	int ac = ZEND_NUM_ARGS();
 
-	if (ac < 1 || ac > 1 || zend_get_parameters_ex(ac, &arg) == FAILURE) {
+	if (ac != 1 || zend_get_parameters_ex(ac, &arg) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(arg);
@@ -246,7 +246,7 @@ PHP_FUNCTION(readline_clear_history)
 {
 	int ac = ZEND_NUM_ARGS();
 
-	if (ac < 0 || ac > 0) {
+	if (ac != 0) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -258,7 +258,7 @@ PHP_FUNCTION(readline_clear_history)
 /* }}} */
 /* {{{ proto array readline_list_history(void) 
    Lists the history */
-#ifdef HAVE_LIBREADLINE
+#ifndef HAVE_LIBEDIT
 PHP_FUNCTION(readline_list_history)
 {
 	HIST_ENTRY **history;
