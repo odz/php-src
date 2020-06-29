@@ -1,6 +1,38 @@
 PHP                                                                        NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-19 Jul 2018, PHP 7.1.20
+16 Aug 2018, PHP 7.1.21
+
+- Calendar:
+  . Fixed bug #52974 (jewish.c: compile error under Windows with GBK charset).
+    (cmb)
+
+- Filter:
+  . Fixed bug #76366 (References in sub-array for filtering breaks the filter).
+    (ZiHang Gao)
+
+- PDO_Firebird:
+  . Fixed bug #76488 (Memory leak when fetching a BLOB field). (Simonov Denis)
+
+- PDO_PgSQL:
+  . Fixed bug #75402 (Possible Memory Leak using PDO::CURSOR_SCROLL option).
+    (Anatol)
+
+- SQLite3:
+  . Fixed #76665 (SQLite3Stmt::bindValue() with SQLITE3_FLOAT doesn't juggle).
+    (cmb)
+
+- Standard:
+  . Fixed bug #68553 (array_column: null values in $index_key become incrementing
+    keys in result). (Laruence)
+  . Fixed bug #73817 (Incorrect entries in get_html_translation_table). (cmb)
+  . Fixed bug #76643 (Segmentation fault when using `output_add_rewrite_var`).
+    (cmb)
+
+- Zip:
+  . Fixed bug #76524 (ZipArchive memory leak (OVERWRITE flag and empty archive)).
+    (Timur Ibragimov)
+
+07 Jul 2018, PHP 7.1.20
 
 - Core:
   . Fixed bug #76534 (PHP hangs on 'illegal string offset on string references
@@ -10,12 +42,6 @@ PHP                                                                        NEWS
 
 - Date:
   . Fixed bug #76462 (Undefined property: DateInterval::$f). (Anatol)
-
-- exif:
-  . Fixed bug #76423 (Int Overflow lead to Heap OverFlow in
-    exif_thumbnail_extract of exif.c). (Stas)
- . Fixed bug #76557 (heap-buffer-overflow (READ of size 48) while reading exif
-    data). (Stas)
 
 - FPM:
   . Fixed bug #73342 (Vulnerability in php-fpm by changing stdin to
@@ -50,10 +76,7 @@ PHP                                                                        NEWS
     (Laruence)
   . Fixed bug #71848 (getimagesize with $imageinfo returns false). (cmb)
 
-- Win32:
-  . Fixed bug #76459 (windows linkinfo lacks openbasedir check). (Anatol)
-
-22 Jun 2019, PHP 7.1.19
+22 Jun 2018, PHP 7.1.19
 
 - CLI Server:
   . Fixed bug #76333 (PHP built-in server does not find files if root path
