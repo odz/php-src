@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: file.c,v 1.382.2.3 2004/12/06 23:31:07 iliaa Exp $ */
+/* $Id: file.c,v 1.382.2.8 2005/03/27 15:53:30 iliaa Exp $ */
 
 /* Synced with php 3.0 revision 1.218 1999-06-16 [ssb] */
 
@@ -47,10 +47,6 @@
 #define O_RDONLY _O_RDONLY
 #include "win32/param.h"
 #include "win32/winutil.h"
-#elif defined(NETWARE) && !defined(NEW_LIBC)
-/*#include <ws2nlm.h>*/
-#include <sys/socket.h>
-#include "netware/param.h"
 #else
 #if HAVE_SYS_PARAM_H
 #include <sys/param.h>
@@ -76,8 +72,6 @@
 #if HAVE_PWD_H
 #ifdef PHP_WIN32
 #include "win32/pwd.h"
-#elif defined(NETWARE)
-#include "netware/pwd.h"
 #else
 #include <pwd.h>
 #endif
@@ -1538,7 +1532,7 @@ PHP_NAMED_FUNCTION(php_if_fstat)
 	MAKE_LONG_ZVAL_INCREF(stat_rdev, -1); 
 #endif
 	MAKE_LONG_ZVAL_INCREF(stat_size, stat_ssb.sb.st_size);
-#if defined(NETWARE) && defined(CLIB_STAT_PATCH)
+#ifdef NETWARE
 	MAKE_LONG_ZVAL_INCREF(stat_atime, stat_ssb.sb.st_atime.tv_sec);
 	MAKE_LONG_ZVAL_INCREF(stat_mtime, stat_ssb.sb.st_mtime.tv_sec);
 	MAKE_LONG_ZVAL_INCREF(stat_ctime, stat_ssb.sb.st_ctime.tv_sec);
@@ -1774,6 +1768,8 @@ PHP_FUNCTION(fgetcsv)
 			if (len < 0) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Length parameter may not be negative");
 				RETURN_FALSE;
+			} else if (len == 0) {
+				len = 1;
 			}
 		} else {
 			len = -1;

@@ -14,8 +14,8 @@
 #define TSRM_H
 
 /* #ifndef WIN32 */
-#if !defined(WIN32) && !defined(NETWARE)
-# include "tsrm_config.h"
+#ifndef WIN32
+# include <tsrm_config.h>
 #endif
 
 #ifdef WIN32
@@ -42,13 +42,6 @@
 # endif
 # include <windows.h>
 # include <shellapi.h>
-#elif defined(NETWARE)
-# include <nks/thread.h>
-#ifdef USE_MPK
-# include <mpklib4php.h>
-#else
-# include <nks/synch.h>
-#endif
 #elif defined(GNUPTH)
 # include <pth.h>
 #elif defined(PTHREADS)
@@ -66,13 +59,6 @@ typedef int ts_rsrc_id;
 #ifdef TSRM_WIN32
 # define THREAD_T DWORD
 # define MUTEX_T CRITICAL_SECTION *
-#elif defined(NETWARE)
-# define THREAD_T NXThreadId_t
-#ifdef USE_MPK
-# define MUTEX_T MUTEX
-#else
-# define MUTEX_T NXMutex_t *
-#endif
 #elif defined(GNUPTH)
 # define THREAD_T pth_t
 # define MUTEX_T pth_mutex_t *

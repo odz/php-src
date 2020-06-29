@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_mssql.c,v 1.137.2.6 2004/12/06 19:45:57 iliaa Exp $ */
+/* $Id: php_mssql.c,v 1.137.2.8 2005/02/25 23:25:33 fmk Exp $ */
 
 #ifdef COMPILE_DL_MSSQL
 #define HAVE_MSSQL 1
@@ -513,6 +513,7 @@ static void php_mssql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 				RETURN_FALSE;
 			}
 
+#ifndef HAVE_FREETDS
 			if (MS_SQL_G(textlimit) != -1) {
 				sprintf(buffer, "%li", MS_SQL_G(textlimit));
 				if (DBSETOPT(mssql.link, DBTEXTLIMIT, buffer)==FAIL) {
@@ -522,6 +523,7 @@ static void php_mssql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 					RETURN_FALSE;
 				}
 			}
+#endif
 			if (MS_SQL_G(textsize) != -1) {
 				sprintf(buffer, "SET TEXTSIZE %li", MS_SQL_G(textsize));
 				dbcmd(mssql.link, buffer);
@@ -638,6 +640,7 @@ static void php_mssql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			RETURN_FALSE;
 		}
 
+#ifndef HAVE_FREETDS
 		if (MS_SQL_G(textlimit) != -1) {
 			sprintf(buffer, "%li", MS_SQL_G(textlimit));
 			if (DBSETOPT(mssql.link, DBTEXTLIMIT, buffer)==FAIL) {
@@ -647,6 +650,7 @@ static void php_mssql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 				RETURN_FALSE;
 			}
 		}
+#endif
 		if (MS_SQL_G(textsize) != -1) {
 			sprintf(buffer, "SET TEXTSIZE %li", MS_SQL_G(textsize));
 			dbcmd(mssql.link, buffer);
@@ -1196,10 +1200,8 @@ PHP_FUNCTION(mssql_query)
 	while ((num_fields = dbnumcols(mssql_ptr->link)) <= 0 && retvalue == SUCCEED) {
 		retvalue = dbresults(mssql_ptr->link);
 	}
-	if (retvalue != SUCCEED) {
-		RETURN_FALSE;
-	}
-	if ((num_fields = dbnumcols(mssql_ptr->link)) <= 0) {
+
+	if (num_fields <= 0) {
 		RETURN_TRUE;
 	}
 

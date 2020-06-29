@@ -17,12 +17,12 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend.h,v 1.257.2.17 2004/12/15 06:44:06 andi Exp $ */
+/* $Id: zend.h,v 1.257.2.23 2005/03/10 11:30:44 hyanantha Exp $ */
 
 #ifndef ZEND_H
 #define ZEND_H
 
-#define ZEND_VERSION "2.0.3"
+#define ZEND_VERSION "2.0.4-dev"
 
 #define ZEND_ENGINE_2
 
@@ -44,13 +44,13 @@
 # include "zend_config.w32.h"
 # define ZEND_PATHS_SEPARATOR		';'
 #elif defined(NETWARE)
-# include "zend_config.nw.h"
-# include "acconfig.h"
+# include <zend_config.h>
+# define ZEND_PATHS_SEPARATOR		';'
 #elif defined(__riscos__)
-# include "zend_config.h"
+# include <zend_config.h>
 # define ZEND_PATHS_SEPARATOR		';'
 #else
-# include "zend_config.h"
+# include <zend_config.h>
 # define ZEND_PATHS_SEPARATOR		':'
 #endif
 
@@ -103,6 +103,8 @@ const char *zend_mh_bundle_error(void);
 
 # if defined(RTLD_GROUP) && defined(RTLD_WORLD) && defined(RTLD_PARENT)
 #  define DL_LOAD(libname)			dlopen(libname, RTLD_LAZY | RTLD_GLOBAL | RTLD_GROUP | RTLD_WORLD | RTLD_PARENT)
+# elif defined(RTLD_DEEPBIND)
+#  define DL_LOAD(libname)			dlopen(libname, RTLD_LAZY | RTLD_GLOBAL | RTLD_DEEPBIND)
 # else
 #  define DL_LOAD(libname)			dlopen(libname, RTLD_LAZY | RTLD_GLOBAL)
 # endif
@@ -117,7 +119,7 @@ const char *zend_mh_bundle_error(void);
 # define ZEND_EXTENSIONS_SUPPORT	1
 #elif defined(HAVE_MACH_O_DYLD_H)
 # define DL_LOAD(libname)			zend_mh_bundle_load(libname)
-# define DL_UNLOAD(handle)			zend_mh_bundle_unload(handle)
+# define DL_UNLOAD					zend_mh_bundle_unload
 # define DL_FETCH_SYMBOL(h,s)		zend_mh_bundle_symbol(h,s)
 # define DL_ERROR					zend_mh_bundle_error
 # define DL_HANDLE					void *
@@ -600,6 +602,20 @@ END_EXTERN_C()
 	(*ppzv_dest)->is_ref = is_ref;				\
 	(*ppzv_dest)->refcount = refcount;			\
 }
+
+#define SEPARATE_ARG_IF_REF(varptr) \
+	if (PZVAL_IS_REF(varptr)) { \
+		zval *original_var = varptr; \
+		ALLOC_ZVAL(varptr); \
+		varptr->value = original_var->value; \
+		varptr->type = original_var->type; \
+		varptr->is_ref = 0; \
+		varptr->refcount = 1; \
+		zval_copy_ctor(varptr); \
+	} else { \
+		varptr->refcount++; \
+	}
+
 
 #define ZEND_MAX_RESERVED_RESOURCES	4
 

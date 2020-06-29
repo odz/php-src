@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mbstring.c,v 1.214 2004/06/26 05:39:00 moriyoshi Exp $ */
+/* $Id: mbstring.c,v 1.214.2.4 2005/02/21 15:15:08 moriyoshi Exp $ */
 
 /*
  * PHP 4 Multibyte String module "mbstring"
@@ -134,7 +134,7 @@ static const enum mbfl_no_encoding php_mb_default_identify_list_neut[] = {
 };
 
 
-php_mb_nls_ident_list php_mb_default_identify_list[] = {
+static const php_mb_nls_ident_list php_mb_default_identify_list[] = {
 	{ mbfl_no_language_japanese, php_mb_default_identify_list_ja, sizeof(php_mb_default_identify_list_ja) / sizeof(php_mb_default_identify_list_ja[0]) },
 	{ mbfl_no_language_korean, php_mb_default_identify_list_kr, sizeof(php_mb_default_identify_list_kr) / sizeof(php_mb_default_identify_list_kr[0]) },
 	{ mbfl_no_language_traditional_chinese, php_mb_default_identify_list_tw_hk, sizeof(php_mb_default_identify_list_tw_hk) / sizeof(php_mb_default_identify_list_tw_hk[0]) },
@@ -1339,15 +1339,15 @@ PHP_FUNCTION(mb_preferred_mime_name)
 PHP_FUNCTION(mb_parse_str)
 {
 	zval *track_vars_array;
-	char *encstr = NULL, *separator = NULL;
+	char *encstr = NULL;
 	int encstr_len;
+	php_mb_encoding_handler_info_t info;
+	enum mbfl_no_encoding detected;
 
 	track_vars_array = NULL;
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|z", &encstr, &encstr_len, &track_vars_array) == FAILURE) {
 		return;
 	}
-
-	separator = (char *)estrdup(PG(arg_separator).input);
 
 	/* Clear out the array */
 	if (track_vars_array != NULL) {
@@ -1357,10 +1357,23 @@ PHP_FUNCTION(mb_parse_str)
 
 	encstr = estrndup(encstr, encstr_len);
 
-	RETVAL_BOOL(_php_mb_encoding_handler_ex(PARSE_STRING, track_vars_array, encstr, separator, (track_vars_array == NULL), 1 TSRMLS_CC));
+	info.data_type              = PARSE_STRING;
+	info.separator              = PG(arg_separator).input; 
+	info.force_register_globals = (track_vars_array == NULL);
+	info.report_errors          = 1;
+	info.to_encoding            = MBSTRG(current_internal_encoding);
+	info.to_language            = MBSTRG(current_language);
+	info.from_encodings         = MBSTRG(http_input_list);
+	info.num_from_encodings     = MBSTRG(http_input_list_size); 
+	info.from_language          = MBSTRG(current_language);
+
+	detected = _php_mb_encoding_handler_ex(&info, track_vars_array, encstr TSRMLS_CC);
+
+	MBSTRG(http_input_identify) = detected;
+
+	RETVAL_BOOL(detected != mbfl_no_encoding_invalid);
 
 	if (encstr != NULL) efree(encstr);
-	if (separator != NULL) efree(separator);
 }
 /* }}} */
 
@@ -2253,7 +2266,6 @@ PHP_FUNCTION(mb_list_encodings)
 	}
 }
 /* }}} */
-
 
 /* {{{ proto string mb_encode_mimeheader(string str [, string charset [, string transfer-encoding [, string linefeed]]])
    Converts the string to MIME "encoded-word" in the format of =?charset?(B|Q)?encoded_string?= */
@@ -3216,7 +3228,7 @@ PHP_FUNCTION(mb_get_info)
 		RETURN_FALSE;
 	}
 
-	if (!strcasecmp("all", typ)) {
+	if (!typ || !strcasecmp("all", typ)) {
 		array_init(return_value);
 		if ((name = (char *)mbfl_no_encoding2name(MBSTRG(current_internal_encoding))) != NULL) {
 			add_assoc_string(return_value, "internal_encoding", name, 1);

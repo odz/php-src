@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: interface.c,v 1.46.2.5 2004/11/01 04:52:51 iliaa Exp $ */
+/* $Id: interface.c,v 1.46.2.7 2005/03/14 09:02:42 sniper Exp $ */
 
 #define ZEND_INCLUDE_FULL_WINDOWS_HEADERS
 
@@ -49,6 +49,7 @@
 #include "ext/standard/php_smart_str.h"
 #include "ext/standard/info.h"
 #include "ext/standard/file.h"
+#include "ext/standard/url.h"
 #include "php_curl.h"
 
 static void _php_curl_close(zend_rsrc_list_entry *rsrc TSRMLS_DC);
@@ -59,6 +60,26 @@ static void _php_curl_close(zend_rsrc_list_entry *rsrc TSRMLS_DC);
 #define CAAD(s, v) add_assoc_double_ex(return_value, s, sizeof(s), (double) v);
 #define CAAS(s, v) add_assoc_string_ex(return_value, s, sizeof(s), (char *) v, 1);
 #define CAAZ(s, v) add_assoc_zval_ex(return_value, s, sizeof(s), (zval *) v);
+
+#define PHP_CURL_CHECK_OPEN_BASEDIR(str, len)													\
+	if (PG(open_basedir) && *PG(open_basedir) &&                                                \
+	    strncasecmp(str, "file://", sizeof("file://") - 1) == 0)								\
+	{ 																							\
+		php_url *tmp_url; 																		\
+																								\
+		if (!(tmp_url = php_url_parse_ex(str, len))) {											\
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid url '%s'", str);				\
+			RETURN_FALSE; 																		\
+		} 																						\
+																								\
+		if (php_check_open_basedir(tmp_url->path TSRMLS_CC) || 									\
+			(PG(safe_mode) && !php_checkuid(tmp_url->path, "rb+", CHECKUID_CHECK_MODE_PARAM))	\
+		) { 																					\
+			php_url_free(tmp_url); 																\
+			RETURN_FALSE; 																		\
+		} 																						\
+		php_url_free(tmp_url); 																	\
+	}
 
 /* {{{ curl_functions[]
  */
@@ -773,6 +794,11 @@ PHP_FUNCTION(curl_init)
 		WRONG_PARAM_COUNT;
 	}
 
+	if (argc > 0) {
+		convert_to_string_ex(url);
+		PHP_CURL_CHECK_OPEN_BASEDIR(Z_STRVAL_PP(url), Z_STRLEN_PP(url));
+	}
+
 	cp = curl_easy_init();
 	if (!cp) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Could not initialize a new cURL handle");
@@ -809,7 +835,6 @@ PHP_FUNCTION(curl_init)
 
 	if (argc > 0) {
 		char *urlcopy;
-		convert_to_string_ex(url);
 
 		urlcopy = estrndup(Z_STRVAL_PP(url), Z_STRLEN_PP(url));
 		curl_easy_setopt(ch->cp, CURLOPT_URL, urlcopy);
@@ -855,7 +880,7 @@ PHP_FUNCTION(curl_copy_handle)
 }
 /* }}} */
 
-/* {{{ proto bool curl_setopt(resource ch, string option, mixed value)
+/* {{{ proto bool curl_setopt(resource ch, int option, mixed value)
    Set an option for a CURL transfer */
 PHP_FUNCTION(curl_setopt)
 {
@@ -956,8 +981,12 @@ PHP_FUNCTION(curl_setopt)
 			char *copystr = NULL;
 	
 			convert_to_string_ex(zvalue);
-			copystr = estrndup(Z_STRVAL_PP(zvalue), Z_STRLEN_PP(zvalue));
 
+			if (option == CURLOPT_URL) {
+				PHP_CURL_CHECK_OPEN_BASEDIR(Z_STRVAL_PP(zvalue), Z_STRLEN_PP(zvalue));
+			}
+
+			copystr = estrndup(Z_STRVAL_PP(zvalue), Z_STRLEN_PP(zvalue));
 			error = curl_easy_setopt(ch->cp, option, copystr);
 			zend_llist_add_element(&ch->to_free.str, &copystr);
 
@@ -1086,18 +1115,22 @@ PHP_FUNCTION(curl_setopt)
 					zend_hash_get_current_key_ex(postfields, &string_key, &string_key_len, &num_key, 0, NULL);
 				
 					postval = Z_STRVAL_PP(current);
+
+					/* The arguments after _NAMELENGTH and _CONTENTSLENGTH
+					 * must be explicitly cast to long in curl_formadd
+					 * use since curl needs a long not an int. */
 					if (*postval == '@') {
 						error = curl_formadd(&first, &last, 
 											 CURLFORM_COPYNAME, string_key,
-											 CURLFORM_NAMELENGTH, string_key_len - 1,
+											 CURLFORM_NAMELENGTH, (long)string_key_len - 1,
 											 CURLFORM_FILE, ++postval, 
 											 CURLFORM_END);
 					} else {
 						error = curl_formadd(&first, &last, 
 											 CURLFORM_COPYNAME, string_key,
-											 CURLFORM_NAMELENGTH, string_key_len - 1,
+											 CURLFORM_NAMELENGTH, (long)string_key_len - 1,
 											 CURLFORM_COPYCONTENTS, postval, 
-											 CURLFORM_CONTENTSLENGTH, Z_STRLEN_PP(current),
+											 CURLFORM_CONTENTSLENGTH, (long)Z_STRLEN_PP(current),
 											 CURLFORM_END);
 					}
 				}

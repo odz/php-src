@@ -37,7 +37,7 @@
  */
 
 
-/* Sanity check to ensure that pcre extension needed by this script is avaliable.
+/* Sanity check to ensure that pcre extension needed by this script is available.
  * In the event it is not, print a nice error message indicating that this script will
  * not run without it.
  */
@@ -476,7 +476,11 @@ if (!getenv('NO_INTERACTION')) {
 			$autoconf = shell_exec('autoconf --version');
 			/* Always use the generated libtool - Mac OSX uses 'glibtool' */
 			$libtool = shell_exec($_SERVER['PWD'] . '/libtool --version');
-			$sys_libtool = shell_exec('libtool --version');
+
+			/* Use shtool to find out if there is glibtool present (MacOSX) */
+			$sys_libtool_path = shell_exec(dirname(__FILE__) . "/build/shtool path glibtool libtool");
+			$sys_libtool = shell_exec(str_replace("\n", "", $sys_libtool_path) . ' --version');
+
 			/* Try the most common flags for 'version' */
 			$flags = array('-v', '-V', '--version');
 			$cc_status=0;
@@ -699,7 +703,7 @@ TEST $file
 	}
 	fclose($fp);
 
- 	/* For GET/POST tests, check if cgi sapi is avaliable and if it is, use it. */
+ 	/* For GET/POST tests, check if cgi sapi is available and if it is, use it. */
  	if ((!empty($section_text['GET']) || !empty($section_text['POST']))) {
  		if (file_exists("./sapi/cgi/php")) {
  			$old_php = $php;
@@ -1146,13 +1150,13 @@ Exts tested     : " . sprintf("%4d",$exts_tested) . "
 Number of tests : " . sprintf("%4d",$n_total). "          " . sprintf("%8d",$x_total);
 	if ($sum_results['BORKED']) {
 	$summary .= "
-Tests borked    : " . sprintf("%4d (%3.1f%%)",$sum_results['BORKED'],$percent_results['BORKED']) . " --------";
+Tests borked    : " . sprintf("%4d (%5.1f%%)",$sum_results['BORKED'],$percent_results['BORKED']) . " --------";
 	}
 	$summary .= "
-Tests skipped   : " . sprintf("%4d (%3.1f%%)",$sum_results['SKIPPED'],$percent_results['SKIPPED']) . " --------
-Tests warned    : " . sprintf("%4d (%3.1f%%)",$sum_results['WARNED'],$percent_results['WARNED']) . " " . sprintf("(%3.1f%%)",$x_warned) . "
-Tests failed    : " . sprintf("%4d (%3.1f%%)",$sum_results['FAILED'],$percent_results['FAILED']) . " " . sprintf("(%3.1f%%)",$x_failed) . "
-Tests passed    : " . sprintf("%4d (%3.1f%%)",$sum_results['PASSED'],$percent_results['PASSED']) . " " . sprintf("(%3.1f%%)",$x_passed) . "
+Tests skipped   : " . sprintf("%4d (%5.1f%%)",$sum_results['SKIPPED'],$percent_results['SKIPPED']) . " --------
+Tests warned    : " . sprintf("%4d (%5.1f%%)",$sum_results['WARNED'],$percent_results['WARNED']) . " " . sprintf("(%5.1f%%)",$x_warned) . "
+Tests failed    : " . sprintf("%4d (%5.1f%%)",$sum_results['FAILED'],$percent_results['FAILED']) . " " . sprintf("(%5.1f%%)",$x_failed) . "
+Tests passed    : " . sprintf("%4d (%5.1f%%)",$sum_results['PASSED'],$percent_results['PASSED']) . " " . sprintf("(%5.1f%%)",$x_passed) . "
 ---------------------------------------------------------------------
 Time taken      : " . sprintf("%4d seconds", $end_time - $start_time) . "
 =====================================================================

@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: exif.c,v 1.162.2.2 2004/11/10 01:44:28 iliaa Exp $ */
+/* $Id: exif.c,v 1.162.2.8 2005/03/17 17:20:35 iliaa Exp $ */
 
 /*  ToDos
  *
@@ -66,7 +66,7 @@
 #include "ext/standard/php_image.h"
 #include "ext/standard/info.h" 
 
-#if HAVE_MBSTRING && !defined(COMPILE_DL_MBSTRING) 
+#if defined(PHP_WIN32) || (HAVE_MBSTRING && !defined(COMPILE_DL_MBSTRING))
 #define EXIF_USE_MBSTRING 1
 #else
 #define EXIF_USE_MBSTRING 0
@@ -75,6 +75,9 @@
 #if EXIF_USE_MBSTRING
 #include "ext/mbstring/mbstring.h"
 #endif
+
+/* needed for ssize_t definition */
+#include <sys/types.h>
 
 typedef unsigned char uchar;
 
@@ -93,11 +96,12 @@ typedef unsigned char uchar;
 
 #define EFREE_IF(ptr)	if (ptr) efree(ptr)
 
+#define MAX_IFD_NESTING_LEVEL 100
+
 static
 ZEND_BEGIN_ARG_INFO(exif_thumbnail_force_ref, 1)
 	ZEND_ARG_PASS_INFO(0)
 ZEND_END_ARG_INFO();
-
 
 /* {{{ exif_functions[]
  */
@@ -111,7 +115,7 @@ function_entry exif_functions[] = {
 };
 /* }}} */
 
-#define EXIF_VERSION "1.4 $Id: exif.c,v 1.162.2.2 2004/11/10 01:44:28 iliaa Exp $"
+#define EXIF_VERSION "1.4 $Id: exif.c,v 1.162.2.8 2005/03/17 17:20:35 iliaa Exp $"
 
 /* {{{ PHP_MINFO_FUNCTION
  */
@@ -1442,6 +1446,7 @@ typedef struct {
 	/* for parsing */
 	int             read_thumbnail;
 	int             read_all;
+	int             ifd_nesting_level;
 	/* internal */
 	file_section_list 	file;
 } image_info_type;
@@ -2711,6 +2716,13 @@ static int exif_process_IFD_TAG(image_info_type *ImageInfo, char *dir_entry, cha
 	size_t byte_count, offset_val, fpos, fgot;
 	xp_field_type *tmp_xp;
 
+	/* Protect against corrupt headers */
+	if (ImageInfo->ifd_nesting_level > MAX_IFD_NESTING_LEVEL) {
+		exif_error_docref("exif_read_data#error_ifd" TSRMLS_CC, ImageInfo, E_WARNING, "corrupt EXIF header: maximum directory nesting level reached");
+		return FALSE;
+	}
+	ImageInfo->ifd_nesting_level++;
+
 	tag = php_ifd_get16u(dir_entry, ImageInfo->motorola_intel);
 	format = php_ifd_get16u(dir_entry+2, ImageInfo->motorola_intel);
 	components = php_ifd_get32u(dir_entry+4, ImageInfo->motorola_intel);
@@ -2723,6 +2735,11 @@ static int exif_process_IFD_TAG(image_info_type *ImageInfo, char *dir_entry, cha
 	}
 
 	byte_count = components * php_tiff_bytes_per_format[format];
+
+	if ((ssize_t)byte_count < 0) {
+		exif_error_docref("exif_read_data#error_ifd" EXIFERR_CC, ImageInfo, E_WARNING, "Process tag(x%04X=%s): Illegal byte_count(%ld)", tag, exif_get_tagname(tag, tagname, -12, tag_table TSRMLS_CC), byte_count);
+		return FALSE;
+	}
 
 	if (byte_count > 4) {
 		offset_val = php_ifd_get32u(dir_entry+8, ImageInfo->motorola_intel);
@@ -3738,6 +3755,8 @@ static int exif_read_file(image_info_type *ImageInfo, char *FileName, int read_t
 			php_stream_seek(ImageInfo->infile, 0, SEEK_SET);
 		}
 	}
+
+	ImageInfo->ifd_nesting_level = 0;
 
 	/* Scan the JPEG headers. */
 	ret = exif_scan_FILE_header(ImageInfo TSRMLS_CC);

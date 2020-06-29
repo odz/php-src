@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_virtual_cwd.h,v 1.42 2004/01/08 17:31:46 sniper Exp $ */
+/* $Id: tsrm_virtual_cwd.h,v 1.42.2.1 2005/03/11 11:07:17 hyanantha Exp $ */
 
 #ifndef VIRTUAL_CWD_H
 #define VIRTUAL_CWD_H
@@ -229,7 +229,7 @@ typedef struct _virtual_cwd_globals {
 #define VCWD_REALPATH(path, real_path) virtual_realpath(path, real_path TSRMLS_CC)
 #define VCWD_RENAME(oldname, newname) virtual_rename(oldname, newname TSRMLS_CC)
 #define VCWD_STAT(path, buff) virtual_stat(path, buff TSRMLS_CC)
-#if !defined(TSRM_WIN32) && !defined(NETWARE)
+#ifndef TSRM_WIN32
 #define VCWD_LSTAT(path, buff) virtual_lstat(path, buff TSRMLS_CC)
 #endif
 #define VCWD_UNLINK(path) virtual_unlink(path TSRMLS_CC)

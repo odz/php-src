@@ -296,11 +296,11 @@ static void allocate_new_resource(tsrm_tls_entry **thread_resources_ptr, THREAD_
 		}
 	}
 
-	tsrm_mutex_unlock(tsmm_mutex);
-
 	if (tsrm_new_thread_end_handler) {
 		tsrm_new_thread_end_handler(thread_id, &((*thread_resources_ptr)->storage));
 	}
+
+	tsrm_mutex_unlock(tsmm_mutex);
 }
 
 
@@ -481,13 +481,6 @@ TSRM_API THREAD_T tsrm_thread_id(void)
 {
 #ifdef TSRM_WIN32
 	return GetCurrentThreadId();
-#elif defined(NETWARE)
-	/* There seems to be some problem with the LibC call: NXThreadGetId().
-	 * Due to this, the PHPMyAdmin application is abending in PHP calls.
-	 * Used the call, kCurrentThread instead and it works fine.
-	 */
-/*	return NXThreadGetId(); */
-	return kCurrentThread();
 #elif defined(GNUPTH)
 	return pth_self();
 #elif defined(PTHREADS)
@@ -508,24 +501,9 @@ TSRM_API THREAD_T tsrm_thread_id(void)
 TSRM_API MUTEX_T tsrm_mutex_alloc(void)
 {
 	MUTEX_T mutexp;
-#ifdef NETWARE
-#ifndef USE_MPK
-	/* To use the Recursive Mutex Locking of LibC */
-	long flags = NX_MUTEX_RECURSIVE;
-	NXHierarchy_t order = 0;
-	NX_LOCK_INFO_ALLOC (lockInfo, "PHP-TSRM", 0);
-#endif
-#endif
-
 #ifdef TSRM_WIN32
 	mutexp = malloc(sizeof(CRITICAL_SECTION));
 	InitializeCriticalSection(mutexp);
-#elif defined(NETWARE)
-#ifdef USE_MPK
-	mutexp = kMutexAlloc((BYTE*)"PHP-TSRM");
-#else
-	mutexp = NXMutexAlloc(flags, order, &lockInfo);
-#endif
 #elif defined(GNUPTH)
 	mutexp = (MUTEX_T) malloc(sizeof(*mutexp));
 	pth_mutex_init(mutexp);

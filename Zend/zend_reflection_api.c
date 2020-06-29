@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_reflection_api.c,v 1.111.2.13 2004/11/24 19:59:28 helly Exp $ */
+/* $Id: zend_reflection_api.c,v 1.111.2.19 2005/03/13 13:24:07 helly Exp $ */
 #include "zend.h"
 #include "zend_API.h"
 #include "zend_exceptions.h"
@@ -623,7 +623,7 @@ static void _function_string(string *str, zend_function *fptr, char* indent TSRM
 			string_printf(str, "protected ");
 			break;
 		default:
-		    string_printf(str, "<visibilty error> ");
+		    string_printf(str, "<visibility error> ");
 		    break;
 	}
 
@@ -1843,7 +1843,7 @@ ZEND_METHOD(reflection_method, __toString)
 /* }}} */
 
 /* {{{ proto public mixed ReflectionMethod::invoke(mixed object, mixed* args)
-   Invokes the function. Pass a  */
+   Invokes the method. */
 ZEND_METHOD(reflection_method, invoke)
 {
 	zval *retval_ptr;
@@ -1860,7 +1860,7 @@ ZEND_METHOD(reflection_method, invoke)
 	METHOD_NOTSTATIC;
 
 	if (argc < 1) {
-		zend_error(E_WARNING, "%s expects at least one parameter, none given", get_active_function_name(TSRMLS_C));
+		zend_error(E_WARNING, "Invoke() expects at least one parameter, none given");
 		RETURN_FALSE;
 	}
 	
@@ -1870,11 +1870,11 @@ ZEND_METHOD(reflection_method, invoke)
 		(mptr->common.fn_flags & ZEND_ACC_ABSTRACT)) {
 		if (mptr->common.fn_flags & ZEND_ACC_ABSTRACT) {
 			zend_throw_exception_ex(reflection_exception_ptr, 0 TSRMLS_CC, 
-				"Trying to invoke abstract method %s::%s", 
+				"Trying to invoke abstract method %s::%s()", 
 				mptr->common.scope->name, mptr->common.function_name);
 		} else {
 			zend_throw_exception_ex(reflection_exception_ptr, 0 TSRMLS_CC,
-				"Trying to invoke %s method %s::%s from scope %s", 
+				"Trying to invoke %s method %s::%s() from scope %s", 
 				mptr->common.fn_flags & ZEND_ACC_PROTECTED ? "protected" : "private",
 				mptr->common.scope->name, mptr->common.function_name,
 				Z_OBJCE_P(getThis())->name);
@@ -2018,7 +2018,7 @@ ZEND_METHOD(reflection_method, isDestructor)
 
 	METHOD_NOTSTATIC_NUMPARAMS(0);
 	GET_REFLECTION_OBJECT_PTR(mptr);
-	RETURN_BOOL(mptr->common.fn_flags && ZEND_ACC_DTOR);
+	RETURN_BOOL(mptr->common.fn_flags & ZEND_ACC_DTOR);
 }
 /* }}} */
 
@@ -2128,11 +2128,7 @@ ZEND_METHOD(reflection_class, getStaticProperties)
 	METHOD_NOTSTATIC_NUMPARAMS(0);	
 	GET_REFLECTION_OBJECT_PTR(ce);
 
-	if (!ce->constants_updated) {
-		zend_hash_apply_with_argument(&ce->default_properties, (apply_func_arg_t) zval_update_constant, (void *) 1 TSRMLS_CC);
-		zend_hash_apply_with_argument(ce->static_members, (apply_func_arg_t) zval_update_constant, (void *) 1 TSRMLS_CC);
-		ce->constants_updated = 1;
-	}
+	zend_update_class_constants(ce TSRMLS_CC);
 
 	array_init(return_value);
 	zend_hash_copy(Z_ARRVAL_P(return_value), ce->static_members, (copy_ctor_func_t) zval_add_ref, (void *) &tmp_copy, sizeof(zval *));
@@ -2150,6 +2146,8 @@ ZEND_METHOD(reflection_class, getDefaultProperties)
 	METHOD_NOTSTATIC_NUMPARAMS(0);	
 	GET_REFLECTION_OBJECT_PTR(ce);
 	array_init(return_value);
+
+	zend_update_class_constants(ce TSRMLS_CC);
 
 	count = zend_hash_num_elements(&ce->default_properties);
 	if (count > 0) {
@@ -2867,7 +2865,7 @@ ZEND_METHOD(reflection_property, export)
 ZEND_METHOD(reflection_property, __construct)
 {
 	zval *propname, *classname;
-	char *name_str;
+	char *name_str, *class_name, *prop_name;
 	int name_len;
 	zval *object;
 	reflection_object *intern;
@@ -2932,8 +2930,9 @@ ZEND_METHOD(reflection_property, __construct)
 	ZVAL_STRINGL(classname, ce->name, ce->name_length, 1);
 	zend_hash_update(Z_OBJPROP_P(object), "class", sizeof("class"), (void **) &classname, sizeof(zval *), NULL);
 	
+	zend_unmangle_property_name(property_info->name, &class_name, &prop_name);
 	MAKE_STD_ZVAL(propname);
-	ZVAL_STRING(propname, property_info->name, 1);
+	ZVAL_STRING(propname, prop_name, 1);
 	zend_hash_update(Z_OBJPROP_P(object), "name", sizeof("name"), (void **) &propname, sizeof(zval *), NULL);
 
 	reference = (property_reference*) emalloc(sizeof(property_reference));
@@ -3052,6 +3051,7 @@ ZEND_METHOD(reflection_property, getValue)
 	}
 
 	if ((ref->prop->flags & ZEND_ACC_STATIC)) {
+		zend_update_class_constants(intern->ce TSRMLS_CC);
 		if (zend_hash_quick_find(intern->ce->static_members, ref->prop->name, ref->prop->name_length + 1, ref->prop->h, (void **) &member) == FAILURE) {
 			zend_error(E_ERROR, "Internal error: Could not find the property %s", ref->prop->name);
 			/* Bails out */
@@ -3348,7 +3348,7 @@ static int add_extension_class(zend_class_entry **pce, int num_args, va_list arg
 			zend_reflection_class_factory(*pce, zclass TSRMLS_CC);
 			add_assoc_zval_ex(class_array, (*pce)->name, (*pce)->name_length + 1, zclass);
 		} else {
-			add_next_index_stringl(class_array, (*pce)->name, (*pce)->name_length + 1, 1);
+			add_next_index_stringl(class_array, (*pce)->name, (*pce)->name_length, 1);
 		}
 	}
 	return ZEND_HASH_APPLY_KEEP;

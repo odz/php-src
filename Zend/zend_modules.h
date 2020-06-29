@@ -17,12 +17,13 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_modules.h,v 1.59.2.1 2004/10/30 19:26:04 helly Exp $ */
+/* $Id: zend_modules.h,v 1.59.2.3 2005/03/15 23:47:12 wez Exp $ */
 
 #ifndef MODULES_H
 #define MODULES_H
 
 #include "zend.h"
+#include "zend_compile.h"
 
 #define INIT_FUNC_ARGS		int type, int module_number TSRMLS_DC
 #define INIT_FUNC_ARGS_PASSTHRU	type, module_number TSRMLS_CC
@@ -88,6 +89,7 @@ extern ZEND_API HashTable module_registry;
 void module_destructor(zend_module_entry *module);
 int module_registry_cleanup(zend_module_entry *module TSRMLS_DC);
 int module_registry_request_startup(zend_module_entry *module TSRMLS_DC);
+int module_registry_unload_temp(zend_module_entry *module TSRMLS_DC);
 
 #define ZEND_MODULE_DTOR (void (*)(void *)) module_destructor
 #endif

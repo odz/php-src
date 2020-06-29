@@ -18,7 +18,7 @@
    |          Sara Golemon <pollita@php.net>                              |
    +----------------------------------------------------------------------+
  */
-/* $Id: ftp_fopen_wrapper.c,v 1.74.2.1 2004/08/16 01:41:17 iliaa Exp $ */
+/* $Id: ftp_fopen_wrapper.c,v 1.74.2.4 2005/03/21 08:42:34 hyanantha Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -35,14 +35,6 @@
 #include <winsock2.h>
 #define O_RDONLY _O_RDONLY
 #include "win32/param.h"
-#elif defined(NETWARE)
-/*#include <ws2nlm.h>*/
-/*#include <sys/socket.h>*/
-#ifdef NEW_LIBC
-#include <sys/param.h>
-#else
-#include "netware/param.h"
-#endif
 #else
 #include <sys/param.h>
 #endif
@@ -645,7 +637,7 @@ php_stream * php_stream_ftp_opendir(php_stream_wrapper *wrapper, char *path, cha
 {
 	php_stream *stream, *reuseid, *datastream = NULL;
 	php_url *resource = NULL;
-	int result, use_ssl, use_ssl_on_data = 0;
+	int result = 0, use_ssl, use_ssl_on_data = 0;
 	char *hoststart = NULL, tmp_line[512];
 	char ip[sizeof("123.123.123.123")];
 	unsigned short portno;
@@ -780,9 +772,15 @@ static int php_stream_ftp_url_stat(php_stream_wrapper *wrapper, char *url, int f
 	ssb->sb.st_dev = 0;
 	ssb->sb.st_uid = 0;
 	ssb->sb.st_gid = 0;
+#ifdef NETWARE
+	ssb->sb.st_atime.tv_sec = -1;
+	ssb->sb.st_mtime.tv_sec = -1;
+	ssb->sb.st_ctime.tv_sec = -1;
+#else
 	ssb->sb.st_atime = -1;
 	ssb->sb.st_mtime = -1;
 	ssb->sb.st_ctime = -1;
+#endif
 	ssb->sb.st_nlink = 1;
 	ssb->sb.st_rdev = -1;
 #ifdef HAVE_ST_BLKSIZE

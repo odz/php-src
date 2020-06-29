@@ -2780,7 +2780,7 @@ char *yytext;
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_language_scanner.l,v 1.111.2.1 2004/11/03 23:14:31 derick Exp $ */
+/* $Id: zend_language_scanner.l,v 1.111.2.8 2005/03/07 16:48:12 zeev Exp $ */
 
 #define yyleng SCNG(yy_leng)
 #define yytext SCNG(yy_text)
@@ -2817,7 +2817,7 @@ char *yytext;
 #include <errno.h>
 #include "zend.h"
 #include "zend_alloc.h"
-#include "zend_language_parser.h"
+#include <zend_language_parser.h>
 #include "zend_compile.h"
 #include "zend_language_scanner.h"
 #include "zend_highlight.h"
@@ -2895,11 +2895,16 @@ void startup_scanner(TSRMLS_D)
 	RESET_DOC_COMMENT();
 	SCNG(yy_start_stack_ptr) = 0;
 	SCNG(yy_start_stack_depth) = 0;
+	SCNG(current_buffer) = NULL;
 #ifdef ZEND_MULTIBYTE
 	SCNG(script_org) = NULL;
 	SCNG(script_org_size) = 0;
 	SCNG(script_filtered) = NULL;
 	SCNG(script_filtered_size) = 0;
+	SCNG(input_filter) = NULL;
+	SCNG(output_filter) = NULL;
+	SCNG(script_encoding) = NULL;
+	SCNG(internal_encoding) = NULL;
 #endif /* ZEND_MULTIBYTE */
 }
 
@@ -2909,6 +2914,10 @@ void shutdown_scanner(TSRMLS_D)
 	if (CG(heredoc)) {
 		efree(CG(heredoc));
 		CG(heredoc_len)=0;
+	}
+	if (SCNG(yy_start_stack)) {
+		yy_flex_free(SCNG(yy_start_stack));
+		SCNG(yy_start_stack) = NULL;
 	}
 	RESET_DOC_COMMENT();
 	
@@ -2921,6 +2930,12 @@ void shutdown_scanner(TSRMLS_D)
 		efree(SCNG(script_filtered));
 		SCNG(script_filtered) = NULL;
 	}
+	SCNG(script_org_size) = 0;
+	SCNG(script_filtered_size) = 0;
+	SCNG(input_filter) = NULL;
+	SCNG(output_filter) = NULL;
+	SCNG(script_encoding) = NULL;
+	SCNG(internal_encoding) = NULL;
 #endif /* ZEND_MULTIBYTE */
 }
 END_EXTERN_C()
@@ -4382,6 +4397,7 @@ YY_RULE_SETUP
 case 98:
 YY_RULE_SETUP
 {
+	RESET_DOC_COMMENT();
 	/* This is a temporary fix which is dependant on flex and it's implementation */
 	if (yy_start_stack_ptr) {
 		yy_pop_state(TSRMLS_C);

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_stream.c,v 1.8 2004/06/25 12:55:11 wez Exp $ */
+/* $Id: zend_stream.c,v 1.8.2.1 2005/03/13 17:48:12 stas Exp $ */
 
 
 #include "zend.h"
@@ -79,11 +79,10 @@ ZEND_API int zend_stream_fixup(zend_file_handle *file_handle TSRMLS_DC)
 			return FAILURE;
 		}
 
-		/* promote to stream */
+		/* make compatible with stream */
 		file_handle->handle.stream.handle = file_handle->handle.fp;
 		file_handle->handle.stream.reader = zend_stream_stdio_reader;
 		file_handle->handle.stream.closer = zend_stream_stdio_closer;
-		file_handle->type = ZEND_HANDLE_STREAM;
 
 		file_handle->handle.stream.interactive = isatty(fileno((FILE *)file_handle->handle.stream.handle));
 	}

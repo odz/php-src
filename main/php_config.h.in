@@ -19,13 +19,12 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: acconfig.h,v 1.34 2004/03/29 23:08:36 helly Exp $ */
+/* $Id: acconfig.h,v 1.34.2.2 2005/03/11 06:51:01 hyanantha Exp $ */
 
 #define ZEND_API
 #define ZEND_DLEXPORT
 #define ZEND_DLIMPORT
 
-#ifndef NETWARE
 
 /* Define if on AIX 3.
    System headers sometimes define this.
@@ -609,6 +608,9 @@
 /* Define if you have the <stdbool.h> header file.  */
 #undef HAVE_STDBOOL_H
 
+/* Define if you have the <stdint.h> header file.  */
+#undef HAVE_STDINT_H
+
 /* Define if you have the <stdlib.h> header file.  */
 #undef HAVE_STDLIB_H
 
@@ -617,9 +619,6 @@
 
 /* Define if you have the <strings.h> header file.  */
 #undef HAVE_STRINGS_H
-
-/* Define if you have the <sys/bitypes.h> header file.  */
-#undef HAVE_SYS_BITYPES_H
 
 /* Define if you have the <sys/dir.h> header file.  */
 #undef HAVE_SYS_DIR_H
@@ -735,8 +734,17 @@
 /* Define if you have the sqlcli library (-lsqlcli).  */
 #undef HAVE_LIBSQLCLI
 
+/* Define if processor uses big-endian word */
+#undef WORDS_BIGENDIAN
+
 /* Enabling BIND8 compatibility for Panther */
 #undef BIND_8_COMPAT
+
+/* hardcode for each of the cross compiler host */
+#undef PHP_OS
+
+/* hardcode for each of the cross compiler host */
+#undef PHP_UNAME
 
 /* Whether you have AOLserver */
 #undef HAVE_AOLSERVER
@@ -784,25 +792,22 @@
 #undef HAVE_OLD_COMPAT_H
 
 /*   */
+#undef USE_TRANSFER_TABLES
+
+/*   */
 #undef PHP_APACHE_HAVE_CLIENT_FD
 
 /*   */
-#undef USE_TRANSFER_TABLES
-
-/*   */
-#undef APACHE_HOOKS
-
-/*   */
-#undef APACHE_HOOKS
-
-/*   */
 #undef HAVE_AP_CONFIG_H
 
 /*   */
 #undef HAVE_AP_COMPAT_H
 
 /*   */
-#undef APACHE_HOOKS
+#undef HAVE_APACHE_HOOKS
+
+/*   */
+#undef HAVE_APACHE_HOOKS
 
 /*   */
 #undef HAVE_AP_CONFIG_H
@@ -836,6 +841,9 @@
 
 /*   */
 #undef USE_TRANSFER_TABLES
+
+/*   */
+#undef PHP_APACHE_HAVE_CLIENT_FD
 
 /* Whether to compile with Caudium support */
 #undef HAVE_CAUDIUM
@@ -1412,6 +1420,9 @@
 #undef HAVE_GD_IMAGEELLIPSE
 
 /*   */
+#undef HAVE_GD_FONTCACHESHUTDOWN
+
+/*   */
 #undef HAVE_GD_DYNAMIC_CTX_EX
 
 /*   */
@@ -1508,7 +1519,10 @@
 #undef HAVE_GD_CACHE_CREATE
 
 /*   */
-#undef HAVE_GD_THREAD_SAFE
+#undef HAVE_GD_FONTCACHESHUTDOWN
+
+/*   */
+#undef HAVE_GD_FREEFONTCACHE
 
 /*   */
 #undef HAVE_GD_DYNAMIC_CTX_EX
@@ -1558,7 +1572,7 @@
 /* Which iconv implementation to use */
 #undef PHP_ICONV_IMPL
 
-/* Konstantin Chugeuv's iconv implementation */
+/* Konstantin Chuguev's iconv implementation */
 #undef HAVE_BSD_ICONV
 
 /* Which iconv implementation to use */
@@ -1605,6 +1619,9 @@
 
 /*   */
 #undef HAVE_IMAP2000
+
+/*   */
+#undef HAVE_IMAP2004
 
 /*   */
 #undef HAVE_IMAP2001
@@ -1844,10 +1861,37 @@
 #undef HAVE_OCI8_TEMP_LOB
 
 /*   */
+#undef PHP_OCI8_HAVE_COLLECTIONS
+
+/*   */
+#undef HAVE_OCI8_TEMP_LOB
+
+/*   */
 #undef HAVE_OCI8_TEMP_LOB
 
 /*   */
 #undef PHP_OCI8_HAVE_COLLECTIONS
+
+/* Whether to build oci8 as dynamic module */
+#undef COMPILE_DL_OCI8
+
+/*   */
+#undef HAVE_OCI8
+
+/*   */
+#undef HAVE_OCI8_ATTR_STATEMENT
+
+/*   */
+#undef HAVE_OCI_9_2
+
+/*   */
+#undef HAVE_OCI8_TEMP_LOB
+
+/*   */
+#undef PHP_OCI8_HAVE_COLLECTIONS
+
+/*   */
+#undef HAVE_OCI_INSTANT_CLIENT
 
 /* Whether to build oci8 as dynamic module */
 #undef COMPILE_DL_OCI8
@@ -2362,6 +2406,12 @@
 /*   */
 #undef SOLARIS_YP
 
+/* Define if int32_t type is present.  */
+#undef HAVE_INT32_T
+
+/* Define if uint32_t type is present.  */
+#undef HAVE_UINT32_T
+
 /* Whether sprintf is broken */
 #undef ZEND_BROKEN_SPRINTF
 
@@ -2422,7 +2472,6 @@
 /*   */
 #undef HAVE_BUILD_DEFS_H
 
-#endif
 
 #ifndef ZEND_ACCONFIG_H_NO_C_PROTOS
 
@@ -2432,6 +2481,10 @@
 
 #ifdef HAVE_SYS_TYPES_H
 # include <sys/types.h>
+#endif
+
+#ifdef HAVE_SYS_SELECT_H
+#include <sys/select.h>
 #endif
 
 #ifdef HAVE_IEEEFP_H

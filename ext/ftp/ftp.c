@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ftp.c,v 1.103.2.2 2004/10/05 23:53:14 iliaa Exp $ */
+/* $Id: ftp.c,v 1.103.2.7 2005/03/17 17:16:49 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -42,13 +42,9 @@
 #ifdef USE_WINSOCK    /* Modified to use Winsock (NOVSOCK2.H), atleast for now */
 #include <novsock2.h>
 #else
-#ifdef NEW_LIBC
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
-#else
-#include <sys/socket.h>
-#endif
 #endif
 #else
 #ifdef HAVE_SYS_TYPES_H
@@ -77,7 +73,7 @@
 #include "ext/standard/fsock.h"
 
 /* Additional headers for NetWare */
-#if defined(NETWARE) && defined(NEW_LIBC) && !defined(USE_WINSOCK)
+#if defined(NETWARE) && !defined(USE_WINSOCK)
 #include <sys/select.h>
 #endif
 
@@ -842,7 +838,9 @@ ftp_get(ftpbuf_t *ftp, php_stream *outstream, const char *path, ftptype_t type, 
 		}
 
 		if (type == FTPTYPE_ASCII) {
+#ifndef PHP_WIN32
 			char *s;
+#endif
 			char *ptr = data->buf;
 			char *e = ptr + rcvd;
 			/* logic depends on the OS EOL
@@ -850,19 +848,8 @@ ftp_get(ftpbuf_t *ftp, php_stream *outstream, const char *path, ftptype_t type, 
 			 * Everything Else \n
 			 */
 #ifdef PHP_WIN32
-			while ((s = strpbrk(ptr, "\r\n"))) {
-				if (*s == '\n') {
-					php_stream_putc(outstream, '\r');
-				} else if (*s == '\r' && *(s + 1) == '\n') {
-					s++;
-				}
-				s++;
-				php_stream_write(outstream, ptr, (s - ptr));
-				if (*(s - 1) == '\r') {
-					php_stream_putc(outstream, '\n');
-				}
-				ptr = s;
-			}
+			php_stream_write(outstream, ptr, (e - ptr));
+			ptr = e;
 #else
 			while (e > ptr && (s = memchr(ptr, '\r', (e - ptr)))) {
 				php_stream_write(outstream, ptr, (s - ptr));

@@ -14,7 +14,7 @@
 #  | Author: Wez Furlong <wez@thebrainroom.com>                           |
 #  +----------------------------------------------------------------------+
 #
-# $Id: Makefile,v 1.23 2004/05/25 12:57:45 wez Exp $
+# $Id: Makefile,v 1.23.2.4 2005/02/26 01:10:50 edink Exp $
 # This is the makefile template for the win32 build
 
 CC="$(CL)"
@@ -53,7 +53,7 @@ $(PHPDLL_RES): win32\build\template.rc
 		/d FILE_NAME="\"$(PHPDLL)\"" /d PRODUCT_NAME="\"PHP Script Interpreter\"" \
 		win32\build\template.rc
 
-$(BUILD_DIR)\$(PHPDLL): $(PHPDEF) $(PHP_GLOBAL_OBJS) $(STATIC_EXT_OBJS) $(PHPDLL_RES)
+$(BUILD_DIR)\$(PHPDLL): generated_files $(PHPDEF) $(PHP_GLOBAL_OBJS) $(STATIC_EXT_OBJS) $(PHPDLL_RES)
 	$(LD) /out:$(BUILD_DIR)\$(PHPDLL) $(PHP_LDFLAGS) $(LDFLAGS) $(STATIC_EXT_LDFLAGS) $(PHP_GLOBAL_OBJS) $(STATIC_EXT_OBJS) $(STATIC_EXT_LIBS) $(LIBS) $(PHPDLL_RES)
 	
 $(BUILD_DIR)\$(PHPLIB): $(BUILD_DIR)\$(PHPDLL)
@@ -73,7 +73,7 @@ clean-sapi:
 clean: clean-sapi
 	@echo Cleaning build dirs
 	@for %D in (_x $(BUILD_DIRS_SUB)) do @if exist %D @del /F /Q %D\*.* > NUL
-	-@del /F /Q $(BUILD_DIR)\*.res $(BUILD_DIR)\*.lib $(BUILD_DIR)\*.ilk $(BUILD_DIR)\*.pdb $(BUILD_DIR)\*.exp $(PHPDEF) $(BUILD_DIR)\php-$(PHP_VERSION_STRING).zip > NUL
+	-@del /F /Q $(BUILD_DIR)\*.res $(BUILD_DIR)\*.lib $(BUILD_DIR)\*.ilk $(BUILD_DIR)\*.pdb $(BUILD_DIR)\*.exp $(PHPDEF) $(BUILD_DIR)\php-$(PHP_VERSION_STRING)-Win32.zip $(BUILD_DIR)\pecl-$(PHP_VERSION_STRING)-Win32.zip > NUL
 	-rmdir /s /q $(BUILD_DIR)\php-$(PHP_VERSION_STRING) 
 
 clean-pecl:
@@ -95,13 +95,18 @@ build-snap:
 build-dist: $(BUILD_DIR)\deplister.exe
 	-rmdir /s /q $(BUILD_DIR)\php-$(PHP_VERSION_STRING)
 	-rmdir /s /q $(BUILD_DIR)\pecl-$(PHP_VERSION_STRING)
-	-del /f /q $(BUILD_DIR)\php-$(PHP_VERSION_STRING).zip
-	$(BUILD_DIR)\php.exe -n win32/build/mkdist.php "$(BUILD_DIR)" "$(PHPDLL)" "$(SAPI_TARGETS)" "$(EXT_TARGETS)" "$(PECL_TARGETS)" "$(SNAPSHOT_TEMPLATE)"
+	-del /f /q $(BUILD_DIR)\php-$(PHP_VERSION_STRING)-Win32.zip
+	-del /f /q $(BUILD_DIR)\php-debug-pack-$(PHP_VERSION_STRING)-Win32.zip
+	-del /f /q $(BUILD_DIR)\pecl-$(PHP_VERSION_STRING)-Win32.zip
+	$(BUILD_DIR)\php.exe -n win32/build/mkdist.php "$(BUILD_DIR)" "$(PHPDLL)" "$(SAPI_TARGETS)" "$(EXT_TARGETS) $(PHP_EXTRA_DIST_FILES)" "$(PECL_TARGETS) $(PECL_EXTRA_DIST_FILES)" "$(SNAPSHOT_TEMPLATE)"
 	cd $(BUILD_DIR)\php-$(PHP_VERSION_STRING)
-	-$(ZIP) -9 -r ..\php-$(PHP_VERSION_STRING).zip .
+	-$(ZIP) -9 -r ..\php-$(PHP_VERSION_STRING)-Win32.zip .
 	cd ..\..
 	cd $(BUILD_DIR)\pecl-$(PHP_VERSION_STRING)
-	-$(ZIP) -9 -r ..\pecl-$(PHP_VERSION_STRING).zip .
+	-$(ZIP) -9 -r ..\pecl-$(PHP_VERSION_STRING)-Win32.zip .
+	cd ..\..
+	cd $(BUILD_DIR)
+	-$(ZIP) -9 php-debug-pack-$(PHP_VERSION_STRING)-Win32.zip *.pdb
 	cd ..\..
 
 dist: all build-dist

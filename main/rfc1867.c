@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: rfc1867.c,v 1.159.2.6 2004/11/20 20:16:27 sesser Exp $ */
+/* $Id: rfc1867.c,v 1.159.2.11 2005/02/15 00:26:35 iliaa Exp $ */
 
 /*
  *  This product includes software developed by the Apache Group
@@ -1082,26 +1082,30 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 					s = tmp;
 				}
 				num_vars--;
-			} else {
-				s = strrchr(filename, '\\');
-				if ((tmp = strrchr(filename, '/')) > s) {
-					s = tmp;
-				}
+				goto filedone;
 			}
-#else
+#endif
+
 			s = strrchr(filename, '\\');
 			if ((tmp = strrchr(filename, '/')) > s) {
 				s = tmp;
 			}
+#ifdef PHP_WIN32
+			if (PG(magic_quotes_gpc)) {
+				s = s ? s : filename;
+				tmp = strrchr(s, '\'');
+				s = tmp > s ? tmp : s;
+				tmp = strrchr(s, '"');
+				s = tmp > s ? tmp : s;
+			}
 #endif
+
+#if HAVE_MBSTRING && !defined(COMPILE_DL_MBSTRING)
+filedone:
+#endif
+
+			
 			if (!is_anonymous) {
-				if (PG(magic_quotes_gpc)) {
-					s = s ? s : filename;
-					tmp = strrchr(s, '\'');
-					s = tmp > s ? tmp : s;
-					tmp = strrchr(s, '"');
-					s = tmp > s ? tmp : s;
-				}
 				if (s && s > filename) {
 					safe_php_register_variable(lbuf, s+1, NULL, 0 TSRMLS_CC);
 				} else {

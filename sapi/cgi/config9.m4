@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config9.m4,v 1.12 2003/12/01 15:17:08 sniper Exp $
+dnl $Id: config9.m4,v 1.12.2.2 2005/03/06 23:16:53 sniper Exp $
 dnl
 
 AC_ARG_ENABLE(cgi,
@@ -51,7 +51,7 @@ AC_ARG_ENABLE(path-info-check,
   PHP_ENABLE_PATHINFO_CHECK=yes
 ])
 
-AC_DEFUN(PHP_TEST_WRITE_STDOUT,[
+AC_DEFUN([PHP_TEST_WRITE_STDOUT],[
   AC_CACHE_CHECK(whether writing to stdout works,ac_cv_write_stdout,[
     AC_TRY_RUN([
 #ifdef HAVE_UNISTD_H
@@ -134,6 +134,7 @@ if test "$PHP_SAPI" = "default"; then
       exit 1
     fi
     if test "$PHP_ENABLE_FASTCGI" = "yes"; then
+      PHP_ADD_BUILD_DIR($abs_builddir/sapi/cgi/libfcgi)
       PHP_FASTCGI=1
       PHP_FCGI_FILES="libfcgi/fcgi_stdio.c libfcgi/fcgiapp.c libfcgi/os_unix.c"
       PHP_FCGI_INCLUDE="-I$PHP_LIBFCGI_DIR/include"

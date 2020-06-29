@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: session.c,v 1.391.2.6 2004/12/09 17:16:33 tony2001 Exp $ */
+/* $Id: session.c,v 1.391.2.11 2005/03/24 00:17:53 tony2001 Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -425,7 +425,7 @@ PS_SERIALIZER_DECODE_FUNC(php_binary)
 		p += namelen + 1;
 		
 		if (has_value) {
-			MAKE_STD_ZVAL(current);
+			ALLOC_INIT_ZVAL(current);
 			if (php_var_unserialize(&current, (const unsigned char**)&p, endptr, &var_hash TSRMLS_CC)) {
 				php_set_session_var(name, namelen, current, &var_hash  TSRMLS_CC);
 			}
@@ -536,8 +536,13 @@ static void php_session_track_init(TSRMLS_D)
 	array_init(session_vars);
 	PS(http_session_vars) = session_vars;
 
-	ZEND_SET_GLOBAL_VAR_WITH_LENGTH("HTTP_SESSION_VARS", sizeof("HTTP_SESSION_VARS"), PS(http_session_vars), 2, 1);
-	ZEND_SET_GLOBAL_VAR_WITH_LENGTH("_SESSION", sizeof("_SESSION"), PS(http_session_vars), 2, 1);
+	if (PG(register_long_arrays)) {
+		ZEND_SET_GLOBAL_VAR_WITH_LENGTH("HTTP_SESSION_VARS", sizeof("HTTP_SESSION_VARS"), PS(http_session_vars), 2, 1);
+		ZEND_SET_GLOBAL_VAR_WITH_LENGTH("_SESSION", sizeof("_SESSION"), PS(http_session_vars), 2, 1);
+	}
+	else {
+		ZEND_SET_GLOBAL_VAR_WITH_LENGTH("_SESSION", sizeof("_SESSION"), PS(http_session_vars), 1, 0);
+	}
 }
 
 static char *php_session_encode(int *newlen TSRMLS_DC)
@@ -873,7 +878,11 @@ static void last_modified(TSRMLS_D)
 
 #define LAST_MODIFIED "Last-Modified: "
 		memcpy(buf, LAST_MODIFIED, sizeof(LAST_MODIFIED) - 1);
+#ifdef NETWARE
+		strcpy_gmt(buf + sizeof(LAST_MODIFIED) - 1, &(sb.st_mtime.tv_sec));
+#else
 		strcpy_gmt(buf + sizeof(LAST_MODIFIED) - 1, &sb.st_mtime);
+#endif
 		ADD_HEADER(buf);
 	}
 }
@@ -1358,12 +1367,22 @@ PHP_FUNCTION(session_set_save_handler)
 	zval **args[6];
 	int i;
 	ps_user *mdata;
+	char *name;
 
 	if (ZEND_NUM_ARGS() != 6 || zend_get_parameters_array_ex(6, args) == FAILURE)
 		WRONG_PARAM_COUNT;
 	
 	if (PS(session_status) != php_session_none) 
 		RETURN_FALSE;
+
+	for (i = 0; i < 6; i++) {
+		if (!zend_is_callable(*args[i], 0, &name)) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Argument %d is not a valid callback", i+1);
+			efree(name);
+			RETURN_FALSE;
+		}
+		efree(name);
+	}
 	
 	zend_alter_ini_entry("session.save_handler", sizeof("session.save_handler"), "user", sizeof("user")-1, PHP_INI_USER, PHP_INI_STAGE_RUNTIME);
 

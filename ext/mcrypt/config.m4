@@ -1,8 +1,8 @@
 dnl
-dnl $Id: config.m4,v 1.28 2003/10/01 02:53:10 sniper Exp $
+dnl $Id: config.m4,v 1.28.2.2 2005/01/22 01:36:56 sniper Exp $
 dnl 
 
-AC_DEFUN(PHP_MCRYPT_CHECK_VERSION,[
+AC_DEFUN([PHP_MCRYPT_CHECK_VERSION],[
   old_CPPFLAGS=$CPPFLAGS
   CPPFLAGS=-I$MCRYPT_DIR/include
   AC_MSG_CHECKING(for libmcrypt version)
@@ -39,8 +39,6 @@ if test "$PHP_MCRYPT" != "no"; then
     PHP_ADD_LIBRARY(ltdl,, MCRYPT_SHARED_LIBADD)
     AC_DEFINE(HAVE_LIBMCRYPT,1,[ ])
   ],[
-    unset found
-    unset ac_cv_lib_mcrypt_mcrypt_module_open
     PHP_CHECK_LIBRARY(mcrypt, mcrypt_module_open,
     [
       AC_DEFINE(HAVE_LIBMCRYPT,1,[ ])

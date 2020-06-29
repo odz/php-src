@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: main.c,v 1.604.2.6 2004/12/10 23:06:06 andi Exp $ */
+/* $Id: main.c,v 1.604.2.11 2005/03/24 01:11:35 andi Exp $ */
 
 /* {{{ includes
  */
@@ -549,9 +549,9 @@ PHPAPI void php_verror(const char *docref, const char *params, int type, const c
 }
 /* }}} */
 
-/* {{{ php_error_docref */
+/* {{{ php_error_docref0 */
 /* See: CODING_STANDARDS for details. */
-PHPAPI void php_error_docref(const char *docref TSRMLS_DC, int type, const char *format, ...)
+PHPAPI void php_error_docref0(const char *docref TSRMLS_DC, int type, const char *format, ...)
 {
 	va_list args;
 	
@@ -655,16 +655,18 @@ static void php_error_cb(int type, const char *error_filename, const uint error_
 	/* according to error handling mode, suppress error, throw exception or show it */
 	if (PG(error_handling) != EH_NORMAL) {
 		switch (type) {
-			case E_ERROR:
 			case E_CORE_ERROR:
 			case E_COMPILE_ERROR:
-			case E_USER_ERROR:
 			case E_PARSE:
 				/* fatal errors are real errors and cannot be made exceptions */
 				break;
+			case E_NOTICE:
+			case E_USER_NOTICE:
+				/* notices are no errors and are not treated as such like E_WARNINGS */
+				break;
 			default:
 				/* throw an exception if we are in EH_THROW mode
-				 * but DO NOT overwrite a pending excepption
+				 * but DO NOT overwrite a pending exception
 				 */
 				if (PG(error_handling) == EH_THROW && !EG(exception)) {
 					zend_throw_exception(PG(exception_class), buffer, 0 TSRMLS_CC);
@@ -1135,11 +1137,12 @@ void php_request_shutdown_for_hook(void *dummy)
 {
 	TSRMLS_FETCH();
 	if (PG(modules_activated)) zend_try {
-		php_call_shutdown_functions();
+		php_call_shutdown_functions(TSRMLS_C);
 	} zend_end_try();
 
 	if (PG(modules_activated)) {
 		zend_deactivate_modules(TSRMLS_C);
+		php_free_shutdown_functions(TSRMLS_C);
 	}
 
 	zend_try {
@@ -1191,11 +1194,12 @@ void php_request_shutdown(void *dummy)
 	} zend_end_try();
 
 	if (PG(modules_activated)) zend_try {
-		php_call_shutdown_functions();
+		php_call_shutdown_functions(TSRMLS_C);
 	} zend_end_try();
 	
 	if (PG(modules_activated)) {
 		zend_deactivate_modules(TSRMLS_C);
+		php_free_shutdown_functions(TSRMLS_C);
 	}
 
 	zend_try {

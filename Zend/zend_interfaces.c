@@ -16,11 +16,12 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_interfaces.c,v 1.21.2.1 2004/09/27 08:34:49 helly Exp $ */
+/* $Id: zend_interfaces.c,v 1.21.2.4 2005/03/01 23:42:29 helly Exp $ */
 
 #include "zend.h"
 #include "zend_API.h"
 #include "zend_interfaces.h"
+#include "zend_exceptions.h"
 
 ZEND_API zend_class_entry *zend_ce_traversable;
 ZEND_API zend_class_entry *zend_ce_aggregate;
@@ -35,6 +36,7 @@ ZEND_API zval* zend_call_method(zval **object_pp, zend_class_entry *obj_ce, zend
 	zend_fcall_info fci;
 	zval z_fname;
 	zval *retval;
+	HashTable *function_table;
 
 	zval **params[2];
 
@@ -61,12 +63,17 @@ ZEND_API zval* zend_call_method(zval **object_pp, zend_class_entry *obj_ce, zend
 
 		fcic.initialized = 1;
 		if (!obj_ce) {
-			obj_ce = Z_OBJCE_PP(object_pp);
+			obj_ce = object_pp ? Z_OBJCE_PP(object_pp) : NULL;
+		}
+		if (obj_ce) {
+			function_table = &obj_ce->function_table;
+		} else {
+			function_table = EG(function_table);
 		}
 		if (!fn_proxy || !*fn_proxy) {
-			if (zend_hash_find(&obj_ce->function_table, function_name, function_name_len+1, (void **) &fcic.function_handler) == FAILURE) {
+			if (zend_hash_find(function_table, function_name, function_name_len+1, (void **) &fcic.function_handler) == FAILURE) {
 				/* error at c-level */
-				zend_error(E_CORE_ERROR, "Couldn't find implementation for method %s::%s", obj_ce->name, function_name);
+				zend_error(E_CORE_ERROR, "Couldn't find implementation for method %s%s%s", obj_ce ? obj_ce->name : "", obj_ce ? "::" : "", function_name);
 			}
 			if (fn_proxy) {
 				*fn_proxy = fcic.function_handler;
@@ -81,9 +88,9 @@ ZEND_API zval* zend_call_method(zval **object_pp, zend_class_entry *obj_ce, zend
 	if (result == FAILURE) {
 		/* error at c-level */
 		if (!obj_ce) {
-			obj_ce = Z_OBJCE_PP(object_pp);
+			obj_ce = object_pp ? Z_OBJCE_PP(object_pp) : NULL;
 		}
-		zend_error(E_CORE_ERROR, "Couldn't execute method %s::%s", obj_ce->name, function_name);
+		zend_error(E_CORE_ERROR, "Couldn't execute method %s%s%s", obj_ce ? obj_ce->name : "", obj_ce ? "::" : "", function_name);
 	}
 	if (!retval_ptr_ptr) {
 		if (retval) {
@@ -270,11 +277,17 @@ static zend_object_iterator *zend_user_it_get_new_iterator(zend_class_entry *ce,
 	zval *iterator = zend_user_it_new_iterator(ce, object TSRMLS_CC);
 	zend_object_iterator *new_iterator;
 
-	zend_class_entry *ce_it = Z_TYPE_P(iterator) == IS_OBJECT ? Z_OBJCE_P(iterator) : NULL;
+	zend_class_entry *ce_it = iterator && Z_TYPE_P(iterator) == IS_OBJECT ? Z_OBJCE_P(iterator) : NULL;
 
 	if (!ce || !ce_it || !ce_it->get_iterator || (ce_it->get_iterator == zend_user_it_get_new_iterator && iterator == object)) {
-		zend_error(E_WARNING, "Objects returned by %s::getIterator() must be traversable or implement interface Iterator", ce->name);
-		zval_ptr_dtor(&iterator);
+		if (!EG(exception))
+		{
+			zend_throw_exception_ex(NULL, 0 TSRMLS_CC, "Objects returned by %s::getIterator() must be traversable or implement interface Iterator", ce->name);
+		}
+		if (iterator)
+		{
+			zval_ptr_dtor(&iterator);
+		}
 		return NULL;
 	}
 	new_iterator = ce_it->get_iterator(ce_it, iterator TSRMLS_CC);

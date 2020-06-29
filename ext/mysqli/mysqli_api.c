@@ -15,7 +15,7 @@
   | Author: Georg Richter <georg@php.net>                                |
   +----------------------------------------------------------------------+
 
-  $Id: mysqli_api.c,v 1.87.2.5 2004/11/01 07:57:45 georg Exp $ 
+  $Id: mysqli_api.c,v 1.87.2.12 2005/03/17 18:12:30 tony2001 Exp $ 
 */
 
 #ifdef HAVE_CONFIG_H
@@ -44,6 +44,9 @@ PHP_FUNCTION(mysqli_affected_rows)
 	MYSQLI_FETCH_RESOURCE(mysql, MY_MYSQL *, &mysql_link, "mysqli_link");
 
 	rc = mysql_affected_rows(mysql->mysql);
+	if (rc == (my_ulonglong) -1) {
+		RETURN_LONG(-1);
+	}
 	MYSQLI_RETURN_LONG_LONG(rc);
 }
 /* }}} */
@@ -54,7 +57,6 @@ PHP_FUNCTION(mysqli_autocommit)
 {
 	MY_MYSQL 		*mysql;
 	zval  			*mysql_link;
-	unsigned long	rc;
 	unsigned long	automode;
 
 	if (zend_parse_method_parameters(ZEND_NUM_ARGS() TSRMLS_CC, getThis(), "Ob", &mysql_link, mysqli_link_class_entry, &automode) == FAILURE) {
@@ -62,9 +64,10 @@ PHP_FUNCTION(mysqli_autocommit)
 	}
 	MYSQLI_FETCH_RESOURCE(mysql, MY_MYSQL *, &mysql_link, "mysqli_link");
 
-	rc = (long) mysql_autocommit(mysql->mysql, automode);
-
-	RETURN_BOOL(rc);
+	if (mysql_autocommit(mysql->mysql, automode)) {
+		RETURN_FALSE;
+	}
+	RETURN_TRUE;
 }
 /* }}} */
 
@@ -242,7 +245,7 @@ PHP_FUNCTION(mysqli_stmt_bind_result)
 	var_cnt = argc - start;
 
 	if (var_cnt != mysql_stmt_field_count(stmt->stmt)) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Number of bind variables doesn't match number of fields in prepared statmement.");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Number of bind variables doesn't match number of fields in prepared statement.");
 		efree(args);
 		RETURN_FALSE;
 	}
@@ -418,14 +421,15 @@ PHP_FUNCTION(mysqli_commit)
 {
 	MY_MYSQL 	*mysql;
 	zval 		*mysql_link;
-	ulong		rc;
 
 	if (zend_parse_method_parameters(ZEND_NUM_ARGS() TSRMLS_CC, getThis(), "O", &mysql_link, mysqli_link_class_entry) == FAILURE) {
 		return;
 	}
 	MYSQLI_FETCH_RESOURCE(mysql, MY_MYSQL *, &mysql_link, "mysqli_link");
-	rc = mysql_commit(mysql->mysql);
-	RETURN_BOOL(rc);
+	if (mysql_commit(mysql->mysql)) {
+		RETURN_FALSE;
+	}
+	RETURN_TRUE;
 }
 /* }}} */
 
@@ -540,25 +544,25 @@ PHP_FUNCTION(mysqli_stmt_execute)
 	
 	for (i = 0; i < stmt->param.var_cnt; i++) {		
 		if (stmt->param.vars[i]) {
-			stmt->param.is_null[i] = (stmt->param.vars[i]->type == IS_NULL);
-
-			switch (stmt->stmt->params[i].buffer_type) {
-				case MYSQL_TYPE_VAR_STRING:
-					convert_to_string_ex(&stmt->param.vars[i]);
-					stmt->stmt->params[i].buffer = Z_STRVAL_PP(&stmt->param.vars[i]);
-					stmt->stmt->params[i].buffer_length = strlen(Z_STRVAL_PP(&stmt->param.vars[i]));
-					break;
-				case MYSQL_TYPE_DOUBLE:
-					convert_to_double_ex(&stmt->param.vars[i]);
-					stmt->stmt->params[i].buffer = (gptr)&Z_LVAL_PP(&stmt->param.vars[i]);
-					break;
-				case MYSQL_TYPE_LONG:
-					convert_to_long_ex(&stmt->param.vars[i]);
-					stmt->stmt->params[i].buffer = (gptr)&Z_LVAL_PP(&stmt->param.vars[i]);
-					break;
-				default:
-					break;
-			}	
+			if ( !(stmt->param.is_null[i] = (stmt->param.vars[i]->type == IS_NULL)) ) {
+				switch (stmt->stmt->params[i].buffer_type) {
+					case MYSQL_TYPE_VAR_STRING:
+						convert_to_string_ex(&stmt->param.vars[i]);
+						stmt->stmt->params[i].buffer = Z_STRVAL_PP(&stmt->param.vars[i]);
+						stmt->stmt->params[i].buffer_length = strlen(Z_STRVAL_PP(&stmt->param.vars[i]));
+						break;
+					case MYSQL_TYPE_DOUBLE:
+						convert_to_double_ex(&stmt->param.vars[i]);
+						stmt->stmt->params[i].buffer = (gptr)&Z_LVAL_PP(&stmt->param.vars[i]);
+						break;
+					case MYSQL_TYPE_LONG:
+						convert_to_long_ex(&stmt->param.vars[i]);
+						stmt->stmt->params[i].buffer = (gptr)&Z_LVAL_PP(&stmt->param.vars[i]);
+						break;
+					default:
+						break;
+				}
+			}
 		}
 	}
 	if (mysql_stmt_execute(stmt->stmt)) {
@@ -683,6 +687,8 @@ PHP_FUNCTION(mysqli_fetch_field)
 	add_property_string(return_value, "orgtable",(field->org_table ? field->org_table : ""), 1);
 	add_property_string(return_value, "def",(field->def ? field->def : ""), 1);
 	add_property_long(return_value, "max_length", field->max_length);
+	add_property_long(return_value, "length", field->length);
+	add_property_long(return_value, "charsetnr", field->charsetnr);
 	add_property_long(return_value, "flags", field->flags);
 	add_property_long(return_value, "type", field->type);
 	add_property_long(return_value, "decimals", field->decimals);
@@ -725,6 +731,8 @@ PHP_FUNCTION(mysqli_fetch_fields)
 		add_property_string(obj, "orgtable",(field->org_table ? field->org_table : ""), 1);
 		add_property_string(obj, "def",(field->def ? field->def : ""), 1);
 		add_property_long(obj, "max_length", field->max_length);
+		add_property_long(obj, "length", field->length);
+		add_property_long(obj, "charsetnr", field->charsetnr);
 		add_property_long(obj, "flags", field->flags);
 		add_property_long(obj, "type", field->type);
 		add_property_long(obj, "decimals", field->decimals);
@@ -748,6 +756,11 @@ PHP_FUNCTION(mysqli_fetch_field_direct)
 	}
 
 	MYSQLI_FETCH_RESOURCE(result, MYSQL_RES *, &mysql_result, "mysqli_result"); 
+
+	if (offset < 0 || offset >= mysql_num_fields(result)) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Field offset is invalid for resultset");
+		RETURN_FALSE; 
+	}
 
 	if (!(field = mysql_fetch_field_direct(result,offset))) {
 		RETURN_FALSE;
@@ -979,14 +992,15 @@ PHP_FUNCTION(mysqli_info)
    Initialize mysqli and return a resource for use with mysql_real_connect */
 PHP_FUNCTION(mysqli_init)
 {
+	MYSQLI_RESOURCE *mysqli_resource;
 	MY_MYSQL *mysql = (MY_MYSQL *)calloc(1, sizeof(MY_MYSQL));
-
-	MYSQLI_RESOURCE *mysqli_resource = (MYSQLI_RESOURCE *)ecalloc (1, sizeof(MYSQLI_RESOURCE));
 
 	if (!(mysql->mysql = mysql_init(NULL))) {
 		efree(mysql);
 		RETURN_FALSE;
 	}
+
+	mysqli_resource = (MYSQLI_RESOURCE *)ecalloc (1, sizeof(MYSQLI_RESOURCE));
 	mysqli_resource->ptr = (void *)mysql;
 	MYSQLI_RETURN_RESOURCE(mysqli_resource, mysqli_link_class_entry);	
 }
@@ -1388,7 +1402,10 @@ PHP_FUNCTION(mysqli_rollback)
 	}
 	MYSQLI_FETCH_RESOURCE(mysql, MY_MYSQL *, &mysql_link, "mysqli_link");
 
-	RETURN_BOOL(mysql_rollback(mysql->mysql));
+	if (mysql_rollback(mysql->mysql)) {
+		RETURN_FALSE;
+	}
+	RETURN_TRUE;
 }
 /* }}} */
 
@@ -1466,6 +1483,9 @@ PHP_FUNCTION(mysqli_stmt_affected_rows)
 	MYSQLI_FETCH_RESOURCE(stmt, MY_STMT *, &mysql_stmt, "mysqli_stmt");
 
 	rc = mysql_stmt_affected_rows(stmt->stmt);
+	if (rc == (my_ulonglong) -1) {
+		RETURN_LONG(-1);
+	}
 	MYSQLI_RETURN_LONG_LONG(rc)
 }
 /* }}} */

@@ -1,7 +1,7 @@
 <?
 
 /* 
-    $Source: /repository/php-src/ext/mnogosearch/index.php,v $
+    $Source: /repository/php-src/ext/mnogosearch/Attic/index.php,v $
     $Id: index.php,v 1.16 2004/01/17 12:59:36 sniper Exp $ 
 */
 

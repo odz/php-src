@@ -280,7 +280,8 @@ _get_entity(void *user, const xmlChar *name)
 
 		if (ret == NULL || (parser->parser->instate != XML_PARSER_ENTITY_VALUE && parser->parser->instate != XML_PARSER_ATTRIBUTE_VALUE)) {
 			if (ret == NULL || ret->etype == XML_INTERNAL_GENERAL_ENTITY || ret->etype == XML_INTERNAL_PARAMETER_ENTITY || ret->etype == XML_INTERNAL_PREDEFINED_ENTITY) {
-				if (parser->h_default) {
+				/* Predefined entities will expand unless no cdata handler is present */
+				if (parser->h_default && ! (ret && ret->etype == XML_INTERNAL_PREDEFINED_ENTITY && parser->h_cdata)) {
 					xmlChar *entity;
 					int      len;
 					
@@ -378,8 +379,12 @@ XML_ParserCreate_MM(const XML_Char *encoding, const XML_Memory_Handling_Suite *m
 	}
 	if (encoding != NULL) {
 		parser->parser->encoding = xmlStrdup(encoding);
+#if LIBXML_VERSION <= 20617
+	/* for older versions of libxml2, allow correct detection of
+	 * charset in documents with a BOM: */
 	} else {
 		parser->parser->charset = XML_CHAR_ENCODING_NONE;
+#endif
 	}
 	parser->parser->replaceEntities = 1;
 	parser->parser->wellFormed = 0;
@@ -477,6 +482,33 @@ XML_Parse(XML_Parser parser, const XML_Char *data, int data_len, int is_final)
 {
 #if LIBXML_VERSION >= 20600
 	int error;
+#endif
+
+/* The following is a hack to keep BC with PHP 4 while avoiding 
+the inifite loop in libxml <= 2.6.17 which occurs when no encoding 
+has been defined and none can be detected */
+#if LIBXML_VERSION <= 20617
+	if (parser->parser->charset == XML_CHAR_ENCODING_NONE) {
+		if (data_len >= 4 || (parser->parser->input->buf->buffer->use + data_len >= 4)) {
+			xmlChar start[4];
+			int char_count;
+
+			char_count = parser->parser->input->buf->buffer->use;
+			if (char_count > 4) {
+				char_count = 4;
+			}
+
+			memcpy(start, parser->parser->input->buf->buffer->content, (size_t)char_count);
+			memcpy(start + char_count, data, (size_t)(4 - char_count));
+
+			if (xmlDetectCharEncoding(&start[0], 4) == XML_CHAR_ENCODING_NONE) {
+				parser->parser->charset = XML_CHAR_ENCODING_UTF8;
+			}
+		}
+	}
+#endif
+
+#if LIBXML_VERSION >= 20600
 	error = xmlParseChunk(parser->parser, data, data_len, is_final);
 	if (!error) {
 		return 1;

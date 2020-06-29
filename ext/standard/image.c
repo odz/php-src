@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: image.c,v 1.98.2.3 2004/10/04 20:43:21 iliaa Exp $ */
+/* $Id: image.c,v 1.98.2.8 2005/03/06 17:04:22 iliaa Exp $ */
 
 #include "php.h"
 #include <stdio.h>
@@ -604,7 +604,7 @@ static struct gfxinfo *php_handle_jpc(php_stream * stream TSRMLS_DC)
 {
 	struct gfxinfo *result = NULL;
 	unsigned short dummy_short;
-	int dummy_int, highest_bit_depth, bit_depth;
+	int highest_bit_depth, bit_depth;
 	unsigned char first_marker_id;
 	unsigned int i;
 
@@ -628,17 +628,28 @@ static struct gfxinfo *php_handle_jpc(php_stream * stream TSRMLS_DC)
 
 	dummy_short = php_read2(stream TSRMLS_CC); /* Lsiz */
 	dummy_short = php_read2(stream TSRMLS_CC); /* Rsiz */
-	result->height = php_read4(stream TSRMLS_CC); /* Xsiz */
 	result->width = php_read4(stream TSRMLS_CC); /* Ysiz */
+	result->height = php_read4(stream TSRMLS_CC); /* Xsiz */
 
-	dummy_int = php_read4(stream TSRMLS_CC); /* XOsiz */
-	dummy_int = php_read4(stream TSRMLS_CC); /* YOsiz */
-	dummy_int = php_read4(stream TSRMLS_CC); /* XTsiz */
-	dummy_int = php_read4(stream TSRMLS_CC); /* YTsiz */
-	dummy_int = php_read4(stream TSRMLS_CC); /* XTOsiz */
-	dummy_int = php_read4(stream TSRMLS_CC); /* YTOsiz */
+#if MBO_0
+	php_read4(stream TSRMLS_CC); /* XOsiz */
+	php_read4(stream TSRMLS_CC); /* YOsiz */
+	php_read4(stream TSRMLS_CC); /* XTsiz */
+	php_read4(stream TSRMLS_CC); /* YTsiz */
+	php_read4(stream TSRMLS_CC); /* XTOsiz */
+	php_read4(stream TSRMLS_CC); /* YTOsiz */
+#else
+	if (php_stream_seek(stream, 24, SEEK_CUR)) {
+		efree(result);
+		return NULL;
+	}
+#endif
 
 	result->channels = php_read2(stream TSRMLS_CC); /* Csiz */
+	if (result->channels < 0 || result->channels > 256) {
+		efree(result);
+		return NULL;
+	}
 
 	/* Collect bit depth info */
 	highest_bit_depth = bit_depth = 0;
@@ -700,8 +711,15 @@ static struct gfxinfo *php_handle_jp2(php_stream *stream TSRMLS_DC)
 			break;
 		}
 
+		/* Stop if this was the last box */
+		if ((int)box_length <= 0) {
+			break;
+		}
+
 		/* Skip over LBox (Which includes both TBox and LBox itself */
-		php_stream_seek(stream, box_length - 8, SEEK_CUR); 
+		if (php_stream_seek(stream, box_length - 8, SEEK_CUR)) {
+			break;
+		}
 	}
 
 	if (result == NULL) {
@@ -864,43 +882,49 @@ static struct gfxinfo *php_handle_tiff (php_stream * stream, pval *info, int mot
  */
 static struct gfxinfo *php_handle_iff(php_stream * stream TSRMLS_DC)
 {
-	struct gfxinfo *result = NULL;
+	struct gfxinfo * result;
 	unsigned char a[10];
 	int chunkId;
 	int size;
+	short width, height, bits;
 
-	if (php_stream_read(stream, a, 8) != 8)
+	if (php_stream_read(stream, a, 8) != 8) {
 		return NULL;
-	if (strncmp(a+4, "ILBM", 4) && strncmp(a+4, "PBM ", 4))
+	}
+	if (strncmp(a+4, "ILBM", 4) && strncmp(a+4, "PBM ", 4)) {
 		return NULL;
-
-	result = (struct gfxinfo *) ecalloc(1, sizeof(struct gfxinfo));
+	}
 
 	/* loop chunks to find BMHD chunk */
 	do {
 		if (php_stream_read(stream, a, 8) != 8) {
-			efree(result);
 			return NULL;
 		}
 		chunkId = php_ifd_get32s(a+0, 1);
 		size    = php_ifd_get32s(a+4, 1);
+		if (size < 0) {
+			return NULL;
+		}
 		if ((size & 1) == 1) {
 			size++;
 		}
 		if (chunkId == 0x424d4844) { /* BMHD chunk */
-			if (php_stream_read(stream, a, 9) != 9) {
-				efree(result);
+			if (size < 9 || php_stream_read(stream, a, 9) != 9) {
 				return NULL;
 			}
-			result->width    = php_ifd_get16s(a+0, 1);
-			result->height   = php_ifd_get16s(a+2, 1);
-			result->bits     = a[8] & 0xff;
-			result->channels = 0;
-			if (result->width > 0 && result->height > 0 && result->bits > 0 && result->bits < 33)
+			width  = php_ifd_get16s(a+0, 1);
+			height = php_ifd_get16s(a+2, 1);
+			bits   = a[8] & 0xff;
+			if (width > 0 && height > 0 && bits > 0 && bits < 33) {
+				result = (struct gfxinfo *) ecalloc(1, sizeof(struct gfxinfo));
+				result->width    = width;
+				result->height   = height;
+				result->bits     = bits;
+				result->channels = 0;
 				return result;
+			}
 		} else {
 			if (php_stream_seek(stream, size, SEEK_CUR)) {
-				efree(result);
 				return NULL;
 			}
 		}

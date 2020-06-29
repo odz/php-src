@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_sprintf.c,v 1.17.2.2 2004/11/15 23:14:40 fmk Exp $ */
+/* $Id: php_sprintf.c,v 1.17.2.4 2005/01/09 21:05:17 sniper Exp $ */
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -26,14 +26,14 @@
 #elif defined NETWARE
 #include "config.nw.h"
 #else
-#include "php_config.h"
+#include <php_config.h>
 #endif
 
 PHPAPI int
 php_sprintf (char*s, const char* format, ...)
 {
   va_list args;
-  char *ret;
+  int ret;
 
   va_start (args, format);
   s[0] = '\0';

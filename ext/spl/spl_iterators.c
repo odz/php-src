@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: spl_iterators.c,v 1.38.2.5 2004/11/25 20:28:37 zeev Exp $ */
+/* $Id: spl_iterators.c,v 1.38.2.10 2005/03/12 23:12:36 helly Exp $ */
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -187,8 +187,9 @@ static void spl_recursive_it_move_forward_ex(spl_recursive_it_object *object TSR
 	zend_class_entry          *ce;
 	zval                      *retval, *child;
 	zend_object_iterator      *sub_iter;
+	int                       has_children;
 
-	while (1) {
+	while (!EG(exception)) {
 next_step:
 		iterator = object->iterators[object->level].iterator;
 		switch (object->iterators[object->level].state) {
@@ -204,19 +205,21 @@ next_step:
 				ce = object->iterators[object->level].ce;
 				zobject = object->iterators[object->level].zobject;
 				zend_call_method_with_0_params(&zobject, ce, NULL, "haschildren", &retval);
-				if (zend_is_true(retval)) {
+				if (retval) {
+					has_children = zend_is_true(retval);
 					zval_ptr_dtor(&retval);
-					switch (object->mode) {
-						case RIT_LEAVES_ONLY:
-						case RIT_CHILD_FIRST:
-							object->iterators[object->level].state = RS_CHILD;
-							goto next_step;
-						case RIT_SELF_FIRST:
-							object->iterators[object->level].state = RS_SELF;
-							goto next_step;
+					if (has_children) {
+						switch (object->mode) {
+							case RIT_LEAVES_ONLY:
+							case RIT_CHILD_FIRST:
+								object->iterators[object->level].state = RS_CHILD;
+								goto next_step;
+							case RIT_SELF_FIRST:
+								object->iterators[object->level].state = RS_SELF;
+								goto next_step;
+						}
 					}
 				}
-				zval_ptr_dtor(&retval);
 				object->iterators[object->level].state = RS_NEXT;
 				return /* self */;
 			case RS_SELF:
@@ -230,7 +233,7 @@ next_step:
 				ce = object->iterators[object->level].ce;
 				zobject = object->iterators[object->level].zobject;
 				zend_call_method_with_0_params(&zobject, ce, NULL, "getchildren", &child);
-				ce = child ? Z_OBJCE_P(child) : NULL;
+				ce = child && Z_TYPE_P(child) == IS_OBJECT ? Z_OBJCE_P(child) : NULL;
 				if (!ce || !instanceof_function(ce, spl_ce_RecursiveIterator TSRMLS_CC)) {
 					if (child) {
 						zval_ptr_dtor(&child);
@@ -1172,6 +1175,7 @@ static INLINE void spl_caching_it_next(spl_dual_it_object *intern TSRMLS_DC)
 					zval_copy_ctor(intern->u.caching.zstr);
 					zval_dtor(&expr_copy);
 				} else {
+					INIT_PZVAL(intern->u.caching.zstr);
 					zval_copy_ctor(intern->u.caching.zstr);
 				}
 			}
@@ -1229,7 +1233,7 @@ SPL_METHOD(CachingIterator, next)
 } /* }}} */
 
 /* {{{ proto boolean CachingIterator::hasNext()
-   Cehck whether the inner iterator has a valid next element */
+   Check whether the inner iterator has a valid next element */
 SPL_METHOD(CachingIterator, hasNext)
 {
 	spl_dual_it_object   *intern;
@@ -1240,7 +1244,7 @@ SPL_METHOD(CachingIterator, hasNext)
 } /* }}} */
 
 /* {{{ proto string CachingIterator::__toString()
-   Retrun the string representation of the current element */
+   Return the string representation of the current element */
 SPL_METHOD(CachingIterator, __toString)
 {
 	spl_dual_it_object   *intern;
@@ -1284,7 +1288,7 @@ SPL_METHOD(CachingRecursiveIterator, __construct)
 } /* }}} */
 
 /* {{{ proto bolean CachingRecursiveIterator::hasChildren()
-   Cehck whether the current element of the inner iterator has children */
+   Check whether the current element of the inner iterator has children */
 SPL_METHOD(CachingRecursiveIterator, hasChildren)
 {
 	spl_dual_it_object   *intern;
@@ -1295,7 +1299,7 @@ SPL_METHOD(CachingRecursiveIterator, hasChildren)
 } /* }}} */
 
 /* {{{ proto CachingRecursiveIterator CachingRecursiveIterator::getChildren()
-  Return the inenr iteraor's children as a CachingRecursiveIterator */
+  Return the inner iterator's children as a CachingRecursiveIterator */
 SPL_METHOD(CachingRecursiveIterator, getChildren)
 {
 	spl_dual_it_object   *intern;

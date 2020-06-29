@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_builtin_functions.c,v 1.239.2.13 2004/12/06 08:57:55 stas Exp $ */
+/* $Id: zend_builtin_functions.c,v 1.239.2.18 2005/03/14 09:13:14 stas Exp $ */
 
 #include "zend.h"
 #include "zend_API.h"
@@ -433,7 +433,7 @@ ZEND_FUNCTION(error_reporting)
 /* }}} */
 
 
-/* {{{ proto bool define(string constant_name, mixed value, case_sensitive=true)
+/* {{{ proto bool define(string constant_name, mixed value, boolean case_sensitive=true)
    Define a new constant */
 ZEND_FUNCTION(define)
 {
@@ -1592,6 +1592,7 @@ ZEND_FUNCTION(debug_print_backtrace)
 
 	while (ptr) {
    		class_name = call_type = NULL;   
+		arg_array = NULL;
 		if (ptr->op_array) {
 			filename = ptr->op_array->filename;
 			lineno = ptr->opline->lineno;
@@ -1736,7 +1737,7 @@ ZEND_API void zend_fetch_debug_backtrace(zval *return_value, int skip_last TSRML
 		if (function_name) {
 			add_assoc_string_ex(stack_frame, "function", sizeof("function"), function_name, 1);
 
-			if (ptr->object) {
+			if (ptr->object && Z_TYPE_P(ptr->object) == IS_OBJECT) {
 				class_name = Z_OBJCE(*ptr->object)->name;
 				call_type = "->";
 			} else if (ptr->function_state.function->common.scope) {
@@ -1868,10 +1869,13 @@ ZEND_FUNCTION(get_extension_funcs)
 
 	convert_to_string_ex(extension_name);
 	if (strncasecmp(Z_STRVAL_PP(extension_name), "zend", sizeof("zend"))) {
-		if (zend_hash_find(&module_registry, Z_STRVAL_PP(extension_name), 
+		char *lcname = zend_str_tolower_dup(Z_STRVAL_PP(extension_name), Z_STRLEN_PP(extension_name));
+		if (zend_hash_find(&module_registry, lcname,
 			Z_STRLEN_PP(extension_name)+1, (void**)&module) == FAILURE) {
+			efree(lcname);
 			RETURN_FALSE;
 		}
+		efree(lcname);
 		
 		if (!(func = module->functions)) {
 			RETURN_FALSE;

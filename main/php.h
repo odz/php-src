@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php.h,v 1.203.2.4 2004/11/28 12:44:42 sesser Exp $ */
+/* $Id: php.h,v 1.203.2.9 2005/03/14 09:41:39 hyanantha Exp $ */
 
 #ifndef PHP_H
 #define PHP_H
@@ -65,16 +65,6 @@
 #endif
 #endif
 
-#ifdef NETWARE
-/* For php_get_uname() function */
-#define PHP_UNAME  "NetWare"
-/*
- * This is obtained using uname(2) on Unix and assigned in the case of Windows;
- * we'll do it this way at least for now.
- */
-#define PHP_OS      PHP_UNAME
-#endif
-
 #include "php_regex.h"
 
 #if HAVE_ASSERT_H
@@ -101,7 +91,7 @@
 #endif
 
 #if HAVE_BUILD_DEFS_H
-#include "build-defs.h"
+#include <build-defs.h>
 #endif
 
 /*
@@ -205,13 +195,6 @@ char *strerror(int);
 # ifdef PHP_WIN32
 #include "win32/pwd.h"
 #include "win32/param.h"
-#elif defined(NETWARE)
-#ifdef NEW_LIBC
-#include <sys/param.h>
-#else
-#include "NetWare/param.h"
-#endif
-#include "NetWare/pwd.h"
 # else
 #include <pwd.h>
 #include <sys/param.h>

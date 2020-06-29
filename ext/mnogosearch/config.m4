@@ -1,5 +1,5 @@
 dnl
-dnl $Source: /repository/php-src/ext/mnogosearch/config.m4,v $
+dnl $Source: /repository/php-src/ext/mnogosearch/Attic/config.m4,v $
 dnl $Id: config.m4,v 1.11.2.1 2004/08/29 10:59:12 gluke Exp $
 dnl
 

@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: basic_functions.c,v 1.673.2.7 2004/11/15 23:16:20 fmk Exp $ */
+/* $Id: basic_functions.c,v 1.673.2.13 2005/03/10 12:10:57 hyanantha Exp $ */
 
 #include "php.h"
 #include "php_streams.h"
@@ -43,7 +43,7 @@ typedef struct yy_buffer_state *YY_BUFFER_STATE;
 
 #include "zend.h"
 #include "zend_language_scanner.h"
-#include "zend_language_parser.h"
+#include <zend_language_parser.h>
 
 #include <stdarg.h>
 #include <stdlib.h>
@@ -51,18 +51,7 @@ typedef struct yy_buffer_state *YY_BUFFER_STATE;
 #include <time.h>
 #include <stdio.h>
 
-#ifndef NETWARE
 #include <netdb.h>
-#else
-/*#include "netware/env.h"*/    /* Temporary */
-#ifdef NEW_LIBC /* Same headers hold good for Winsock and Berkeley sockets */
-#include <netinet/in.h>
-/*#include <arpa/inet.h>*/
-#include <netdb.h>
-#else
-#include <sys/socket.h>
-#endif
-#endif
 
 #if HAVE_ARPA_INET_H
 # include <arpa/inet.h>
@@ -1993,8 +1982,10 @@ PHP_FUNCTION(call_user_func_array)
 		current++;
 	}
 
-	if (call_user_function_ex(EG(function_table), NULL, *func, &retval_ptr, count, func_params, 0, NULL TSRMLS_CC) == SUCCESS && retval_ptr) {
-		COPY_PZVAL_TO_ZVAL(*return_value, retval_ptr);
+	if (call_user_function_ex(EG(function_table), NULL, *func, &retval_ptr, count, func_params, 0, NULL TSRMLS_CC) == SUCCESS) {
+		if (retval_ptr) {
+			COPY_PZVAL_TO_ZVAL(*return_value, retval_ptr);
+		}
 	} else {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to call %s()", name);
 	}
@@ -2188,16 +2179,24 @@ static int user_tick_function_compare(user_tick_function_entry * tick_fe1, user_
 	}
 }
 
-void php_call_shutdown_functions(void)
+void php_call_shutdown_functions(TSRMLS_D)
 {
-	TSRMLS_FETCH();
-
 	if (BG(user_shutdown_function_names))
 		zend_try {
 			zend_hash_apply(BG(user_shutdown_function_names), (apply_func_t) user_shutdown_function_call TSRMLS_CC);
 			memcpy(&EG(bailout), &orig_bailout, sizeof(jmp_buf));
+			php_free_shutdown_functions(TSRMLS_C);
+		}
+		zend_end_try();
+}
+
+void php_free_shutdown_functions(TSRMLS_D)
+{
+	if (BG(user_shutdown_function_names))
+		zend_try {
 			zend_hash_destroy(BG(user_shutdown_function_names));
 			FREE_HASHTABLE(BG(user_shutdown_function_names));
+			BG(user_shutdown_function_names) = NULL;
 		}
 		zend_end_try();
 }
@@ -2584,7 +2583,7 @@ PHP_FUNCTION(ini_restore)
 }
 /* }}} */
 
-/* {{{ proto string set_include_path(string varname, string newvalue)
+/* {{{ proto string set_include_path(string new_include_path)
    Sets the include_path configuration option */
 
 PHP_FUNCTION(set_include_path)

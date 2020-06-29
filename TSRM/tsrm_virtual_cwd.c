@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_virtual_cwd.c,v 1.62.2.3 2004/12/02 01:04:34 sesser Exp $ */
+/* $Id: tsrm_virtual_cwd.c,v 1.62.2.5 2005/03/11 11:09:42 hyanantha Exp $ */
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -746,7 +746,7 @@ CWD_API int virtual_stat(const char *path, struct stat_libc *buf TSRMLS_DC)
 }
 #endif
 
-#if !defined(TSRM_WIN32) && !defined(NETWARE)
+#ifndef TSRM_WIN32
 CWD_API int virtual_lstat(const char *path, struct stat *buf TSRMLS_DC)
 {
 	cwd_state new_state;
@@ -885,7 +885,7 @@ CWD_API FILE *virtual_popen(const char *command, const char *type TSRMLS_DC)
 	dir_length = CWDG(cwd).cwd_length;
 	dir = CWDG(cwd).cwd;
 
-	ptr = command_line = (char *) malloc(command_length + sizeof("cd '' ; ") + dir_length +1+1);
+	ptr = command_line = (char *) malloc(command_length + sizeof("cd '' ; ") + dir_length +extra+1+1);
 	if (!command_line) {
 		return NULL;
 	}

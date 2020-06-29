@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_execute.c,v 1.652.2.11 2004/12/01 14:01:58 dmitry Exp $ */
+/* $Id: zend_execute.c,v 1.652.2.22 2005/03/21 16:22:10 andi Exp $ */
 
 #define ZEND_INTENSIVE_DEBUGGING 0
 
@@ -175,9 +175,15 @@ static inline void zend_fetch_property_address_inner(zval *object, znode *op2, z
 	if (Z_OBJ_HT_P(object)->get_property_ptr_ptr) {
 		zval **ptr_ptr = Z_OBJ_HT_P(object)->get_property_ptr_ptr(object, prop_ptr TSRMLS_CC);
 		if(NULL == ptr_ptr) {
-			zend_error(E_ERROR, "Cannot access undefined property for object with overloaded property access");
+			if (Z_OBJ_HT_P(object)->read_property &&
+			    (T(result->u.var).var.ptr = Z_OBJ_HT_P(object)->read_property(object, prop_ptr, BP_VAR_W TSRMLS_CC)) != NULL) {
+				T(result->u.var).var.ptr_ptr = &T(result->u.var).var.ptr;
+			} else {
+				zend_error(E_ERROR, "Cannot access undefined property for object with overloaded property access");
+			}
+		} else {
+			T(result->u.var).var.ptr_ptr = ptr_ptr;
 		}
-		T(result->u.var).var.ptr_ptr = ptr_ptr;
 	} else if (Z_OBJ_HT_P(object)->read_property) {
 		T(result->u.var).var.ptr = Z_OBJ_HT_P(object)->read_property(object, prop_ptr, BP_VAR_W TSRMLS_CC);
 		T(result->u.var).var.ptr_ptr = &T(result->u.var).var.ptr;
@@ -763,13 +769,13 @@ static void zend_fetch_var_address(zend_op *opline, temp_variable *Ts, int type 
 		if (zend_hash_find(target_symbol_table, varname->value.str.val, varname->value.str.len+1, (void **) &retval) == FAILURE) {
 			switch (type) {
 				case BP_VAR_R: 
-					zend_error(E_NOTICE,"Undefined variable:  %s", varname->value.str.val);
+					zend_error(E_NOTICE,"Undefined variable: %s", varname->value.str.val);
 					/* break missing intentionally */
 				case BP_VAR_IS:
 					retval = &EG(uninitialized_zval_ptr);
 					break;
 				case BP_VAR_RW:
-					zend_error(E_NOTICE,"Undefined variable:  %s", varname->value.str.val);
+					zend_error(E_NOTICE,"Undefined variable: %s", varname->value.str.val);
 					/* break missing intentionally */
 				case BP_VAR_W: {					
 						zval *new_zval = &EG(uninitialized_zval);
@@ -1911,10 +1917,20 @@ static inline int zend_incdec_op_helper(incdec_t incdec_op_arg, ZEND_OPCODE_HAND
 		zend_error(E_ERROR, "Cannot increment/decrement overloaded objects nor string offsets");
 	}
 	if (*var_ptr == EG(error_zval_ptr)) {
-		EX_T(opline->result.u.var).var.ptr_ptr = &EG(uninitialized_zval_ptr);
-		SELECTIVE_PZVAL_LOCK(*EX_T(opline->result.u.var).var.ptr_ptr, &opline->result);
-		AI_USE_PTR(EX_T(opline->result.u.var).var);
-		NEXT_OPCODE();
+		switch (opline->opcode) {
+			case ZEND_PRE_INC:
+			case ZEND_PRE_DEC:
+				EX_T(opline->result.u.var).var.ptr_ptr = &EG(uninitialized_zval_ptr);
+				SELECTIVE_PZVAL_LOCK(*EX_T(opline->result.u.var).var.ptr_ptr, &opline->result);
+				AI_USE_PTR(EX_T(opline->result.u.var).var);
+				NEXT_OPCODE();
+				break;
+			case ZEND_POST_INC:
+			case ZEND_POST_DEC:
+				EX_T(opline->result.u.var).tmp_var = *EG(uninitialized_zval_ptr);
+				NEXT_OPCODE();
+				break;
+		}
 	}
 
 	switch (opline->opcode) {
@@ -2438,7 +2454,7 @@ int zend_fetch_class_handler(ZEND_OPCODE_HANDLER_ARGS)
 	
 
 	if (opline->op2.op_type == IS_UNUSED) {
-		EX_T(opline->result.u.var).class_entry = zend_fetch_class(NULL, 0, opline->extended_value TSRMLS_CC);
+		EX_T(opline->result.u.var).class_entry = zend_fetch_class(NULL, ZEND_FETCH_CLASS_AUTO, opline->extended_value TSRMLS_CC);
 		NEXT_OPCODE();
 	}
 
@@ -3741,10 +3757,17 @@ int zend_fe_reset_handler(ZEND_OPCODE_HANDLER_ARGS)
 	if (ce && ce->get_iterator) {
 		iter = ce->get_iterator(ce, array_ptr TSRMLS_CC);
 
-		if (iter) {
+		if (iter && !EG(exception)) {
 			array_ptr = zend_iterator_wrap(iter TSRMLS_CC);
 		} else {
-			array_ptr->refcount++;
+			zval_ptr_dtor(&array_ptr);
+			FREE_OP(Ts, op1, EG(free_op1));
+			if (!EG(exception)) {
+				zend_throw_exception_ex(NULL, 0 TSRMLS_CC, "Object of type %s did not create an Iterator", ce->name);
+			}
+			zend_throw_exception_internal(NULL TSRMLS_CC);
+			NEXT_OPCODE();
+			return 0;
 		}
 	}
 	
@@ -4032,14 +4055,14 @@ static int zend_isset_isempty_dim_prop_obj_handler(int prop_dim, ZEND_OPCODE_HAN
 			} else {
 				result = Z_OBJ_HT_P(*container)->has_dimension(*container, offset, (opline->extended_value == ZEND_ISEMPTY) TSRMLS_CC);
 			}
-		} else if ((*container)->type == IS_STRING) { /* string offsets */
-			zval tmp_offset;
+		} else if ((*container)->type == IS_STRING && !prop_dim) { /* string offsets */
+			zval tmp;
 
-			if (Z_TYPE_P(offset) != IS_LONG) {
-				tmp_offset = *offset;
-				zval_copy_ctor(&tmp_offset);
-				convert_to_long(&tmp_offset);
-				offset = &tmp_offset;
+			if (offset->type != IS_LONG) {
+				tmp = *offset;
+				zval_copy_ctor(&tmp);
+				convert_to_long(&tmp);
+				offset = &tmp;
 			}
 			switch (opline->extended_value) {
 				case ZEND_ISSET:
@@ -4055,7 +4078,7 @@ static int zend_isset_isempty_dim_prop_obj_handler(int prop_dim, ZEND_OPCODE_HAN
 			}
 		}
 	}
-	
+
 	EX_T(opline->result.u.var).tmp_var.type = IS_BOOL;
 
 	switch (opline->extended_value) {
@@ -4293,7 +4316,7 @@ int zend_verify_abstract_class_handler(ZEND_OPCODE_HANDLER_ARGS)
 
 void zend_init_opcodes_handlers()
 {
-	memset(zend_opcode_handlers, sizeof(zend_opcode_handlers), 0);
+	memset(zend_opcode_handlers, 0, sizeof(zend_opcode_handlers));
 	zend_opcode_handlers[ZEND_NOP] = zend_nop_handler;
 	zend_opcode_handlers[ZEND_ADD] = zend_add_handler;
 	zend_opcode_handlers[ZEND_SUB] = zend_sub_handler;

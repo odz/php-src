@@ -17,7 +17,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: streamsfuncs.c,v 1.35.2.5 2004/10/11 18:32:59 iliaa Exp $ */
+/* $Id: streamsfuncs.c,v 1.35.2.10 2005/01/15 04:51:03 sniper Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -217,7 +217,7 @@ PHP_FUNCTION(stream_socket_accept)
 
 	if (peername) {
 		zval_dtor(peername);
-		ZVAL_STRING(peername, NULL, 0);
+		ZVAL_NULL(peername);
 	}
 
 	if (0 == php_stream_xport_accept(stream, &clistream,
@@ -227,19 +227,17 @@ PHP_FUNCTION(stream_socket_accept)
 				&tv, &errstr
 				TSRMLS_CC) && clistream) {
 
+		if (peername) {
+			Z_TYPE_P(peername) = IS_STRING;
+		}
 		php_stream_to_zval(clistream, return_value);
 	} else {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "accept failed: %s", errstr ? errstr : "Unknown error");
-
 		RETVAL_FALSE;
 	}
 
 	if (errstr) {
 		efree(errstr);
-	}
-
-	if (peername && Z_STRVAL_P(peername) == NULL) {
-		ZVAL_STRING(peername, "", 1);
 	}
 }
 /* }}} */
@@ -350,6 +348,7 @@ PHP_FUNCTION(stream_socket_recvfrom)
 		}
 	}
 
+	efree(read_buf);
 	RETURN_FALSE;
 }
 /* }}} */

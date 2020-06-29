@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_ftp.c,v 1.100 2004/02/25 20:16:21 abies Exp $ */
+/* $Id: php_ftp.c,v 1.100.2.2 2005/03/10 23:38:01 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -25,14 +25,8 @@
 
 #include "php.h"
 
-#ifdef NETWARE
-#ifdef USE_WINSOCK
+#if defined(NETWARE) && defined(USE_WINSOCK)
 #include <novsock2.h>
-#else
-#ifndef NEW_LIBC
-#include <sys/socket.h>
-#endif
-#endif
 #endif
 
 #if HAVE_OPENSSL_EXT
@@ -685,6 +679,10 @@ PHP_FUNCTION(ftp_get)
 		resumepos = 0;
 	}
 
+#ifdef PHP_WIN32
+	mode = FTPTYPE_IMAGE;
+#endif
+
 	if (ftp->autoseek && resumepos) {
 		outstream = php_stream_open_wrapper(local, mode == FTPTYPE_ASCII ? "rt+" : "rb+", ENFORCE_SAFE_MODE | REPORT_ERRORS, NULL);
 		if (outstream == NULL) {
@@ -743,7 +741,9 @@ PHP_FUNCTION(ftp_nb_get)
 	if (!ftp->autoseek && resumepos == PHP_FTP_AUTORESUME) {
 		resumepos = 0;
 	}
-
+#ifdef PHP_WIN32
+	mode = FTPTYPE_IMAGE;
+#endif
 	if (ftp->autoseek && resumepos) {
 		outstream = php_stream_open_wrapper(local, mode == FTPTYPE_ASCII ? "rt+" : "rb+", ENFORCE_SAFE_MODE | REPORT_ERRORS, NULL);
 		if (outstream == NULL) {

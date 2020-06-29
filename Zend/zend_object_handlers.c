@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_object_handlers.c,v 1.101.2.2 2004/11/25 20:26:48 zeev Exp $ */
+/* $Id: zend_object_handlers.c,v 1.101.2.7 2005/03/19 15:38:19 helly Exp $ */
 
 #include "zend.h"
 #include "zend_globals.h"
@@ -72,6 +72,7 @@ static zval *zend_std_call_getter(zval *object, zval *member TSRMLS_DC)
 	INIT_PZVAL(&__get_name);
 	ZVAL_STRINGL(&__get_name, ZEND_GET_FUNC_NAME, sizeof(ZEND_GET_FUNC_NAME)-1, 0);
 
+	SEPARATE_ARG_IF_REF(member);
 	call_args[0] = &member;
 
 	/* go call the __get handler */
@@ -87,11 +88,13 @@ static zval *zend_std_call_getter(zval *object, zval *member TSRMLS_DC)
 	   retval returns the value that is received
 	*/
 	
-
 	if (call_result == FAILURE) {
 		zend_error(E_ERROR, "Could not call __get handler for class %s", Z_OBJCE_P(object)->name);
 		return NULL;
 	}
+
+	zval_ptr_dtor(&member);
+
 	if (retval) {
 		retval->refcount--;
 	}
@@ -105,7 +108,7 @@ static int zend_std_call_setter(zval *object, zval *member, zval *value TSRMLS_D
 	zval *retval = NULL;
 	zval __set_name;
 	int call_result;
-	int ret;
+	int result;
 	
 	/* __set handler is called with two arguments:
 	   property name
@@ -116,6 +119,7 @@ static int zend_std_call_setter(zval *object, zval *member, zval *value TSRMLS_D
 	INIT_PZVAL(&__set_name);
 	ZVAL_STRINGL(&__set_name, ZEND_SET_FUNC_NAME, sizeof(ZEND_SET_FUNC_NAME)-1, 0);
 
+	SEPARATE_ARG_IF_REF(member);
 	call_args[0] = &member;
 	value->refcount++;
 	call_args[1] = &value;
@@ -139,19 +143,16 @@ static int zend_std_call_setter(zval *object, zval *member, zval *value TSRMLS_D
 		return FAILURE;
 	}
 
+	zval_ptr_dtor(&member);
 	zval_ptr_dtor(&value);
 
-	if (retval && zend_is_true(retval)) {
-		ret = SUCCESS;
-	} else {
-		ret = FAILURE;
-	}
-
 	if (retval) {
+		result = i_zend_is_true(retval) ? SUCCESS : FAILURE;
 		zval_ptr_dtor(&retval);
+		return result;
+	} else {
+		return FAILURE;
 	}
-	
-	return ret;
 }
 
 
@@ -383,11 +384,13 @@ zval *zend_std_read_dimension(zval *object, zval *offset, int type TSRMLS_DC)
 	if (instanceof_function_ex(ce, zend_ce_arrayaccess, 1 TSRMLS_CC)) {
 		if(offset == NULL) {
 			/* [] construct */
-			zval offset_null;
-			INIT_ZVAL(offset_null);
-			offset = &offset_null;
+			ALLOC_INIT_ZVAL(offset);
+		} else {
+			SEPARATE_ARG_IF_REF(offset);
 		}
 		zend_call_method_with_1_params(&object, ce, NULL, "offsetget", &retval, offset);
+
+		zval_ptr_dtor(&offset);
 
 		if (!retval) {
 			if (!EG(exception)) {
@@ -410,14 +413,15 @@ zval *zend_std_read_dimension(zval *object, zval *offset, int type TSRMLS_DC)
 static void zend_std_write_dimension(zval *object, zval *offset, zval *value TSRMLS_DC)
 {
 	zend_class_entry *ce = Z_OBJCE_P(object);
-	zval tmp;
 	
 	if (instanceof_function_ex(ce, zend_ce_arrayaccess, 1 TSRMLS_CC)) {
 		if (!offset) {
-			INIT_ZVAL(tmp);
-			offset = &tmp;
+			ALLOC_INIT_ZVAL(offset);
+		} else {
+			SEPARATE_ARG_IF_REF(offset);
 		}
 		zend_call_method_with_2_params(&object, ce, NULL, "offsetset", NULL, offset, value);
+		zval_ptr_dtor(&offset);
 	} else {
 		zend_error(E_ERROR, "Cannot use object of type %s as array", ce->name);
 	}
@@ -431,10 +435,16 @@ static int zend_std_has_dimension(zval *object, zval *offset, int check_empty TS
 	int result;
 	
 	if (instanceof_function_ex(ce, zend_ce_arrayaccess, 1 TSRMLS_CC)) {
+		SEPARATE_ARG_IF_REF(offset);
 		zend_call_method_with_1_params(&object, ce, NULL, "offsetexists", &retval, offset);
-		result = i_zend_is_true(retval);
-		zval_ptr_dtor(&retval);
-		return result;
+		zval_ptr_dtor(&offset);
+		if (retval) {
+			result = i_zend_is_true(retval);
+			zval_ptr_dtor(&retval);
+			return result;
+		} else {
+			return 0;
+		}
 	} else {
 		zend_error(E_ERROR, "Cannot use object of type %s as array", ce->name);
 		return 0;
@@ -513,11 +523,11 @@ static void zend_std_unset_property(zval *object, zval *member TSRMLS_DC)
 static void zend_std_unset_dimension(zval *object, zval *offset TSRMLS_DC)
 {
 	zend_class_entry *ce = Z_OBJCE_P(object);
-	zval *retval;
 	
 	if (instanceof_function_ex(ce, zend_ce_arrayaccess, 1 TSRMLS_CC)) {
-		zend_call_method_with_1_params(&object, ce, NULL, "offsetunset", &retval, offset);
-		zval_ptr_dtor(&retval);
+		SEPARATE_ARG_IF_REF(offset);
+		zend_call_method_with_1_params(&object, ce, NULL, "offsetunset", NULL, offset);
+		zval_ptr_dtor(&offset);
 	} else {
 		zend_error(E_ERROR, "Cannot use object of type %s as array", ce->name);
 	}
@@ -528,7 +538,7 @@ ZEND_API void zend_std_call_user_call(INTERNAL_FUNCTION_PARAMETERS)
 {
 	zval ***args;
 	zend_internal_function *func = (zend_internal_function *)EG(function_state_ptr)->function;
-	zval method_name, method_args, __call_name;
+	zval __call_name;
 	zval *method_name_ptr, *method_args_ptr;
 	zval **call_args[2];
 	zval *method_result_ptr = NULL;
@@ -542,11 +552,11 @@ ZEND_API void zend_std_call_user_call(INTERNAL_FUNCTION_PARAMETERS)
 		RETURN_FALSE;
 	}
 
-	method_name_ptr = &method_name;
+	ALLOC_ZVAL(method_name_ptr);
 	INIT_PZVAL(method_name_ptr);
 	ZVAL_STRING(method_name_ptr, func->function_name, 0); /* no dup - it's a copy */
 
-	method_args_ptr = &method_args;
+	ALLOC_ZVAL(method_args_ptr);
 	INIT_PZVAL(method_args_ptr);
 	array_init(method_args_ptr);
 
@@ -591,8 +601,8 @@ ZEND_API void zend_std_call_user_call(INTERNAL_FUNCTION_PARAMETERS)
 	}
 
 	/* now destruct all auxiliaries */
-	zval_dtor(method_args_ptr);
-	zval_dtor(method_name_ptr);
+	zval_ptr_dtor(&method_args_ptr);
+	zval_ptr_dtor(&method_name_ptr);
 
 	/* destruct the function also, then - we have allocated it in get_method */
 	efree(func);
@@ -602,7 +612,7 @@ ZEND_API void zend_std_call_user_call(INTERNAL_FUNCTION_PARAMETERS)
  * Returns the function address that should be called, or NULL
  * if no such function exists.
  */
-inline zend_function *zend_check_private(zend_function *fbc, zend_class_entry *ce, int fn_flags, char *function_name_strval, int function_name_strlen TSRMLS_DC)
+static inline zend_function *zend_check_private(zend_function *fbc, zend_class_entry *ce, int fn_flags, char *function_name_strval, int function_name_strlen TSRMLS_DC)
 {
 	if (!ce) {
 		return 0;
@@ -788,7 +798,10 @@ ZEND_API zval **zend_std_get_static_property(zend_class_entry *ce, char *propert
 #endif
 
 	if (!zend_verify_property_access(property_info, ce TSRMLS_CC)) {
-		zend_error(E_ERROR, "Cannot access %s property %s::$%s", zend_visibility_string(property_info->flags), ce->name, property_name);
+		if (!silent) {
+			zend_error(E_ERROR, "Cannot access %s property %s::$%s", zend_visibility_string(property_info->flags), ce->name, property_name);
+		}
+		return NULL;
 	}
 
 	zend_hash_quick_find(tmp_ce->static_members, property_info->name, property_info->name_length+1, property_info->h, (void **) &retval);

@@ -17,17 +17,17 @@
  *
  */
 
-/* $Id: sendmail.c,v 1.59 2003/12/08 22:10:42 fmk Exp $ */
+/* $Id: sendmail.c,v 1.59.2.3 2005/03/11 10:48:06 hyanantha Exp $ */
 
 #include "php.h"				/*php specific */
 #include <stdio.h>
 #include <stdlib.h>
 #ifndef NETWARE
 #include <winsock2.h>
-#else	/* NETWARE */
-#include <netware\sendmail_nw.h>
-#endif	/* NETWARE */
 #include "time.h"
+#else	/* NETWARE */
+#include <netware/sendmail_nw.h>
+#endif	/* NETWARE */
 #include <string.h>
 #include <math.h>
 #ifndef NETWARE
@@ -225,6 +225,7 @@ PHPAPI int TSendMail(char *host, int *error, char **error_message,
 	int ret;
 	char *RPath = NULL;
 	char *headers_lc = NULL; /* headers_lc is only created if we've a header at all */
+	char *pos1 = NULL, *pos2 = NULL;
 	TSRMLS_FETCH();
 
 #ifndef NETWARE
@@ -266,9 +267,21 @@ PHPAPI int TSendMail(char *host, int *error, char **error_message,
 	/* Fall back to sendmail_from php.ini setting */
 	if (mailRPath && *mailRPath) {
 		RPath = estrdup(mailRPath);
-	}
-	else if (INI_STR("sendmail_from")) {
+	} else if (INI_STR("sendmail_from")) {
 		RPath = estrdup(INI_STR("sendmail_from"));
+	} else if (	headers_lc &&
+				(pos1 = strstr(headers_lc, "from:")) &&
+				((pos1 == headers_lc) || (*(pos1-1) == '\n'))
+	) {
+		/* Real offset is memaddress from the original headers + difference of
+		 * string found in the lowercase headrs + 5 characters to jump over   
+		 * the from: */
+		pos1 = headers + (pos1 - headers_lc) + 5;
+		if (NULL == (pos2 = strstr(pos1, "\r\n"))) {
+			RPath = estrndup(pos1, strlen(pos1));
+		} else {
+			RPath = estrndup(pos1, pos2-pos1);
+		}
 	} else {
 		if (headers) {
 			efree(headers);
@@ -472,7 +485,7 @@ int SendText(char *RPath, char *Subject, char *mailTo, char *mailCc, char *mailB
 		efree(tempMailTo);
 	}
 	/* Send mail to all Cc rcpt's */
-	else if (headers && (pos1 = strstr(headers_lc, "cc:")) && ((pos1 == headers_lc) || iscntrl(*(pos1-1)))) {
+	else if (headers && (pos1 = strstr(headers_lc, "cc:")) && ((pos1 == headers_lc) || (*(pos1-1) == '\n'))) {
 		/* Real offset is memaddress from the original headers + difference of
 		 * string found in the lowercase headrs + 3 characters to jump over
 		 * the cc: */

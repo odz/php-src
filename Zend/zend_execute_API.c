@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_execute_API.c,v 1.287.2.6 2004/11/25 20:26:48 zeev Exp $ */
+/* $Id: zend_execute_API.c,v 1.287.2.11 2005/03/19 14:29:18 helly Exp $ */
 
 #include <stdio.h>
 #include <signal.h>
@@ -499,6 +499,7 @@ ZEND_API int zval_update_constant(zval **pp, void *arg TSRMLS_DC)
 				case IS_STRING:
 					zend_symtable_update(p->value.ht, const_value.value.str.val, const_value.value.str.len+1, &new_val, sizeof(zval *), NULL);
 					break;
+				case IS_BOOL:
 				case IS_LONG:
 					zend_hash_index_update(p->value.ht, const_value.value.lval, &new_val, sizeof(zval *), NULL);
 					break;
@@ -570,6 +571,10 @@ int zend_call_function(zend_fcall_info *fci, zend_fcall_info_cache *fci_cache TS
 	zval *method_name;
 	zval *params_array;
 	int call_via_handler = 0;
+
+	if (EG(exception)) {
+		return FAILURE; /* we would result in an instable executor otherwise */
+	}
 
 	switch (fci->size) {
 		case sizeof(zend_fcall_info):
@@ -669,6 +674,9 @@ int zend_call_function(zend_fcall_info *fci, zend_fcall_info_cache *fci_cache TS
 
 				fci->function_table = &(*ce)->function_table;
 				calling_scope = *ce;
+			} else {
+				zend_error(E_NOTICE, "Non-callable array passed to zend_call_function()");
+				return FAILURE;
 			}
 
 			if (fci->function_table == NULL) {
@@ -686,6 +694,14 @@ int zend_call_function(zend_fcall_info *fci, zend_fcall_info_cache *fci_cache TS
 			}
 			EX(function_state).function = 
 				Z_OBJ_HT_PP(fci->object_pp)->get_method(*fci->object_pp, Z_STRVAL_P(fci->function_name), Z_STRLEN_P(fci->function_name) TSRMLS_CC);
+			if (EX(function_state).function && calling_scope != EX(function_state).function->common.scope) {
+				char *function_name_lc = zend_str_tolower_dup(Z_STRVAL_P(fci->function_name), Z_STRLEN_P(fci->function_name));
+				if (zend_hash_find(&calling_scope->function_table, function_name_lc, fci->function_name->value.str.len+1, (void **) &EX(function_state).function)==FAILURE) {
+					efree(function_name_lc);
+					zend_error(E_ERROR, "Cannot call method %s::%s() or method does not exist", calling_scope->name, Z_STRVAL_P(fci->function_name));
+				}
+				efree(function_name_lc);
+			}
 		} else if (calling_scope) {
 			char *function_name_lc = zend_str_tolower_dup(Z_STRVAL_P(fci->function_name), Z_STRLEN_P(fci->function_name));
 
@@ -807,7 +823,7 @@ int zend_call_function(zend_fcall_info *fci, zend_fcall_info_cache *fci_cache TS
 			} else {
 				severity = E_ERROR;
 			}
-			zend_error(E_STRICT, "Non-static method %s::%s() cannot be called statically", calling_scope->name, EX(function_state).function->common.function_name);
+			zend_error(severity, "Non-static method %s::%s() cannot be called statically", calling_scope->name, EX(function_state).function->common.function_name);
 		}
 	}
 

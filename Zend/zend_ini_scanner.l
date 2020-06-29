@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_ini_scanner.l,v 1.35 2004/05/17 20:09:37 andrei Exp $ */
+/* $Id: zend_ini_scanner.l,v 1.35.2.4 2005/02/06 23:52:29 zeev Exp $ */
 
 #define yyleng SCNG(yy_leng)
 #define yytext SCNG(yy_text)
@@ -32,7 +32,7 @@
 #include <errno.h>
 #include "zend.h"
 #include "zend_globals.h"
-#include "zend_ini_parser.h"
+#include <zend_ini_parser.h>
 #include "zend_ini_scanner.h"
 
 #undef YYSTYPE
@@ -53,13 +53,13 @@ static char *ini_filename;
 
 void init_ini_scanner(TSRMLS_D)
 {
-       SCNG(lineno)=1;
+	SCNG(lineno)=1;
 }
 
 
 int zend_ini_scanner_get_lineno(TSRMLS_D)
 {
-       return SCNG(lineno);
+	return SCNG(lineno);
 }
 
 
@@ -116,10 +116,10 @@ NEWLINE ("\r"|"\n"|"\r\n")
 	return CFG_FALSE;
 }
 
-<INITIAL>[[][^[]+[\]][ ]*{NEWLINE}? {
+<INITIAL>[[][^\]\n]+[\]][ ]*{NEWLINE}? {
 	/* SECTION */
 
-	/* eat trailng and spaces ] */
+	/* eat trailing ] and spaces */
 	while (yyleng>0 && (yytext[yyleng-1]=='\n' || yytext[yyleng-1]=='\r' || yytext[yyleng-1]==']' || yytext[yyleng-1]==' ')) {
 		yyleng--;
 		yytext[yyleng]=0;

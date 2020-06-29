@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: string.c,v 1.420.2.4 2004/11/21 13:35:50 tony2001 Exp $ */
+/* $Id: string.c,v 1.420.2.6 2005/03/01 15:01:08 hyanantha Exp $ */
 
 /* Synced with php 3.0 revision 1.193 1999-06-16 [ssb] */
 
@@ -1090,7 +1090,7 @@ PHPAPI void php_basename(char *s, size_t len, char *suffix, size_t sufflen, char
 			case 0:
 				goto quit_loop;
 			case 1:
-#ifdef PHP_WIN32
+#if defined(PHP_WIN32) || defined(NETWARE)
 				if (*c == '/' || *c == '\\') {
 #else
 				if (*c == '/') {
@@ -1836,6 +1836,10 @@ PHP_FUNCTION(chunk_split)
 	if (chunklen <= 0) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Chunk length should be greater than zero.");
 		RETURN_FALSE;
+	}
+
+	if (chunklen > Z_STRLEN_PP(p_str)) {
+		RETURN_STRINGL(Z_STRVAL_PP(p_str), Z_STRLEN_PP(p_str), 1);	
 	}
 
 	if (!Z_STRLEN_PP(p_str)) {

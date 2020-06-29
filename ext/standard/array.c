@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: array.c,v 1.266.2.9 2004/12/03 17:51:17 tony2001 Exp $ */
+/* $Id: array.c,v 1.266.2.15 2005/03/12 10:12:49 andrey Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -1052,7 +1052,9 @@ static int php_array_walk(HashTable *target_hash, zval **userdata, int recursive
 
 			/* Call the userland function */
 			if (zend_call_function(&fci, &BG(array_walk_fci_cache) TSRMLS_CC) == SUCCESS) {
-				zval_ptr_dtor(&retval_ptr);
+				if (retval_ptr) {
+					zval_ptr_dtor(&retval_ptr);
+				}
 			} else {
 				char *func_name;
 
@@ -1062,6 +1064,10 @@ static int php_array_walk(HashTable *target_hash, zval **userdata, int recursive
 					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to call %s() - function does not exist", func_name);
 				}
 
+				if (key) {
+					zval_ptr_dtor(&key);
+					key = NULL;
+				}
 				efree(func_name);
 				break;
 			}
@@ -1487,13 +1493,13 @@ PHP_FUNCTION(array_fill)
 		WRONG_PARAM_COUNT;
 	}
 
-	/* allocate an array for return */
-	array_init(return_value);
-
 	switch (Z_TYPE_PP(start_key)) {
 		case IS_STRING:
 		case IS_LONG:
 		case IS_DOUBLE:
+			/* allocate an array for return */
+			array_init(return_value);
+
 			if (PZVAL_IS_REF(*val)) {
 				SEPARATE_ZVAL(val);
 			}
@@ -1510,6 +1516,8 @@ PHP_FUNCTION(array_fill)
 	convert_to_long_ex(num);
 	i = Z_LVAL_PP(num) - 1;	
 	if (i < 0) {
+		zend_hash_destroy(Z_ARRVAL_P(return_value));
+		efree(Z_ARRVAL_P(return_value));
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Number of elements must be positive");
 		RETURN_FALSE;
 	}
@@ -1551,7 +1559,7 @@ PHP_FUNCTION(range)
 	array_init(return_value);
 
 	/* If the range is given as strings, generate an array of characters. */
-	if (Z_TYPE_P(zlow) == IS_STRING && Z_TYPE_P(zhigh) == IS_STRING) {
+	if (Z_TYPE_P(zlow) == IS_STRING && Z_TYPE_P(zhigh) == IS_STRING && Z_STRLEN_P(zlow) >= 1 && Z_STRLEN_P(zhigh) >= 1) {
 		int type1, type2;
 		unsigned char *low, *high;
 		long lstep = (long) step;
@@ -4273,7 +4281,7 @@ PHP_FUNCTION(array_combine)
 	}
 
 	if (zend_hash_num_elements(Z_ARRVAL_P(keys)) == 0 || zend_hash_num_elements(Z_ARRVAL_P(values)) == 0) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Both parameters should have number of elements at least 0");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Both parameters should have at least 1 element");
 		RETURN_FALSE;
 	}
 

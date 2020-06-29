@@ -15,7 +15,7 @@
   | Author: Georg Richter <georg@php.net>                                |
   +----------------------------------------------------------------------+
 
-  $Id: mysqli_prop.c,v 1.14.2.3 2004/12/06 05:15:36 georg Exp $ 
+  $Id: mysqli_prop.c,v 1.14.2.6 2005/03/30 13:52:39 jorton Exp $ 
 */
 
 #ifdef HAVE_CONFIG_H
@@ -57,7 +57,7 @@ CHECK_OBJECT(); \
 p = (MYSQL_STMT *)((MY_STMT *)((MYSQLI_RESOURCE *)(obj->ptr))->ptr)->stmt
 
 #define MYSQLI_MAP_PROPERTY_FUNC_LONG( __func, __int_func, __get_type, __ret_type)\
-int __func(mysqli_object *obj, zval **retval TSRMLS_DC) \
+static int __func(mysqli_object *obj, zval **retval TSRMLS_DC) \
 {\
 	__ret_type l;\
 	__get_type;\
@@ -77,7 +77,7 @@ int __func(mysqli_object *obj, zval **retval TSRMLS_DC) \
 }
 
 #define MYSQLI_MAP_PROPERTY_FUNC_STRING(__func, __int_func, __get_type)\
-int __func(mysqli_object *obj, zval **retval TSRMLS_DC)\
+static int __func(mysqli_object *obj, zval **retval TSRMLS_DC)\
 {\
 	char *c;\
 	__get_type;\
@@ -95,7 +95,7 @@ int __func(mysqli_object *obj, zval **retval TSRMLS_DC)\
 }
 
 /* {{{ property link_client_version_read */
-int link_client_version_read(mysqli_object *obj, zval **retval TSRMLS_DC)
+static int link_client_version_read(mysqli_object *obj, zval **retval TSRMLS_DC)
 {
 	ALLOC_ZVAL(*retval);
 	ZVAL_LONG(*retval, MYSQL_VERSION_ID);
@@ -104,7 +104,7 @@ int link_client_version_read(mysqli_object *obj, zval **retval TSRMLS_DC)
 /* }}} */
 
 /* {{{ property link_client_info_read */
-int link_client_info_read(mysqli_object *obj, zval **retval TSRMLS_DC)
+static int link_client_info_read(mysqli_object *obj, zval **retval TSRMLS_DC)
 {
 	ALLOC_ZVAL(*retval);
 	ZVAL_STRING(*retval, MYSQL_SERVER_VERSION, 1);
@@ -113,7 +113,7 @@ int link_client_info_read(mysqli_object *obj, zval **retval TSRMLS_DC)
 /* }}} */
 
 /* {{{ property link_connect_errno_read */
-int link_connect_errno_read(mysqli_object *obj, zval **retval TSRMLS_DC)
+static int link_connect_errno_read(mysqli_object *obj, zval **retval TSRMLS_DC)
 {
 	ALLOC_ZVAL(*retval);
 	ZVAL_LONG(*retval, (long)MyG(error_no));
@@ -122,7 +122,7 @@ int link_connect_errno_read(mysqli_object *obj, zval **retval TSRMLS_DC)
 /* }}} */
 
 /* {{{ property link_connect_error_read */
-int link_connect_error_read(mysqli_object *obj, zval **retval TSRMLS_DC)
+static int link_connect_error_read(mysqli_object *obj, zval **retval TSRMLS_DC)
 {
 	ALLOC_ZVAL(*retval);
 	ZVAL_STRING(*retval, MyG(error_msg), 1);
@@ -130,9 +130,36 @@ int link_connect_error_read(mysqli_object *obj, zval **retval TSRMLS_DC)
 }
 /* }}} */
 
+/* {{{ property link_affected_rows_read */
+static int link_affected_rows_read(mysqli_object *obj, zval **retval TSRMLS_DC)
+{
+	MY_MYSQL *mysql;
+	my_ulonglong rc;
+
+	ALLOC_ZVAL(*retval); 
+	CHECK_OBJECT();
+
+ 	mysql = (MY_MYSQL *)((MYSQLI_RESOURCE *)(obj->ptr))->ptr;
+	rc = mysql_affected_rows(mysql->mysql);
+
+	if (rc == (my_ulonglong)-1) {
+		ZVAL_LONG(*retval, -1);
+		return SUCCESS;
+	} 
+
+	if (rc < LONG_MAX) {
+		ZVAL_LONG(*retval, rc);
+	} else {
+		char ret[40];
+		sprintf(ret, "%llu", (my_ulonglong) rc);
+		ZVAL_STRING(*retval, ret, 1);
+	}
+
+	return SUCCESS;
+}
+/* }}} */
 
 /* link properties */
-MYSQLI_MAP_PROPERTY_FUNC_LONG(link_affected_rows_read, mysql_affected_rows, MYSQLI_GET_MYSQL(), my_ulonglong);
 MYSQLI_MAP_PROPERTY_FUNC_LONG(link_errno_read, mysql_errno, MYSQLI_GET_MYSQL(), ulong);
 MYSQLI_MAP_PROPERTY_FUNC_STRING(link_error_read, mysql_error, MYSQLI_GET_MYSQL());
 MYSQLI_MAP_PROPERTY_FUNC_LONG(link_field_count_read, mysql_field_count, MYSQLI_GET_MYSQL(), ulong);
@@ -148,7 +175,7 @@ MYSQLI_MAP_PROPERTY_FUNC_LONG(link_warning_count_read, mysql_warning_count, MYSQ
 /* result properties */
 
 /* {{{ property result_type_read */
-int result_type_read(mysqli_object *obj, zval **retval TSRMLS_DC)
+static int result_type_read(mysqli_object *obj, zval **retval TSRMLS_DC)
 {
 	MYSQL_RES *p;
 
@@ -167,7 +194,7 @@ int result_type_read(mysqli_object *obj, zval **retval TSRMLS_DC)
 /* }}} */
 
 /* {{{ property result_lengths_read */
-int result_lengths_read(mysqli_object *obj, zval **retval TSRMLS_DC)
+static int result_lengths_read(mysqli_object *obj, zval **retval TSRMLS_DC)
 {
 	MYSQL_RES *p;
 
@@ -200,7 +227,55 @@ MYSQLI_MAP_PROPERTY_FUNC_LONG(result_field_count_read, mysql_num_fields, MYSQLI_
 MYSQLI_MAP_PROPERTY_FUNC_LONG(result_num_rows_read, mysql_num_rows, MYSQLI_GET_RESULT(), my_ulonglong);
 
 /* statement properties */
-MYSQLI_MAP_PROPERTY_FUNC_LONG(stmt_affected_rows_read, mysql_stmt_affected_rows, MYSQLI_GET_STMT(), my_ulonglong);
+
+/* {{{ property stmt_id_read */
+static int stmt_id_read(mysqli_object *obj, zval **retval TSRMLS_DC)
+{
+	MY_STMT *p;
+
+	ALLOC_ZVAL(*retval); 
+	CHECK_OBJECT();
+
+ 	p = (MY_STMT*)((MYSQLI_RESOURCE *)(obj->ptr))->ptr;
+
+	if (!p) {
+		ZVAL_NULL(*retval);
+	} else {
+		ZVAL_LONG(*retval, p->stmt->stmt_id);
+	}
+	return SUCCESS;
+}
+/* }}} */
+
+/* {{{ property stmt_affected_rows_read */
+static int stmt_affected_rows_read(mysqli_object *obj, zval **retval TSRMLS_DC)
+{
+	MY_STMT *stmt;
+	my_ulonglong rc;
+
+	ALLOC_ZVAL(*retval); 
+	CHECK_OBJECT();
+
+ 	stmt = (MY_STMT *)((MYSQLI_RESOURCE *)(obj->ptr))->ptr;
+	rc = mysql_stmt_affected_rows(stmt->stmt);
+
+	if (rc == (my_ulonglong)-1) {
+		ZVAL_LONG(*retval, -1);
+		return SUCCESS;
+	} 
+
+	if (rc < LONG_MAX) {
+		ZVAL_LONG(*retval, rc);
+	} else {
+		char ret[40];
+		sprintf(ret, "%llu", (my_ulonglong) rc);
+		ZVAL_STRING(*retval, ret, 1);
+	}
+
+	return SUCCESS;
+}
+/* }}} */
+
 MYSQLI_MAP_PROPERTY_FUNC_LONG(stmt_insert_id_read, mysql_stmt_insert_id, MYSQLI_GET_STMT(), my_ulonglong);
 MYSQLI_MAP_PROPERTY_FUNC_LONG(stmt_num_rows_read, mysql_stmt_num_rows, MYSQLI_GET_STMT(), my_ulonglong);
 MYSQLI_MAP_PROPERTY_FUNC_LONG(stmt_param_count_read, mysql_stmt_param_count, MYSQLI_GET_STMT(), ulong);
@@ -244,15 +319,11 @@ mysqli_property_entry mysqli_stmt_property_entries[] = {
 	{"insert_id", stmt_insert_id_read, NULL},
 	{"num_rows", stmt_num_rows_read, NULL},
 	{"param_count", stmt_param_count_read, NULL},
-
-/*  TODO: stmt->field_count doesn't work currently, remove comments until mysqli_stmt_field_count
-    is implemented in client library
-*/
 	{"field_count", stmt_field_count_read, NULL},
-
 	{"errno", stmt_errno_read, NULL},
 	{"error", stmt_error_read, NULL},
 	{"sqlstate", stmt_sqlstate_read, NULL},
+	{"id", stmt_id_read, NULL},
 	{NULL, NULL, NULL}
 };
 

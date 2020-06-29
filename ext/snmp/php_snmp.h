@@ -20,7 +20,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: php_snmp.h,v 1.22 2004/01/08 17:32:47 sniper Exp $ */
+/* $Id: php_snmp.h,v 1.22.2.2 2005/03/17 19:47:48 harrie Exp $ */
 
 #ifndef PHP_SNMP_H
 #define PHP_SNMP_H
@@ -39,6 +39,7 @@ extern zend_module_entry snmp_module_entry;
 #endif
 
 PHP_MINIT_FUNCTION(snmp);
+PHP_MSHUTDOWN_FUNCTION(snmp);
 PHP_MINFO_FUNCTION(snmp);
 
 PHP_FUNCTION(snmpget);
@@ -50,6 +51,12 @@ PHP_FUNCTION(snmp_set_quick_print);
 PHP_FUNCTION(snmp_set_enum_print);
 PHP_FUNCTION(snmp_set_oid_numeric_print);
 PHP_FUNCTION(snmpset);
+
+PHP_FUNCTION(snmp2_get);
+PHP_FUNCTION(snmp2_getnext);
+PHP_FUNCTION(snmp2_walk);
+PHP_FUNCTION(snmp2_real_walk);
+PHP_FUNCTION(snmp2_set);
 
 PHP_FUNCTION(snmp3_get);
 PHP_FUNCTION(snmp3_getnext);

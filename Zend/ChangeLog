@@ -4935,7 +4935,7 @@
 2003-06-10  Jani Taskinen  <sniper@iki.fi>
 
     * zend_multiply.h:
-      - Missing $Id: ChangeLog,v 1.500 2004/07/15 00:33:10 changelog Exp $ tag
+      - Missing $Id: ChangeLog,v 1.500.2.1 2004/12/16 12:35:37 sniper Exp $ tag
 
 2003-06-10  James Cox  <james@imajes.info>
 
@@ -6446,13 +6446,13 @@
 2003-02-08  Ilia Alshanetsky  <ilia@prohost.org>
 
     * zend_builtin_functions.c:
-      The string.h is already avaliable through zend.h, so the manual inclusion
+      The string.h is already available through zend.h, so the manual inclusion
       is not necessary.
 
 2003-02-07  Ilia Alshanetsky  <ilia@prohost.org>
 
     * zend_builtin_functions.c:
-      Added a check to ensure that string.h is avaliable before trying to use it.
+      Added a check to ensure that string.h is available before trying to use it.
       
       Thanks Andi.
 
@@ -6659,7 +6659,7 @@
       zend_types.h
       zend_variables.c
       zend_variables.h:
-      - Added some missing CVS $Id: ChangeLog,v 1.500 2004/07/15 00:33:10 changelog Exp $ tags, headers and footers.
+      - Added some missing CVS $Id: ChangeLog,v 1.500.2.1 2004/12/16 12:35:37 sniper Exp $ tags, headers and footers.
 
 2003-01-30  Ilia Alshanetsky  <ilia@prohost.org>
 

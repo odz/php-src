@@ -17,9 +17,9 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_compile.c,v 1.567.2.12 2004/12/06 11:52:59 dmitry Exp $ */
+/* $Id: zend_compile.c,v 1.567.2.15 2005/03/10 13:24:32 helly Exp $ */
 
-#include "zend_language_parser.h"
+#include <zend_language_parser.h>
 #include "zend.h"
 #include "zend_compile.h"
 #include "zend_constants.h"
@@ -68,7 +68,7 @@ static void build_runtime_defined_function_key(zval *result, char *name, int nam
 	uint char_pos_len;
 	char *filename;
 
-	char_pos_len = zend_sprintf(char_pos_buf, "%x", (unsigned int) LANG_SCNG(_yy_last_accepting_cpos));
+	char_pos_len = zend_sprintf(char_pos_buf, "%p", LANG_SCNG(_yy_last_accepting_cpos));
 	if (CG(active_op_array)->filename) {
 		filename = CG(active_op_array)->filename;
 	} else {
@@ -1908,12 +1908,6 @@ static zend_bool do_inherit_property_access_check(HashTable *target_ht, zend_pro
 				zend_hash_del(&ce->default_properties, prot_name, prot_name_length+1);
 			}
 			pefree(prot_name, ce->type & ZEND_INTERNAL_CLASS);
-		} else if (!(child_info->flags & ZEND_ACC_PRIVATE) && (child_info->flags & ZEND_ACC_STATIC)) {
-			char *prop_name, *tmp;
-
-			zend_unmangle_property_name(child_info->name, &tmp, &prop_name);
-			zend_error(E_COMPILE_ERROR, "Cannot redeclare property static %s %s::$%s in class %s", 
-				zend_visibility_string(child_info->flags), parent_ce->name, prop_name, ce->name);
 		}
 		return 0;	/* Don't copy from parent */
 	} else {

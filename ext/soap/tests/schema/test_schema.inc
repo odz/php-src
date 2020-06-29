@@ -37,7 +37,7 @@ $wsdl  = <<<EOF
 		<operation name="test">
 			<soap:operation soapAction="#test" style="$style"/>
 			<input>
-				<soap:body parts="body" use="$use" namespace="http://test-uri/" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/>
+				<soap:body use="$use" namespace="http://test-uri/" encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/>
 			</input>
 		</operation>
 	</binding>
@@ -62,13 +62,15 @@ EOF;
   $x->test($param);
   $xml = xml_parser_create();
   $req = $x->__getlastrequest();
-  echo $req;
   if ($style == "rpc") {
     $HTTP_RAW_POST_DATA = $req;
     ob_start();
     $y->handle();
     ob_end_clean();
+    echo $req;
     var_dump($val);
+  } else {
+    echo $req;
   }
 }
 ?>

@@ -17,7 +17,7 @@
   |          Dmitry Stogov <dmitry@zend.com>                             |
   +----------------------------------------------------------------------+
 */
-/* $Id: php_sdl.h,v 1.31.2.2 2004/11/09 08:13:04 dmitry Exp $ */
+/* $Id: php_sdl.h,v 1.31.2.4 2005/03/22 10:18:48 dmitry Exp $ */
 
 #ifndef PHP_SDL_H
 #define PHP_SDL_H
@@ -109,7 +109,6 @@ typedef struct _sdlSoapBindingFunctionFault {
 struct _sdlSoapBindingFunctionBody {
 	char                *ns;
 	sdlEncodingUse       use;
-	char                *parts;          /* not implemented yet */
 	sdlRpcEncodingStyle  encodingStyle;  /* not implemented yet */
 	HashTable           *headers;        /* array of sdlSoapBindingFunctionHeaderPtr */
 };
@@ -153,7 +152,8 @@ typedef enum _sdlContentKind {
 	XSD_CONTENT_ALL,
 	XSD_CONTENT_CHOICE,
 	XSD_CONTENT_GROUP_REF,
-	XSD_CONTENT_GROUP
+	XSD_CONTENT_GROUP,
+	XSD_CONTENT_ANY
 } sdlContentKind;
 
 

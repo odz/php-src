@@ -605,7 +605,7 @@ mbfl_identify_encoding_name(mbfl_string *string, enum mbfl_no_encoding *elist, i
 	}
 }
 
-const enum mbfl_no_encoding
+enum mbfl_no_encoding
 mbfl_identify_encoding_no(mbfl_string *string, enum mbfl_no_encoding *elist, int elistsz)
 {
 	const mbfl_encoding *encoding;
@@ -1345,7 +1345,6 @@ mbfl_strcut(
 }
 
 
-#include <stdio.h>
 /*
  *  strwidth
  */
@@ -1435,6 +1434,7 @@ collector_strimwidth(int c, void* data)
 	default:
 		if (pc->outchar >= pc->from) {
 			pc->outwidth += (is_fullwidth(c) ? 2: 1);
+
 			if (pc->outwidth > pc->width) {
 				if (pc->status == 0) {
 					pc->endpos = pc->device.pos;

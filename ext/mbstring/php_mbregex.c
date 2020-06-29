@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_mbregex.c,v 1.48 2004/02/28 20:45:23 moriyoshi Exp $ */
+/* $Id: php_mbregex.c,v 1.48.2.2 2005/02/21 10:20:23 moriyoshi Exp $ */
 
 
 #ifdef HAVE_CONFIG_H
@@ -123,6 +123,22 @@ php_mb_regex_enc_name_map_t enc_name_map[] ={
 	{
 		"UTF-8\0UTF8\0",
 		ONIG_ENCODING_UTF8
+	},
+	{
+		"UTF-16\0UTF-16BE\0",
+		ONIG_ENCODING_UTF16_BE
+	},
+	{
+		"UTF-16LE\0",
+		ONIG_ENCODING_UTF16_LE
+	},
+	{
+		"UCS-4\0UTF-32\0UTF-32BE\0",
+		ONIG_ENCODING_UTF32_BE
+	},
+	{
+		"UCS-4LE\0UTF-32LE\0",
+		ONIG_ENCODING_UTF32_LE
 	},
 	{
 		"SJIS\0CP932\0MS932\0SHIFT_JIS\0SJIS-WIN\0WINDOWS-31J\0",
@@ -485,7 +501,7 @@ PHP_FUNCTION(mb_regex_encoding)
 	           zend_get_parameters_ex(1, &arg1) != FAILURE) {
 		convert_to_string_ex(arg1);
 		mbctype = php_mb_regex_name2mbctype(Z_STRVAL_PP(arg1));
-		if (mbctype < 0) {
+		if (mbctype == ONIG_ENCODING_UNDEF) {
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unknown encoding \"%s\"", Z_STRVAL_PP(arg1));
 			RETVAL_FALSE;
 		} else {

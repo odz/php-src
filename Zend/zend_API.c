@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_API.c,v 1.256.2.4 2004/11/02 13:19:48 sebastian Exp $ */
+/* $Id: zend_API.c,v 1.256.2.10 2005/03/16 04:19:20 wez Exp $ */
 
 #include "zend.h"
 #include "zend_execute.h"
@@ -687,6 +687,16 @@ ZEND_API void zend_merge_properties(zval *obj, HashTable *properties, int destro
 }
 
 
+ZEND_API void zend_update_class_constants(zend_class_entry *class_type TSRMLS_DC)
+{
+	if (!class_type->constants_updated) {
+		zend_hash_apply_with_argument(&class_type->default_properties, (apply_func_arg_t) zval_update_constant, (void *) 1 TSRMLS_CC);
+		zend_hash_apply_with_argument(class_type->static_members, (apply_func_arg_t) zval_update_constant, (void *) 1 TSRMLS_CC);
+		class_type->constants_updated = 1;
+	}
+}
+
+
 /* This function requires 'properties' to contain all props declared in the
  * class and all props being public. If only a subset is given or the class 
  * has protected members then you need to merge the properties seperately by
@@ -701,11 +711,7 @@ ZEND_API int _object_and_properties_init(zval *arg, zend_class_entry *class_type
 		zend_error(E_ERROR, "Cannot instantiate %s %s", what, class_type->name);
 	}
 
-	if (!class_type->constants_updated) {
-		zend_hash_apply_with_argument(&class_type->default_properties, (apply_func_arg_t) zval_update_constant, (void *) 1 TSRMLS_CC);
-		zend_hash_apply_with_argument(class_type->static_members, (apply_func_arg_t) zval_update_constant, (void *) 1 TSRMLS_CC);
-		class_type->constants_updated = 1;
-	}
+	zend_update_class_constants(class_type TSRMLS_CC);
 	
 	arg->type = IS_OBJECT;
 	if (class_type->create_object == NULL) {
@@ -1482,9 +1488,6 @@ void module_destructor(zend_module_entry *module)
 	if (module->type == MODULE_TEMPORARY) {
 		zend_clean_module_rsrc_dtors(module->module_number TSRMLS_CC);
 		clean_module_constants(module->module_number TSRMLS_CC);
-		if (module->request_shutdown_func) {
-			module->request_shutdown_func(module->type, module->module_number TSRMLS_CC);
-		}
 	}
 
 	if (module->module_started && module->module_shutdown_func) {
@@ -1498,9 +1501,9 @@ void module_destructor(zend_module_entry *module)
 		zend_unregister_functions(module->functions, -1, NULL TSRMLS_CC);
 	}
 
-#if HAVE_LIBDL
+#if HAVE_LIBDL || defined(HAVE_MACH_O_DYLD_H)
 	if (module->handle) {
-		dlclose(module->handle);
+		DL_UNLOAD(module->handle);
 	}
 #endif
 }
@@ -1522,24 +1525,23 @@ int module_registry_request_startup(zend_module_entry *module TSRMLS_DC)
 }
 
 
-/* for persistent modules - call request shutdown and flag NOT to erase
- * for temporary modules - do nothing, and flag to erase
- */
+/* call request shutdown for all modules */
 int module_registry_cleanup(zend_module_entry *module TSRMLS_DC)
 {
-	switch (module->type) {
-		case MODULE_PERSISTENT:
-			if (module->request_shutdown_func) {
+	if (module->request_shutdown_func) {
 #if 0
-				zend_printf("%s:  Request shutdown\n", module->name);
+		zend_printf("%s:  Request shutdown\n", module->name);
 #endif
-				module->request_shutdown_func(module->type, module->module_number TSRMLS_CC);
-			}
-			return 0;
-			break;
+		module->request_shutdown_func(module->type, module->module_number TSRMLS_CC);
+	}
+	return 0;
+}
+
+int module_registry_unload_temp(zend_module_entry *module TSRMLS_DC)
+{
+	switch (module->type) {
 		case MODULE_TEMPORARY:
 			return 1;
-			break;
 	}
 	return 0;
 }
@@ -1601,7 +1603,9 @@ ZEND_API zend_class_entry *zend_register_internal_class_ex(zend_class_entry *cla
 ZEND_API void zend_class_implements(zend_class_entry *class_entry TSRMLS_DC, int num_interfaces, ...)
 {
 	zend_class_entry *interface_entry;
+	int ce_num = class_entry->num_interfaces, impl_num;
 	va_list interface_list;
+	va_start(interface_list, num_interfaces);
 
 	if (class_entry->type & ZEND_INTERNAL_CLASS) {
 		class_entry->interfaces = realloc(class_entry->interfaces, sizeof(zend_class_entry*) * (class_entry->num_interfaces+num_interfaces));
@@ -1609,11 +1613,13 @@ ZEND_API void zend_class_implements(zend_class_entry *class_entry TSRMLS_DC, int
 		class_entry->interfaces = erealloc(class_entry->interfaces, sizeof(zend_class_entry*) * (class_entry->num_interfaces+num_interfaces));
 	}
 	
-	va_start(interface_list, num_interfaces);
 	while (num_interfaces--) {
 		interface_entry = va_arg(interface_list, zend_class_entry *);
 		class_entry->interfaces[class_entry->num_interfaces++] = interface_entry;
-		zend_do_implement_interface(class_entry, interface_entry TSRMLS_CC);
+	}
+	impl_num = class_entry->num_interfaces;
+	while(ce_num < impl_num) {
+		zend_do_implement_interface(class_entry, class_entry->interfaces[ce_num++] TSRMLS_CC);
 	}
 	va_end(interface_list);
 }

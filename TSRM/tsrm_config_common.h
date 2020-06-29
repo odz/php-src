@@ -7,10 +7,8 @@
 
 #ifdef TSRM_WIN32
 # include "tsrm_config.w32.h"
-#elif defined(NETWARE)
-# include "tsrm_config.nw.h"
 #else
-# include "tsrm_config.h"
+# include <tsrm_config.h>
 # include <sys/param.h>
 #endif
 
