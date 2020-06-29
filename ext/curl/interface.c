@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: interface.c,v 1.62.2.14 2006/04/13 11:26:10 tony2001 Exp $ */
+/* $Id: interface.c,v 1.62.2.16 2006/08/10 17:16:35 iliaa Exp $ */
 
 #define ZEND_INCLUDE_FULL_WINDOWS_HEADERS
 
@@ -161,11 +161,16 @@ static void _php_curl_close(zend_rsrc_list_entry *rsrc TSRMLS_DC);
 	    strncasecmp(str, "file:", sizeof("file:") - 1) == 0)								\
 	{ 																							\
 		php_url *tmp_url; 																		\
-																								\
+															\
 		if (!(tmp_url = php_url_parse_ex(str, len))) {											\
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid url '%s'", str);				\
 			RETURN_FALSE; 																		\
 		} 																						\
+															\
+		if (php_memnstr(str, tmp_url->path, strlen(tmp_url->path), str + len)) {				\
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Url '%s' contains unencoded control characters.", str);	\
+			RETURN_FALSE;											\
+		}													\
 																								\
 		if (tmp_url->query || tmp_url->fragment || php_check_open_basedir(tmp_url->path TSRMLS_CC) || 									\
 			(PG(safe_mode) && !php_checkuid(tmp_url->path, "rb+", CHECKUID_CHECK_MODE_PARAM))	\
@@ -1065,7 +1070,6 @@ static int _php_curl_setopt(php_curl *ch, long option, zval **zvalue, zval *retu
 		case CURLOPT_FTPLISTONLY:
 		case CURLOPT_FTPAPPEND:
 		case CURLOPT_NETRC:
-		case CURLOPT_FOLLOWLOCATION:
 		case CURLOPT_PUT:
 #if CURLOPT_MUTE != 0
 		 case CURLOPT_MUTE:
@@ -1114,6 +1118,16 @@ static int _php_curl_setopt(php_curl *ch, long option, zval **zvalue, zval *retu
 		case CURLOPT_AUTOREFERER:
 		case CURLOPT_COOKIESESSION:
 			convert_to_long_ex(zvalue);
+			error = curl_easy_setopt(ch->cp, option, Z_LVAL_PP(zvalue));
+			break;
+		case CURLOPT_FOLLOWLOCATION:
+			convert_to_long_ex(zvalue);
+			if ((PG(open_basedir) && *PG(open_basedir)) || PG(safe_mode)) {
+				if (Z_LVAL_PP(zvalue) != 0) {
+					php_error_docref(NULL TSRMLS_CC, E_WARNING, "CURLOPT_FOLLOWLOCATION cannot be activated when in safe_mode or an open_basedir is set");
+					RETURN_FALSE;
+				}
+			}
 			error = curl_easy_setopt(ch->cp, option, Z_LVAL_PP(zvalue));
 			break;
 		case CURLOPT_URL:

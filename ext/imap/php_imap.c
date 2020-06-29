@@ -26,7 +26,7 @@
    | PHP 4.0 updates:  Zeev Suraski <zeev@zend.com>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_imap.c,v 1.208.2.7 2006/01/28 08:07:20 mike Exp $ */
+/* $Id: php_imap.c,v 1.208.2.9 2006/08/11 15:07:13 iliaa Exp $ */
 
 #define IMAP41
 
@@ -761,6 +761,13 @@ static void php_imap_do_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 		efree(IMAPG(imap_password));
 	}
 
+	/* local filename, need to perform open_basedir and safe_mode checks */
+	if (Z_STRVAL_PP(mailbox)[0] != '{' && 
+			(php_check_open_basedir(Z_STRVAL_PP(mailbox) TSRMLS_CC) || 
+			(PG(safe_mode) && !php_checkuid(Z_STRVAL_PP(mailbox), NULL, CHECKUID_CHECK_FILE_AND_DIR)))) {
+		RETURN_FALSE;
+	}
+
 	IMAPG(imap_user)     = estrndup(Z_STRVAL_PP(user), Z_STRLEN_PP(user));
 	IMAPG(imap_password) = estrndup(Z_STRVAL_PP(passwd), Z_STRLEN_PP(passwd));
 
@@ -817,6 +824,14 @@ PHP_FUNCTION(imap_reopen)
 		}
 		imap_le_struct->flags = cl_flags;	
 	}
+
+	/* local filename, need to perform open_basedir and safe_mode checks */
+	if (Z_STRVAL_PP(mailbox)[0] != '{' && 
+			(php_check_open_basedir(Z_STRVAL_PP(mailbox) TSRMLS_CC) || 
+			(PG(safe_mode) && !php_checkuid(Z_STRVAL_PP(mailbox), NULL, CHECKUID_CHECK_FILE_AND_DIR)))) {
+		RETURN_FALSE;
+	}
+
 	imap_stream = mail_open(imap_le_struct->imap_stream, Z_STRVAL_PP(mailbox), flags);
 	if (imap_stream == NIL) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Couldn't re-open stream");

@@ -119,7 +119,8 @@ define ____printzv_contents
 		set $type = 0
 	end
 	if $type == 6
-		printf "string(%d): \"%s\"", $zvalue->value.str.len, $zvalue->value.str.val
+		printf "string(%d): ", $zvalue->value.str.len
+		____print_str $zvalue->value.str.val $zvalue->value.str.len
 	end
 	if $type == 7
 		printf "resource: #%d", $zvalue->value.lval
@@ -167,8 +168,9 @@ define ____print_const_table
 			set $i = $i - 1
 		end
 
-		if $p->nKeyLength > 0 
-			printf "\"%s\" => ", $p->arKey
+		if $p->nKeyLength > 0
+			____print_str $p->arKey $p->nKeyLength
+			printf " => "
 		else
 			printf "%d => ", $p->h
 		end
@@ -198,8 +200,9 @@ define ____print_ht
 			set $i = $i - 1
 		end
 
-		if $p->nKeyLength > 0 
-			printf "\"%s\" => ", $p->arKey
+		if $p->nKeyLength > 0
+			____print_str $p->arKey $p->nKeyLength
+			printf " => "
 		else
 			printf "%d => ", $p->h
 		end
@@ -233,8 +236,9 @@ define ____print_ft
 			set $i = $i - 1
 		end
 
-		if $p->nKeyLength > 0 
-			printf "\"%s\" => ", (char*)$p->arKey
+		if $p->nKeyLength > 0
+			____print_str $p->arKey $p->nKeyLength
+			printf " => "
 		else
 			printf "%d => ", $p->h
 		end
@@ -253,6 +257,113 @@ end
 
 document print_ft
 	dumps a function table (HashTable)
+end
+
+define ____print_inh_class
+	set $ce = $arg0
+	if $ce->ce_flags & 0x10 || $ce->ce_flags & 0x20
+		printf "abstract "
+	else
+		if $ce->ce_flags & 0x40
+			printf "final "
+		end
+	end
+	printf "class %s", $ce->name
+	if $ce->parent != 0
+		printf " extends %s", $ce->parent->name
+	end
+	if $ce->num_interfaces != 0
+		printf " implements"
+		set $tmp = 0
+		while $tmp < $ce->num_interfaces
+			printf " %s", $ce->interfaces[$tmp]->name
+			set $tmp = $tmp + 1
+			if $tmp < $ce->num_interfaces
+				printf ","
+			end
+		end
+	end
+	set $ce = $ce->parent
+end
+
+define ____print_inh_iface
+	set $ce = $arg0
+	printf "interface %s", $ce->name
+	if $ce->num_interfaces != 0
+		set $ce = $ce->interfaces[0]
+		printf " extends %s", $ce->name
+	else
+		set $ce = 0
+	end
+end
+
+define print_inh
+	set $ce = $arg0
+	set $depth = 0
+	while $ce != 0
+		set $tmp = $depth
+		while $tmp != 0
+			printf " "
+			set $tmp = $tmp - 1
+		end
+		set $depth = $depth + 1
+		if $ce->ce_flags & 0x80
+			____print_inh_iface $ce
+		else
+			____print_inh_class $ce
+		end
+		printf " {\n"
+	end
+	while $depth != 0
+		set $tmp = $depth
+		while $tmp != 1
+			printf " "
+			set $tmp = $tmp - 1
+		end
+		printf "}\n"
+		set $depth = $depth - 1
+	end
+end
+
+define print_pi
+	set $pi = $arg0
+	printf "[0x%08x] {\n", $pi
+	printf "    h     = %lu\n", $pi->h
+	printf "    flags = %d (", $pi->flags
+	if $pi->flags & 0x100
+		printf "ZEND_ACC_PUBLIC"
+	else
+		if $pi->flags & 0x200
+			printf "ZEND_ACC_PROTECTED"
+		else
+			if $pi->flags & 0x400
+				printf "ZEND_ACC_PRIVATE"
+			else
+				if $pi->flags & 0x800
+					printf "ZEND_ACC_CHANGED"
+				end
+			end
+		end
+	end
+	printf ")\n"
+	printf "    name  = "
+	____print_str $pi->name $pi->name_length
+	printf "\n}\n"
+end
+
+define ____print_str
+	set $tmp = 0
+	set $str = $arg0
+	printf "\""
+	while $tmp < $arg1
+		if $str[$tmp] > 32 && $str[$tmp] < 127
+			printf "%c", $str[$tmp]
+		else
+			printf "\\%o", $str[$tmp]
+		end
+		set $tmp = $tmp + 1
+	end
+	printf "\""
 end
 
 define printzn

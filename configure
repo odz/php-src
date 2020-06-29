@@ -2408,7 +2408,7 @@ echo "$ac_t""$target" 1>&6
 
 MAJOR_VERSION=5
 MINOR_VERSION=1
-RELEASE_VERSION=4
+RELEASE_VERSION=5
 EXTRA_VERSION=""
 VERSION="$MAJOR_VERSION.$MINOR_VERSION.$RELEASE_VERSION$EXTRA_VERSION"
 
@@ -48682,7 +48682,7 @@ echo "configure:48666: checking Informix version" >&5
 EOF
 
 
-  if test $IFX_VERSION -ge "900"; then
+  if test $IFX_VERSION -ge 900; then
     cat >> confdefs.h <<\EOF
 #define HAVE_IFX_IUS 1
 EOF

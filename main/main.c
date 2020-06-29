@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: main.c,v 1.640.2.23 2006/04/12 12:49:39 tony2001 Exp $ */
+/* $Id: main.c,v 1.640.2.25 2006/08/10 21:49:56 iliaa Exp $ */
 
 /* {{{ includes
  */
@@ -1091,6 +1091,11 @@ int php_request_startup(TSRMLS_D)
 			zend_set_timeout(PG(max_input_time));
 		}
 
+		/* Disable realpath cache if safe_mode or open_basedir are set */
+		if (PG(safe_mode) || (PG(open_basedir) && *PG(open_basedir))) {
+			CWDG(realpath_cache_size_limit) = 0;
+		}
+
 		if (PG(expose_php)) {
 			sapi_add_header(SAPI_PHP_VERSION_HEADER, sizeof(SAPI_PHP_VERSION_HEADER)-1, 1);
 		}
@@ -1723,11 +1728,11 @@ PHPAPI int php_execute_script(zend_file_handle *primary_file TSRMLS_DC)
 		} else {
 			append_file_p = NULL;
 		}
-		if (PG(max_input_time) == -1) {
+		if (PG(max_input_time) != -1) {
 #ifdef PHP_WIN32
 			zend_unset_timeout(TSRMLS_C);
 #endif
-			zend_set_timeout(EG(timeout_seconds));
+			zend_set_timeout(INI_INT("max_execution_time"));
 		}
 		retval = (zend_execute_scripts(ZEND_REQUIRE TSRMLS_CC, NULL, 3, prepend_file_p, primary_file, append_file_p) == SUCCESS);
 		
