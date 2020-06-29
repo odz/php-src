@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mail.c,v 1.24 2000/05/18 15:34:35 zeev Exp $ */
+/* $Id: mail.c,v 1.26 2000/06/05 19:47:44 andi Exp $ */
 
 #include <stdlib.h>
 #include <ctype.h>
@@ -34,7 +34,7 @@
 #include "win32/sendmail.h"
 #endif
 
-#if defined(COMPILE_DL) || defined(COMPILE_DL_STANDARD)
+#ifdef COMPILE_DL_STANDARD
 ZEND_GET_MODULE(odbc)
 #endif
 
@@ -46,7 +46,7 @@ PHP_FUNCTION(mail)
 	char *to=NULL, *message=NULL, *headers=NULL, *subject=NULL;
 	int argc;
 	
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if (argc < 3 || argc > 4 || zend_get_parameters_array_ex(argc, argv) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}

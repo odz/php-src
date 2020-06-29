@@ -34,7 +34,6 @@
 %{
 
 #ifdef ZEND_WIN32
-#include <winsock.h>
 #include <io.h>
 #endif
 
@@ -92,6 +91,7 @@ private:
   stdiobuf _file;
 public:
   istdiostream (FILE* __f) : istream(), _file(__f) { init(&_file); }
+  stdiobuf* rdbuf()/* const */ { return &_file; }
 };
 #endif
 
@@ -148,12 +148,12 @@ static inline void save_lexical_state(zend_lex_state *lex_state CLS_DC)
 #ifndef ZTS
 	memcpy(&lex_state->buffer_state,&YY_CURRENT_BUFFER,sizeof(YY_BUFFER_STATE));
 	lex_state->in = yyin;
-	lex_state->lineno = CG(zend_lineno);
 	lex_state->state = YYSTATE;
-	lex_state->filename = zend_get_compiled_filename(CLS_C);
 #else
 	lex_state->ZFL = CG(ZFL);
 #endif
+	lex_state->filename = zend_get_compiled_filename(CLS_C);
+	lex_state->lineno = CG(zend_lineno);
 }
 
 
@@ -170,13 +170,13 @@ inline void restore_lexical_state(zend_lex_state *lex_state CLS_DC)
 		
 	yy_delete_buffer(original_buffer_state);
 	yyin = lex_state->in;
-	CG(zend_lineno) = lex_state->lineno;
 	BEGIN(lex_state->state);
-	zend_restore_compiled_filename(lex_state->filename);
 #else
 	delete((ZendFlexLexer *) CG(ZFL));
 	CG(ZFL) = lex_state->ZFL;
 #endif
+	CG(zend_lineno) = lex_state->lineno;
+	zend_restore_compiled_filename(lex_state->filename);
 }
 
 
@@ -460,6 +460,8 @@ static inline int prepare_string_for_scanning(zval *str CLS_DC)
 
 	CG(ZFL)->switch_streams(input_stream, &cout);
 #endif
+	zend_set_compiled_filename("Eval code");
+	CG(zend_lineno) = 1;
 	return SUCCESS;
 }
 
@@ -1053,7 +1055,7 @@ ESCAPED_AND_WHITESPACE [\n\t\r #'.:;,()|^&+-/*=%!~<>?@]+
 }
 
 <ST_IN_SCRIPTING>"^=" {
-	return XT_OR_EQUAL;
+	return T_XOR_EQUAL;
 }
 
 <ST_IN_SCRIPTING>"||" {
@@ -1221,6 +1223,7 @@ ESCAPED_AND_WHITESPACE [\n\t\r #'.:;,()|^&+-/*=%!~<>?@]+
 		zendlval->value.str.len = yyleng;
 		zendlval->type = IS_STRING;
 		BEGIN(ST_IN_SCRIPTING);
+		return T_OPEN_TAG;
 	} else {
 		zendlval->value.str.val = (char *) estrndup(yytext, yyleng);
 		zendlval->value.str.len = yyleng;
@@ -1241,9 +1244,12 @@ ESCAPED_AND_WHITESPACE [\n\t\r #'.:;,()|^&+-/*=%!~<>?@]+
 
 
 <INITIAL>"<?php_track_vars?>"([\n]|"\r\n")? {
-	zend_message_dispatcher(ZMSG_ENABLE_TRACK_VARS, NULL);
+	zend_error(E_WARNING, "<?php_track_vars?> is no longer supported - please use the track_vars INI directive instead");
 	HANDLE_NEWLINE(yytext[yyleng-1]);
-	return T_PHP_TRACK_VARS;
+	zendlval->value.str.val = (char *) estrndup(yytext, yyleng);
+	zendlval->value.str.len = yyleng;
+	zendlval->type = IS_STRING;
+	return T_INLINE_HTML;
 }
 
 <ST_IN_SCRIPTING,ST_DOUBLE_QUOTES,ST_HEREDOC,ST_BACKQUOTE>"$"{LABEL} {

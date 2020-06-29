@@ -26,7 +26,7 @@
    | Authors: Uwe Steinmann                                               |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_pdf.h,v 1.7 2000/03/28 16:45:04 steinm Exp $ */
+/* $Id: php_pdf.h,v 1.9 2000/06/07 18:06:10 steinm Exp $ */
 
 #ifndef _PHP_PDF_H
 #define _PHP_PDF_H
@@ -35,8 +35,8 @@
 
 /* with version 2.20 of pdflib PDF_open_mem isn't available unless
    the following define isn't there.
-   #define PDF_OPEN_MEM_SUPPORTED
 */
+#define PDF_OPEN_MEM_SUPPORTED
 #include <pdflib.h>
 
 extern int le_fp;
@@ -47,6 +47,7 @@ extern zend_module_entry pdf_module_entry;
 extern PHP_MINFO_FUNCTION(pdf);
 extern PHP_MINIT_FUNCTION(pdf);
 extern PHP_MSHUTDOWN_FUNCTION(pdf);
+PHP_FUNCTION(pdf_set_info);
 PHP_FUNCTION(pdf_set_info_creator);
 PHP_FUNCTION(pdf_set_info_title);
 PHP_FUNCTION(pdf_set_info_subject);
@@ -104,6 +105,9 @@ PHP_FUNCTION(pdf_closepath_fill_stroke);
 PHP_FUNCTION(pdf_endpath);
 PHP_FUNCTION(pdf_clip);
 PHP_FUNCTION(pdf_set_parameter);
+PHP_FUNCTION(pdf_get_parameter);
+PHP_FUNCTION(pdf_set_value);
+PHP_FUNCTION(pdf_get_value);
 PHP_FUNCTION(pdf_setgray_fill);
 PHP_FUNCTION(pdf_setgray_stroke);
 PHP_FUNCTION(pdf_setgray);
@@ -130,6 +134,7 @@ PHP_FUNCTION(pdf_add_pdflink);
 PHP_FUNCTION(pdf_add_annotation);
 PHP_FUNCTION(pdf_set_border_style);
 PHP_FUNCTION(pdf_set_border_color);
+PHP_FUNCTION(pdf_set_border_dash);
 PHP_FUNCTION(pdf_get_image_width);
 PHP_FUNCTION(pdf_get_image_height);
 #else

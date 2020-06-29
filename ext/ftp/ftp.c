@@ -28,7 +28,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ftp.c,v 1.16 2000/05/04 10:38:13 sas Exp $ */
+/* $Id: ftp.c,v 1.23 2000/06/17 16:49:03 zeev Exp $ */
 
 #include "php.h"
 
@@ -37,13 +37,19 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <stdlib.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <fcntl.h>
 #include <string.h>
 #include <time.h>
+#ifdef PHP_WIN32
+#include <winsock.h>
+#else
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#endif
 #include <errno.h>
 
 #if HAVE_SYS_TIME_H
@@ -51,6 +57,12 @@
 #endif
 
 #include "ftp.h"
+
+/* define closesocket macro for portability */
+#ifndef PHP_WIN32
+#undef closesocket
+#define closesocket close
+#endif
 
 /* sends an ftp command, returns true on success, false on error.
  * it sends the string "cmd args\r\n" if args is non-null, or
@@ -156,7 +168,7 @@ ftp_open(const char *host, short port)
 
 bail:
 	if (fd != -1)
-		close(fd);
+		closesocket(fd);
 	free(ftp);
 	return NULL;
 }
@@ -168,7 +180,7 @@ ftp_close(ftpbuf_t *ftp)
 	if (ftp == NULL)
 		return NULL;
 	if (ftp->fd != -1)
-		close(ftp->fd);
+		closesocket(ftp->fd);
 	ftp_gc(ftp);
 	free(ftp);
 	return NULL;
@@ -452,7 +464,7 @@ ftp_pasv(ftpbuf_t *ftp, int pasv)
 		return 0;
 
 	for (n=0; n<6; n++)
-		ipbox.c[n] = b[n];
+		ipbox.c[n] = (unsigned char) b[n];
 
 	memset(&ftp->pasvaddr, 0, sizeof(ftp->pasvaddr));
 	ftp->pasvaddr.sin_family = AF_INET;
@@ -830,8 +842,10 @@ my_send(int s, void *buf, size_t len)
 		FD_SET(s, &write_set);
 		n = select(s + 1, NULL, &write_set, NULL, &tv);
 		if (n < 1) {
+#ifndef PHP_WIN32
 			if (n == 0)
 				errno = ETIMEDOUT;
+#endif
 			return -1;
 		}
 
@@ -861,8 +875,10 @@ my_recv(int s, void *buf, size_t len)
 	FD_SET(s, &read_set);
 	n = select(s + 1, &read_set, NULL, NULL, &tv);
 	if (n < 1) {
+#ifndef PHP_WIN32
 		if (n == 0)
 			errno = ETIMEDOUT;
+#endif
 		return -1;
 	}
 
@@ -872,6 +888,7 @@ my_recv(int s, void *buf, size_t len)
 
 int
 my_connect(int s, const struct sockaddr *addr, int addrlen)
+#ifndef PHP_WIN32
 {
 	fd_set		conn_set;
 	int		flags;
@@ -915,7 +932,11 @@ my_connect(int s, const struct sockaddr *addr, int addrlen)
 
 	return 0;
 }
-
+#else
+{
+	return connect(s, addr, addrlen);
+}
+#endif
 
 int
 my_accept(int s, struct sockaddr *addr, int *addrlen)
@@ -931,8 +952,10 @@ my_accept(int s, struct sockaddr *addr, int *addrlen)
 
 	n = select(s + 1, &accept_set, NULL, NULL, &tv);
 	if (n < 1) {
+#ifndef PHP_WIN32
 		if (n == 0)
 			errno = ETIMEDOUT;
+#endif
 		return -1;
 	}
 
@@ -981,7 +1004,7 @@ ftp_getdata(ftpbuf_t *ftp)
 			sizeof(ftp->pasvaddr)) == -1)
 		{
 			perror("connect");
-			close(fd);
+			closesocket(fd);
 			free(data);
 			return NULL;
 		}
@@ -1034,7 +1057,7 @@ ftp_getdata(ftpbuf_t *ftp)
 
 bail:
 	if (fd != -1)
-		close(fd);
+		closesocket(fd);
 	free(data);
 	return NULL;
 }
@@ -1051,7 +1074,7 @@ data_accept(databuf_t *data)
 
 	size = sizeof(addr);
 	data->fd = my_accept(data->listener, (struct sockaddr*) &addr, &size);
-	close(data->listener);
+	closesocket(data->listener);
 	data->listener = -1;
 
 	if (data->fd == -1) {
@@ -1069,9 +1092,9 @@ data_close(databuf_t *data)
 	if (data == NULL)
 		return NULL;
 	if (data->listener != -1)
-		close(data->listener);
+		closesocket(data->listener);
 	if (data->fd != -1)
-		close(data->fd);
+		closesocket(data->fd);
 	free(data);
 	return NULL;
 }

@@ -1,19 +1,14 @@
 
 ZEND_DIR = $(srcdir)/Zend
-SUBDIRS = Zend ext sapi $(TSRM_DIR) $(REGEX_DIR) . $(PEAR_DIR)
+SUBDIRS = Zend main ext sapi $(TSRM_DIR) $(REGEX_DIR) . $(PEAR_DIR)
 
 LTLIBRARY_NAME = libphp4.la
-
-LTLIBRARY_SOURCES = \
-       main.c internal_functions.c snprintf.c php_sprintf.c \
-       configuration-parser.c configuration-scanner.c \
-       safe_mode.c fopen-wrappers.c php_realpath.c alloca.c \
-       php_ini.c SAPI.c rfc1867.c php_content_types.c strlcpy.c \
-       strlcat.c mergesort.c reentrancy.c php_variables.c php_ticks.c php_virtual_cwd.c
+LTLIBRARY_SOURCES = stub.c
 
 LTLIBRARY_DEPENDENCIES = \
 		Zend/libZend.la \
 		sapi/$(PHP_SAPI)/libsapi.la \
+		main/libmain.la \
 		$(REGEX_LIB) \
 		$(EXT_LTLIBS) \
 		$(TSRM_LIB)
@@ -21,13 +16,13 @@ LTLIBRARY_DEPENDENCIES = \
 LTLIBRARY_LDFLAGS = -rpath $(phptempdir) $(EXTRA_LDFLAGS) $(LDFLAGS) $(PHP_RPATHS)
 LTLIBRARY_LIBADD = $(LTLIBRARY_DEPENDENCIES) $(EXTRA_LIBS)
 
-PROGRAM_NAME         = $(PHP_PROGRAM)
+PROGRAM_NAME         = php
 PROGRAM_SOURCES      = stub.c
 PROGRAM_LDADD        = libphp4.la
 PROGRAM_LDFLAGS      = -export-dynamic	
 PROGRAM_DEPENDENCIES = $(PROGRAM_LDADD)
 
-targets = $(LTLIBRARY_NAME) $(PROGRAM_NAME)
+targets = $(LTLIBRARY_NAME) $(PHP_PROGRAM)
 
 install_targets = install-sapi install-modules
 
@@ -38,7 +33,7 @@ include $(top_srcdir)/build/program.mk
 install-sapi:
 	@$(LIBTOOL) --silent --mode=install cp libphp4.la $(phptempdir)/libphp4.la >/dev/null 2>&1
 	-@$(mkinstalldirs) $(bindir)
-	-@if ! test -r $(phptempdir)/libphp4.$(SHLIB_SUFFIX_NAME); then \
+	-@if test ! -r $(phptempdir)/libphp4.$(SHLIB_SUFFIX_NAME); then \
 		for i in 0.0.0 0.0 0; do \
 			if test -r $(phptempdir)/libphp4.$(SHLIB_SUFFIX_NAME).$$i; then \
 				$(LN_S) $(phptempdir)/libphp4.$(SHLIB_SUFFIX_NAME).$$i $(phptempdir)/libphp4.$(SHLIB_SUFFIX_NAME); \
@@ -53,18 +48,9 @@ install-modules:
 	$(mkinstalldirs) $(moduledir) && \
 	echo "installing shared modules into $(moduledir)" && \
 	rm -f modules/*.la && \
-	cp modules/* $(moduledir) || true
+	cp modules/* $(moduledir) >/dev/null 2>&1 || true
 
 install-su: install-modules
 	(cd pear && $(MAKE) install)
-
-configuration-parser.h configuration-parser.c: $(srcdir)/configuration-parser.y
-	$(YACC) -p cfg -v -d $< -o configuration-parser.c
-
-configuration-scanner.c: $(srcdir)/configuration-scanner.l
-	$(LEX) -Pcfg -o$@ -i $<
-
-internal_functions.c: internal_functions.c.in config.status
-	CONFIG_FILES= CONFIG_HEADERS= ./config.status
 
 .NOEXPORT:

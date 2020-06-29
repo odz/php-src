@@ -76,7 +76,7 @@ PHP_MINIT_FUNCTION(filepro)
 {
 #ifdef THREAD_SAFE
 	fp_global_struct *fp_globals;
-#if defined(COMPILE_DL) || defined(COMPILE_DL_FILEPRO)
+#ifdef COMPILE_DL_FILEPRO
 	CREATE_MUTEX(fp_mutex,"FP_TLS");
 	SET_MUTEX(fp_mutex);
 	numthreads++;
@@ -105,7 +105,7 @@ PHP_MSHUTDOWN_FUNCTION(filepro)
 	fp_globals = TlsGetValue(FPTls); 
 	if (fp_globals != 0) 
 		LocalFree((HLOCAL) fp_globals); 
-#if defined(COMPILE_DL) || defined(COMPILE_DL_FILEPRO)
+#ifdef COMPILE_DL_FILEPRO
 	SET_MUTEX(fp_mutex);
 	numthreads--;
 	if (!numthreads){
@@ -136,8 +136,7 @@ zend_module_entry filepro_module_entry = {
 };
 
 
-#if defined(COMPILE_DL) || defined(COMPILE_DL_FILEPRO)
-#include "dl/phpdl.h"
+#ifdef COMPILE_DL_FILEPRO
 ZEND_GET_MODULE(filepro)
 #if (WIN32|WINNT) && defined(THREAD_SAFE)
 
@@ -176,6 +175,8 @@ BOOL WINAPI DllMain(HANDLE hModule,
  * a user is using it!  We cannot lock anything since Web connections don't
  * provide the ability to later unlock what we locked.  Be smart, be safe.
  */
+/* {{{ proto bool filepro(string directory)
+   Read and verify the map file */
 PHP_FUNCTION(filepro)
 {
 	pval *dir;
@@ -188,7 +189,7 @@ PHP_FUNCTION(filepro)
 	PLS_FETCH();
 	FP_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 1 || getParameters(ht, 1, &dir) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &dir) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -202,7 +203,7 @@ PHP_FUNCTION(filepro)
 	
 	sprintf(workbuf, "%s/map", dir->value.str.val);
 
-	if (PG(safe_mode) && (!php_checkuid(workbuf, 2))) {
+	if (PG(safe_mode) && (!php_checkuid(workbuf, NULL, 2))) {
 		RETURN_FALSE;
 	}
 	
@@ -263,6 +264,7 @@ PHP_FUNCTION(filepro)
 
 	RETVAL_TRUE;
 }
+/* }}} */
 
 
 /*
@@ -274,6 +276,8 @@ PHP_FUNCTION(filepro)
  * 
  * Errors return false, success returns the row count.
  */
+/* {{{ proto int filepro_rowcount(void)
+   Find out how many rows are in a filePro database */
 PHP_FUNCTION(filepro_rowcount)
 {
 	FILE *fp;
@@ -283,7 +287,7 @@ PHP_FUNCTION(filepro_rowcount)
 	PLS_FETCH();
 	FP_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 0) {
+	if (ZEND_NUM_ARGS() != 0) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -298,7 +302,7 @@ PHP_FUNCTION(filepro_rowcount)
 	/* Now read the records in, moving forward recsize-1 bytes each time */
 	sprintf(workbuf, "%s/key", FP_GLOBAL(fp_database));
 
-	if (PG(safe_mode) && (!php_checkuid(workbuf, 2))) {
+	if (PG(safe_mode) && (!php_checkuid(workbuf, NULL, 2))) {
 		RETURN_FALSE;
 	}
 	
@@ -322,6 +326,7 @@ PHP_FUNCTION(filepro_rowcount)
 	
 	RETVAL_LONG(records);
 }
+/* }}} */
 
 
 /*
@@ -329,6 +334,8 @@ PHP_FUNCTION(filepro_rowcount)
  * 
  * Errors return false, success returns the name of the field.
  */
+/* {{{ proto string filepro_fieldname(int fieldnumber)
+   Gets the name of a field */
 PHP_FUNCTION(filepro_fieldname)
 {
 	pval *fno;
@@ -336,7 +343,7 @@ PHP_FUNCTION(filepro_fieldname)
 	int i;
 	FP_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 1 || getParameters(ht, 1, &fno) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &fno) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -360,6 +367,7 @@ PHP_FUNCTION(filepro_fieldname)
 
 	RETVAL_FALSE;
 }
+/* }}} */
 
 
 /*
@@ -367,6 +375,8 @@ PHP_FUNCTION(filepro_fieldname)
  * 
  * Errors return false, success returns the type (edit) of the field
  */
+/* {{{ proto string filepro_fieldtype(int field_number)
+   Gets the type of a field */
 PHP_FUNCTION(filepro_fieldtype)
 {
 	pval *fno;
@@ -374,7 +384,7 @@ PHP_FUNCTION(filepro_fieldtype)
 	int i;
 	FP_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 1 || getParameters(ht, 1, &fno) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &fno) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -396,6 +406,7 @@ PHP_FUNCTION(filepro_fieldtype)
 				fno->value.lval);
 	RETVAL_FALSE;
 }
+/* }}} */
 
 
 /*
@@ -403,6 +414,8 @@ PHP_FUNCTION(filepro_fieldtype)
  * 
  * Errors return false, success returns the character width of the field.
  */
+/* {{{ proto int filepro_fieldwidth(int field_number)
+   Gets the width of a field */
 PHP_FUNCTION(filepro_fieldwidth)
 {
 	pval *fno;
@@ -410,7 +423,7 @@ PHP_FUNCTION(filepro_fieldwidth)
 	int i;
 	FP_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 1 || getParameters(ht, 1, &fno) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &fno) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -432,6 +445,7 @@ PHP_FUNCTION(filepro_fieldwidth)
 				fno->value.lval);
 	RETVAL_FALSE;
 }
+/* }}} */
 
 
 /*
@@ -439,11 +453,13 @@ PHP_FUNCTION(filepro_fieldwidth)
  * 
  * Errors return false, success returns the field count.
  */
+/* {{{ proto int filepro_fieldcount(void)
+   Find out how many fields are in a filePro database */
 PHP_FUNCTION(filepro_fieldcount)
 {
 	FP_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 0) {
+	if (ZEND_NUM_ARGS() != 0) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -456,6 +472,7 @@ PHP_FUNCTION(filepro_fieldcount)
 	/* Read in the first line from the map file */
 	RETVAL_LONG(FP_GLOBAL(fp_fcount));
 }
+/* }}} */
 
 
 /*
@@ -463,6 +480,8 @@ PHP_FUNCTION(filepro_fieldcount)
  * 
  * Errors return false, success returns the datum.
  */
+/* {{{ proto string filepro_retrieve(int row_number, int field_number)
+   Retrieves data from a filePro database */
 PHP_FUNCTION(filepro_retrieve)
 {
 	pval *rno, *fno;
@@ -475,7 +494,7 @@ PHP_FUNCTION(filepro_retrieve)
 	PLS_FETCH();
 	FP_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &rno, &fno) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &rno, &fno) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -508,7 +527,7 @@ PHP_FUNCTION(filepro_retrieve)
 	/* Now read the record in */
 	sprintf(workbuf, "%s/key", FP_GLOBAL(fp_database));
 
-	if (PG(safe_mode) && (!php_checkuid(workbuf, 2))) {
+	if (PG(safe_mode) && (!php_checkuid(workbuf, NULL, 2))) {
 		RETURN_FALSE;
 	}
 	
@@ -533,6 +552,7 @@ PHP_FUNCTION(filepro_retrieve)
     fclose(fp);
 	RETURN_STRING(readbuf,1);
 }
+/* }}} */
 
 #endif
 

@@ -29,7 +29,7 @@
  */
 
 
-/* $Id: php_gd.h,v 1.8 2000/05/14 15:25:13 sterling Exp $ */
+/* $Id: php_gd.h,v 1.13 2000/06/25 02:55:31 sterling Exp $ */
 
 #ifndef _PHP_GD_H
 #define _PHP_GD_H
@@ -40,11 +40,6 @@
 #define ENABLE_GD_TTF
 #endif
 
-#if COMPILE_DL
-#undef HAVE_LIBGD
-#define HAVE_LIBGD 1
-#endif
-
 #if HAVE_LIBGD
 
 #include <gd.h>
@@ -52,6 +47,14 @@
 #if HAVE_LIBT1
 #include "gdt1.h"
 #endif
+
+#define PHP_GDIMG_TYPE_GIF 1
+#define PHP_GDIMG_TYPE_PNG 2
+#define PHP_GDIMG_TYPE_JPG 3
+#define PHP_GDIMG_TYPE_WBM 4
+#define PHP_GDIMG_TYPE_XBM 5
+#define PHP_GDIMG_TYPE_XPM 6
+
 
 extern zend_module_entry gd_module_entry;
 #define phpext_gd_ptr &gd_module_entry
@@ -77,8 +80,10 @@ PHP_FUNCTION(imagearc);
 PHP_FUNCTION(imagechar);
 PHP_FUNCTION(imagecharup);
 PHP_FUNCTION(imagecolorallocate);
+PHP_FUNCTION(imagepalettecopy);
 PHP_FUNCTION(imagecolorat);
 PHP_FUNCTION(imagecolorclosest);
+PHP_FUNCTION(imagecolorclosesthwb);
 PHP_FUNCTION(imagecolordeallocate);
 PHP_FUNCTION(imagecolorresolve);
 PHP_FUNCTION(imagecolorexact);
@@ -87,10 +92,13 @@ PHP_FUNCTION(imagecolorstotal);
 PHP_FUNCTION(imagecolorsforindex);
 PHP_FUNCTION(imagecolortransparent);
 PHP_FUNCTION(imagecopy);
+PHP_FUNCTION(imagecopymerge);
 PHP_FUNCTION(imagecopyresized);
 PHP_FUNCTION(imagecreate);
 PHP_FUNCTION(imagecreatefromgif);
 PHP_FUNCTION(imagecreatefromjpeg);
+PHP_FUNCTION(imagecreatefromxbm);
+PHP_FUNCTION(imagecreatefromxpm);
 PHP_FUNCTION(imagegammacorrect);
 PHP_FUNCTION(imagedestroy);
 PHP_FUNCTION(imagefill);
@@ -113,6 +121,8 @@ PHP_FUNCTION(imagesx);
 PHP_FUNCTION(imagesy);
 PHP_FUNCTION(imagecreatefrompng);
 PHP_FUNCTION(imagepng);
+PHP_FUNCTION(imagecreatefromwbmp);
+PHP_FUNCTION(imagewbmp);
 void php_gdimagecharup(gdImagePtr, gdFontPtr, int, int, int, int);
 PHP_FUNCTION(imagedashedline);
 PHP_FUNCTION(imagettfbbox);
@@ -129,6 +139,9 @@ PHP_FUNCTION(imagepstext);
 PHP_FUNCTION(imagepsbbox);
 PHPAPI int phpi_get_le_gd(void);
 
+static void _php_image_create_from(INTERNAL_FUNCTION_PARAMETERS, int image_type, char *tn, gdImagePtr (*func_p)());
+static void _php_image_output(INTERNAL_FUNCTION_PARAMETERS, int image_type, char *tn, void (*func_p)());
+static void _php_image_output_wbmp(gdImagePtr im, FILE *fp);
 
 #ifdef ZTS
 #define GDLS_D php_gd_globals *gd_globals

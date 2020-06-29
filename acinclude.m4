@@ -1,8 +1,92 @@
-dnl $Id: acinclude.m4,v 1.85 2000/05/18 11:35:16 sas Exp $
+dnl $Id: acinclude.m4,v 1.98 2000/06/17 16:13:11 andrei Exp $
 dnl
 dnl This file contains local autoconf functions.
 
 sinclude(dynlib.m4)
+
+dnl PHP_EVAL_LIBLINE(LINE, SHARED-LIBADD)
+dnl
+dnl Use this macro, if you need to add libraries and or library search
+dnl paths to the PHP build system which are only given in compiler
+dnl notation.
+dnl
+AC_DEFUN(PHP_EVAL_LIBLINE,[
+  for ac_i in $1; do
+    case "$ac_i" in
+    -l*)
+      ac_ii=`echo $ac_i|cut -c 3-`
+      AC_ADD_LIBRARY($ac_ii,,$2)
+    ;;
+    -L*)
+      ac_ii=`echo $ac_i|cut -c 3-`
+      AC_ADD_LIBPATH($ac_ii,$2)
+    ;;
+    esac
+  done
+])
+
+dnl PHP_EVAL_INCLINE(LINE)
+dnl
+dnl Use this macro, if you need to add header search paths to the PHP
+dnl build system which are only given in compiler notation.
+dnl
+AC_DEFUN(PHP_EVAL_INCLINE,[
+  for ac_i in $1; do
+    case "$ac_i" in
+    -I*)
+      ac_ii=`echo $ac_i|cut -c 3-`
+      AC_ADD_INCLUDE($ac_ii)
+    ;;
+    esac
+  done
+])
+	
+AC_DEFUN(PHP_READDIR_R_TYPE,[
+  dnl HAVE_READDIR_R is also defined by libmysql
+  AC_CHECK_FUNC(readdir_r,ac_cv_func_readdir_r=yes,ac_cv_func_readdir=no)
+  if test "$ac_cv_func_readdir_r" = "yes"; then
+  AC_CACHE_CHECK(for type of readdir_r, ac_cv_what_readdir_r,[
+    AC_TRY_RUN([
+#define _REENTRANT
+#include <sys/types.h>
+#include <dirent.h>
+
+main() {
+	DIR *dir;
+	struct dirent entry, *pentry;
+
+	dir = opendir("/");
+	if (!dir) 
+		exit(1);
+	if (readdir_r(dir, &entry, &pentry) == 0)
+		exit(0);
+	exit(1);
+}
+    ],[
+      ac_cv_what_readdir_r=POSIX
+    ],[
+      AC_TRY_CPP([
+#define _REENTRANT
+#include <sys/types.h>
+#include <dirent.h>
+int readdir_r(DIR *, struct dirent *);
+        ],[
+          ac_cv_what_readdir_r=old-style
+        ],[
+          ac_cv_what_readdir_r=none
+      ])
+    ],[
+      ac_cv_what_readdir_r=none
+   ])
+  ])
+    case "$ac_cv_what_readdir_r" in
+    POSIX)
+      AC_DEFINE(HAVE_POSIX_READDIR_R,1,[whether you have POSIX readdir_r]);;
+    old-style)
+      AC_DEFINE(HAVE_OLD_READDIR_R,1,[whether you have old-style readdir_r]);;
+    esac
+  fi
+])
 
 AC_DEFUN(PHP_SHLIB_SUFFIX_NAME,[
   PHP_SUBST(SHLIB_SUFFIX_NAME)
@@ -104,7 +188,7 @@ no)
   ;;
 esac
 
-if test "$php_always_shared"; then
+if test "$php_always_shared" = "yes"; then
   ext_output="yes, shared"
   ext_shared=yes
   test "[$]$1" = "no" && $1=yes
@@ -164,7 +248,7 @@ EOF
 ])
 
 AC_DEFUN(PHP_TIME_R_TYPE,[
-AC_CACHE_CHECK(for *time_r type, ac_cv_time_r_type,[
+AC_CACHE_CHECK(for type of reentrant time-related functions, ac_cv_time_r_type,[
 AC_TRY_RUN([
 #include <time.h>
 #include <stdlib.h>
@@ -183,13 +267,13 @@ exit(1);
 ],[
   ac_cv_time_r_type=hpux
 ],[
-  ac_cv_time_r_type=SUSV2
+  ac_cv_time_r_type=POSIX
 ],[
-  ac_cv_time_r_type=SUSV2
+  ac_cv_time_r_type=POSIX
 ])
 ])
 if test "$ac_cv_time_r_type" = "hpux"; then
-  AC_DEFINE(PHP_HPUX_TIME_R,1,[Whether you have HP-SUX 10.x])
+  AC_DEFINE(PHP_HPUX_TIME_R,1,[Whether you have HP-UX 10.x])
 fi
 ])
 
@@ -215,13 +299,16 @@ AC_DEFUN(PHP_MKDIR_P_CHECK,[
   ])
 ])
 
-AC_DEFUN(PHP_FAST_GENERATE,[
+AC_DEFUN(PHP_GEN_CONFIG_VARS,[
   PHP_MKDIR_P_CHECK
   echo creating config_vars.mk
   > config_vars.mk
   for i in $PHP_VAR_SUBST; do
     eval echo "$i = \$$i" >> config_vars.mk
   done
+])
+
+AC_DEFUN(PHP_GEN_MAKEFILES,[
   $SHELL $srcdir/build/fastgen.sh $srcdir $ac_cv_mkdir_p $PHP_FAST_OUTPUT_FILES
 ])
 
@@ -232,7 +319,7 @@ AC_CACHE_CHECK([for tm_gmtoff in struct tm], ac_cv_struct_tm_gmtoff,
   ac_cv_struct_tm_gmtoff=yes, ac_cv_struct_tm_gmtoff=no)])
 
 if test "$ac_cv_struct_tm_gmtoff" = yes; then
-  AC_DEFINE(HAVE_TM_GMTOFF)
+  AC_DEFINE(HAVE_TM_GMTOFF,1,[whether you have tm_gmtoff in struct tm])
 fi
 ])
 
@@ -244,9 +331,9 @@ AC_DEFUN(PHP_CONFIGURE_PART,[
 ])
 
 AC_DEFUN(PHP_PROG_SENDMAIL,[
-AC_PATH_PROG(PROG_SENDMAIL, sendmail, /usr/lib/sendmail, $PATH /usr/bin /usr/sbin /usr/etc /etc /usr/ucblib)
+AC_PATH_PROG(PROG_SENDMAIL, sendmail, /usr/lib/sendmail, $PATH:/usr/bin:/usr/sbin:/usr/etc:/etc:/usr/ucblib)
 if test -n "$PROG_SENDMAIL"; then
-  AC_DEFINE(HAVE_SENDMAIL)
+  AC_DEFINE(HAVE_SENDMAIL,1,[whether you have sendmail])
 fi
 ])
 
@@ -292,7 +379,7 @@ AC_CACHE_CHECK(for struct flock,ac_cv_struct_flock,
         ])
 )
 if test "$ac_cv_struct_flock" = "yes" ; then
-    AC_DEFINE(HAVE_STRUCT_FLOCK, 1)
+    AC_DEFINE(HAVE_STRUCT_FLOCK, 1,[whether you have struct flock])
 fi
 ])
 
@@ -360,7 +447,9 @@ dnl
 dnl execute code, if variable is not set in namespace
 dnl
 AC_DEFUN(AC_PHP_ONCE,[
-  unique=`echo $ac_n "$2$ac_c" | tr -cd a-zA-Z0-9`
+  changequote({,})
+  unique=`echo $2|sed 's/[^a-zA-Z0-9]/_/g'`
+  changequote([,])
   cmd="echo $ac_n \"\$$1$unique$ac_c\""
   if test -n "$unique" && test "`eval $cmd`" = "" ; then
     eval "$1$unique=set"
@@ -386,18 +475,22 @@ AC_DEFUN(AC_EXPAND_PATH,[
 ])
 
 dnl
-dnl AC_ADD_LIBPATH(path)
+dnl AC_ADD_LIBPATH(path[, shared-libadd])
 dnl
 dnl add a library to linkpath/runpath
 dnl
 AC_DEFUN(AC_ADD_LIBPATH,[
   if test "$1" != "/usr/lib"; then
     AC_EXPAND_PATH($1, ai_p)
-    AC_PHP_ONCE(LIBPATH, $ai_p, [
-      test -n "$ld_runpath_switch" && LDFLAGS="$LDFLAGS $ld_runpath_switch$ai_p"
-      LDFLAGS="$LDFLAGS -L$ai_p"
-      PHP_RPATHS="$PHP_RPATHS $ai_p"
-    ])
+    if test "$ext_shared" = "yes" && test -n "$2"; then
+      $2="-R$1 -L$1 [$]$2"
+    else
+      AC_PHP_ONCE(LIBPATH, $ai_p, [
+        test -n "$ld_runpath_switch" && LDFLAGS="$LDFLAGS $ld_runpath_switch$ai_p"
+        LDFLAGS="$LDFLAGS -L$ai_p"
+        PHP_RPATHS="$PHP_RPATHS $ai_p"
+      ])
+    fi
   fi
 ])
 
@@ -432,17 +525,32 @@ AC_DEFUN(AC_ADD_INCLUDE,[
   fi
 ])
 
+AC_DEFUN(PHP_X_ADD_LIBRARY,[
+  ifelse($2,,$3="-l$1 [$]$3", $3="[$]$3 -l$1")
+])
+
 dnl
-dnl AC_ADD_LIBRARY(library[, append])
+dnl AC_ADD_LIBRARY(library[, append[, shared-libadd]])
 dnl
 dnl add a library to the link line
 dnl
 AC_DEFUN(AC_ADD_LIBRARY,[
-  AC_PHP_ONCE(LIBRARY, $1, [
-    if test "$1" != "c"; then
-      ifelse($#, 1, LIBS="-l$1 $LIBS", LIBS="$LIBS -l$1")
-    fi
-  ])
+ case "$1" in
+ c|c_r|pthread*) ;;
+ *)
+ifelse($3,,[
+   AC_PHP_ONCE(LIBRARY, $1, [
+     PHP_X_ADD_LIBRARY($1,$2,LIBS)
+   ])
+],[
+   if test "$ext_shared" = "yes"; then
+     PHP_X_ADD_LIBRARY($1,$2,$3)
+   else
+     AC_ADD_LIBRARY($1,$2)
+   fi
+])
+  ;;
+  esac
 ])
 
 dnl
@@ -470,17 +578,13 @@ ifelse($3,,[
   AC_ADD_LIBRARY($1)
 ],[
   if test "$ext_shared" = "yes"; then
+    $3="-l$1 [$]$3"
     if test -n "$2"; then
-      $3="-R$2 -L$2 -l$1 [$]$3"
-	else
-      $3="-l$1 [$]$3"
+      AC_ADD_LIBPATH($2,$3)
     fi
   else
-    if test -n "$2"; then
-      AC_ADD_LIBPATH($2)
-	fi
-    AC_ADD_LIBRARY($1)
- fi
+    AC_ADD_LIBRARY_WITH_PATH($1,$2)
+  fi
 ])
 ])
 
@@ -505,7 +609,9 @@ dnl
 AC_DEFUN(AC_CHECK_CC_OPTION,[
   echo "main(){return 0;}" > conftest.$ac_ext
   opt="$1"
-  var=`echo $ac_n "$opt$ac_c"|tr -c a-zA-Z0-9 _`
+  changequote({,})
+  var=`echo $opt|sed 's/[^a-zA-Z0-9]/_/g'`
+  changequote([,])
   AC_MSG_CHECKING([if compiler supports -$1 really])
   ac_php_compile="${CC-cc} -$opt -o conftest $CFLAGS $CPPFLAGS conftest.$ac_ext 2>&1"
   if eval $ac_php_compile 2>&1 | egrep "$opt" > /dev/null 2>&1 ; then
@@ -527,11 +633,11 @@ AC_DEFUN(PHP_REGEX,[
 if test "$REGEX_TYPE" = "php"; then
   REGEX_LIB=regex/libregex.la
   REGEX_DIR=regex
-  AC_DEFINE(HSREGEX)
-  AC_DEFINE(REGEX,1)
+  AC_DEFINE(HSREGEX,1,[ ])
+  AC_DEFINE(REGEX,1,[ ])
   PHP_FAST_OUTPUT(regex/Makefile)
 elif test "$REGEX_TYPE" = "system"; then
-  AC_DEFINE(REGEX,0)
+  AC_DEFINE(REGEX,0,[ ])
 fi
 
 AC_MSG_CHECKING(which regex library to use)
@@ -548,10 +654,10 @@ dnl
 AC_DEFUN(AC_MISSING_FCLOSE_DECL,[
   AC_MSG_CHECKING([for fclose declaration])
   AC_TRY_COMPILE([#include <stdio.h>],[int (*func)() = fclose],[
-    AC_DEFINE(MISSING_FCLOSE_DECL,0)
+    AC_DEFINE(MISSING_FCLOSE_DECL,0,[ ])
     AC_MSG_RESULT(ok)
   ],[
-    AC_DEFINE(MISSING_FCLOSE_DECL,1)
+    AC_DEFINE(MISSING_FCLOSE_DECL,1,[ ])
     AC_MSG_RESULT(missing)
   ])
 ])
@@ -570,9 +676,9 @@ AC_DEFUN(AC_BROKEN_SPRINTF,[
     ])
   ])
   if test "$ac_cv_broken_sprintf" = "yes"; then
-    AC_DEFINE(BROKEN_SPRINTF, 1)
+    AC_DEFINE(PHP_BROKEN_SPRINTF, 1, [ ])
   else
-    AC_DEFINE(BROKEN_SPRINTF, 0)
+    AC_DEFINE(PHP_BROKEN_SPRINTF, 0, [ ])
   fi
 ])
 
@@ -717,7 +823,7 @@ AC_DEFUN(AC_SOCKADDR_SA_LEN,[
 #include <sys/socket.h>],
     [struct sockaddr s; s.sa_len;],
     [ac_cv_sockaddr_sa_len=yes
-     AC_DEFINE(HAVE_SOCKADDR_SA_LEN)],
+     AC_DEFINE(HAVE_SOCKADDR_SA_LEN,1,[ ])],
     [ac_cv_sockaddr_sa_len=no])
   ])
 ])
@@ -764,7 +870,7 @@ int main(void) {
   ac_cv_ebcdic="no"
 ])])
   if test "$ac_cv_ebcdic" = "yes"; then
-    AC_DEFINE(CHARSET_EBCDIC,, [Define if system uses EBCDIC])
+    AC_DEFINE(CHARSET_EBCDIC,1, [Define if system uses EBCDIC])
   fi
 ])
 

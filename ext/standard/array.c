@@ -178,8 +178,8 @@ PHP_FUNCTION(krsort)
 	int sort_type_val = SORT_REGULAR;
 	HashTable *target_hash;
 
-	if (ARG_COUNT(ht) < 1 || ARG_COUNT(ht) > 2 ||
-		zend_get_parameters_ex(ARG_COUNT(ht), &array, &sort_type) == FAILURE) {
+	if (ZEND_NUM_ARGS() < 1 || ZEND_NUM_ARGS() > 2 ||
+		zend_get_parameters_ex(ZEND_NUM_ARGS(), &array, &sort_type) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	target_hash = HASH_OF(*array);
@@ -187,7 +187,7 @@ PHP_FUNCTION(krsort)
 		php_error(E_WARNING, "Wrong datatype in krsort() call");
 		return;
 	}
-	if (ARG_COUNT(ht) == 2) {
+	if (ZEND_NUM_ARGS() == 2) {
 		convert_to_long_ex(sort_type);
 		sort_type_val = Z_LVAL_PP(sort_type);
 	}
@@ -207,8 +207,8 @@ PHP_FUNCTION(ksort)
 	int sort_type_val = SORT_REGULAR;
 	HashTable *target_hash;
 
-	if (ARG_COUNT(ht) < 1 || ARG_COUNT(ht) > 2 ||
-		zend_get_parameters_ex(ARG_COUNT(ht), &array, &sort_type) == FAILURE) {
+	if (ZEND_NUM_ARGS() < 1 || ZEND_NUM_ARGS() > 2 ||
+		zend_get_parameters_ex(ZEND_NUM_ARGS(), &array, &sort_type) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	target_hash = HASH_OF(*array);
@@ -216,7 +216,7 @@ PHP_FUNCTION(ksort)
 		php_error(E_WARNING, "Wrong datatype in ksort() call");
 		return;
 	}
-	if (ARG_COUNT(ht) == 2) {
+	if (ZEND_NUM_ARGS() == 2) {
 		convert_to_long_ex(sort_type);
 		sort_type_val = Z_LVAL_PP(sort_type);
 	}
@@ -234,7 +234,7 @@ PHP_FUNCTION(count)
 	pval **array;
 	HashTable *target_hash;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &array) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &array) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	target_hash = HASH_OF(*array);
@@ -348,7 +348,7 @@ static void php_natsort(INTERNAL_FUNCTION_PARAMETERS, int fold_case)
 	zval **array;
 	HashTable *target_hash;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &array) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &array) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -399,8 +399,8 @@ PHP_FUNCTION(asort)
 	int sort_type_val = SORT_REGULAR;
 	HashTable *target_hash;
 
-	if (ARG_COUNT(ht) < 1 || ARG_COUNT(ht) > 2 ||
-		zend_get_parameters_ex(ARG_COUNT(ht), &array, &sort_type) == FAILURE) {
+	if (ZEND_NUM_ARGS() < 1 || ZEND_NUM_ARGS() > 2 ||
+		zend_get_parameters_ex(ZEND_NUM_ARGS(), &array, &sort_type) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	target_hash = HASH_OF(*array);
@@ -408,7 +408,7 @@ PHP_FUNCTION(asort)
 		php_error(E_WARNING, "Wrong datatype in asort() call");
 		return;
 	}
-	if (ARG_COUNT(ht) == 2) {
+	if (ZEND_NUM_ARGS() == 2) {
 		convert_to_long_ex(sort_type);
 		sort_type_val = Z_LVAL_PP(sort_type);
 	}
@@ -428,8 +428,8 @@ PHP_FUNCTION(arsort)
 	int sort_type_val = SORT_REGULAR;
 	HashTable *target_hash;
 
-	if (ARG_COUNT(ht) < 1 || ARG_COUNT(ht) > 2 ||
-		zend_get_parameters_ex(ARG_COUNT(ht), &array, &sort_type) == FAILURE) {
+	if (ZEND_NUM_ARGS() < 1 || ZEND_NUM_ARGS() > 2 ||
+		zend_get_parameters_ex(ZEND_NUM_ARGS(), &array, &sort_type) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	target_hash = HASH_OF(*array);
@@ -437,7 +437,7 @@ PHP_FUNCTION(arsort)
 		php_error(E_WARNING, "Wrong datatype in arsort() call");
 		RETURN_FALSE;
 	}
-	if (ARG_COUNT(ht) == 2) {
+	if (ZEND_NUM_ARGS() == 2) {
 		convert_to_long_ex(sort_type);
 		sort_type_val = Z_LVAL_PP(sort_type);
 	}
@@ -457,8 +457,8 @@ PHP_FUNCTION(sort)
 	int sort_type_val = SORT_REGULAR;
 	HashTable *target_hash;
 
-	if (ARG_COUNT(ht) < 1 || ARG_COUNT(ht) > 2 ||
-		zend_get_parameters_ex(ARG_COUNT(ht), &array, &sort_type) == FAILURE) {
+	if (ZEND_NUM_ARGS() < 1 || ZEND_NUM_ARGS() > 2 ||
+		zend_get_parameters_ex(ZEND_NUM_ARGS(), &array, &sort_type) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	target_hash = HASH_OF(*array);
@@ -466,7 +466,7 @@ PHP_FUNCTION(sort)
 		php_error(E_WARNING, "Wrong datatype in sort() call");
 		RETURN_FALSE;
 	}
-	if (ARG_COUNT(ht) == 2) {
+	if (ZEND_NUM_ARGS() == 2) {
 		convert_to_long_ex(sort_type);
 		sort_type_val = Z_LVAL_PP(sort_type);
 	}
@@ -486,8 +486,8 @@ PHP_FUNCTION(rsort)
 	int sort_type_val = SORT_REGULAR;
 	HashTable *target_hash;
 
-	if (ARG_COUNT(ht) < 1 || ARG_COUNT(ht) > 2 ||
-		zend_get_parameters_ex(ARG_COUNT(ht), &array, &sort_type) == FAILURE) {
+	if (ZEND_NUM_ARGS() < 1 || ZEND_NUM_ARGS() > 2 ||
+		zend_get_parameters_ex(ZEND_NUM_ARGS(), &array, &sort_type) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	target_hash = HASH_OF(*array);
@@ -495,7 +495,7 @@ PHP_FUNCTION(rsort)
 		php_error(E_WARNING, "Wrong datatype in rsort() call");
 		RETURN_FALSE;
 	}
-	if (ARG_COUNT(ht) == 2) {
+	if (ZEND_NUM_ARGS() == 2) {
 		convert_to_long_ex(sort_type);
 		sort_type_val = Z_LVAL_PP(sort_type);
 	}
@@ -522,7 +522,7 @@ static int array_user_compare(const void *a, const void *b)
 	args[0] = (pval **) f->pData;
 	args[1] = (pval **) s->pData;
 
-	if (call_user_function_ex(CG(function_table), NULL, *BG(user_compare_func_name), &retval_ptr, 2, args, 0)==SUCCESS
+	if (call_user_function_ex(CG(function_table), NULL, *BG(user_compare_func_name), &retval_ptr, 2, args, 0, NULL)==SUCCESS
 		&& retval_ptr) {
 		long retval;
 
@@ -545,7 +545,7 @@ PHP_FUNCTION(usort)
 	BLS_FETCH();
 
 	old_compare_func = BG(user_compare_func_name);
-	if (ARG_COUNT(ht) != 2 || zend_get_parameters_ex(2, &array, &BG(user_compare_func_name)) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &array, &BG(user_compare_func_name)) == FAILURE) {
 		BG(user_compare_func_name) = old_compare_func;
 		WRONG_PARAM_COUNT;
 	}
@@ -555,7 +555,6 @@ PHP_FUNCTION(usort)
 		BG(user_compare_func_name) = old_compare_func;
 		RETURN_FALSE;
 	}
-	convert_to_string_ex(BG(user_compare_func_name));
 	if (zend_hash_sort(target_hash, qsort, array_user_compare, 1) == FAILURE) {
 		BG(user_compare_func_name) = old_compare_func;
 		RETURN_FALSE;
@@ -575,7 +574,7 @@ PHP_FUNCTION(uasort)
 	BLS_FETCH();
 
 	old_compare_func = BG(user_compare_func_name);
-	if (ARG_COUNT(ht) != 2 || zend_get_parameters_ex(2, &array, &BG(user_compare_func_name)) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &array, &BG(user_compare_func_name)) == FAILURE) {
 		BG(user_compare_func_name) = old_compare_func;
 		WRONG_PARAM_COUNT;
 	}
@@ -585,7 +584,6 @@ PHP_FUNCTION(uasort)
 		BG(user_compare_func_name) = old_compare_func;
 		RETURN_FALSE;
 	}
-	convert_to_string_ex(BG(user_compare_func_name));
 	if (zend_hash_sort(target_hash, qsort, array_user_compare, 0) == FAILURE) {
 		BG(user_compare_func_name) = old_compare_func;
 		RETURN_FALSE;
@@ -616,7 +614,7 @@ static int array_user_key_compare(const void *a, const void *b)
 
 	if (f->nKeyLength) {
 		key1.value.str.val = estrndup(f->arKey, f->nKeyLength);
-		key1.value.str.len = f->nKeyLength;
+		key1.value.str.len = f->nKeyLength-1;
 		key1.type = IS_STRING;
 	} else {
 		key1.value.lval = f->h;
@@ -624,7 +622,7 @@ static int array_user_key_compare(const void *a, const void *b)
 	}
 	if (s->nKeyLength) {
 		key2.value.str.val = estrndup(s->arKey, s->nKeyLength);
-		key2.value.str.len = s->nKeyLength;
+		key2.value.str.len = s->nKeyLength-1;
 		key2.type = IS_STRING;
 	} else {
 		key2.value.lval = s->h;
@@ -654,7 +652,7 @@ PHP_FUNCTION(uksort)
 	BLS_FETCH();
 
 	old_compare_func = BG(user_compare_func_name);
-	if (ARG_COUNT(ht) != 2 || zend_get_parameters_ex(2, &array, &BG(user_compare_func_name)) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &array, &BG(user_compare_func_name)) == FAILURE) {
 		BG(user_compare_func_name) = old_compare_func;
 		WRONG_PARAM_COUNT;
 	}
@@ -664,7 +662,6 @@ PHP_FUNCTION(uksort)
 		BG(user_compare_func_name) = old_compare_func;
 		RETURN_FALSE;
 	}
-	convert_to_string_ex(BG(user_compare_func_name));
 	if (zend_hash_sort(target_hash, qsort, array_user_key_compare, 0) == FAILURE) {
 		BG(user_compare_func_name) = old_compare_func;
 		RETURN_FALSE;
@@ -681,7 +678,7 @@ PHP_FUNCTION(end)
 	pval **array, **entry;
 	HashTable *target_hash;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &array) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &array) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	target_hash = HASH_OF(*array);
@@ -709,7 +706,7 @@ PHP_FUNCTION(prev)
 	pval **array, **entry;
 	HashTable *target_hash;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &array) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &array) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	target_hash = HASH_OF(*array);
@@ -737,7 +734,7 @@ PHP_FUNCTION(next)
 	pval **array, **entry;
 	HashTable *target_hash;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &array) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &array) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	target_hash = HASH_OF(*array);
@@ -765,7 +762,7 @@ PHP_FUNCTION(reset)
 	pval **array, **entry;
 	HashTable *target_hash;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &array) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &array) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	target_hash = HASH_OF(*array);
@@ -793,7 +790,7 @@ PHP_FUNCTION(current)
 	pval **array, **entry;
 	HashTable *target_hash;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &array) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &array) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	target_hash = HASH_OF(*array);
@@ -818,7 +815,7 @@ PHP_FUNCTION(key)
 	ulong num_key;
 	HashTable *target_hash;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &array) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &array) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	target_hash = HASH_OF(*array);
@@ -842,17 +839,18 @@ PHP_FUNCTION(key)
 }
 /* }}} */
 
-/* {{{ proto mixed min(mixed arg1 [, mixed arg2 [, ...]])
+/* {{{ proto mixed min(mixed arg1 [, mixed arg2 [, mixed ...]])
    Return the lowest value in an array or a series of arguments */
 PHP_FUNCTION(min)
 {
-	int argc=ARG_COUNT(ht);
+	int argc=ZEND_NUM_ARGS();
 	pval **result;
 
 	if (argc<=0) {
 		php_error(E_WARNING, "min: must be passed at least 1 value");
 		RETURN_NULL();
 	}
+	set_compare_func(SORT_REGULAR);
 	if (argc == 1) {
 		pval **arr;
 
@@ -867,18 +865,18 @@ PHP_FUNCTION(min)
 			RETURN_FALSE;
 		}
 	} else {
-		pval ***args = (pval ***) emalloc(sizeof(pval **)*ARG_COUNT(ht));
+		pval ***args = (pval ***) emalloc(sizeof(pval **)*ZEND_NUM_ARGS());
 		pval **min, result;
 		int i;
 
-		if (zend_get_parameters_array_ex(ARG_COUNT(ht), args)==FAILURE) {
+		if (zend_get_parameters_array_ex(ZEND_NUM_ARGS(), args)==FAILURE) {
 			efree(args);
 			WRONG_PARAM_COUNT;
 		}
 
 		min = args[0];
 
-		for (i=1; i<ARG_COUNT(ht); i++) {
+		for (i=1; i<ZEND_NUM_ARGS(); i++) {
 			is_smaller_function(&result, *args[i], *min);
 			if (result.value.lval == 1) {
 				min = args[i];
@@ -893,17 +891,18 @@ PHP_FUNCTION(min)
 }
 /* }}} */
 
-/* {{{ proto mixed max(mixed arg1 [, mixed arg2 [, ...]])
+/* {{{ proto mixed max(mixed arg1 [, mixed arg2 [, mixed ...]])
    Return the highest value in an array or a series of arguments */
 PHP_FUNCTION(max)
 {
-	int argc=ARG_COUNT(ht);
+	int argc=ZEND_NUM_ARGS();
 	pval **result;
 
 	if (argc<=0) {
 		php_error(E_WARNING, "max: must be passed at least 1 value");
 		RETURN_NULL();
 	}
+	set_compare_func(SORT_REGULAR);
 	if (argc == 1) {
 		pval **arr;
 
@@ -918,18 +917,18 @@ PHP_FUNCTION(max)
 			RETURN_FALSE;
 		}
 	} else {
-		pval ***args = (pval ***) emalloc(sizeof(pval **)*ARG_COUNT(ht));
+		pval ***args = (pval ***) emalloc(sizeof(pval **)*ZEND_NUM_ARGS());
 		pval **max, result;
 		int i;
 
-		if (zend_get_parameters_array_ex(ARG_COUNT(ht), args)==FAILURE) {
+		if (zend_get_parameters_array_ex(ZEND_NUM_ARGS(), args)==FAILURE) {
 			efree(args);
 			WRONG_PARAM_COUNT;
 		}
 
 		max = args[0];
 
-		for (i=1; i<ARG_COUNT(ht); i++) {
+		for (i=1; i<ZEND_NUM_ARGS(); i++) {
 			is_smaller_or_equal_function(&result, *args[i], *max);
 			if (result.value.lval == 0) {
 				max = args[i];
@@ -977,7 +976,7 @@ static int php_array_walk(HashTable *target_hash, zval **userdata)
 		
 		/* Call the userland function */
 		if (call_user_function_ex(CG(function_table), NULL, *BG(array_walk_func_name),
-						   &retval_ptr, userdata ? 3 : 2, args, 0) == SUCCESS) {
+						   &retval_ptr, userdata ? 3 : 2, args, 0, NULL) == SUCCESS) {
 		
 			zval_ptr_dtor(&retval_ptr);
 		} else
@@ -1005,7 +1004,7 @@ PHP_FUNCTION(array_walk) {
 	HashTable *target_hash;
 	BLS_FETCH();
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	old_walk_func_name = BG(array_walk_func_name);
 	if (argc < 2 || argc > 3 ||
 		zend_get_parameters_ex(argc, &array, &BG(array_walk_func_name), &userdata) == FAILURE) {
@@ -1025,18 +1024,21 @@ PHP_FUNCTION(array_walk) {
 }
 /* }}} */
 
-/* {{{ proto bool in_array(mixed needle, array haystack)
+/* {{{ proto bool in_array(mixed needle, array haystack [, bool strict])
    Checks if the given value exists in the array */
 PHP_FUNCTION(in_array)
 {
 	zval **value,				/* value to check for */
 		 **array,				/* array to check in */
-		 **entry_ptr,			/* pointer to array entry */
-		 *entry,				/* actual array entry */
+		 **strict,				/* strict comparison or not */
+		 **entry,				/* pointer to array entry */
 		  res;					/* comparison result */
 	HashTable *target_hash;		/* array hashtable */
+	HashPosition pos;			/* hash iterator */
+	int (*compare_func)(zval *, zval *, zval *) = is_equal_function;
 
-	if (ARG_COUNT(ht) != 2 || zend_get_parameters_ex(2, &value, &array) == FAILURE) {
+	if (ZEND_NUM_ARGS() < 2 || ZEND_NUM_ARGS() > 3 ||
+		zend_get_parameters_ex(ZEND_NUM_ARGS(), &value, &array, &strict) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	
@@ -1050,16 +1052,21 @@ PHP_FUNCTION(in_array)
 		RETURN_FALSE;
 	}
 
+	if (ZEND_NUM_ARGS() == 3) {
+		convert_to_boolean_ex(strict);
+		if (Z_LVAL_PP(strict) == 1)
+			compare_func = is_identical_function;
+	}
+
 	target_hash = HASH_OF(*array);
-	zend_hash_internal_pointer_reset(target_hash);
-	while(zend_hash_get_current_data(target_hash, (void **)&entry_ptr) == SUCCESS) {
-		entry = *entry_ptr;
-     	is_equal_function(&res, *value, entry);
-		if (zval_is_true(&res)) {
+	zend_hash_internal_pointer_reset_ex(target_hash, &pos);
+	while(zend_hash_get_current_data_ex(target_hash, (void **)&entry, &pos) == SUCCESS) {
+     	compare_func(&res, *value, *entry);
+		if (Z_LVAL(res) == 1) {
 			RETURN_TRUE;
 		}
 		
-		zend_hash_move_forward(target_hash);
+		zend_hash_move_forward_ex(target_hash, &pos);
 	}
 	
 	RETURN_FALSE;
@@ -1103,7 +1110,7 @@ PHP_FUNCTION(extract)
 	ulong lkey;
 	int res, extype;
 
-	switch(ARG_COUNT(ht)) {
+	switch(ZEND_NUM_ARGS()) {
 		case 1:
 			if (zend_get_parameters_ex(1, &var_array) == FAILURE) {
 				WRONG_PARAM_COUNT;
@@ -1231,23 +1238,23 @@ static void _compact_var(HashTable *eg_active_symbol_table, zval *return_value, 
 /* }}} */
 
 
-/* {{{ proto array compact(mixed var_names [, ... ])
+/* {{{ proto array compact(mixed var_names [, mixed ... ])
    Creates a hash containing variables and their values */
 PHP_FUNCTION(compact)
 {
 	zval ***args;			/* function arguments array */
 	int i;
 	
-	args = (zval ***)emalloc(ARG_COUNT(ht) * sizeof(zval **));
+	args = (zval ***)emalloc(ZEND_NUM_ARGS() * sizeof(zval **));
 	
-	if (zend_get_parameters_array_ex(ARG_COUNT(ht), args) == FAILURE) {
+	if (zend_get_parameters_array_ex(ZEND_NUM_ARGS(), args) == FAILURE) {
 		efree(args);
 		WRONG_PARAM_COUNT;
 	}
 
 	array_init(return_value);
 	
-	for (i=0; i<ARG_COUNT(ht); i++)
+	for (i=0; i<ZEND_NUM_ARGS(); i++)
 	{
 		_compact_var(EG(active_symbol_table), return_value, *args[i]);
 	}
@@ -1263,7 +1270,7 @@ PHP_FUNCTION(range)
 	zval **zlow, **zhigh;
 	int low, high;
 	
-	if (ARG_COUNT(ht) != 2 || zend_get_parameters_ex(2,&zlow,&zhigh) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2,&zlow,&zhigh) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long_ex(zlow);
@@ -1305,7 +1312,7 @@ PHP_FUNCTION(shuffle)
 {
 	zval **array;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &array) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &array) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	if ((*array)->type != IS_ARRAY) {
@@ -1410,7 +1417,7 @@ HashTable* php_splice(HashTable *in_hash, int offset, int length,
 /* }}} */
 
 
-/* {{{ proto int array_push(array stack, mixed var [, ...])
+/* {{{ proto int array_push(array stack, mixed var [, mixed ...])
    Pushes elements onto the end of the array */
 PHP_FUNCTION(array_push)
 {
@@ -1421,7 +1428,7 @@ PHP_FUNCTION(array_push)
 				 argc;		/* Number of function arguments */
 
 	/* Get the argument count and check it */
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if (argc < 2) {
 		WRONG_PARAM_COUNT;
 	}
@@ -1464,7 +1471,7 @@ static void _phpi_pop(INTERNAL_FUNCTION_PARAMETERS, int off_the_end)
 	HashTable	*new_hash;		/* New stack */
 	
 	/* Get the arguments and do error-checking */
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &stack) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &stack) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	
@@ -1514,7 +1521,7 @@ PHP_FUNCTION(array_shift)
 /* }}} */
 
 
-/* {{{ proto int array_unshift(array stack, mixed var [, ...])
+/* {{{ proto int array_unshift(array stack, mixed var [, mixed ...])
    Pushes elements onto the beginning of the array */
 PHP_FUNCTION(array_unshift)
 {
@@ -1525,7 +1532,7 @@ PHP_FUNCTION(array_unshift)
 	
 
 	/* Get the argument count and check it */	
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if (argc < 2) {
 		WRONG_PARAM_COUNT;
 	}
@@ -1574,7 +1581,7 @@ PHP_FUNCTION(array_splice)
 				 repl_num = 0;		/* Number of replacement elements */
 
 	/* Get the argument count and check it */
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if (argc < 2 || argc > 4) {
 		WRONG_PARAM_COUNT;
 	}
@@ -1656,7 +1663,7 @@ PHP_FUNCTION(array_slice)
 	
 
 	/* Get the arguments and do error-checking */	
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if (argc < 2 || argc > 3 || zend_get_parameters_ex(argc, &input, &offset, &length)) {
 		WRONG_PARAM_COUNT;
 	}
@@ -1732,20 +1739,51 @@ PHP_FUNCTION(array_slice)
 /* }}} */
 
 
-/* {{{ proto array array_merge(array arr1, array arr2 [, ...])
-   Merges elements from passed arrays into one array */
-PHP_FUNCTION(array_merge)
+static void php_array_merge_impl(HashTable *dest, HashTable *src, int recursive)
 {
-	zval	  ***args = NULL,
-			   **entry;
-	HashTable	*hash;
+	zval	  **src_entry,
+			  **dest_entry;
+	char	   *string_key;
+	ulong		num_key;
+
+	zend_hash_internal_pointer_reset(src);
+	while(zend_hash_get_current_data(src, (void **)&src_entry) == SUCCESS) {
+		switch (zend_hash_get_current_key(src, &string_key, &num_key)) {
+			case HASH_KEY_IS_STRING:
+				if (recursive &&
+					zend_hash_find(dest, string_key, strlen(string_key) + 1,
+								   (void **)&dest_entry) == SUCCESS) {
+					convert_to_array_ex(dest_entry);
+					convert_to_array_ex(src_entry);
+					php_array_merge_impl(Z_ARRVAL_PP(dest_entry),
+										 Z_ARRVAL_PP(src_entry), recursive);
+				} else {
+					(*src_entry)->refcount++;
+
+					zend_hash_update(dest, string_key, strlen(string_key)+1,
+									 src_entry, sizeof(zval *), NULL);
+				}
+				efree(string_key);
+				break;
+
+			case HASH_KEY_IS_LONG:
+				(*src_entry)->refcount++;
+				zend_hash_next_index_insert(dest, src_entry, sizeof(zval *), NULL);
+				break;
+		}
+
+		zend_hash_move_forward(src);
+	}
+}
+
+static void php_array_merge(INTERNAL_FUNCTION_PARAMETERS, int recursive)
+{
+	zval	  ***args = NULL;
 	int			 argc,
 				 i;
-	char		*string_key;
-	ulong		 num_key;
 
 	/* Get the argument count and check it */	
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if (argc < 2) {
 		WRONG_PARAM_COUNT;
 	}
@@ -1760,34 +1798,28 @@ PHP_FUNCTION(array_merge)
 	array_init(return_value);
 	
 	for (i=0; i<argc; i++) {
-		if ((*args[i])->type != IS_ARRAY) {
-			php_error(E_WARNING, "Skipping argument #%d to array_merge(), since it's not an array", i+1);
-			continue;
-		}
-		hash = (*args[i])->value.ht;
-		
-		zend_hash_internal_pointer_reset(hash);
-		while(zend_hash_get_current_data(hash, (void **)&entry) == SUCCESS) {
-			(*entry)->refcount++;
-			
-			switch (zend_hash_get_current_key(hash, &string_key, &num_key)) {
-				case HASH_KEY_IS_STRING:
-					zend_hash_update(return_value->value.ht, string_key, strlen(string_key)+1,
-									 entry, sizeof(zval *), NULL);
-					efree(string_key);
-					break;
-
-				case HASH_KEY_IS_LONG:
-					zend_hash_next_index_insert(return_value->value.ht,
-												entry, sizeof(zval *), NULL);
-					break;
-			}
-
-			zend_hash_move_forward(hash);
-		}
+		convert_to_array_ex(args[i]);
+		php_array_merge_impl(Z_ARRVAL_P(return_value), Z_ARRVAL_PP(args[i]), recursive);
 	}
 	
 	efree(args);
+}
+
+
+/* {{{ proto array array_merge(array arr1, array arr2 [, mixed ...])
+   Merges elements from passed arrays into one array */
+PHP_FUNCTION(array_merge)
+{
+	php_array_merge(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0);
+}
+/* }}} */
+
+
+/* {{{ proto array array_merge_recursive(array arr1, array arr2 [, mixed ...])
+   Recursively merges elements from passed arrays into one array */
+PHP_FUNCTION(array_merge_recursive)
+{
+	php_array_merge(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1);
 }
 /* }}} */
 
@@ -1808,8 +1840,8 @@ PHP_FUNCTION(array_keys)
 	search_value = NULL;
 	
 	/* Get arguments and do error-checking */
-	if (ARG_COUNT(ht) < 1 || ARG_COUNT(ht) > 2 ||
-		zend_get_parameters_ex(ARG_COUNT(ht), &input, &search_value) == FAILURE) {
+	if (ZEND_NUM_ARGS() < 1 || ZEND_NUM_ARGS() > 2 ||
+		zend_get_parameters_ex(ZEND_NUM_ARGS(), &input, &search_value) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	
@@ -1865,7 +1897,7 @@ PHP_FUNCTION(array_values)
 			   **entry;		/* An entry in the input array */
 	
 	/* Get arguments and do error-checking */
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(ARG_COUNT(ht), &input) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(ZEND_NUM_ARGS(), &input) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	
@@ -1901,7 +1933,7 @@ PHP_FUNCTION(array_count_values)
 	HashTable   *myht;
 	
 	/* Get arguments and do error-checking */
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &input) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &input) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	
@@ -1962,7 +1994,7 @@ PHP_FUNCTION(array_reverse)
 	ulong		 num_key;
 	
 	/* Get arguments and do error-checking */
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &input) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &input) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	
@@ -2013,7 +2045,7 @@ PHP_FUNCTION(array_pad)
 	int			  i;
 	
 	/* Get arguments and do error-checking */
-	if (ARG_COUNT(ht) != 3 || zend_get_parameters_ex(3, &input, &pad_size, &pad_value) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 3 || zend_get_parameters_ex(3, &input, &pad_size, &pad_value) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	
@@ -2070,7 +2102,7 @@ PHP_FUNCTION(array_flip)
 	char *string_key;
 	ulong num_key;
 	
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &array) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &array) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -2108,6 +2140,256 @@ PHP_FUNCTION(array_flip)
 	
 		zend_hash_move_forward(target_hash);
 	}
+}
+/* }}} */
+
+/* {{{ proto array array_unique(array input)
+   Removes duplicate values from array */
+PHP_FUNCTION(array_unique)
+{
+	zval **array;
+	HashTable *target_hash;
+	Bucket **arTmp, **cmpdata, **lastkept;
+	Bucket *p;
+	int i;
+
+	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &array) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+	target_hash = HASH_OF(*array);
+	if (!target_hash) {
+		php_error(E_WARNING, "Wrong datatype in array_unique() call");
+		RETURN_FALSE;
+	}
+
+	/* copy the argument array */
+	*return_value = **array;
+	zval_copy_ctor(return_value);
+
+	if (target_hash->nNumOfElements <= 1) /* nothing to do */
+	        return;
+
+	/* create and sort array with pointers to the target_hash buckets */
+	arTmp = (Bucket **) pemalloc((target_hash->nNumOfElements + 1) * sizeof(Bucket *), target_hash->persistent);
+	if (!arTmp)
+		RETURN_FALSE;
+	for (i = 0, p = target_hash->pListHead; p; i++, p = p->pListNext)
+		arTmp[i] = p;
+	arTmp[i] = NULL;
+    set_compare_func(SORT_REGULAR);
+	qsort((void *) arTmp, i, sizeof(Bucket *), array_data_compare);
+
+	/* go through the sorted array and delete duplicates from the copy */
+	lastkept = arTmp;
+	for (cmpdata = arTmp + 1; *cmpdata; cmpdata++) {
+		if (array_data_compare(lastkept, cmpdata)) {
+		        lastkept = cmpdata;
+		} else {
+			p = *cmpdata;
+			if (p->nKeyLength)
+			        zend_hash_del(return_value->value.ht, p->arKey, p->nKeyLength);  
+			else
+			        zend_hash_index_del(return_value->value.ht, p->h);  
+		}
+	}
+	pefree(arTmp, target_hash->persistent);
+}
+/* }}} */
+
+/* {{{ proto array array_intersect(array arr1, array arr2 [, mixed ...])
+   Returns the entries of arr1 that have values which are present in all the other arguments */
+PHP_FUNCTION(array_intersect)
+{
+        zval ***args = NULL;
+	HashTable *hash;
+	int argc, i, c = 0;
+	Bucket ***lists, **list, ***ptrs, *p;
+	zval *entry;
+
+	/* Get the argument count and check it */	
+	argc = ARG_COUNT(ht);
+	if (argc < 2) {
+		WRONG_PARAM_COUNT;
+	}
+	/* Allocate arguments array and get the arguments, checking for errors. */
+	args = (zval ***)emalloc(argc * sizeof(zval **));
+	if (zend_get_parameters_array_ex(argc, args) == FAILURE) {
+		efree(args);
+		WRONG_PARAM_COUNT;
+	}
+	array_init(return_value);
+	/* for each argument, create and sort list with pointers to the hash buckets */
+	lists = (Bucket ***)emalloc(argc * sizeof(Bucket **));
+	ptrs = (Bucket ***)emalloc(argc * sizeof(Bucket **));
+    set_compare_func(SORT_REGULAR);
+	for (i=0; i<argc; i++) {
+		if ((*args[i])->type != IS_ARRAY) {
+			php_error(E_WARNING, "Argument #%d to array_intersect() is not an array", i+1);
+			argc = i; /* only free up to i-1 */
+			goto out;
+		}
+		hash = HASH_OF(*args[i]);
+		list = (Bucket **) pemalloc((hash->nNumOfElements + 1) * sizeof(Bucket *), hash->persistent);
+		if (!list)
+		        RETURN_FALSE;
+		lists[i] = list;
+		ptrs[i] = list;
+		for (p = hash->pListHead; p; p = p->pListNext)
+		        *list++ = p;
+		*list = NULL;
+		qsort((void *) lists[i], hash->nNumOfElements, sizeof(Bucket *), array_data_compare);
+	}
+	/* go through the lists and look for common values */
+	while (*ptrs[0]) {
+		for (i=1; i<argc; i++) {
+		        while (*ptrs[i] && (0 < (c = array_data_compare(ptrs[0], ptrs[i]))))
+			        ptrs[i]++;
+			if (!*ptrs[i])
+			        goto out;
+			if (c)
+			        break;
+			ptrs[i]++;
+		}
+		if (c) {
+		  /* ptrs[0] not in all arguments, next candidate is ptrs[i] */
+		        for (;;) {
+		                if (!*++ptrs[0])
+			                goto out;
+				if (0 <= array_data_compare(ptrs[0], ptrs[i]))
+			                break;
+			}
+		} else {
+		        /* ptrs[0] is present in all the arguments */
+		        /* Go through all entries with same value as ptrs[0] */
+		        for (;;) {
+			        p = *ptrs[0];
+				entry = *((zval **)p->pData);
+				entry->refcount++;
+				if (p->nKeyLength)
+				        zend_hash_update(return_value->value.ht,
+						 p->arKey, p->nKeyLength,
+						 &entry, sizeof(zval *),
+						 NULL);  
+				else
+				        zend_hash_index_update(return_value->value.ht,
+						       p->h, &entry,
+						       sizeof(zval *),
+						       NULL);
+				if (!*++ptrs[0])
+				        goto out;
+				if (array_data_compare(ptrs[0]-1, ptrs[0]))
+				        break;
+			}
+		}
+	}
+out:
+	for (i=0; i<argc; i++) {
+	        hash = HASH_OF(*args[i]);
+		pefree(lists[i], hash->persistent);
+	}
+	efree(ptrs);
+	efree(lists);
+	efree(args);
+}
+/* }}} */
+
+/* {{{ proto array array_diff(array arr1, array arr2 [, mixed ...])
+   Returns the entries of arr1 that have values which are not present in
+   any of the others arguments */
+PHP_FUNCTION(array_diff)
+{
+        zval ***args = NULL;
+	HashTable *hash;
+	int argc, i, c;
+	Bucket ***lists, **list, ***ptrs, *p;
+	zval *entry;
+
+	/* Get the argument count and check it */	
+	argc = ARG_COUNT(ht);
+	if (argc < 2) {
+		WRONG_PARAM_COUNT;
+	}
+	/* Allocate arguments array and get the arguments, checking for errors. */
+	args = (zval ***)emalloc(argc * sizeof(zval **));
+	if (zend_get_parameters_array_ex(argc, args) == FAILURE) {
+		efree(args);
+		WRONG_PARAM_COUNT;
+	}
+	array_init(return_value);
+	/* for each argument, create and sort list with pointers to the hash buckets */
+	lists = (Bucket ***)emalloc(argc * sizeof(Bucket **));
+	ptrs = (Bucket ***)emalloc(argc * sizeof(Bucket **));
+    set_compare_func(SORT_REGULAR);
+	for (i=0; i<argc; i++) {
+		if ((*args[i])->type != IS_ARRAY) {
+			php_error(E_WARNING, "Argument #%d to array_intersect() is not an array", i+1);
+			argc = i; /* only free up to i-1 */
+			goto out;
+		}
+		hash = HASH_OF(*args[i]);
+		list = (Bucket **) pemalloc((hash->nNumOfElements + 1) * sizeof(Bucket *), hash->persistent);
+		if (!list)
+		        RETURN_FALSE;
+		lists[i] = list;
+		ptrs[i] = list;
+		for (p = hash->pListHead; p; p = p->pListNext)
+		        *list++ = p;
+		*list = NULL;
+		qsort((void *) lists[i], hash->nNumOfElements, sizeof(Bucket *), array_data_compare);
+	}
+	/* go through the lists and look for values of ptr[0]
+           that are not in the others */
+	while (*ptrs[0]) {
+	        c = 1;
+		for (i=1; i<argc; i++) {
+		        while (*ptrs[i] && (0 < (c = array_data_compare(ptrs[0], ptrs[i]))))
+			        ptrs[i]++;
+			if (!c) {
+			        if (*ptrs[i])
+				        ptrs[i]++;
+			        break;
+			}
+		}
+		if (!c) {
+		  /* ptrs[0] in one of the other arguments */
+		  /* skip all entries with value as ptrs[0] */
+		        for (;;) {
+		                if (!*++ptrs[0])
+			                goto out;
+				if (array_data_compare(ptrs[0]-1, ptrs[0]))
+			                break;
+			}
+		} else {
+		        /* ptrs[0] is in none of the other arguments */
+		        for (;;) {
+			        p = *ptrs[0];
+				entry = *((zval **)p->pData);
+				entry->refcount++;
+				if (p->nKeyLength)
+				        zend_hash_update(return_value->value.ht,
+						 p->arKey, p->nKeyLength,
+						 &entry, sizeof(zval *),
+						 NULL);  
+				else
+				        zend_hash_index_update(return_value->value.ht,
+						       p->h, &entry,
+						       sizeof(zval *),
+						       NULL);
+				if (!*++ptrs[0])
+				        goto out;
+				if (array_data_compare(ptrs[0]-1, ptrs[0]))
+				        break;
+			}
+		}
+	}
+out:
+	for (i=0; i<argc; i++) {
+	        hash = HASH_OF(*args[i]);
+		pefree(lists[i], hash->persistent);
+	}
+	efree(ptrs);
+	efree(lists);
+	efree(args);
 }
 /* }}} */
 
@@ -2156,7 +2438,7 @@ PHP_FUNCTION(array_multisort)
 	ARRAYLS_FETCH();
 	
 	/* Get the argument count and check it */
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if (argc < 1) {
 		WRONG_PARAM_COUNT;
 	}
@@ -2300,7 +2582,7 @@ PHP_FUNCTION(array_multisort)
 /* }}} */
 
 
-/* {{{ proto mixed array_rand(array input [, int num_req ])
+/* {{{ proto mixed array_rand(array input [, int num_req])
    Return key/keys for random entry/entries in the array */
 PHP_FUNCTION(array_rand)
 {

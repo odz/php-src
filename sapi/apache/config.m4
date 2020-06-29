@@ -16,11 +16,20 @@ AC_ARG_WITH(apxs,
                           pathname to the Apache apxs tool; defaults to "apxs".],[
 	if test "$withval" = "yes"; then
 		APXS=apxs
+                if $APXS -q CFLAGS >/dev/null 2>&1; then
+                  :
+                else
+                  if test -x /usr/sbin/apxs ; then #SUSE 6.x 
+                    APXS=/usr/sbin/apxs
+                  fi
+                fi
 	else
 		AC_EXPAND_PATH($withval, APXS)
 	fi
 
-    if ! $APXS -q CFLAGS >/dev/null 2>&1; then
+    if $APXS -q CFLAGS >/dev/null 2>&1; then
+      :
+    else
       AC_MSG_RESULT()
       $APXS
       AC_MSG_ERROR([Sorry, I cannot run apxs. Either you need to install Perl or you need to pass the absolute path of apxs by using --with-apxs=/absolute/path/to/apxs])
@@ -43,8 +52,8 @@ AC_ARG_WITH(apxs,
 		PHP_APXS_BROKEN=yes
 	fi
 	STRONGHOLD=
-	AC_DEFINE(HAVE_AP_CONFIG_H)
-	AC_DEFINE(HAVE_AP_COMPAT_H)
+	AC_DEFINE(HAVE_AP_CONFIG_H,1,[ ])
+	AC_DEFINE(HAVE_AP_COMPAT_H,1,[ ])
 	AC_MSG_RESULT(yes)
 ],[
 	AC_MSG_RESULT(no)
@@ -74,7 +83,7 @@ AC_ARG_WITH(apache,
 			AC_MSG_RESULT(yes - Apache 1.2.x)
 			STRONGHOLD=
 			if test -f $withval/src/ap_config.h; then
-				AC_DEFINE(HAVE_AP_CONFIG_H)
+				AC_DEFINE(HAVE_AP_CONFIG_H,1,[ ])
 			fi
 		# For Apache 2.0.x
 		elif test -f $withval/src/include/httpd.h &&
@@ -91,16 +100,16 @@ AC_ARG_WITH(apache,
 			AC_MSG_RESULT(yes - Apache 2.0.X)
 			STRONGHOLD=
 			if test -f $withval/src/include/ap_config.h; then
-				AC_DEFINE(HAVE_AP_CONFIG_H)
+				AC_DEFINE(HAVE_AP_CONFIG_H,1,[ ])
 			fi
 			if test -f $withval/src/include/ap_compat.h; then
-				AC_DEFINE(HAVE_AP_COMPAT_H)
+				AC_DEFINE(HAVE_AP_COMPAT_H,1,[ ])
 				if test ! -f $withval/src/include/ap_config_auto.h; then
 					AC_MSG_ERROR(Please run Apache\'s configure or src/Configure program once and try again)
 				fi
 			else
 				if test -f $withval/src/include/compat.h; then
-					AC_DEFINE(HAVE_OLD_COMPAT_H)
+					AC_DEFINE(HAVE_OLD_COMPAT_H,1,[ ])
 				fi
 			fi
 		# For Apache 1.3.x
@@ -117,16 +126,16 @@ AC_ARG_WITH(apache,
 			AC_MSG_RESULT(yes - Apache 1.3.x)
 			STRONGHOLD=
 			if test -f $withval/src/include/ap_config.h; then
-				AC_DEFINE(HAVE_AP_CONFIG_H)
+				AC_DEFINE(HAVE_AP_CONFIG_H,1,[ ])
 			fi
 			if test -f $withval/src/include/ap_compat.h; then
-				AC_DEFINE(HAVE_AP_COMPAT_H)
+				AC_DEFINE(HAVE_AP_COMPAT_H,1,[ ])
 				if test ! -f $withval/src/include/ap_config_auto.h; then
 					AC_MSG_ERROR(Please run Apache\'s configure or src/Configure program once and try again)
 				fi
 			else
 				if test -f $withval/src/include/compat.h; then
-					AC_DEFINE(HAVE_OLD_COMPAT_H)
+					AC_DEFINE(HAVE_OLD_COMPAT_H,1,[ ])
 				fi
 			fi
 		# Also for Apache 1.3.x
@@ -143,16 +152,16 @@ AC_ARG_WITH(apache,
 			AC_MSG_RESULT(yes - Apache 1.3.x)
 			STRONGHOLD=
 			if test -f $withval/src/include/ap_config.h; then
-				AC_DEFINE(HAVE_AP_CONFIG_H)
+				AC_DEFINE(HAVE_AP_CONFIG_H,1,[ ])
 			fi
 			if test -f $withval/src/include/ap_compat.h; then
-				AC_DEFINE(HAVE_AP_COMPAT_H)
+				AC_DEFINE(HAVE_AP_COMPAT_H,1,[ ])
 				if test ! -f $withval/src/include/ap_config_auto.h; then
 					AC_MSG_ERROR(Please run Apache\'s configure or src/Configure program once and try again)
 				fi
 			else
 				if test -f $withval/src/include/compat.h; then
-					AC_DEFINE(HAVE_OLD_COMPAT_H)
+					AC_DEFINE(HAVE_OLD_COMPAT_H,1,[ ])
 				fi
 			fi
 		# For StrongHold 2.2
@@ -165,16 +174,16 @@ AC_ARG_WITH(apache,
 			STRONGHOLD=-DSTRONGHOLD=1
 			AC_MSG_RESULT(yes - StrongHold)
 			if test -f $withval/apache/ap_config.h; then
-				AC_DEFINE(HAVE_AP_CONFIG_H)
+				AC_DEFINE(HAVE_AP_CONFIG_H,1,[ ])
 			fi
 			if test -f $withval/src/ap_compat.h; then
-				AC_DEFINE(HAVE_AP_COMPAT_H)
+				AC_DEFINE(HAVE_AP_COMPAT_H,1,[ ])
 				if test ! -f $withval/src/include/ap_config_auto.h; then
 					AC_MSG_ERROR(Please run Apache\'s configure or src/Configure program once and try again)
 				fi
 			else
 				if test -f $withval/src/compat.h; then
-					AC_DEFINE(HAVE_OLD_COMPAT_H)
+					AC_DEFINE(HAVE_OLD_COMPAT_H,1,[ ])
 				fi
 			fi
 		else
@@ -208,13 +217,14 @@ AC_ARG_WITH(mod_charset,
 [  --with-mod_charset      Enable transfer tables for mod_charset (Rus Apache).],
 [
 	AC_MSG_RESULT(yes)
-    AC_DEFINE(USE_TRANSFER_TABLES)
+    AC_DEFINE(USE_TRANSFER_TABLES,1,[ ])
 ],[
 	AC_MSG_RESULT(no)
 ])
 
 if test -n "$APACHE_MODULE"; then
   PHP_APACHE_CHECK_RDYNAMIC
+  $php_shtool mkdir -p sapi/apache
   PHP_OUTPUT(sapi/apache/libphp4.module)
   PHP_BUILD_STATIC
 fi

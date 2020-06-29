@@ -17,13 +17,13 @@
 // |                                                                      |
 // +----------------------------------------------------------------------+
 //
-// $Id: msql.php,v 1.1 2000/04/23 20:52:26 sterling Exp $
+// $Id: msql.php,v 1.2 2000/06/21 02:22:04 chagenbu Exp $
 //
 // Database independent query interface definition for PHP's Mini-SQL
 // extension.
 //
 
-use "DB/common";
+include_once 'DB/common.php';
 
 class DB_msql extends DB_common {
 

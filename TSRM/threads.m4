@@ -87,6 +87,16 @@ dnl PTHREADS_CHECK()
 dnl
 dnl Try to find a way to enable POSIX threads
 dnl
+dnl  Magic flags
+dnl  -kthread          gcc (FreeBSD)
+dnl  -Kthread          UDK cc (UnixWare)
+dnl  -mt               WorkShop cc (Solaris)
+dnl  -mthreads         gcc (AIX)
+dnl  -pthread          gcc (Linux, FreeBSD, NetBSD, OpenBSD)
+dnl  -pthreads         gcc (Solaris) 
+dnl  -qthreaded        AIX cc V5
+dnl  -threads          gcc (HP-UX)
+dnl
 AC_DEFUN(PTHREADS_CHECK,[
 
 save_CFLAGS="$CFLAGS"
@@ -99,7 +109,7 @@ CFLAGS="$save_CFLAGS"
 AC_CACHE_CHECK(for pthreads_cflags,ac_cv_pthreads_cflags,[
 ac_cv_pthreads_cflags=""
 if test "$pthreads_working" != "yes"; then
-  for flag in -pthreads -pthread -mthreads -Kthread; do 
+  for flag in -kthread -pthread -pthreads -mthreads -Kthread -threads -mt -qthreaded; do 
     ac_save="$CFLAGS"
     CFLAGS="$CFLAGS $flag"
     PTHREADS_CHECK_COMPILE

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: filestat.c,v 1.36 2000/05/18 15:34:35 zeev Exp $ */
+/* $Id: filestat.c,v 1.41 2000/06/25 17:02:45 zeev Exp $ */
 
 #include "php.h"
 #include "safe_mode.h"
@@ -122,8 +122,10 @@ PHP_RSHUTDOWN_FUNCTION(filestat)
 		efree (BG(CurrentStatFile));
 	}
 	return SUCCESS;
-}
+} 
 
+/* {{{ proto double diskfreespace(string path)
+   Get free diskspace for filesystem that path is on */
 PHP_FUNCTION(diskfreespace)
 {
 	pval **path;
@@ -155,7 +157,7 @@ PHP_FUNCTION(diskfreespace)
 	double bytesfree = 0;
 #endif /* WINDOWS */
 
-	if (ARG_COUNT(ht)!=1 || zend_get_parameters_ex(1,&path)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1,&path)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -220,6 +222,7 @@ PHP_FUNCTION(diskfreespace)
 
 	RETURN_DOUBLE(bytesfree);
 }
+/* }}} */
 
 /* {{{ proto bool chown(string filename, mixed user)
    Change file owner */
@@ -232,7 +235,7 @@ PHP_FUNCTION(chgrp)
 	int ret;
 	PLS_FETCH();
 
-	if (ARG_COUNT(ht)!=2 || zend_get_parameters_ex(2,&filename,&group)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2,&filename,&group)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(filename);
@@ -249,7 +252,7 @@ PHP_FUNCTION(chgrp)
 		gid = (*group)->value.lval;
 	}
 
-	if (PG(safe_mode) &&(!php_checkuid((*filename)->value.str.val,1))) {
+	if (PG(safe_mode) &&(!php_checkuid((*filename)->value.str.val, NULL, 1))) {
 		RETURN_FALSE;
 	}
 
@@ -280,7 +283,7 @@ PHP_FUNCTION(chown)
 	struct passwd *pw = NULL;
 	PLS_FETCH();
 
-	if (ARG_COUNT(ht)!=2 || zend_get_parameters_ex(2,&filename,&user)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2,&filename,&user)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(filename);
@@ -297,7 +300,7 @@ PHP_FUNCTION(chown)
 		uid = (*user)->value.lval;
 	}
 
-	if (PG(safe_mode) &&(!php_checkuid((*filename)->value.str.val,1))) {
+	if (PG(safe_mode) &&(!php_checkuid((*filename)->value.str.val, NULL, 1))) {
 		RETURN_FALSE;
 	}
 
@@ -321,16 +324,16 @@ PHP_FUNCTION(chown)
 PHP_FUNCTION(chmod)
 {
 	pval **filename, **mode;
-	int ret;
+	int ret,imode;
 	PLS_FETCH();
 	
-	if (ARG_COUNT(ht)!=2 || zend_get_parameters_ex(2,&filename,&mode)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2,&filename,&mode)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(filename);
 	convert_to_long_ex(mode);
 
-	if (PG(safe_mode) &&(!php_checkuid((*filename)->value.str.val,1))) {
+	if (PG(safe_mode) &&(!php_checkuid((*filename)->value.str.val, NULL, 1))) {
 		RETURN_FALSE;
 	}
 
@@ -338,7 +341,15 @@ PHP_FUNCTION(chmod)
 	if (php_check_open_basedir((*filename)->value.str.val))
 		RETURN_FALSE;
 
-	ret = chmod((*filename)->value.str.val, (*mode)->value.lval);
+	imode = (*mode)->value.lval; 
+	/* in safe mode, do not allow to setuid files.
+	   Setuiding files could allow users to gain privileges 
+	   that safe mode doesn't give them.
+	*/
+	if(PG(safe_mode)) 
+	  imode &= 0777;
+
+	ret = chmod((*filename)->value.str.val, imode);
 	if (ret == -1) {
 		php_error(E_WARNING, "chmod failed: %s", strerror(errno));
 		RETURN_FALSE;
@@ -348,7 +359,7 @@ PHP_FUNCTION(chmod)
 /* }}} */
 
 
-/* {{{ proto bool touch(string filename[, int time])
+/* {{{ proto bool touch(string filename [, int time])
    Set modification time of file */
 PHP_FUNCTION(touch) 
 {
@@ -358,7 +369,7 @@ PHP_FUNCTION(touch)
 	struct stat sb;
 	FILE *file;
 	struct utimbuf *newtime = NULL;
-	int ac = ARG_COUNT(ht);
+	int ac = ZEND_NUM_ARGS();
 	PLS_FETCH();
 	
 	if (ac == 1 && zend_get_parameters_ex(1,&filename) != FAILURE) {
@@ -385,7 +396,7 @@ PHP_FUNCTION(touch)
 	}
 	convert_to_string_ex(filename);
 
-	if (PG(safe_mode) &&(!php_checkuid((*filename)->value.str.val,1))) {
+	if (PG(safe_mode) &&(!php_checkuid((*filename)->value.str.val, NULL, 1))) {
 		if (newtime) efree(newtime);
 		RETURN_FALSE;
 	}
@@ -605,7 +616,7 @@ static void php_stat(const char *filename, int type, pval *return_value)
 #define FileFunction(name, funcnum) \
 void name(INTERNAL_FUNCTION_PARAMETERS) { \
 	pval **filename; \
-	if (ARG_COUNT(ht)!=1 || zend_get_parameters_ex(1,&filename) == FAILURE) { \
+	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1,&filename) == FAILURE) { \
 		WRONG_PARAM_COUNT; \
 	} \
 	convert_to_string_ex(filename); \

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: recode.c,v 1.6 2000/05/18 15:34:33 zeev Exp $ */
+/* $Id: recode.c,v 1.10 2000/06/06 14:13:35 thies Exp $ */
 
 /* {{{ includes & prototypes */
 
@@ -28,6 +28,7 @@
 #include "ext/standard/file.h"
 #include "ext/standard/php_string.h"
 #include "zend_list.h"
+
 
 #ifdef HAVE_BROKEN_RECODE
 extern char *program_name;
@@ -64,6 +65,10 @@ zend_module_entry recode_module_entry = {
 extern void timeout(int sig);
 #endif
 
+#ifdef COMPILE_DL_RECODE
+ZEND_GET_MODULE(recode)
+#endif
+
 PHP_MINIT_FUNCTION(recode)
 {
 	ReSLS_FETCH();
@@ -92,7 +97,7 @@ PHP_MINFO_FUNCTION(recode)
 
 	php_info_print_table_start();
 	php_info_print_table_row(2, "Recode Support", "enabled");
-	php_info_print_table_row(2, "Revision", "$Revision: 1.6 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.10 $");
 	php_info_print_table_end();
 
 }
@@ -106,10 +111,10 @@ PHP_FUNCTION(recode_string)
 	char *r = NULL;
 	pval **str;
 	pval **req;
-	bool  success;
+	bool success;
 	
 	ReSLS_FETCH();
-	if (ARG_COUNT(ht) != 2
+	if (ZEND_NUM_ARGS() != 2
 	 || zend_get_parameters_ex(2, &req, &str) == FAILURE) {
 	 	WRONG_PARAM_COUNT;
 	}
@@ -161,7 +166,7 @@ PHP_FUNCTION(recode_file)
 	int    in_type, out_type;
 
 	ReSLS_FETCH();
-	if (ARG_COUNT(ht) != 3
+	if (ZEND_NUM_ARGS() != 3
 	 || zend_get_parameters_ex(3, &req, &input, &output) == FAILURE) {
 	 	WRONG_PARAM_COUNT;
 	}

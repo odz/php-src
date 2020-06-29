@@ -17,7 +17,7 @@
    |          Jaakko Hyvätti <jaakko@hyvatti.iki.fi>                      | 
    +----------------------------------------------------------------------+
  */
-/* $Id: reg.c,v 1.35 2000/05/18 15:34:35 zeev Exp $ */
+/* $Id: reg.c,v 1.37 2000/06/23 11:48:02 thies Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -175,7 +175,7 @@ static void php_ereg(INTERNAL_FUNCTION_PARAMETERS, int icase)
 	if (icase)
 		copts |= REG_ICASE;
 
-	switch(ARG_COUNT(ht)) {
+	switch(ZEND_NUM_ARGS()) {
 	case 2:
 		if (zend_get_parameters_ex(2, &regex, &findin) == FAILURE) {
 			WRONG_PARAM_COUNT;
@@ -429,7 +429,7 @@ static void php_ereg_replace(INTERNAL_FUNCTION_PARAMETERS, int icase)
 	char *replace;
 	char *ret;
 	
-	if (ARG_COUNT(ht) != 3 || zend_get_parameters_ex(3, &arg_pattern, &arg_replace, &arg_string) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 3 || zend_get_parameters_ex(3, &arg_pattern, &arg_replace, &arg_string) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -492,19 +492,18 @@ PHP_FUNCTION(eregi_replace)
 }
 /* }}} */
 
-/* ("root", "passwd", "uid", "gid", "other:stuff:like:/bin/sh")
-   = split(":", $passwd_file, 5); */
-/* {{{ proto array split(string pattern, string string [, int limit])
-   Split string into array by regular expression */
-PHP_FUNCTION(split)
+static void php_split(INTERNAL_FUNCTION_PARAMETERS, int icase)
 {
 	pval **spliton, **str, **arg_count = NULL;
 	regex_t re;
 	regmatch_t subs[1];
 	char *strp, *endp;
-	int err, size, count;
+	int err, size, count, copts = 0;
+
+	if (icase)
+		copts = REG_ICASE;
 	
-	switch (ARG_COUNT(ht)) {
+	switch (ZEND_NUM_ARGS()) {
 	case 2:
 		if (zend_get_parameters_ex(2, &spliton, &str) == FAILURE)
 			WRONG_PARAM_COUNT;
@@ -526,7 +525,7 @@ PHP_FUNCTION(split)
 	strp = (*str)->value.str.val;
 	endp = (*str)->value.str.val + strlen((*str)->value.str.val);
 
-	err = regcomp(&re, (*spliton)->value.str.val, REG_EXTENDED);
+	err = regcomp(&re, (*spliton)->value.str.val, REG_EXTENDED | copts);
 	if (err) {
 		php_error(E_WARNING, "unexpected regex error (%d)", err);
 		RETURN_FALSE;
@@ -586,10 +585,30 @@ PHP_FUNCTION(split)
 	add_next_index_stringl(return_value, strp, size, 1);
 
 	regfree(&re);
-
-	return;
 }
+
+/* ("root", "passwd", "uid", "gid", "other:stuff:like:/bin/sh")
+   = split(":", $passwd_file, 5); */
+/* {{{ proto array split(string pattern, string string [, int limit])
+   Split string into array by regular expression */
+
+PHP_FUNCTION(split)
+{
+	php_split(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0);
+}
+
 /* }}} */
+
+/* {{{ proto array spliti(string pattern, string string [, int limit])
+   Split string into array by regular expression case-insensitive */
+
+PHP_FUNCTION(spliti)
+{
+	php_split(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1);
+}
+
+/* }}} */
+
 
 /* {{{ proto string sql_regcase(string string)
    Make regular expression for case insensitive match */
@@ -600,7 +619,7 @@ PHPAPI PHP_FUNCTION(sql_regcase)
 	unsigned char c;
 	register int i, j;
 	
-	if (ARG_COUNT(ht)!=1 || zend_get_parameters_ex(1, &string)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &string)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	

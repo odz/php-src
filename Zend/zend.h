@@ -21,9 +21,7 @@
 #ifndef _ZEND_H
 #define _ZEND_H
 
-#define ZEND_VERSION "1.00"
-
-#define ZEND_NEW_ERROR_HANDLING 0
+#define ZEND_VERSION "1.0.1"
 
 #ifdef __cplusplus
 #define BEGIN_EXTERN_C() extern "C" {
@@ -125,6 +123,11 @@
 #define ZEND_FILE_LINE_ORIG_RELAY_CC
 #endif	/* ZEND_DEBUG */
 
+#ifdef ZTS
+#define ZTS_V 1
+#else
+#define ZTS_V 0
+#endif
 
 #include "zend_errors.h"
 #include "zend_alloc.h"
@@ -221,11 +224,7 @@ struct _zend_class_entry {
 
 
 typedef struct _zend_utility_functions {
-#if ZEND_NEW_ERROR_HANDLING
 	void (*error_function)(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
-#else
-	void (*error_function)(int type, const char *format, ...);
-#endif
 	int (*printf_function)(const char *format, ...);
 	int (*write_function)(const char *str, uint str_length);
 	FILE *(*fopen_function)(const char *filename, char **opened_path);
@@ -238,9 +237,6 @@ typedef struct _zend_utility_functions {
 
 		
 typedef struct _zend_utility_values {
-	zend_bool short_tags;
-	zend_bool asp_tags;
-	zend_bool allow_call_time_pass_reference;
 	char *import_use_extension;
 	uint import_use_extension_length;
 } zend_utility_values;
@@ -255,6 +251,8 @@ typedef int (*zend_write_func_t)(const char *str, uint str_length);
 #define MIN(a,b)  (((a)<(b))?(a):(b))
 #define ZEND_STRL(str)		(str), (sizeof(str)-1)
 #define ZEND_STRS(str)		(str), (sizeof(str)
+#define ZEND_NORMALIZE_BOOL(n)			\
+	((n) ? (((n)>0) ? 1 : -1) : 0)
 
 
 /* data types */
@@ -267,9 +265,10 @@ typedef int (*zend_write_func_t)(const char *str, uint str_length);
 #define IS_BOOL		6
 #define IS_RESOURCE	7
 #define IS_CONSTANT	8
+#define IS_CONSTANT_ARRAY	9
 
 /* Special data type to temporarily mark large numbers */
-#define FLAG_IS_BC	9 /* for parser internal use only */
+#define FLAG_IS_BC	10 /* for parser internal use only */
 
 /* overloaded elements data types */
 #define OE_IS_ARRAY	(1<<0)
@@ -298,6 +297,13 @@ ZEND_API int zend_print_zval_ex(zend_write_func_t write_func, zval *expr, int in
 ZEND_API void zend_print_zval_r(zval *expr, int indent);
 ZEND_API void zend_print_zval_r_ex(zend_write_func_t write_func, zval *expr, int indent);
 
+ZEND_API void zend_output_debug_string(zend_bool trigger_break, char *format, ...);
+#if ZEND_DEBUG
+#define Z_DBG(expr)		(expr)
+#else
+#define	Z_DBG(expr)
+#endif
+
 ZEND_API extern char *empty_string;
 
 #define STR_FREE(ptr) if (ptr && ptr!=empty_string) { efree(ptr); }
@@ -324,14 +330,10 @@ extern ZEND_API FILE *(*zend_fopen)(const char *filename, char **opened_path);
 extern ZEND_API void (*zend_block_interruptions)(void);
 extern ZEND_API void (*zend_unblock_interruptions)(void);
 extern ZEND_API void (*zend_ticks_function)(int ticks);
+extern ZEND_API void (*zend_error_cb)(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
 
 
-#if ZEND_NEW_ERROR_HANDLING
 ZEND_API void zend_error(int type, const char *format, ...);
-#else
-#define zend_error zend_error_cb
-ZEND_API void (*zend_error_cb)(int type, const char *format, ...);
-#endif
 
 void zenderror(char *error);
 
@@ -355,13 +357,12 @@ ZEND_API int zend_get_ini_entry(char *name, uint name_length, zval *contents);
 
 
 /* Messages for applications of Zend */
-#define ZMSG_ENABLE_TRACK_VARS			1L
-#define ZMSG_FAILED_INCLUDE_FOPEN		2L
-#define ZMSG_FAILED_REQUIRE_FOPEN		3L
-#define ZMSG_FAILED_HIGHLIGHT_FOPEN		4L
-#define ZMSG_MEMORY_LEAK_DETECTED		5L
-#define ZMSG_MEMORY_LEAK_REPEATED		6L
-#define ZMSG_LOG_SCRIPT_NAME		7L
+#define ZMSG_FAILED_INCLUDE_FOPEN		1L
+#define ZMSG_FAILED_REQUIRE_FOPEN		2L
+#define ZMSG_FAILED_HIGHLIGHT_FOPEN		3L
+#define ZMSG_MEMORY_LEAK_DETECTED		4L
+#define ZMSG_MEMORY_LEAK_REPEATED		5L
+#define ZMSG_LOG_SCRIPT_NAME			6L
 
 #define INIT_PZVAL(z)		\
 	(z)->refcount = 1;		\

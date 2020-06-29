@@ -176,8 +176,8 @@ typedef enum {
 	RAND
 } iv_source;
 
-/* proto mcrypt_create_iv(int size, int source)
-   create an initializing vector (IV) */
+/* {{{ proto string mcrypt_create_iv(int size, int source)
+   Create an initializing vector (IV) */
 PHP_FUNCTION(mcrypt_create_iv)
 {
 	pval **size, **psource;
@@ -186,7 +186,7 @@ PHP_FUNCTION(mcrypt_create_iv)
 	int i;
 	int n = 0;
 
-	if(ARG_COUNT(ht) != 2 || zend_get_parameters_ex(2, &size, &psource) == FAILURE) {
+	if(ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &size, &psource) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -223,15 +223,16 @@ PHP_FUNCTION(mcrypt_create_iv)
 	}
 	RETURN_STRINGL(iv, n, 0);
 }
+/* }}} */
 
-/* proto mcrypt_get_cipher_name(int cipher)
-   get the name of cipher */
+/* {{{ proto string mcrypt_get_cipher_name(int cipher)
+   Get the name of cipher */
 PHP_FUNCTION(mcrypt_get_cipher_name)
 {
 	pval **cipher;
 	char *str, *nstr;
 
-	if(ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &cipher) == FAILURE) {
+	if(ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &cipher) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -246,14 +247,15 @@ PHP_FUNCTION(mcrypt_get_cipher_name)
 	
 	RETURN_FALSE;
 }
+/* }}} */
 
-/* proto mcrypt_get_key_size(int cipher)
-   get the key size of cipher */
+/* {{{ proto int mcrypt_get_key_size(int cipher)
+   Get the key size of cipher */
 PHP_FUNCTION(mcrypt_get_key_size)
 {
 	pval **cipher;
 
-	if(ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &cipher) == FAILURE) {
+	if(ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &cipher) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -261,14 +263,15 @@ PHP_FUNCTION(mcrypt_get_key_size)
 
 	RETURN_LONG(mcrypt_get_key_size((*cipher)->value.lval));
 }
+/* }}} */
 
-/* proto mcrypt_get_block_size(int cipher)
-   get the block size of cipher */
+/* {{{ proto int mcrypt_get_block_size(int cipher)
+   Get the block size of cipher */
 PHP_FUNCTION(mcrypt_get_block_size)
 {
 	pval **cipher;
 
-	if(ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &cipher) == FAILURE) {
+	if(ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &cipher) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -276,14 +279,15 @@ PHP_FUNCTION(mcrypt_get_block_size)
 
 	RETURN_LONG(mcrypt_get_block_size((*cipher)->value.lval));
 }
+/* }}} */
 
-/* proto mcrypt_ofb(int cipher, string key, string data, int mode, string iv)
+/* {{{ proto string mcrypt_ofb(int cipher, string key, string data, int mode, string iv)
    OFB crypt/decrypt data using key key with cipher cipher starting with iv */
 PHP_FUNCTION(mcrypt_ofb)
 {
 	MCRYPT_ARGS;
 	
-	if(ARG_COUNT(ht) != 5 || 
+	if(ZEND_NUM_ARGS() != 5 || 
 			zend_get_parameters_ex(5, &cipher, &key, &data, &mode, &iv) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
@@ -297,14 +301,15 @@ PHP_FUNCTION(mcrypt_ofb)
 
 	RETURN_STRINGL(ndata, nsize, 0);
 }
+/* }}} */
 
-/* proto mcrypt_cfb(int cipher, string key, string data, int mode, string iv)
+/* {{{ proto string mcrypt_cfb(int cipher, string key, string data, int mode, string iv)
    CFB crypt/decrypt data using key key with cipher cipher starting with iv */
 PHP_FUNCTION(mcrypt_cfb)
 {
 	MCRYPT_ARGS;
 
-	if(ARG_COUNT(ht) != 5 || 
+	if(ZEND_NUM_ARGS() != 5 || 
 			zend_get_parameters_ex(5, &cipher, &key, &data, &mode, &iv) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
@@ -318,14 +323,15 @@ PHP_FUNCTION(mcrypt_cfb)
 
 	RETURN_STRINGL(ndata, nsize, 0);
 }
+/* }}} */
 
 
-/* proto mcrypt_cbc(int cipher, string key, string data, int mode [,string iv])
+/* {{{ proto string mcrypt_cbc(int cipher, string key, string data, int mode [, string iv])
    CBC crypt/decrypt data using key key with cipher cipher using optional iv */
 PHP_FUNCTION(mcrypt_cbc)
 {
 	MCRYPT_ARGS;
-	int ac = ARG_COUNT(ht);
+	int ac = ZEND_NUM_ARGS();
 
 	if(ac < 4 || ac > 5 || 
 			zend_get_parameters_ex(ac, &cipher, &key, &data, &mode, &iv) == FAILURE) {
@@ -348,14 +354,15 @@ PHP_FUNCTION(mcrypt_cbc)
 
 	RETURN_STRINGL(ndata, nsize, 0);
 }
+/* }}} */
 
-/* proto mcrypt_ecb(int cipher, string key, string data, int mode)
+/* {{{ proto string mcrypt_ecb(int cipher, string key, string data, int mode)
    ECB crypt/decrypt data using key key with cipher cipher */
 PHP_FUNCTION(mcrypt_ecb)
 {
 	MCRYPT_ARGS2;
 
-	if(ARG_COUNT(ht) != 4 || 
+	if(ZEND_NUM_ARGS() != 4 || 
 			zend_get_parameters_ex(4, &cipher, &key, &data, &mode) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
@@ -368,5 +375,6 @@ PHP_FUNCTION(mcrypt_ecb)
 
 	RETURN_STRINGL(ndata, nsize, 0);
 }
+/* }}} */
 
 #endif

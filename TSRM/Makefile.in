@@ -78,6 +78,7 @@ PROG_SENDMAIL = @PROG_SENDMAIL@
 RANLIB = @RANLIB@
 VERSION = @VERSION@
 YACC = @YACC@
+ZEND_GCC = @ZEND_GCC@
 ZEND_SCANNER = @ZEND_SCANNER@
 
 AUTOMAKE_OPTIONS = foreign
@@ -106,7 +107,7 @@ DIST_COMMON =  Makefile.am Makefile.in acinclude.m4 configure.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = tar
+TAR = gtar
 GZIP_ENV = --best
 SOURCES = $(libtsrm_la_SOURCES)
 OBJECTS = $(libtsrm_la_OBJECTS)

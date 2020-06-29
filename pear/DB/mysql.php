@@ -28,7 +28,7 @@
 //				 be registered here.
 //
 
-use "DB/common";
+include_once 'DB/common.php';
 
 class DB_mysql extends DB_common {
     // {{{ properties

@@ -36,6 +36,10 @@
 #	define GLOBAL_CONSTANTS_TABLE	CG(zend_constants)
 #endif
 
+#ifdef ZEND_WIN32
+BOOL WINAPI IsDebuggerPresent(VOID);
+#endif
+
 /* true multithread-shared globals */
 ZEND_API zend_class_entry zend_standard_class_def;
 ZEND_API int (*zend_printf)(const char *format, ...);
@@ -44,14 +48,11 @@ ZEND_API FILE *(*zend_fopen)(const char *filename, char **opened_path);
 ZEND_API void (*zend_block_interruptions)(void);
 ZEND_API void (*zend_unblock_interruptions)(void);
 ZEND_API void (*zend_ticks_function)(int ticks);
+ZEND_API void (*zend_error_cb)(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
+
 static void (*zend_message_dispatcher_p)(long message, void *data);
 static int (*zend_get_ini_entry_p)(char *name, uint name_length, zval *contents);
 
-#if ZEND_NEW_ERROR_HANDLING
-static void (*zend_error_cb)(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args);
-#else
-ZEND_API void (*zend_error_cb)(int type, const char *format, ...);
-#endif
 
 #ifdef ZTS
 ZEND_API int compiler_globals_id;
@@ -222,7 +223,7 @@ static FILE *zend_fopen_wrapper(const char *filename, char **opened_path)
 	if (opened_path) {
 		*opened_path = strdup(filename);
 	}
-	return fopen(filename, "r");
+	return fopen(filename, "rb");
 }
 
 
@@ -243,6 +244,16 @@ static void register_standard_class(void)
 }
 
 
+static void zend_set_default_compile_time_values(CLS_D)
+{
+	/* default compile-time values */
+	CG(asp_tags) = 0;
+	CG(short_tags) = 1;
+	CG(allow_call_time_pass_reference) = 1;
+	CG(extended_info) = 0;
+}
+
+
 #ifdef ZTS
 static void compiler_globals_ctor(zend_compiler_globals *compiler_globals)
 {
@@ -257,7 +268,7 @@ static void compiler_globals_ctor(zend_compiler_globals *compiler_globals)
 	zend_hash_init(compiler_globals->class_table, 10, NULL, ZEND_CLASS_DTOR, 1);
 	zend_hash_copy(compiler_globals->class_table, global_class_table, (copy_ctor_func_t) zend_class_add_ref, &tmp_class, sizeof(zend_class_entry));
 
-	compiler_globals->extended_info = 0;
+	zend_set_default_compile_time_values(CLS_C);
 }
 
 
@@ -281,6 +292,7 @@ static void executor_globals_ctor(zend_executor_globals *executor_globals)
 		zend_copy_constants(executor_globals->zend_constants, global_constants_table);
 	}
 	zend_init_rsrc_plist(ELS_C);
+	EG(lambda_count)=0;
 }
 
 
@@ -298,6 +310,10 @@ static void alloc_globals_ctor(zend_alloc_globals *alloc_globals)
 
 #endif
 
+#ifdef __FreeBSD__
+/* FreeBSD floating point precision fix */
+#include <floatingpoint.h>
+#endif
 
 int zend_startup(zend_utility_functions *utility_functions, char **extensions, int start_builtin_functions)
 {
@@ -310,6 +326,21 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 	start_memory_manager(ALS_C);
 #endif
 
+#ifdef __FreeBSD__
+	{
+		/* FreeBSD floating point precision fix */
+#ifdef HAVE_FP_EXCEPT
+		fp_except
+#else
+		fp_except_t
+#endif
+		mask;
+
+		mask = fpgetmask();
+		fpsetmask(mask & ~FP_X_IMP);
+	} 
+#endif
+		
 	/* Set up utility functions and values */
 	zend_error_cb = utility_functions->error_function;
 	zend_printf = utility_functions->printf_function;
@@ -359,6 +390,7 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 	GLOBAL_CONSTANTS_TABLE = EG(zend_constants);
 #else
 	zend_startup_constants();
+	zend_set_default_compile_time_values(CLS_C);
 #endif
 	zend_register_standard_constants(ELS_C);
 
@@ -376,6 +408,9 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 
 void zend_shutdown()
 {
+#ifdef ZEND_WIN32
+	zend_shutdown_timeout_thread();
+#endif
 #ifndef ZTS
 	zend_destroy_rsrc_plist();
 #endif
@@ -498,17 +533,14 @@ ZEND_API int zend_get_ini_entry(char *name, uint name_length, zval *contents)
 }
 
 
-
-#if ZEND_NEW_ERROR_HANDLING
-
 #define ZEND_ERROR_BUFFER_SIZE 1024
 
 ZEND_API void zend_error(int type, const char *format, ...)
 {
 	va_list args;
-	zval **params;
-	zval retval;
-	zval error_type, error_message;
+	zval ***params;
+	zval *retval;
+	zval *error_type, *error_message;
 	char *error_filename;
 	uint error_lineno;
 	ELS_FETCH();
@@ -552,6 +584,7 @@ ZEND_API void zend_error(int type, const char *format, ...)
 
 
 	va_start(args, format);
+
 	/* if we don't have a user defined error handler */
 	if (!EG(user_error_handler)) {
 		zend_error_cb(type, error_filename, error_lineno, format, args);
@@ -567,34 +600,62 @@ ZEND_API void zend_error(int type, const char *format, ...)
 			break;
 		default:
 			/* Handle the error in user space */
-			INIT_PZVAL(&error_message);
-			INIT_PZVAL(&error_type);
-			error_message.value.str.val = (char *) emalloc(ZEND_ERROR_BUFFER_SIZE);
+			ALLOC_INIT_ZVAL(error_message);
+			ALLOC_INIT_ZVAL(error_type);
+			error_message->value.str.val = (char *) emalloc(ZEND_ERROR_BUFFER_SIZE);
 
-			/* error_message.value.str.len = vsnprintf(error_message->value.str.val, error_message->value.str.len-1, format, args); */
-			error_message.value.str.len = vsprintf(error_message.value.str.val, format, args);
-			error_message.type = IS_STRING;
+#ifdef HAVE_VSNPRINTF
+			error_message->value.str.len = vsnprintf(error_message->value.str.val, ZEND_ERROR_BUFFER_SIZE, format, args);
+#else
+			/* This is risky... */
+			error_message->value.str.len = vsprintf(error_message->value.str.val, format, args);
+#endif
+			error_message->type = IS_STRING;
 
-			error_type.value.lval = type;
-			error_type.type = IS_LONG;
+			error_type->value.lval = type;
+			error_type->type = IS_LONG;
 
-			params = (zval **) emalloc(sizeof(zval *)*2);
+			params = (zval ***) emalloc(sizeof(zval **)*2);
 			params[0] = &error_type;
 			params[1] = &error_message;
 
-			if (call_user_function(CG(function_table), NULL, EG(user_error_handler), &retval, 2, params)==SUCCESS) {
-				zval_dtor(&retval);
+			if (call_user_function_ex(CG(function_table), NULL, EG(user_error_handler), &retval, 2, params, 1, NULL)==SUCCESS) {
+				zval_ptr_dtor(&retval);
 			} else {
 				/* The user error handler failed, use built-in error handler */
 				zend_error_cb(type, error_filename, error_lineno, format, args);
 			}
 			efree(params);
-			efree(error_message.value.str.val);
+			zval_ptr_dtor(&error_message);
+			zval_ptr_dtor(&error_type);
 			break;
 	}
 
 	va_end(args);
 }
 
-#endif
 
+ZEND_API void zend_output_debug_string(zend_bool trigger_break, char *format, ...)
+{
+#if ZEND_DEBUG
+	va_list args;
+
+	va_start(args, format);
+#	ifdef ZEND_WIN32
+	{
+		char output_buf[1024];
+
+		vsnprintf(output_buf, 1024, format, args);
+		OutputDebugString(output_buf);
+		OutputDebugString("\n");
+		if (trigger_break && IsDebuggerPresent()) {
+			DebugBreak();
+		}
+	}
+#	else
+	vfprintf(stderr, format, args);
+	fprintf(stderr, "\n");
+#	endif
+	va_end(args);
+#endif
+}

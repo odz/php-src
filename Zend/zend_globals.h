@@ -54,7 +54,6 @@ END_EXTERN_C()
 
 
 #include "zend_compile.h"
-#include "zend_execute.h"
 
 /* excpt.h on Digital Unix 4.0 defines function_table */
 #undef function_table
@@ -168,6 +167,10 @@ struct _zend_executor_globals {
 	/* for extended information support */
 	zend_bool no_extensions;
 
+#ifdef ZEND_WIN32
+	zend_bool timed_out;
+#endif
+
 	HashTable regular_list;
 	HashTable persistent_list;
 
@@ -180,6 +183,12 @@ struct _zend_executor_globals {
 	int garbage_ptr;
 
 	zval *user_error_handler;
+	zend_ptr_stack user_error_handlers;
+
+	/* timeout support */
+	int timeout_seconds;
+
+	int lambda_count;
 
 	void *reserved[ZEND_MAX_RESERVED_RESOURCES];
 #if SUPPORT_INTERACTIVE
@@ -192,7 +201,7 @@ struct _zend_alloc_globals {
 	zend_mem_header *head;		/* standard list */
 	zend_mem_header *phead;		/* persistent list */
 	void *cache[MAX_CACHED_MEMORY][MAX_CACHED_ENTRIES];
-	unsigned char cache_count[MAX_CACHED_MEMORY];
+	unsigned int cache_count[MAX_CACHED_MEMORY];
 	void *fast_cache_list_head[MAX_FAST_CACHE_TYPES];
 
 #if ZEND_DEBUG
@@ -206,6 +215,5 @@ struct _zend_alloc_globals {
 	unsigned char memory_exhausted;
 #endif
 };
-
 
 #endif /* _T_GLOBALS_H */

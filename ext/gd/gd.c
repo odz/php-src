@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: gd.c,v 1.59 2000/05/18 15:34:25 zeev Exp $ */
+/* $Id: gd.c,v 1.81 2000/06/26 15:23:52 jah Exp $ */
 
 /* gd 1.2 is copyright 1994, 1995, Quest Protein Database Center, 
    Cold Spring Harbor Labs. */
@@ -37,7 +37,7 @@
 #if HAVE_UNISTD_H
 # include <unistd.h>
 #endif
-#if WIN32|WINNT
+#ifdef PHP_WIN32
 # include <io.h>
 # include <fcntl.h>
 #endif
@@ -99,8 +99,10 @@ function_entry gd_functions[] = {
 	PHP_FE(imagechar,								NULL)
 	PHP_FE(imagecharup,								NULL)
 	PHP_FE(imagecolorallocate,						NULL)
+	PHP_FE(imagepalettecopy,						NULL)
 	PHP_FE(imagecolorat,							NULL)
 	PHP_FE(imagecolorclosest,						NULL)
+	PHP_FE(imagecolorclosesthwb,					NULL)
 	PHP_FE(imagecolordeallocate,					NULL)
 	PHP_FE(imagecolorresolve,						NULL)
 	PHP_FE(imagecolorexact,							NULL)
@@ -109,6 +111,7 @@ function_entry gd_functions[] = {
 	PHP_FE(imagecolorstotal,						NULL)
 	PHP_FE(imagecolorsforindex,						NULL)
 	PHP_FE(imagecopy,								NULL)
+	PHP_FE(imagecopymerge,							NULL)
 	PHP_FE(imagecopyresized,						NULL)
 	PHP_FE(imagecreate,								NULL)
 	PHP_FE(imagecreatefrompng,						NULL)
@@ -117,6 +120,10 @@ function_entry gd_functions[] = {
 	PHP_FE(imagegif,								NULL)
 	PHP_FE(imagecreatefromjpeg,						NULL)
 	PHP_FE(imagejpeg,								NULL)
+	PHP_FE(imagecreatefromwbmp,                     NULL)
+	PHP_FE(imagewbmp,                               NULL)
+	PHP_FE(imagecreatefromxbm,						NULL)
+	PHP_FE(imagecreatefromxpm,						NULL)
 	PHP_FE(imagedestroy,							NULL)
 	PHP_FE(imagegammacorrect,						NULL)
 	PHP_FE(imagefill,								NULL)
@@ -161,8 +168,7 @@ int gd_globals_id;
 static php_gd_globals gd_globals;
 #endif
 
-#if defined(COMPILE_DL) || defined(COMPILE_DL_GD)
-# include "dl/phpdl.h"
+#ifdef COMPILE_DL_GD
 ZEND_GET_MODULE(gd)
 #endif
 
@@ -236,6 +242,10 @@ PHP_MINFO_FUNCTION(gd)
 	php_info_print_table_row(2, "FreeType Linkage", "with unknown library");
 #endif
 #endif
+
+#ifdef HAVE_LIBT1
+	php_info_print_table_row(2, "T1Lib Support", "enabled");
+#endif         
 
 /* this next part is stupid ... if I knew better, I'd put them all on one row (cmv) */
 
@@ -325,7 +335,7 @@ PHP_FUNCTION(imageloadfont) {
 	GDLS_FETCH();
 
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &file) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &file) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -403,7 +413,7 @@ PHP_FUNCTION(imagecreate)
 	gdImagePtr im;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 2 || zend_get_parameters_ex(2, &x_size, &y_size) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &x_size, &y_size) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -417,11 +427,7 @@ PHP_FUNCTION(imagecreate)
 /* }}} */
 
 
-/* {{{ proto int imagecreatefrompng(string filename)
-   Create a new image from PNG file or URL */
-PHP_FUNCTION(imagecreatefrompng)
-{
-#ifdef HAVE_GD_PNG
+static void _php_image_create_from(INTERNAL_FUNCTION_PARAMETERS, int image_type, char *tn, gdImagePtr (*func_p)()) {
 	zval **file;
 	gdImagePtr im;
 	char *fn=NULL;
@@ -429,35 +435,202 @@ PHP_FUNCTION(imagecreatefrompng)
 	int issock=0, socketd=0;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &file) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &file) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(file);
 	fn = (*file)->value.str.val;
 #ifdef PHP_WIN32
-	fp = V_FOPEN((*file)->value.str.val, "rb");
+	fp = V_FOPEN(Z_STRVAL_PP(file), "rb");
 #else
-	fp = php_fopen_wrapper((*file)->value.str.val, "r", IGNORE_PATH|IGNORE_URL_WIN, &issock, &socketd, NULL);
+	fp = php_fopen_wrapper(Z_STRVAL_PP(file), "r", IGNORE_PATH|IGNORE_URL_WIN, &issock, &socketd, NULL);
 #endif
 	if (!fp) {
 		php_strip_url_passwd(fn);
-		php_error(E_WARNING,
-				  "ImageCreateFromPng: Unable to open %s for reading", fn);
+		php_error(E_WARNING, "%s: Unable to open '%s' for reading", get_active_function_name(), fn);
 		RETURN_FALSE;
 	}
-	im = gdImageCreateFromPng(fp);
+
+	im = (*func_p)(fp);
+
 	fflush(fp);
 	fclose(fp);
 
 	if (!im) {
-		php_error(E_WARNING,"ImageCreateFromPng: %s is not a valid PNG file", fn);
+		php_error(E_WARNING,"%s: '%s' is not a valid %s file", get_active_function_name(), fn, tn);
 		RETURN_FALSE;
 	}
+
 	ZEND_REGISTER_RESOURCE(return_value, im, GDG(le_gd));
+}
+
+/* {{{ proto int imagecreatefromgif(string filename)
+   Create a new image from GIF file or URL */
+PHP_FUNCTION(imagecreatefromgif)
+{
+#ifdef HAVE_GD_GIF
+	_php_image_create_from(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_GDIMG_TYPE_GIF, "GIF", gdImageCreateFromGif);
+#else /* HAVE_GD_GIF */
+	php_error(E_WARNING, "ImageCreateFromGif: No GIF support in this PHP build");
+	RETURN_FALSE;
+#endif /* HAVE_GD_GIF */
+}
+/* }}} */
+
+/* {{{ proto int imagecreatefromjpeg(string filename)
+   Create a new image from JPEG file or URL */
+PHP_FUNCTION(imagecreatefromjpeg)
+{
+#ifdef HAVE_GD_JPG
+	_php_image_create_from(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_GDIMG_TYPE_JPG, "JPEG", gdImageCreateFromJpeg);
+#else /* HAVE_GD_JPG */
+	php_error(E_WARNING, "ImageCreateFromJpeg: No JPEG support in this PHP build");
+	RETURN_FALSE;
+#endif /* HAVE_GD_JPG */
+}
+/* }}} */
+
+/* {{{ proto int imagecreatefrompng(string filename)
+   Create a new image from PNG file or URL */
+PHP_FUNCTION(imagecreatefrompng)
+{
+#ifdef HAVE_GD_PNG
+	_php_image_create_from(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_GDIMG_TYPE_PNG, "PNG", gdImageCreateFromPng);
 #else /* HAVE_GD_PNG */
 	php_error(E_WARNING, "ImageCreateFromPng: No PNG support in this PHP build");
 	RETURN_FALSE;
 #endif /* HAVE_GD_PNG */
+}
+/* }}} */
+
+/* {{{ proto int imagecreatefromxbm(string filename)
+   Create a new image from XBM file or URL */
+PHP_FUNCTION(imagecreatefromxbm)
+{
+#ifdef HAVE_GD_XBM
+	_php_image_create_from(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_GDIMG_TYPE_XBM, "XBM", gdImageCreateFromXbm);
+#else /* HAVE_GD_XBM */
+	php_error(E_WARNING, "ImageCreateFromXbm: No XBM support in this PHP build");
+	RETURN_FALSE;
+#endif /* HAVE_GD_XBM */
+}
+/* }}} */
+
+/* {{{ todo int imagecreatefromxpm(string filename)
+   Create a new image from XPM file or URL */
+PHP_FUNCTION(imagecreatefromxpm)
+{
+	/*
+#ifdef HAVE_GD_XPM
+	_php_image_create_from(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_GDIMG_TYPE_XPM, "XPM", gdImageCreateFromXpm);
+#else
+	*/
+	php_error(E_WARNING, "ImageCreateFromXpm: No XPM support in this PHP build");
+	RETURN_FALSE;
+	/*
+#endif
+	*/
+}
+/* }}} */
+
+/* {{{ proto int imagecreatefromwbmp(string filename)
+   Create a new image from WBMP file or URL */
+PHP_FUNCTION(imagecreatefromwbmp)
+{
+#ifdef HAVE_GD_WBMP
+	_php_image_create_from(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_GDIMG_TYPE_WBM, "WBMP", gdImageCreateFromWBMP);
+#else /* HAVE_GD_WBMP */
+	php_error(E_WARNING, "ImageCreateFromWBMP: No WBMP support in this PHP build");
+	RETURN_FALSE;
+#endif /* HAVE_GD_WBMP */
+}
+/* }}} */
+
+static void _php_image_output(INTERNAL_FUNCTION_PARAMETERS, int image_type, char *tn, void (*func_p)()) {
+	zval **imgind, **file, **quality;
+	gdImagePtr im;
+	char *fn = NULL;
+	FILE *fp;
+	int argc;
+	int output = 1, q = -1;
+	GDLS_FETCH();
+
+	argc = ZEND_NUM_ARGS();
+	if (argc < 1 || argc > 3 || zend_get_parameters_ex(argc, &imgind, &file, &quality) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+	ZEND_FETCH_RESOURCE(im, gdImagePtr, imgind, -1, "Image", GDG(le_gd));
+
+	if (argc > 1) {
+		convert_to_string_ex(file);
+		fn = Z_STRVAL_PP(file);
+		if (argc == 3) {
+			convert_to_long_ex(quality);
+			q = Z_LVAL_PP(quality);
+		}
+	}
+
+	if ((argc == 2) || (argc == 3 && Z_STRLEN_PP(file))) {
+		if (!fn || fn == empty_string || php_check_open_basedir(fn)) {
+			php_error(E_WARNING, "%s: invalid filename '%s'", get_active_function_name(), fn);
+			RETURN_FALSE;
+		}
+
+		fp = V_FOPEN(fn, "wb");
+		if (!fp) {
+			php_error(E_WARNING, "%s: unable to open '%s' for writing", get_active_function_name(), fn);
+			RETURN_FALSE;
+		}
+		if (image_type == PHP_GDIMG_TYPE_JPG) {
+			(*func_p)(im, fp, q);
+		} else {
+			(*func_p)(im, fp);
+		}
+		fflush(fp);
+		fclose(fp);
+	} else {
+		int   b;
+		FILE *tmp;
+		char  buf[4096];
+
+		tmp = tmpfile();
+		if (tmp == NULL) {
+			php_error(E_WARNING, "%s: unable to open temporary file", get_active_function_name());
+			RETURN_FALSE;
+		}
+		output = php_header();
+		if (output) {
+			if (image_type == PHP_GDIMG_TYPE_JPG) {
+				(*func_p)(im, tmp, q);
+			} else {
+				(*func_p)(im, tmp);
+			}
+            fseek(tmp, 0, SEEK_SET);
+#if APACHE && defined(CHARSET_EBCDIC)
+			SLS_FETCH();
+            /* This is a binary file already: avoid EBCDIC->ASCII conversion */
+            ap_bsetflag(php3_rqst->connection->client, B_EBCDIC2ASCII, 0);
+#endif
+            while ((b = fread(buf, 1, sizeof(buf), tmp)) > 0) {
+                php_write(buf, b);
+            }
+        }
+        fclose(tmp);
+        /* the temporary file is automatically deleted */
+	}
+    RETURN_TRUE;
+}
+
+/* {{{ proto int imagegif(int im [, string filename])
+   Output GIF image to browser or file */
+PHP_FUNCTION(imagegif)
+{
+#ifdef HAVE_GD_GIF
+	_php_image_output(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_GDIMG_TYPE_GIF, "GIF", gdImageGif);
+#else /* HAVE_GD_GIF */
+	php_error(E_WARNING, "ImageGif: No GIF support in this PHP build");
+	RETURN_FALSE;
+#endif /* HAVE_GD_GIF */
 }
 /* }}} */
 
@@ -466,65 +639,7 @@ PHP_FUNCTION(imagecreatefrompng)
 PHP_FUNCTION(imagepng)
 {
 #ifdef HAVE_GD_PNG
-	zval **imgind, **file;
-	gdImagePtr im;
-	char *fn=NULL;
-	FILE *fp;
-	int argc;
-	int output=1;
-	GDLS_FETCH();
-
-	argc = ARG_COUNT(ht);
-	if (argc < 1 || argc > 2 || zend_get_parameters_ex(argc, &imgind, &file) == FAILURE) {
-		WRONG_PARAM_COUNT;
-	}
-	ZEND_FETCH_RESOURCE(im, gdImagePtr, imgind, -1, "Image", GDG(le_gd));
-
-	if (argc == 2) {
-		convert_to_string_ex(file);
-		fn = (*file)->value.str.val;
-		if (!fn || fn == empty_string || php_check_open_basedir(fn)) {
-			php_error(E_WARNING, "ImagePng: Invalid filename");
-			RETURN_FALSE;
-		}
-	}
-
-	if (argc == 2) {
-		fp = V_FOPEN(fn, "wb");
-		if (!fp) {
-			php_error(E_WARNING, "ImagePng: unable to open %s for writing", fn);
-			RETURN_FALSE;
-		}
-		gdImagePng(im,fp);
-		fflush(fp);
-		fclose(fp);
-	}
-	else {
-		int   b;
-		FILE *tmp;
-		char  buf[4096];
-		tmp = tmpfile();
-		if (tmp == NULL) {
-			php_error(E_WARNING, "Unable to open temporary file");
-			RETURN_FALSE;
-		}
-		output = php_header();
-		if (output) {
-			gdImagePng(im, tmp);
-            fseek(tmp, 0, SEEK_SET);
-#if APACHE && defined(CHARSET_EBCDIC)
-			SLS_FETCH();
-            /* This is a binary file already: avoid EBCDIC->ASCII conversion */
-            ap_bsetflag(php3_rqst->connection->client, B_EBCDIC2ASCII, 0);
-#endif
-            while ((b = fread(buf, 1, sizeof(buf), tmp)) > 0) {
-                php_write(buf, b);
-            }
-        }
-        fclose(tmp);
-        /* the temporary file is automatically deleted */
-    }
-    RETURN_TRUE;
+	_php_image_output(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_GDIMG_TYPE_PNG, "PNG", gdImagePng);
 #else /* HAVE_GD_PNG */
 	php_error(E_WARNING, "ImagePng: No PNG support in this PHP build");
 	RETURN_FALSE;
@@ -533,252 +648,67 @@ PHP_FUNCTION(imagepng)
 /* }}} */
 
 
-/* {{{ proto int imagecreatefromgif(string filename)
-   Create a new image from GIF file or URL */
-PHP_FUNCTION(imagecreatefromgif )
-{
-#ifdef HAVE_GD_GIF
-	zval **file;
-	gdImagePtr im;
-	char *fn=NULL;
-	FILE *fp;
-	int issock=0, socketd=0;
-	GDLS_FETCH();
-
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &file) == FAILURE) {
-		WRONG_PARAM_COUNT;
-	}
-
-	convert_to_string_ex(file);
-
-	fn = (*file)->value.str.val;
-
-#ifdef PHP_WIN32
-	fp = V_FOPEN((*file)->value.str.val, "rb");
-#else
-	fp = php_fopen_wrapper((*file)->value.str.val, "r", IGNORE_PATH|IGNORE_URL_WIN, &issock, &socketd, NULL);
-#endif
-	if (!fp) {
-		php_strip_url_passwd(fn);
-		php_error(E_WARNING,
-				  "ImageCreateFromGif: Unable to open %s for reading", fn);
-		RETURN_FALSE;
-	}
-
-	im = gdImageCreateFromGif(fp);
-	
-	fflush(fp);
-	fclose(fp);
-
-	if (!im) {
-		php_error(E_WARNING,"ImageCreateFromGif: %s is not a recognized GIF file", fn);
-		RETURN_FALSE;
-	}
-	ZEND_REGISTER_RESOURCE(return_value, im, GDG(le_gd));
-#else /* HAVE_GD_GIF */
-	php_error(E_WARNING, "ImageCreateFromGif: No GIF support in this PHP build");
-	RETURN_FALSE;
-#endif /* HAVE_GD_GIF */
-}
-/* }}} */
-
-/* {{{ proto int imagegif(int im [, string filename])
-   Output GIF image to browser or file */
-PHP_FUNCTION(imagegif)
-{
-#ifdef HAVE_GD_GIF
-	zval **imgind, **file;
-	gdImagePtr im;
-	char *fn=NULL;
-	FILE *fp;
-	int argc;
-	int output=1;
-	GDLS_FETCH();
-
-	argc = ARG_COUNT(ht);
-	if (argc < 1 || argc > 2 || zend_get_parameters_ex(argc, &imgind, &file) == FAILURE) {
-		WRONG_PARAM_COUNT;
-	}
-
-	ZEND_FETCH_RESOURCE(im, gdImagePtr, imgind, -1, "Image", GDG(le_gd));
-
-	if (argc == 2) {
-		convert_to_string_ex(file);
-		fn = (*file)->value.str.val;
-		if (!fn || fn == empty_string || php_check_open_basedir(fn)) {
-			php_error(E_WARNING, "ImageGif: Invalid filename");
-			RETURN_FALSE;
-		}
-	}
-
-	if (argc == 2) {
-		fp = V_FOPEN(fn, "wb");
-		if (!fp) {
-			php_error(E_WARNING, "ImageGif: unable to open %s for writing", fn);
-			RETURN_FALSE;
-		}
-		gdImageGif(im, fp);
-		fflush(fp);
-		fclose(fp);
-	}
-	else {
-		int   b;
-		FILE *tmp;
-		char  buf[4096];
-
-		tmp = tmpfile();
-		if (tmp == NULL) {
-			php_error(E_WARNING, "Unable to open temporary file");
-			RETURN_FALSE;
-		}
-
-		output = php_header();
-
-		if (output) {
-			gdImageGif(im, tmp);
-			fseek(tmp, 0, SEEK_SET);
-#if APACHE && defined(CHARSET_EBCDIC)
-			{
-				SLS_FETCH();
-				/* This is a binary file already: avoid EBCDIC->ASCII conversion */
-				ap_bsetflag(((request_rec *) SG(server_context))->connection->client, B_EBCDIC2ASCII, 0);
-			}
-#endif
-			while ((b = fread(buf, 1, sizeof(buf), tmp)) > 0) {
-				php_write(buf, b);
-			}
-		}
-
-		fclose(tmp);
-		/* the temporary file is automatically deleted */
-	}
-
-	RETURN_TRUE;
-#else /* HAVE_GD_GIF */
-	php_error(E_WARNING, "ImageGif: No GIF support in this PHP build");
-	RETURN_FALSE;
-#endif /* HAVE_GD_GIF */
-}
-/* }}} */
-
-
-/* {{{ proto int imagecreatefromjpeg(string filename)
-   Create a new image from JPEG file or URL */
-PHP_FUNCTION(imagecreatefromjpeg)
-{
-#ifdef HAVE_GD_JPG
-	zval **file;
-	gdImagePtr im;
-	char *fn=NULL;
-	FILE *fp;
-	int issock=0, socketd=0;
-	GDLS_FETCH();
-
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &file) == FAILURE) {
-		WRONG_PARAM_COUNT;
-	}
-	convert_to_string_ex(file);
-	fn = (*file)->value.str.val;
-#ifdef PHP_WIN32
-	fp = V_FOPEN((*file)->value.str.val, "rb");
-#else
-	fp = php_fopen_wrapper((*file)->value.str.val, "r", IGNORE_PATH|IGNORE_URL_WIN, &issock, &socketd, NULL);
-#endif
-	if (!fp) {
-		php_strip_url_passwd(fn);
-		php_error(E_WARNING,
-				  "ImageCreateFromJpeg: Unable to open %s for reading", fn);
-		RETURN_FALSE;
-	}
-	im = gdImageCreateFromJpeg(fp);
-	fflush(fp);
-	fclose(fp);
-
-	if (!im) {
-		php_error(E_WARNING,"ImageCreateFromJPEG: %s is not a recognized JPEG file", fn);
-		RETURN_FALSE;
-	}
-	ZEND_REGISTER_RESOURCE(return_value, im, GDG(le_gd));
-#else /* HAVE_GD_JPG */
-	php_error(E_WARNING, "ImageCreateFromJpeg: No JPG support in this PHP build");
-	RETURN_FALSE;
-#endif /* HAVE_GD_JPG */
-}
-/* }}} */
-
 /* {{{ proto int imagejpeg(int im [, string filename [, int quality]])
    Output JPEG image to browser or file */
 PHP_FUNCTION(imagejpeg)
 {
 #ifdef HAVE_GD_JPG
-	zval **imgind, **file, **qual;
-	gdImagePtr im;
-	char *fn=NULL;
-	FILE *fp;
-	int argc;
-	int output=1, q=-1;
-	GDLS_FETCH();
-
-	argc = ARG_COUNT(ht);
-	if (argc < 1 || argc > 3 || zend_get_parameters_ex(argc, &imgind, &file, &qual) == FAILURE) {
-		WRONG_PARAM_COUNT;
-	}
-	ZEND_FETCH_RESOURCE(im, gdImagePtr, imgind, -1, "Image", GDG(le_gd));
-
-	if (argc == 3) {
-		convert_to_long_ex(qual);
-		q = (*qual)->value.lval;
-	}
-
-	if (argc > 1) {
-		convert_to_string_ex(file);
-		fn = (*file)->value.str.val;
-		if (fn && strlen(fn) && php_check_open_basedir(fn)) {
-			php_error(E_WARNING, "ImageJpeg: Invalid filename");
-			RETURN_FALSE;
-		}
-	}
-
-	if (argc > 1 && fn && strlen(fn)) {
-		fp = V_FOPEN(fn, "wb");
-		if (!fp) {
-			php_error(E_WARNING, "ImageJpeg: unable to open %s for writing", fn);
-			RETURN_FALSE;
-		}
-		gdImageJpeg(im,fp,q);
-		fflush(fp);
-		fclose(fp);
-	}
-	else {
-		int   b;
-		FILE *tmp;
-		char  buf[4096];
-		tmp = tmpfile();
-		if (tmp == NULL) {
-			php_error(E_WARNING, "Unable to open temporary file");
-			RETURN_FALSE;
-		}
-		output = php_header();
-		if (output) {
-			gdImageJpeg(im, tmp, q);
-            fseek(tmp, 0, SEEK_SET);
-#if APACHE && defined(CHARSET_EBCDIC)
-			SLS_FETCH();
-            /* This is a binary file already: avoid EBCDIC->ASCII conversion */
-            ap_bsetflag(php3_rqst->connection->client, B_EBCDIC2ASCII, 0);
-#endif
-            while ((b = fread(buf, 1, sizeof(buf), tmp)) > 0) {
-                php_write(buf, b);
-            }
-        }
-        fclose(tmp);
-        /* the temporary file is automatically deleted */
-    }
-    RETURN_TRUE;
+	_php_image_output(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_GDIMG_TYPE_JPG, "JPEG", gdImageJpeg);
 #else /* HAVE_GD_JPG */
 	php_error(E_WARNING, "ImageJpeg: No JPG support in this PHP build");
 	RETURN_FALSE;
 #endif /* HAVE_GD_JPG */
+}
+/* }}} */
+
+/* {{{ proto int imagewbmp(int im [, string filename])
+   Output WBMP image to browser or file */
+PHP_FUNCTION(imagewbmp)
+{
+#ifdef HAVE_GD_WBMP
+	_php_image_output(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_GDIMG_TYPE_WBM, "WBMP", gdImageWBMP);
+#else
+	_php_image_output(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_GDIMG_TYPE_WBM, "WBMP", _php_image_output_wbmp);
+#endif
+}
+/* }}} */
+
+/* {{{ _php_image_output_wbmp(gdImagePtr im, FILE *fp)
+ */
+static void _php_image_output_wbmp(gdImagePtr im, FILE *fp)
+{
+	int x, y;
+	int c, p, width, height;
+
+	/* WBMP header, black and white, no compression */
+	fputc(0,fp); fputc(0,fp);
+		
+	/* Width and height of image */
+	c = 1; width = im->sx;
+	while(width & 0x7f << 7*c) c++;
+	while(c > 1) fputc(0x80 | ((width >> 7*--c) & 0xff), fp);
+	fputc(width & 0x7f,fp);
+	c = 1; height = im->sy;
+	while(height & 0x7f << 7*c) c++;
+	while(c > 1) fputc(0x80 | ((height >> 7*--c) & 0xff), fp);
+	fputc(height & 0x7f,fp);
+		
+	/* Actual image data */
+	for(y = 0; y < im->sy; y++) {
+		p = c = 0;
+		for(x = 0; x < im->sx; x++) {
+#if HAVE_GD_ANCIENT
+			if(im->pixels[x][y] == 0) c = c | (1 << (7-p));
+#else
+			if(im->pixels[y][x] == 0) c = c | (1 << (7-p));
+#endif
+			if(++p == 8) {
+				fputc(c,fp);
+				p = c = 0;
+			}
+		}
+		if(p) fputc(c,fp);
+	}
 }
 /* }}} */
 
@@ -790,7 +720,7 @@ PHP_FUNCTION(imagedestroy)
 	gdImagePtr im;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &imgind) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &imgind) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -812,7 +742,7 @@ PHP_FUNCTION(imagecolorallocate)
 	gdImagePtr im;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 4 || zend_get_parameters_ex(4, &imgind, &red,
+	if (ZEND_NUM_ARGS() != 4 || zend_get_parameters_ex(4, &imgind, &red,
 											&green, &blue) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
@@ -832,6 +762,30 @@ PHP_FUNCTION(imagecolorallocate)
 }
 /* }}} */
 
+/* {{{ proto int imagepalettecopy(int dst, int src)
+   Copy the palette from the src image onto the dst image */
+PHP_FUNCTION(imagepalettecopy)
+{
+#if HAVE_LIBGD15
+	zval **dstim, **srcim;
+	gdImagePtr dst, src;
+
+	if (ZEND_NUM_ARGS() != 2 ||
+		zend_get_parameters_ex(2, &dstim, &srcim) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+	
+	ZEND_FETCH_RESOURCE(dst, gdImagePtr, dstim, -1, "Image", GDG(le_gd));
+	ZEND_FETCH_RESOURCE(src, gdImagePtr, srcim, -1, "Image", GDG(le_gd));
+
+	gdImagePaletteCopy(dst, src);
+#else
+	php_error(E_WARNING, "Sorry ImagePaletteCopy was introduced in GD version 1.5");
+	RETURN_FALSE;
+#endif
+}
+/* }}} */
+
 /* im, x, y */
 /* {{{ proto int imagecolorat(int im, int x, int y)
    Get the index of the color of a pixel */
@@ -841,7 +795,7 @@ PHP_FUNCTION(imagecolorat)
 	gdImagePtr im;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 3 || zend_get_parameters_ex(3, &imgind, &x, &y) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 3 || zend_get_parameters_ex(3, &imgind, &x, &y) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	
@@ -872,7 +826,7 @@ PHP_FUNCTION(imagecolorclosest)
 	gdImagePtr im;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 4 || zend_get_parameters_ex(4, &imgind, &red,
+	if (ZEND_NUM_ARGS() != 4 || zend_get_parameters_ex(4, &imgind, &red,
 													 &green, &blue) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
@@ -892,6 +846,36 @@ PHP_FUNCTION(imagecolorclosest)
 }
 /* }}} */
 
+/* {{{ proto int imagecolorclosesthwb(int im, int red, int green, int blue)
+   Get the index of the color which has the hue, white and blackness nearest to the given color */
+PHP_FUNCTION(imagecolorclosesthwb)
+{
+#if HAVE_COLORCLOSESTHWB
+	zval **imgind, **r, **g, **b;
+	int col;
+	gdImagePtr im;
+	GDLS_FETCH();
+	
+	if (ZEND_NUM_ARGS() != 4 ||
+		zend_get_parameters_ex(4, &imgind, &r, &g, &b) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	ZEND_FETCH_RESOURCE(im, gdImagePtr, imgind, -1, "Image", GDG(le_gd));
+	
+	convert_to_long_ex(r);
+	convert_to_long_ex(g);
+	convert_to_long_ex(b);
+
+	col = gdImageColorClosestHWB(im, Z_LVAL_PP(r), Z_LVAL_PP(g), Z_LVAL_PP(b));
+	RETURN_LONG(col);
+#else
+	php_error(E_WARNING, "ImageColorClosestHWB functionality was added in GD 1.8");
+	RETURN_FALSE;
+#endif
+}
+/* }}} */
+
 /* {{{ proto int imagecolordeallocate(int im, int index)
    De-allocate a color for an image */
 PHP_FUNCTION(imagecolordeallocate)
@@ -901,7 +885,7 @@ PHP_FUNCTION(imagecolordeallocate)
 	gdImagePtr im;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 2 || zend_get_parameters_ex(2, &imgind, &index) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &imgind, &index) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -931,7 +915,7 @@ PHP_FUNCTION(imagecolorresolve)
 	gdImagePtr im;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 4 || zend_get_parameters_ex(4, &imgind, &red,
+	if (ZEND_NUM_ARGS() != 4 || zend_get_parameters_ex(4, &imgind, &red,
 													 &green, &blue) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
@@ -961,7 +945,7 @@ PHP_FUNCTION(imagecolorexact)
 	gdImagePtr im;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 4 || zend_get_parameters_ex(4, &imgind, &red,
+	if (ZEND_NUM_ARGS() != 4 || zend_get_parameters_ex(4, &imgind, &red,
 													 &green, &blue) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
@@ -991,7 +975,7 @@ PHP_FUNCTION(imagecolorset)
 	gdImagePtr im;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 5 || zend_get_parameters_ex(5, &imgind, &color, &red, &green, &blue) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 5 || zend_get_parameters_ex(5, &imgind, &color, &red, &green, &blue) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	
@@ -1027,7 +1011,7 @@ PHP_FUNCTION(imagecolorsforindex)
 	gdImagePtr im;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 2 || zend_get_parameters_ex(2, &imgind, &index) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &imgind, &index) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	
@@ -1051,6 +1035,8 @@ PHP_FUNCTION(imagecolorsforindex)
 }
 /* }}} */
 
+/* {{{ proto int imagegammacorrect(int im, double inputgamma, double outputgamma)
+   Apply a gamma correction to a GD image */
 PHP_FUNCTION(imagegammacorrect)
 {
 	zval **IM, **inputgamma, **outputgamma;
@@ -1058,7 +1044,7 @@ PHP_FUNCTION(imagegammacorrect)
 	int i;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 3 ||
+	if (ZEND_NUM_ARGS() != 3 ||
 	    zend_get_parameters_ex(3, &IM, &inputgamma, &outputgamma) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
@@ -1076,6 +1062,7 @@ PHP_FUNCTION(imagegammacorrect)
 
 	RETURN_TRUE;
 }
+/* }}} */
 
 /* {{{ proto int imagesetpixel(int im, int x, int y, int col)
    Set a single pixel */
@@ -1086,7 +1073,7 @@ PHP_FUNCTION(imagesetpixel)
 	int col, y, x;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 4 ||
+	if (ZEND_NUM_ARGS() != 4 ||
 		zend_get_parameters_ex(4, &imgind, &xarg, &yarg, &colarg) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
@@ -1116,7 +1103,7 @@ PHP_FUNCTION(imageline)
 	int col, y2, x2, y1, x1;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 6 ||
+	if (ZEND_NUM_ARGS() != 6 ||
 		zend_get_parameters_ex(6, &IM, &X1, &Y1, &X2, &Y2, &COL) == FAILURE)
 	{
 		WRONG_PARAM_COUNT;
@@ -1150,7 +1137,7 @@ PHP_FUNCTION(imagedashedline)
 	int col, y2, x2, y1, x1;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 6 || zend_get_parameters_ex(6, &IM, &X1, &Y1, &X2, &Y2, &COL) == FAILURE)
+	if (ZEND_NUM_ARGS() != 6 || zend_get_parameters_ex(6, &IM, &X1, &Y1, &X2, &Y2, &COL) == FAILURE)
 	{
 		WRONG_PARAM_COUNT;
 	}
@@ -1184,7 +1171,7 @@ PHP_FUNCTION(imagerectangle)
 	int col, y2, x2, y1, x1;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 6 ||
+	if (ZEND_NUM_ARGS() != 6 ||
 		zend_get_parameters_ex(6, &IM, &X1, &Y1, &X2, &Y2, &COL) == FAILURE)
 	{
 		WRONG_PARAM_COUNT;
@@ -1220,7 +1207,7 @@ PHP_FUNCTION(imagefilledrectangle)
 	int col, y2, x2, y1, x1;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 6 ||
+	if (ZEND_NUM_ARGS() != 6 ||
 		zend_get_parameters_ex(6, &IM, &X1, &Y1, &X2, &Y2, &COL) == FAILURE)
 	{
 		WRONG_PARAM_COUNT;
@@ -1254,7 +1241,7 @@ PHP_FUNCTION(imagearc)
 	int col, e, st, h, w, cy, cx;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 8 ||
+	if (ZEND_NUM_ARGS() != 8 ||
 		zend_get_parameters_ex(8, &IM, &CX, &CY, &W, &H, &ST, &E, &COL) == FAILURE)
 	{
 		WRONG_PARAM_COUNT;
@@ -1300,7 +1287,7 @@ PHP_FUNCTION(imagefilltoborder)
 	int col, border, y, x;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 5 ||
+	if (ZEND_NUM_ARGS() != 5 ||
 		zend_get_parameters_ex(5, &IM, &X, &Y, &BORDER, &COL) == FAILURE)
 	{
 		WRONG_PARAM_COUNT;
@@ -1333,7 +1320,7 @@ PHP_FUNCTION(imagefill)
 	int col, y, x;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 4 ||
+	if (ZEND_NUM_ARGS() != 4 ||
 		zend_get_parameters_ex(4, &IM, &X, &Y, &COL) == FAILURE)
 	{
 		WRONG_PARAM_COUNT;
@@ -1362,7 +1349,7 @@ PHP_FUNCTION(imagecolorstotal)
 	gdImagePtr im;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &IM) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &IM) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	ZEND_FETCH_RESOURCE(im, gdImagePtr, IM, -1, "Image", GDG(le_gd));
@@ -1381,7 +1368,7 @@ PHP_FUNCTION(imagecolortransparent)
 	int col;
 	GDLS_FETCH();
 
-	switch(ARG_COUNT(ht)) {
+	switch(ZEND_NUM_ARGS()) {
 	case 1:
 		if (zend_get_parameters_ex(1, &IM) == FAILURE) {
 			WRONG_PARAM_COUNT;
@@ -1418,7 +1405,7 @@ PHP_FUNCTION(imageinterlace)
 	int interlace;
 	GDLS_FETCH();
 
-	switch(ARG_COUNT(ht)) {
+	switch(ZEND_NUM_ARGS()) {
 	case 1:
 		if (zend_get_parameters_ex(1, &IM) == FAILURE) {
 			WRONG_PARAM_COUNT;
@@ -1456,7 +1443,7 @@ static void php_imagepolygon(INTERNAL_FUNCTION_PARAMETERS, int filled) {
 	int npoints, col, nelem, i;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 4 ||
+	if (ZEND_NUM_ARGS() != 4 ||
 		zend_get_parameters_ex(4, &IM, &POINTS, &NPOINTS, &COL) == FAILURE)
 	{
 		WRONG_PARAM_COUNT;
@@ -1590,7 +1577,7 @@ static void php_imagefontsize(INTERNAL_FUNCTION_PARAMETERS, int arg)
 	pval *SIZE;
 	gdFontPtr font;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters(ht, 1, &SIZE) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(ht, 1, &SIZE) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long(SIZE);
@@ -1653,7 +1640,7 @@ static void php_imagechar(INTERNAL_FUNCTION_PARAMETERS, int mode) {
 	gdFontPtr font;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 6 ||
+	if (ZEND_NUM_ARGS() != 6 ||
 		zend_get_parameters_ex(6, &IM, &SIZE, &X, &Y, &C, &COL) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
@@ -1748,7 +1735,7 @@ PHP_FUNCTION(imagecopy)
 	int srcH, srcW, srcY, srcX, dstY, dstX;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 8 ||
+	if (ZEND_NUM_ARGS() != 8 ||
 		zend_get_parameters_ex(8, &DIM, &SIM, &DX, &DY, &SX, &SY, &SW, &SH)
 						 == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -1776,7 +1763,51 @@ PHP_FUNCTION(imagecopy)
 }
 /* }}} */
 
-/* {{{ proto int imagecopyresized(int dst_im, int src_im, int dst_x, int dst_y, int src_x, int src_y, int dst_w, int dst_h, int src_w, int src_h);
+/* {{{ proto int imagecopymerge(int src_im, int dst_im, int dst_x, int dst_y, int src_x, int src_y, int src_w, int src_h, int pct)
+   Merge one part of an image with another */
+PHP_FUNCTION(imagecopymerge)
+{
+#if HAVE_LIBGD15
+	zval **SIM, **DIM, **SX, **SY, **SW, **SH, **DX, **DY, **PCT;
+	gdImagePtr im_dst;
+	gdImagePtr im_src;
+	int srcH, srcW, srcY, srcX, dstY, dstX, pct;
+	GDLS_FETCH();
+
+	if (ZEND_NUM_ARGS() != 9 ||
+		zend_get_parameters_ex(9, &DIM, &SIM, &DX, &DY, &SX, &SY, &SW, &SH, &PCT) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	ZEND_FETCH_RESOURCE(im_src, gdImagePtr, SIM, -1, "Image", GDG(le_gd));
+	ZEND_FETCH_RESOURCE(im_dst, gdImagePtr, DIM, -1, "Image", GDG(le_gd));
+
+	convert_to_long_ex(SX);
+	convert_to_long_ex(SY);
+	convert_to_long_ex(SW);
+	convert_to_long_ex(SH);
+	convert_to_long_ex(DX);
+	convert_to_long_ex(DY);
+	convert_to_long_ex(PCT);
+
+	srcX = Z_LVAL_PP(SX);
+	srcY = Z_LVAL_PP(SY);
+	srcH = Z_LVAL_PP(SH);
+	srcW = Z_LVAL_PP(SW);
+	dstX = Z_LVAL_PP(DX);
+	dstY = Z_LVAL_PP(DY);
+	pct  = Z_LVAL_PP(PCT);
+
+	gdImageCopyMerge(im_dst, im_src, dstX, dstY, srcX, srcY, srcW, srcH, pct);
+	RETURN_TRUE;
+#else
+	php_error(E_WARNING, "ImageCopyMerge was introduced in GD version 1.5");
+	RETURN_FALSE;
+#endif
+}
+/* }}} */
+
+/* {{{ proto int imagecopyresized(int dst_im, int src_im, int dst_x, int dst_y, int src_x, int src_y, int dst_w, int dst_h, int src_w, int src_h)
    Copy and resize part of an image */
 PHP_FUNCTION(imagecopyresized)
 {
@@ -1786,7 +1817,7 @@ PHP_FUNCTION(imagecopyresized)
 	int srcH, srcW, dstH, dstW, srcY, srcX, dstY, dstX;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 10 ||
+	if (ZEND_NUM_ARGS() != 10 ||
 		zend_get_parameters_ex(10, &DIM, &SIM, &DX, &DY, &SX, &SY, &DW, &DH,
 							   &SW, &SH) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -1827,7 +1858,7 @@ PHP_FUNCTION(imagesx)
 	gdImagePtr im;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &IM) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &IM) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1845,7 +1876,7 @@ PHP_FUNCTION(imagesy)
 	gdImagePtr im;
 	GDLS_FETCH();
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &IM) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &IM) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1891,7 +1922,7 @@ static
 void php_imagettftext_common(INTERNAL_FUNCTION_PARAMETERS, int mode)
 {
 	zval **IM, **PTSIZE, **ANGLE, **X, **Y, **C, **FONTNAME, **COL;
-	gdImagePtr im;
+	gdImagePtr im=NULL;
 	int col, x, y, l=0, i;
 	int brect[8];
 	double ptsize, angle;
@@ -1900,11 +1931,11 @@ void php_imagettftext_common(INTERNAL_FUNCTION_PARAMETERS, int mode)
 	GDLS_FETCH();
 
 	if (mode == TTFTEXT_BBOX) {
-		if (ARG_COUNT(ht) != 4 || zend_get_parameters_ex(4, &PTSIZE, &ANGLE, &FONTNAME, &C) == FAILURE) {
+		if (ZEND_NUM_ARGS() != 4 || zend_get_parameters_ex(4, &PTSIZE, &ANGLE, &FONTNAME, &C) == FAILURE) {
 			WRONG_PARAM_COUNT;
 		}
 	} else {
-		if (ARG_COUNT(ht) != 8 || zend_get_parameters_ex(8, &IM, &PTSIZE, &ANGLE, &X, &Y, &COL, &FONTNAME, &C) == FAILURE) {
+		if (ZEND_NUM_ARGS() != 8 || zend_get_parameters_ex(8, &IM, &PTSIZE, &ANGLE, &X, &Y, &COL, &FONTNAME, &C) == FAILURE) {
 			WRONG_PARAM_COUNT;
 		}
 		ZEND_FETCH_RESOURCE(im, gdImagePtr, IM, -1, "Image", GDG(le_gd));
@@ -1976,7 +2007,7 @@ PHP_FUNCTION(imagepsloadfont)
 	int f_ind;
 	int *font;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &file) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &file) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -2002,7 +2033,10 @@ PHP_FUNCTION(imagepsloadfont)
 		}
 	}
 
-	T1_LoadFont(f_ind);
+	if (T1_LoadFont(f_ind)) {
+		php_error(E_WARNING, "Couldn't load the font");
+		RETURN_FALSE;
+	}
 
 	font = (int *) emalloc(sizeof(int));
 	*font = f_ind;
@@ -2025,7 +2059,7 @@ PHP_FUNCTION(imagepscopyfont)
 	int l_ind, type;
 	gd_ps_font *nf_ind, *of_ind;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters(ht, 1, &fnt) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(ht, 1, &fnt) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -2083,7 +2117,7 @@ PHP_FUNCTION(imagepsfreefont)
 	zval **fnt;
 	int *f_ind;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &fnt) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &fnt) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -2107,7 +2141,7 @@ PHP_FUNCTION(imagepsencodefont)
 	char **enc_vector;
 	int *f_ind;
 
-	if (ARG_COUNT(ht) != 2 || zend_get_parameters_ex(2, &fnt, &enc) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &fnt, &enc) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -2143,7 +2177,7 @@ PHP_FUNCTION(imagepsextendfont)
 	zval **fnt, **ext;
 	int *f_ind;
 
-	if (ARG_COUNT(ht) != 2 || zend_get_parameters_ex(2, &fnt, &ext) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &fnt, &ext) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -2169,7 +2203,7 @@ PHP_FUNCTION(imagepsslantfont)
 	zval **fnt, **slt;
 	int *f_ind;
 
-	if (ARG_COUNT(ht) != 2 || zend_get_parameters_ex(2, &fnt, &slt) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &fnt, &slt) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -2206,7 +2240,7 @@ PHP_FUNCTION(imagepstext)
 	T1_OUTLINE *char_path, *str_path;
 	T1_TMATRIX *transform = NULL;
 
-	switch(ARG_COUNT(ht)) {
+	switch(ZEND_NUM_ARGS()) {
 	case 8:
 		if (zend_get_parameters_ex(8, &img, &str, &fnt, &sz, &fg, &bg, &px, &py) == FAILURE) {
 			RETURN_FALSE;
@@ -2308,7 +2342,10 @@ PHP_FUNCTION(imagepstext)
 								 space, T1_KERNING, (*sz)->value.lval, transform);
 	}
 
-	if (T1_errno) RETURN_FALSE;
+	if (T1_errno) {
+		php_error(E_WARNING, "libt1 returned error %d", T1_errno);
+		RETURN_FALSE;
+	}
 
 	h_lines = str_img->metrics.ascent -  str_img->metrics.descent;
 	v_lines = str_img->metrics.rightSideBearing - str_img->metrics.leftSideBearing;
@@ -2326,6 +2363,7 @@ PHP_FUNCTION(imagepstext)
 	}
 
 	if (array_init(return_value) == FAILURE) {
+		php_error(E_WARNING, "Couldn't initialize array for returning bounding box");
 		RETURN_FALSE;
 	}
 
@@ -2355,7 +2393,7 @@ PHP_FUNCTION(imagepsbbox)
 	double angle, sin_a = 0, cos_a = 0;
 	BBox char_bbox, str_bbox = {0, 0, 0, 0};
 
-	switch(ARG_COUNT(ht)) {
+	switch(ZEND_NUM_ARGS()) {
 	case 3:
 		if (zend_get_parameters_ex(3, &str, &fnt, &sz) == FAILURE) {
 			RETURN_FALSE;

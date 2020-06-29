@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: oci8.c,v 1.81 2000/05/18 15:34:30 zeev Exp $ */
+/* $Id: oci8.c,v 1.88 2000/06/09 08:40:27 andi Exp $ */
 
 /* TODO list:
  *
@@ -93,7 +93,7 @@ PHP_OCI_API php_oci_globals oci_globals;
 /* }}} */
 /* {{{ dynamically loadable module stuff */
 
-#if defined(COMPILE_DL) || defined(COMPILE_DL_OCI8)
+#ifdef COMPILE_DL_OCI8
 ZEND_GET_MODULE(oci8)
 #endif /* COMPILE_DL */
 
@@ -367,7 +367,7 @@ PHP_MINIT_FUNCTION(oci)
 
 	INIT_CLASS_ENTRY(oci_lob_class_entry, "OCI-Lob", php_oci_lob_class_functions);
 
- 	oci_lob_class_entry_ptr = register_internal_class(&oci_lob_class_entry);
+ 	oci_lob_class_entry_ptr = zend_register_internal_class(&oci_lob_class_entry);
 
 /* thies@digicol.de 990203 i do not think that we will need all of them - just in here for completeness for now! */
 	REGISTER_LONG_CONSTANT("OCI_DEFAULT",OCI_DEFAULT, CONST_CS | CONST_PERSISTENT);
@@ -654,12 +654,14 @@ _oci_conn_list_dtor(oci_connection *connection)
 	}
 
 	if (connection->pServiceContext) {
-		/*
-		connection->error = 
-			OCITransCommit(connection->pServiceContext,
-						   connection->pError, 
-						   (ub4)0);
-		*/
+		connection->error =
+			OCITransRollback(connection->pServiceContext,
+							 connection->pError,
+							 (ub4)0);
+ 
+		if (connection->error) {
+			oci_error(connection->pError, "failed to rollback outstanding transactions!", connection->error);
+		}
 
 		OCIHandleFree((dvoid *) connection->pServiceContext, (ub4) OCI_HTYPE_SVCCTX);
 	}
@@ -1096,7 +1098,9 @@ static oci_statement *oci_parse(oci_connection *connection, char *query, int len
 									  OCI_NTV_SYNTAX,
 									  OCI_DEFAULT));
 		if (connection->error) {
-			/* XXX loose memory */
+			OCIHandleFree(statement->pStmt, OCI_HTYPE_STMT);
+		   	OCIHandleFree(statement->pError, OCI_HTYPE_ERROR);
+			efree(statement);
 			return 0;
 		}
 	}
@@ -1473,6 +1477,7 @@ oci_fetch(oci_statement *statement, ub4 nrows, char *func)
 			zend_hash_destroy(statement->columns);
 			efree(statement->columns);
 			statement->columns = 0;
+			statement->ncolumns = 0;
 		}
 		statement->executed = 0;
 
@@ -2368,7 +2373,7 @@ PHP_FUNCTION(ocidefinebyname)
 	oci_statement *statement;
 	oci_define *define, *tmp_define;
 	ub2	ocitype = SQLT_CHR; /* zero terminated string */
-	int ac = ARG_COUNT(ht);
+	int ac = ZEND_NUM_ARGS();
 
     if (ac < 3 || ac > 4 || zend_get_parameters_ex(ac, &stmt, &name, &var, &type) == FAILURE) {
         WRONG_PARAM_COUNT;
@@ -2432,7 +2437,7 @@ PHP_FUNCTION(ocibindbyname)
     OCIStmt *mystmt = 0;
 	dvoid *mydescr = 0;
 	sb4 value_sz = -1;
-	int ac = ARG_COUNT(ht), inx;
+	int ac = ZEND_NUM_ARGS(), inx;
 
     if (ac < 3 || ac > 5 || zend_get_parameters_ex(ac, &stmt, &name, &var, &maxlen, &type) == FAILURE) {        WRONG_PARAM_COUNT;
     }
@@ -2773,7 +2778,7 @@ PHP_FUNCTION(ociwritelobtofile)
 	oci_descriptor *descr;
 	char *buffer=0;
 	ub4 loblen;
-	int ac = ARG_COUNT(ht);
+	int ac = ZEND_NUM_ARGS();
 	int fp = -1,inx;
 	OCILobLocator *mylob;
 	int coffs;
@@ -3255,9 +3260,9 @@ PHP_FUNCTION(ocicolumnisnull)
 
 /* }}} */
 
-/* {{{ proto void ocidebug(int onoff)
-   Toggle internal debugging output for the OCI extension */
 
+/* {{{ proto void ociinternaldebug(int onoff)
+   Toggle internal debugging output for the OCI extension */
 /* Disables or enables the internal debug output.
  * By default it is disabled.
  */
@@ -3363,7 +3368,7 @@ PHP_FUNCTION(ocifetchinto)
 	ub4 nrows = 1;
 	int i, used;
 	int mode = OCI_NUM;
-	int ac = ARG_COUNT(ht);
+	int ac = ZEND_NUM_ARGS();
 	
     if (ac < 2 || ac > 3 || zend_get_parameters_ex(ac, &stmt, &array, &fmode) == FAILURE) {
         WRONG_PARAM_COUNT;
@@ -3434,7 +3439,7 @@ PHP_FUNCTION(ocifetchstatement)
 	int mode = OCI_NUM;
 	int rows = 0;
 	char namebuf[ 128 ];
-	int ac = ARG_COUNT(ht);
+	int ac = ZEND_NUM_ARGS();
 
 	if (ac < 2 || ac > 3 || zend_get_parameters_ex(ac, &stmt, &array, &fmode) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -3678,7 +3683,11 @@ PHP_FUNCTION(ociparse)
 
 	statement = oci_parse(connection,(*query)->value.str.val,(*query)->value.str.len);
 
-	RETURN_RESOURCE(statement->id);
+	if (statement) {
+		RETURN_RESOURCE(statement->id);
+	} else {
+		RETURN_FALSE;
+	}
 }
 
 /* }}} */

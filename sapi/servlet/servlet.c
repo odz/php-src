@@ -18,7 +18,6 @@
 
 #include <jni.h>
 
-#include "dl/phpdl.h"
 #include "php.h"
 #include "php_globals.h"
 
@@ -48,7 +47,7 @@
 #include "zend.h"
 #include "php_ini.h"
 #include "php_globals.h"
-#include "main.h"
+#include "php_main.h"
 #include "fopen-wrappers.h"
 #include "ext/standard/php_standard.h"
 #include "ext/standard/php_dir.h"
@@ -218,7 +217,8 @@ static char *sapi_servlet_read_cookies(SLS_D)
  */
 
 static sapi_module_struct sapi_module = {
-	"Java Servlet",					/* name */
+	"java_servlet",					/* name */
+	"Java Servlet",					/* pretty name */
 									
 	php_module_startup,				/* startup */
 	php_module_shutdown_wrapper,	/* shutdown */

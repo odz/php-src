@@ -139,11 +139,13 @@ PHPAPI void php_print_info(int flag)
 	the_time = time(NULL);
 	ta = php_localtime_r(&the_time, &tmbuf);
 	
+	PUTS("<CENTER>");
+
 	if (flag & PHP_INFO_GENERAL) {
 		char *zend_version = get_zend_version();
 
 #ifdef PHP_WIN32
-		// Get build numbers for Windows NT or Win95
+		/* Get build numbers for Windows NT or Win95 */
 		if (dwVersion < 0x80000000){
 			dwBuild = (DWORD)(HIWORD(dwVersion));
 			snprintf(php_windows_uname,255,"%s %d.%d build %d","Windows NT",dwWindowsMajorVersion,dwWindowsMinorVersion,dwBuild);
@@ -177,8 +179,8 @@ PHPAPI void php_print_info(int flag)
 #ifdef CONFIGURE_COMMAND
 		php_info_print_table_row(2, "Configure Command", CONFIGURE_COMMAND );
 #endif
-		if (sapi_module.name) {
-			php_info_print_table_row(2, "Server API", sapi_module.name );
+		if (sapi_module.pretty_name) {
+			php_info_print_table_row(2, "Server API", sapi_module.pretty_name );
 		}
 
 #ifdef VIRTUAL_DIR
@@ -228,6 +230,7 @@ PHPAPI void php_print_info(int flag)
 		PUTS("</a>\n");
 	}
 
+	php_ini_sort_entries();
 
 	if (flag & PHP_INFO_CONFIGURATION) {
 		php_info_print_hr();
@@ -295,9 +298,6 @@ PHPAPI void php_print_info(int flag)
 		php_info_print_table_end();
 	}
 
-	PUTS("</center>");
-
-
 	if (flag & PHP_INFO_LICENSE) {
 		SECTION("PHP License");
 		php_info_print_box_start(0);
@@ -317,17 +317,20 @@ PHPAPI void php_print_info(int flag)
 		PUTS("</P>\n");
 		php_info_print_box_end();
 	}
+
+	PUTS("</center>");
 }
 
 
 void php_print_credits(int flag)
 {
 	if (flag & PHP_CREDITS_FULLPAGE) {
-		PUTS("<html><head><title>PHP Credits</title></head><body><center>\n");
+		PUTS("<html><head><title>PHP Credits</title></head><body>\n");
 	}
 
 	php_info_print_style();
 
+	PUTS("<center>");
 	PUTS("<h1>PHP 4.0 Credits</h1>\n");
 
 	if (flag & PHP_CREDITS_GROUP) {
@@ -335,7 +338,7 @@ void php_print_credits(int flag)
 
 		php_info_print_table_start();
 		php_info_print_table_header(1, "PHP Group");
-		php_info_print_table_row(1, "Thies C. Arntzen, Stig Bakken, Andi Gutmans, Rasmus Lerdorf, \
+		php_info_print_table_row(1, "Thies C. Arntzen, Stig Bakken, Andi Gutmans, Rasmus Lerdorf, Sam Ruby,\
 					Sascha Schumann, Zeev Suraski, Jim Winstead, Andrei Zmievski");
 		php_info_print_table_end();
 	}
@@ -412,8 +415,10 @@ void php_print_credits(int flag)
 		CREDIT_LINE("Oracle", "Stig Bakken, Mitch Golden, Rasmus Lerdorf, Andreas Karajannis, Thies C. Arntzen");
 		CREDIT_LINE("Perl Compatible Regexps", "Andrei Zmievski");
 		CREDIT_LINE("PDF", "Uwe Steinmann");
+		CREDIT_LINE("Posix", "Kristian Köhntopp");
 		CREDIT_LINE("PostgreSQL", "Jouni Ahto, Zeev Suraski");
 		CREDIT_LINE("Readline", "Thies C. Arntzen");
+		CREDIT_LINE("Recode", "Kristian Köhntopp");
 		CREDIT_LINE("Sessions", "Sascha Schumann, Andrei Zmievski");
 		CREDIT_LINE("SNMP", "Rasmus Lerdorf");
 		CREDIT_LINE("SWF", "Sterling Hughes");
@@ -435,21 +440,21 @@ void php_print_credits(int flag)
 		php_info_print_table_end();
 	}
 
+	PUTS("</center>");
+
 	if (flag & PHP_CREDITS_FULLPAGE) {
-		PUTS("</center></body></html>\n");
+		PUTS("</body></html>\n");
 	}
 }
 
 PHPAPI void php_info_print_table_start()
 {
-	php_printf("<CENTER>\n");
 	php_printf("<TABLE BORDER=0 CELLPADDING=3 CELLSPACING=1 WIDTH=600 BGCOLOR=\"#000000\">\n");
 }
 
 PHPAPI void php_info_print_table_end()
 {
 	php_printf("</TABLE><BR>\n");
-	php_printf("<CENTER>\n");
 
 }
 
@@ -517,7 +522,7 @@ PHPAPI void php_info_print_table_row(int num_cols, ...)
 			row_element = "&nbsp;";
 		}
 		php_printf("<TD %s>%s%s%s</td>", 
-			(i==0?"BGCOLOR=\"" PHP_ENTRY_NAME_COLOR "\" ":"ALIGN=\"center\""),
+			(i==0?"BGCOLOR=\"" PHP_ENTRY_NAME_COLOR "\" ":"ALIGN=\"left\""),
 			(i==0?"<B>":""), 
 			row_element,
 			(i==0?"</B>":""));
@@ -549,7 +554,7 @@ void register_phpinfo_constants(INIT_FUNC_ARGS)
 }
 
 
-/* {{{ proto void phpinfo(void)
+/* {{{ proto void phpinfo([int what])
    Output a page of useful information about PHP and the current request */
 PHP_FUNCTION(phpinfo)
 {
@@ -557,7 +562,7 @@ PHP_FUNCTION(phpinfo)
 	zval **flag_arg;
 
 
-	switch (ARG_COUNT(ht)) {
+	switch (ZEND_NUM_ARGS()) {
 		case 0:
 			flag = 0xFFFFFFFF;
 			break;
@@ -595,7 +600,7 @@ PHP_FUNCTION(phpcredits)
 	zval **flag_arg;
 
 
-	switch (ARG_COUNT(ht)) {
+	switch (ZEND_NUM_ARGS()) {
 		case 0:
 			flag = 0xFFFFFFFF;
 			break;
@@ -632,6 +637,19 @@ PHP_FUNCTION(zend_logo_guid)
 {
 	RETURN_STRINGL(ZEND_LOGO_GUID, sizeof(ZEND_LOGO_GUID)-1, 1);
 }
+
+/* {{{ proto string sapi_module_name(void)
+   Return the current SAPI module name */
+PHP_FUNCTION(php_sapi_name)
+{
+	if (sapi_module.name) {
+		RETURN_STRING(sapi_module.name,1);
+	} else {
+		RETURN_FALSE;
+	}
+}
+
+/* }}} */
 
 /*
  * Local variables:

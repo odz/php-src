@@ -22,14 +22,27 @@
 #define NSAPI 1
 
 #include "php.h"
-
+#include "php_variables.h"
 #include "ext/standard/info.h"
-
 #include "php_ini.h"
 #include "php_globals.h"
 #include "SAPI.h"
-#include "main.h"
+#include "php_main.h"
 #include "php_version.h"
+#include "TSRM.h"
+#include "ext/standard/php_standard.h"
+
+/*
+ * If neither XP_UNIX not XP_WIN32 is defined, try to guess which one.
+ * Ideally, this should be done by the configure script.
+ */
+#if !defined(XP_UNIX) && !defined(XP_WIN32)
+	#if defined(WIN32)
+		#define XP_WIN32
+	#else
+		#define XP_UNIX
+	#endif
+#endif
 
 /*
  * NSAPI includes
@@ -41,11 +54,6 @@
 #include "frame/protocol.h"  /* protocol_start_response */
 #include "base/util.h"       /* is_mozilla, getline */
 #include "frame/log.h"       /* log_error */
-
-/* for unix */
-#ifndef WINAPI
-#define WINAPI
-#endif
 
 /*
  * Timeout for net_read(). This should probably go into php.ini
@@ -59,15 +67,10 @@
 #define NSG(v)		(request_context->v)
 
 /*
- * Currently, this doesn't work with ZTS.
+ * ZTS needs to be defined for NSAPI to work
  */
-#if defined(ZTS)
-	#define IF_ZTS(a)	a
-	#define IF_NOT_ZTS(a)
-#else
-	#define IF_ZTS(a)
-	#define IF_NOT_ZTS(a)	a
-	static CRITICAL php_mutex;
+#if !defined(ZTS)
+	#error "NSAPI module needs ZTS to be defined"
 #endif
 
 /*
@@ -77,6 +80,7 @@ typedef struct nsapi_request_context {
 	pblock	*pb;
 	Session	*sn;
 	Request	*rq;
+	int	read_post_bytes;
 } nsapi_request_context;
 
 /*
@@ -208,12 +212,20 @@ sapi_nsapi_read_post(char *buffer, uint count_bytes SLS_DC)
 	netbuf *nbuf = rc->sn->inbuf;
 
 	/*
+	 *	Yesss!
+	 */
+	count_bytes = MIN(count_bytes, SG(request_info).content_length-rc->read_post_bytes);
+	content_length = SG(request_info).content_length;
+
+#if 0
+	/*
 	 * Determine the content-length. This will tell us the limit we can read.
 	 */
 	content_length_str = pblock_findval("content-length", rc->rq->headers);
 	if (content_length_str != NULL) {
 		content_length = strtol(content_length_str, 0, 0);
 	}
+#endif
 
 	if (content_length <= 0)
 		return 0;
@@ -222,11 +234,13 @@ sapi_nsapi_read_post(char *buffer, uint count_bytes SLS_DC)
 	 * Gobble any pending data in the netbuf.
 	 */
 	length = nbuf->cursize - nbuf->pos;
+	length = MIN(count_bytes, length);
 	if (length > 0) {
 		memcpy(read_ptr, nbuf->inbuf + nbuf->pos, length);
 		bytes_read += length;
 		read_ptr += length;
 		content_length -= length;
+		nbuf->pos += length;
 	}
 
 	/*
@@ -246,6 +260,8 @@ sapi_nsapi_read_post(char *buffer, uint count_bytes SLS_DC)
 		content_length -= length;
 	}
 
+	if ( bytes_read > 0 )
+		rc->read_post_bytes += bytes_read;
 	return bytes_read;
 }
 
@@ -259,8 +275,55 @@ sapi_nsapi_read_cookies(SLS_D)
 	return cookie_string;
 }
 
+static void
+sapi_nsapi_register_server_variables(zval *track_vars_array ELS_DC SLS_DC PLS_DC)
+{
+	nsapi_request_context *rc = (nsapi_request_context *)SG(server_context);
+	size_t i;
+	char *value = NULL;
+	char buf[128];
+
+	*buf = 0;
+	for (i = 0; i < nsapi_reqpb_size; i++) {
+		if ((value = pblock_findval(nsapi_reqpb[i].nsapi_eq, rc->rq->reqpb)) == NULL) {
+			value = buf;
+		}
+		php_register_variable( (char *)nsapi_reqpb[i].env_var, value, track_vars_array ELS_CC PLS_CC );
+	}
+	
+	for (i = 0; i < nsapi_headers_size; i++) {
+		if ((value = pblock_findval(nsapi_headers[i].nsapi_eq, rc->rq->headers)) == NULL) {
+			value = buf;
+		}
+		php_register_variable( (char *)nsapi_headers[i].env_var, value, track_vars_array ELS_CC PLS_CC );
+	}
+
+	for (i = 0; i < nsapi_vars_size; i++) {
+		if ((value = pblock_findval(nsapi_vars[i].nsapi_eq, rc->rq->vars)) == NULL) {
+			value = buf;
+		}
+		php_register_variable( (char *)nsapi_vars[i].env_var, value, track_vars_array ELS_CC PLS_CC );
+	}
+
+	for (i = 0; i < nsapi_client_size; i++) {
+		if ((value = pblock_findval(nsapi_client[i].nsapi_eq, rc->sn->client)) == NULL) {
+			value = buf;
+		}
+		php_register_variable( (char *)nsapi_client[i].env_var, value, track_vars_array ELS_CC PLS_CC );
+	}
+
+	/*
+	 * Special PHP_SELF variable.
+	 */
+	value = pblock_findval( "uri", rc->rq->reqpb );
+	if( value != NULL ) {
+		php_register_variable( "PHP_SELF", value, track_vars_array ELS_CC PLS_CC );
+	}
+}
+
 static sapi_module_struct sapi_module = {
-	"NSAPI",				/* name */
+	"nsapi",				/* name */
+	"NSAPI",				/* pretty name */
 
 	php_module_startup,			/* startup */
 	php_module_shutdown_wrapper,		/* shutdown */
@@ -282,7 +345,7 @@ static sapi_module_struct sapi_module = {
 	sapi_nsapi_read_post,			/* read POST data */
 	sapi_nsapi_read_cookies,		/* read Cookies */
 
-	NULL,					/* register server variables */
+	sapi_nsapi_register_server_variables,	/* register server variables */
 	NULL,					/* Log message */
 
 	NULL,					/* Block interruptions */
@@ -391,7 +454,7 @@ nsapi_request_ctor(NSLS_D SLS_DC)
 	if (uri != NULL)
 		path_translated = request_translate_uri(uri, NSG(sn));
 
-#if 0
+#if defined(NSAPI_DEBUG)
 	log_error(LOG_INFORM, "nsapi_request_ctor", NSG(sn), NSG(rq),
 		"query_string = %s, "
 		"uri = %s, "
@@ -445,15 +508,17 @@ nsapi_module_main(NSLS_D SLS_DC)
 	file_handle.filename = SG(request_info).path_translated;
 	file_handle.free_filename = 0;
 
-#if 0
+#if defined(NSAPI_DEBUG)
 	log_error(LOG_INFORM, "nsapi_module_main", NSG(sn), NSG(rq),
 		"Parsing [%s]", SG(request_info).path_translated);
 #endif
 
+#if 0
 	result = php_request_startup(CLS_C ELS_CC PLS_CC SLS_CC);
 	if (result == FAILURE) {
 		return FAILURE;
 	}
+#endif
 
 	nsapi_hash_environment(NSLS_C SLS_CC);
 	php_execute_script(&file_handle CLS_CC ELS_CC PLS_CC);
@@ -462,43 +527,31 @@ nsapi_module_main(NSLS_D SLS_DC)
 	return SUCCESS;
 }
 
-void WINAPI 
+void NSAPI_PUBLIC 
 php4_close(void *vparam)
 {
 	if (sapi_module.shutdown) {
 		sapi_module.shutdown(&sapi_module);
 	}
-	IF_ZTS(
-		tsrm_shutdown();
-	)
+	tsrm_shutdown();
 }
 
-int WINAPI
+int NSAPI_PUBLIC
 php4_init(pblock *pb, Session *sn, Request *rq)
 {
-	PLS_FETCH();
+	php_core_globals *core_globals;
 
-	/*
-	 * TSRM has not been tested.
-	 */
-	IF_ZTS(
-		tsrm_startup(1, 1, 0);
-	)
+	tsrm_startup(1, 1, 0);
+	core_globals = ts_resource(core_globals_id);
 
 	sapi_startup(&sapi_module);
 	sapi_module.startup(&sapi_module);
-
-	PG(expose_php) = 0;
-
-	IF_NOT_ZTS(
-		php_mutex = crit_init();
-	)
 
 	log_error(LOG_INFORM, "php4_init", sn, rq, "Initialized PHP Module\n");
 	return REQ_PROCEED;
 }
 
-int WINAPI
+int NSAPI_PUBLIC
 php4_execute(pblock *pb, Session *sn, Request *rq)
 {
 	int retval;
@@ -510,29 +563,13 @@ php4_execute(pblock *pb, Session *sn, Request *rq)
 	request_context->pb = pb;
 	request_context->sn = sn;
 	request_context->rq = rq;
-
-	/*
-	 * Single thread the execution, if ZTS is not enabled. Need to
-	 * understand the behavior of Netscape server when the client
-	 * cancels a request when it is in progress. This could cause
-	 * a deadlock if the thread handling the specific client is not
-	 * cancelled because the php_mutex will likely remain locked
-	 * until the request that was cancelled completes. The behavior
-	 * is also going to be platform specific.
-	 */
-	IF_NOT_ZTS(
-		crit_enter(php_mutex);
-	)
+	request_context->read_post_bytes = 0;
 
 	SG(server_context) = request_context;
 
 	nsapi_request_ctor(NSLS_C SLS_CC);
 	retval = nsapi_module_main(NSLS_C SLS_CC);
 	nsapi_request_dtor(NSLS_C SLS_CC);
-
-	IF_NOT_ZTS(
-		crit_exit(php_mutex);
-	)
 
 	free(request_context);
 
@@ -554,7 +591,7 @@ php4_execute(pblock *pb, Session *sn, Request *rq)
 /		<Object ppath="path/to/be/authenticated/by/php/*">
 /		AuthTrans fn="php4_auth_trans"
 /*********************************************************/
-int WINAPI 
+int NSAPI_PUBLIC 
 php4_auth_trans(pblock * pb, Session * sn, Request * rq)
 {
 	/*This is a DO NOTHING function that allows authentication information

@@ -41,7 +41,7 @@ typedef int (*apply_func_arg_t)(void *pDest, void *argument);
 typedef ulong (*hash_func_t)(char *arKey, uint nKeyLength);
 typedef void (*copy_ctor_func_t)(void *pElement);
 
-struct hashtable;
+struct _hashtable;
 
 typedef struct bucket {
 	ulong h;						/* Used for numeric indexing */
@@ -55,7 +55,7 @@ typedef struct bucket {
 	char arKey[1]; /* Must be last element */
 } Bucket;
 
-typedef struct hashtable {
+typedef struct _hashtable {
 	uint nTableSize;
 	uint nHashSizeIndex;
 	uint nNumOfElements;
@@ -66,7 +66,8 @@ typedef struct hashtable {
 	Bucket *pListTail;
 	Bucket **arBuckets;
 	dtor_func_t pDestructor;
-	unsigned char persistent;
+	zend_bool persistent;
+	unsigned char nApplyCount;
 #if ZEND_DEBUG
 	int inconsistent;
 #endif
@@ -107,6 +108,8 @@ typedef struct _zend_hash_key {
 	ulong h;
 } zend_hash_key;
 
+
+typedef int (*apply_func_args_t)(void *pDest, int num_args, va_list args, zend_hash_key *hash_key);
 
 #define ZEND_STD_HASH_APPLIER		\
 	int (*)(void *element, int num_args, va_list args, zend_hash_key *hash_key)
@@ -166,6 +169,7 @@ ZEND_API void zend_hash_internal_pointer_end_ex(HashTable *ht, HashPosition *pos
 ZEND_API void zend_hash_copy(HashTable *target, HashTable *source, copy_ctor_func_t pCopyConstructor, void *tmp, uint size);
 ZEND_API void zend_hash_merge(HashTable *target, HashTable *source, copy_ctor_func_t pCopyConstructor, void *tmp, uint size, int overwrite);
 ZEND_API int zend_hash_sort(HashTable *ht, sort_func_t sort_func, compare_func_t compare_func, int renumber);
+ZEND_API int zend_hash_compare(HashTable *ht1, HashTable *ht2, compare_func_t compar, zend_bool ordered);
 ZEND_API int zend_hash_minmax(HashTable *ht, int (*compar)(const void *, const void *), int flag, void **pData);
 
 ZEND_API int zend_hash_num_elements(HashTable *ht);

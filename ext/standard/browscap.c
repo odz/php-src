@@ -51,8 +51,8 @@ static int browser_reg_compare(zval **browser)
 	return 0;
 }
 
-/* {{{ proto object get_browser(string agent_name)
-   ??? */
+/* {{{ proto object get_browser(string browser_name)
+   Get information about the capabilities of a browser */
 PHP_FUNCTION(get_browser)
 {
 	pval **agent_name,**agent, tmp;
@@ -61,7 +61,7 @@ PHP_FUNCTION(get_browser)
 		RETURN_FALSE;
 	}
 	
-	switch(ARG_COUNT(ht)) {
+	switch(ZEND_NUM_ARGS()) {
 		case 0:
 			if (zend_hash_find(&EG(symbol_table), "HTTP_USER_AGENT", sizeof("HTTP_USER_AGENT"), (void **) &agent_name)==FAILURE) {
 				*agent_name = &tmp;

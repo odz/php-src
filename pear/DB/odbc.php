@@ -31,7 +31,7 @@
 //				 a reference.
 //
 
-use "DB/common";
+include_once 'DB/common.php';
 
 class DB_odbc extends DB_common {
     // {{{ properties
@@ -161,9 +161,36 @@ class DB_odbc extends DB_common {
 		}
 		// Determine which queries that should return data, and which
 		// should return an error code only.
-		if (eregi('SELECT', $query)) {
+		if (preg_match('/SELECT/i', $query)) {
 			$resultObj = new DB_result($this, $result);
 			return $resultObj; // XXX ADDREF
+		} else {
+			return DB_OK;
+		}
+	}
+
+	// }}}
+    // {{{ simpleQuery()
+
+	/**
+	 * Send a query to ODBC and return the results as a ODBC resource
+	 * identifier.
+	 *
+	 * @param $query the SQL query
+	 *
+	 * @return int returns a valid ODBC result for successful SELECT
+	 * queries, DB_OK for other successful queries.  A DB error code
+	 * is returned on failure.
+	 */
+	function simpleQuery($query) {
+		$result = odbc_exec($this->connection, $query);
+		if (!$result) {
+			return DB_ERROR; // XXX ERRORMSG
+		}
+		// Determine which queries that should return data, and which
+		// should return an error code only.
+		if (preg_match('/SELECT/i', $query)) {
+			return $result;
 		} else {
 			return DB_OK;
 		}

@@ -64,6 +64,10 @@ AC_FUNC_MEMCMP
 AC_FUNC_ALLOCA
 AC_CHECK_FUNCS(memcpy strdup getpid kill strtod strtol finite)
 AC_ZEND_BROKEN_SPRINTF
+
+AC_CHECK_FUNCS(finite isfinite isinf isnan)
+
+ZEND_FP_EXCEPT
 	
 AC_SUBST(ZEND_SCANNER)
 
@@ -76,10 +80,10 @@ AC_SUBST(ZEND_SCANNER)
 AC_DEFUN(LIBZEND_ENABLE_DEBUG,[
 
 AC_ARG_ENABLE(debug,
-[  --disable-debug         Compile without debugging symbols],[
+[  --enable-debug         Compile with debugging symbols],[
   ZEND_DEBUG=$enableval
 ],[
-  ZEND_DEBUG=yes
+  ZEND_DEBUG=no
 ])  
 
 ])
@@ -95,10 +99,14 @@ AC_ARG_ENABLE(debug,
 
 
 
-
-
-
 AC_DEFUN(LIBZEND_OTHER_CHECKS,[
+
+AC_ARG_ENABLE(c9x-inline,
+[  --enable-c9x-inline     Enable C9x-inline semantics],[
+  ZEND_C9X_INLINE=$enableval
+],[
+  ZEND_C9X_INLINE=no
+])
 
 AC_ARG_ENABLE(experimental-zts,
 [  --enable-experimental-zts   This will most likely break your build],[
@@ -122,6 +130,9 @@ AC_ARG_ENABLE(memory-limit,
   ZEND_MEMORY_LIMIT=no
 ])
 
+AC_MSG_CHECKING(whether to enable C9x-inline semantics)
+AC_MSG_RESULT($ZEND_C9X_INLINE)
+
 AC_MSG_CHECKING(whether to enable experimental ZTS)
 AC_MSG_RESULT($ZEND_EXPERIMENTAL_ZTS)
 
@@ -135,25 +146,32 @@ AC_MSG_CHECKING(whether to enable Zend debugging)
 AC_MSG_RESULT($ZEND_DEBUG)
 	
 if test "$ZEND_DEBUG" = "yes"; then
-  AC_DEFINE(ZEND_DEBUG,1)
+  AC_DEFINE(ZEND_DEBUG,1,[ ])
   echo " $CFLAGS" | grep ' -g' >/dev/null || DEBUG_CFLAGS="-g"
   test -n "$GCC" && DEBUG_CFLAGS="$DEBUG_CFLAGS -Wall"
   test -n "$GCC" && test "$USE_MAINTAINER_MODE" = "yes" && \
     DEBUG_CFLAGS="$DEBUG_CFLAGS -Wmissing-prototypes -Wstrict-prototypes -Wmissing-declarations"
 else
-  AC_DEFINE(ZEND_DEBUG,0)
+  AC_DEFINE(ZEND_DEBUG,0,[ ])
 fi
 
 test -n "$DEBUG_CFLAGS" && CFLAGS="$CFLAGS $DEBUG_CFLAGS"
 
 if test "$ZEND_EXPERIMENTAL_ZTS" = "yes"; then
-  AC_DEFINE(ZTS)
+  AC_DEFINE(ZTS,1,[ ])
   ZEND_SCANNER_TYPE=cc
   CPPFLAGS="$CPPFLAGS -I../TSRM"
   LIBZEND_CPLUSPLUS_CHECKS
 else
   ZEND_SCANNER_TYPE=c
 fi  
+
+if test "$ZEND_C9X_INLINE" = "yes"; then
+  AC_DEFINE(C9X_INLINE_SEMANTICS, 1, [whether to enable C9x-inline semantics])
+else
+  ZEND_GCC=libZend_gcc.la
+  AC_SUBST(ZEND_GCC)
+fi
 
 ZEND_SCANNER="libZend_${ZEND_SCANNER_TYPE}.la"
 

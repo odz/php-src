@@ -28,14 +28,15 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ftp.h,v 1.9 2000/02/22 20:50:00 askalski Exp $ */
+/* $Id: ftp.h,v 1.12 2000/05/23 10:12:42 thies Exp $ */
 
 #ifndef	_FTP_H
 #define	_FTP_H
 
 #include <stdio.h>
+#ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
-
+#endif
 
 /* XXX these should be configurable at runtime XXX */
 #define	FTP_BUFSIZE	4096

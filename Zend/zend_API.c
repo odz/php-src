@@ -25,7 +25,7 @@
 #include "zend_constants.h"
 
 #ifdef HAVE_STDARG_H
-# include <stdarg.h>
+#include <stdarg.h>
 #endif
 
 /* these variables are true statics/globals, and have to be mutex'ed on every access */
@@ -50,9 +50,9 @@ ZEND_API int zend_get_parameters(int ht, int param_count, ...)
 
 	va_start(ptr, param_count);
 
-	while (param_count>0) {
+	while (param_count-->0) {
 		param = va_arg(ptr, zval **);
-		param_ptr = *(p-param_count);
+		param_ptr = *(p-arg_count);
 		if (!PZVAL_IS_REF(param_ptr) && param_ptr->refcount>1) {
 			zval *new_tmp;
 
@@ -61,11 +61,11 @@ ZEND_API int zend_get_parameters(int ht, int param_count, ...)
 			zval_copy_ctor(new_tmp);
 			INIT_PZVAL(new_tmp);
 			param_ptr = new_tmp;
-			((zval *) *(p-param_count))->refcount--;
-			*(p-param_count) = param_ptr;
+			((zval *) *(p-arg_count))->refcount--;
+			*(p-arg_count) = param_ptr;
 		}
 		*param = param_ptr;
-		param_count--;
+		arg_count--;
 	}
 	va_end(ptr);
 
@@ -87,9 +87,8 @@ ZEND_API int zend_get_parameters_array(int ht, int param_count, zval **argument_
 		return FAILURE;
 	}
 
-
-	while (param_count>0) {
-		param_ptr = *(p-param_count);
+	while (param_count-->0) {
+		param_ptr = *(p-arg_count);
 		if (!PZVAL_IS_REF(param_ptr) && param_ptr->refcount>1) {
 			zval *new_tmp;
 
@@ -98,11 +97,11 @@ ZEND_API int zend_get_parameters_array(int ht, int param_count, zval **argument_
 			zval_copy_ctor(new_tmp);
 			INIT_PZVAL(new_tmp);
 			param_ptr = new_tmp;
-			((zval *) *(p-param_count))->refcount--;
-			*(p-param_count) = param_ptr;
+			((zval *) *(p-arg_count))->refcount--;
+			*(p-arg_count) = param_ptr;
 		}
 		*(argument_array++) = param_ptr;
-		param_count--;
+		arg_count--;
 	}
 
 	return SUCCESS;
@@ -129,9 +128,9 @@ ZEND_API int zend_get_parameters_ex(int param_count, ...)
 	}
 
 	va_start(ptr, param_count);
-	while (param_count>0) {
+	while (param_count-->0) {
 		param = va_arg(ptr, zval ***);
-		*param = (zval **) p-(param_count--);
+		*param = (zval **) p-(arg_count--);
 	}
 	va_end(ptr);
 
@@ -152,8 +151,8 @@ ZEND_API int zend_get_parameters_array_ex(int param_count, zval ***argument_arra
 		return FAILURE;
 	}
 
-	while (param_count>0) {
-		*(argument_array++) = (zval **) p-(param_count--);
+	while (param_count-->0) {
+		*(argument_array++) = (zval **) p-(arg_count--);
 	}
 
 	return SUCCESS;
@@ -189,7 +188,7 @@ ZEND_API inline int _array_init(zval *arg ZEND_FILE_LINE_DC)
 	ALLOC_HASHTABLE_REL(arg->value.ht);
 
 	if (!arg->value.ht || zend_hash_init(arg->value.ht, 0, NULL, ZVAL_PTR_DTOR, 0)) {
-		zend_error(E_CORE_ERROR, "Cannot allocate memory for array");
+		zend_error(E_ERROR, "Cannot allocate memory for array");
 		return FAILURE;
 	}
 	arg->type = IS_ARRAY;
@@ -202,7 +201,7 @@ ZEND_API inline int _object_init_ex(zval *arg, zend_class_entry *class_type ZEND
 	zval *tmp;
 
 	if (!class_type->constants_updated) {
-		zend_hash_apply(&class_type->default_properties, (int (*)(void *)) zval_update_constant);
+		zend_hash_apply_with_argument(&class_type->default_properties, (int (*)(void *,void *)) zval_update_constant, (void *) 1);
 		class_type->constants_updated = 1;
 	}
 	
@@ -708,14 +707,21 @@ ZEND_API int zend_startup_module(zend_module_entry *module)
 
 
 /* registers all functions in *library_functions in the function hash */
-int zend_register_functions(zend_function_entry *functions, HashTable *function_table)
+int zend_register_functions(zend_function_entry *functions, HashTable *function_table, int type)
 {
 	zend_function_entry *ptr = functions;
 	zend_function function;
 	zend_internal_function *internal_function = (zend_internal_function *)&function;
 	int count=0,unload=0;
 	HashTable *target_function_table = function_table;
+	int error_type;
 	CLS_FETCH();
+
+	if (type==MODULE_PERSISTENT) {
+		error_type = E_CORE_WARNING;
+	} else {
+		error_type = E_WARNING;
+	}
 
 	if (!target_function_table) {
 		target_function_table = CG(function_table);
@@ -727,7 +733,7 @@ int zend_register_functions(zend_function_entry *functions, HashTable *function_
 		internal_function->arg_types = ptr->func_arg_types;
 		internal_function->function_name = ptr->fname;
 		if (!internal_function->handler) {
-			zend_error(E_CORE_WARNING,"Null function defined as active function");
+			zend_error(error_type, "Null function defined as active function");
 			zend_unregister_functions(functions, count, target_function_table);
 			return FAILURE;
 		}
@@ -741,7 +747,7 @@ int zend_register_functions(zend_function_entry *functions, HashTable *function_
 	if (unload) { /* before unloading, display all remaining bad function in the module */
 		while (ptr->fname) {
 			if (zend_hash_exists(target_function_table, ptr->fname, strlen(ptr->fname)+1)) {
-				zend_error(E_CORE_WARNING, "Function registration failed - duplicate name - %s",ptr->fname);
+				zend_error(error_type, "Function registration failed - duplicate name - %s",ptr->fname);
 			}
 			ptr++;
 		}
@@ -783,7 +789,7 @@ ZEND_API int zend_register_module(zend_module_entry *module)
 #if 0
 	zend_printf("%s:  Registering module %d\n",module->name, module->module_number);
 #endif
-	if (module->functions && zend_register_functions(module->functions, NULL)==FAILURE) {
+	if (module->functions && zend_register_functions(module->functions, NULL, module->type)==FAILURE) {
 		zend_error(E_CORE_WARNING,"%s:  Unable to register functions, unable to load",module->name);
 		return FAILURE;
 	}
@@ -867,8 +873,31 @@ int zend_next_free_module(void)
 	return ++module_count;
 }
 
+/* If parent_ce is not NULL then it inherits from parent_ce
+ * If parent_ce is NULL and parent_name isn't then it looks for the parent and inherits from it
+ * If both parent_ce and parent_name are NULL it does a regular class registration
+ * If parent_name is specified but not found NULL is returned
+ */
+ZEND_API zend_class_entry *zend_register_internal_class_ex(zend_class_entry *class_entry, zend_class_entry *parent_ce, char *parent_name)
+{
+	zend_class_entry *register_class;
+	CLS_FETCH();
 
-ZEND_API zend_class_entry *register_internal_class(zend_class_entry *class_entry)
+	if (!parent_ce && parent_name) {
+			if (zend_hash_find(CG(class_table), parent_name, strlen(parent_name)+1, (void **) &parent_ce)==FAILURE) {
+				return NULL;
+			}
+	}
+
+	register_class = zend_register_internal_class(class_entry);
+
+	if (parent_ce) {
+		do_inheritance(register_class, parent_ce);
+	}
+	return register_class;
+}
+
+ZEND_API zend_class_entry *zend_register_internal_class(zend_class_entry *class_entry)
 {
 	zend_class_entry *register_class;
 	char *lowercase_name = zend_strndup(class_entry->name, class_entry->name_length);
@@ -886,7 +915,7 @@ ZEND_API zend_class_entry *register_internal_class(zend_class_entry *class_entry
 
 
 	if (class_entry->builtin_functions) {
-		zend_register_functions(class_entry->builtin_functions, &class_entry->function_table);
+		zend_register_functions(class_entry->builtin_functions, &class_entry->function_table, MODULE_PERSISTENT);
 	}
 
 	zend_hash_update(CG(class_table), lowercase_name, class_entry->name_length+1, class_entry, sizeof(zend_class_entry), (void **) &register_class);
@@ -924,4 +953,32 @@ ZEND_API int zend_set_hash_symbol(zval *symbol, char *name, int name_length,
     }
     va_end(symbol_table_list);
     return SUCCESS;
+}
+
+
+
+
+/* Disabled functions support */
+
+static ZEND_FUNCTION(display_disabled_function)
+{
+	zend_error(E_WARNING, "%s() has been disabled for security reasons.", get_active_function_name());
+}
+
+
+static zend_function_entry disabled_function[] =  {
+	ZEND_FE(display_disabled_function,			NULL)
+	{ NULL, NULL, NULL }
+};
+
+
+ZEND_API int zend_disable_function(char *function_name, uint function_name_length)
+{
+	CLS_FETCH();
+
+	if (zend_hash_del(CG(function_table), function_name, function_name_length+1)==FAILURE) {
+		return FAILURE;
+	}
+	disabled_function[0].fname = function_name;
+	return zend_register_functions(disabled_function, CG(function_table), MODULE_PERSISTENT);
 }

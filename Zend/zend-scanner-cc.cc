@@ -2652,7 +2652,6 @@ static yyconst short int yy_chk[7976] =
 #line 35 "./zend-scanner.l"
 
 #ifdef ZEND_WIN32
-#include <winsock.h>
 #include <io.h>
 #endif
 
@@ -2710,6 +2709,7 @@ private:
   stdiobuf _file;
 public:
   istdiostream (FILE* __f) : istream(), _file(__f) { init(&_file); }
+  stdiobuf* rdbuf()/* const */ { return &_file; }
 };
 #endif
 
@@ -2766,12 +2766,12 @@ static inline void save_lexical_state(zend_lex_state *lex_state CLS_DC)
 #ifndef ZTS
 	memcpy(&lex_state->buffer_state,&YY_CURRENT_BUFFER,sizeof(YY_BUFFER_STATE));
 	lex_state->in = yyin;
-	lex_state->lineno = CG(zend_lineno);
 	lex_state->state = YYSTATE;
-	lex_state->filename = zend_get_compiled_filename(CLS_C);
 #else
 	lex_state->ZFL = CG(ZFL);
 #endif
+	lex_state->filename = zend_get_compiled_filename(CLS_C);
+	lex_state->lineno = CG(zend_lineno);
 }
 
 
@@ -2788,13 +2788,13 @@ inline void restore_lexical_state(zend_lex_state *lex_state CLS_DC)
 		
 	yy_delete_buffer(original_buffer_state);
 	yyin = lex_state->in;
-	CG(zend_lineno) = lex_state->lineno;
 	BEGIN(lex_state->state);
-	zend_restore_compiled_filename(lex_state->filename);
 #else
 	delete((ZendFlexLexer *) CG(ZFL));
 	CG(ZFL) = lex_state->ZFL;
 #endif
+	CG(zend_lineno) = lex_state->lineno;
+	zend_restore_compiled_filename(lex_state->filename);
 }
 
 
@@ -3078,6 +3078,8 @@ static inline int prepare_string_for_scanning(zval *str CLS_DC)
 
 	CG(ZFL)->switch_streams(input_stream, &cout);
 #endif
+	zend_set_compiled_filename("Eval code");
+	CG(zend_lineno) = 1;
 	return SUCCESS;
 }
 
@@ -3345,7 +3347,7 @@ int yyFlexLexer::yylex()
 	}
 #endif
 
-#line 3349 "zend-scanner-cc.cc"
+#line 3351 "zend-scanner-cc.cc"
 
 /* Macros after this point can all be overridden by user definitions in
  * section 1.
@@ -3475,10 +3477,10 @@ YY_DECL
 	register char *yy_cp, *yy_bp;
 	register int yy_act;
 
-#line 745 "./zend-scanner.l"
+#line 747 "./zend-scanner.l"
 
 
-#line 3482 "zend-scanner-cc.cc"
+#line 3484 "zend-scanner-cc.cc"
 
 	if ( yy_init )
 		{
@@ -3566,217 +3568,217 @@ do_action:	/* This label is used only to access EOF actions. */
 
 case 1:
 YY_RULE_SETUP
-#line 747 "./zend-scanner.l"
+#line 749 "./zend-scanner.l"
 {
 	return T_EXIT;
 }
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 751 "./zend-scanner.l"
+#line 753 "./zend-scanner.l"
 {
 	return T_EXIT;
 }
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 755 "./zend-scanner.l"
+#line 757 "./zend-scanner.l"
 {
 	return T_OLD_FUNCTION;
 }
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 759 "./zend-scanner.l"
+#line 761 "./zend-scanner.l"
 {
 	return T_FUNCTION;
 }
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 763 "./zend-scanner.l"
+#line 765 "./zend-scanner.l"
 {
 	return T_CONST;
 }
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 767 "./zend-scanner.l"
+#line 769 "./zend-scanner.l"
 {
 	return T_RETURN;
 }
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 771 "./zend-scanner.l"
+#line 773 "./zend-scanner.l"
 {
 	return T_IF;
 }
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 775 "./zend-scanner.l"
+#line 777 "./zend-scanner.l"
 {
 	return T_ELSEIF;
 }
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 779 "./zend-scanner.l"
+#line 781 "./zend-scanner.l"
 {
 	return T_ENDIF;
 }
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 783 "./zend-scanner.l"
+#line 785 "./zend-scanner.l"
 {
 	return T_ELSE;
 }
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 787 "./zend-scanner.l"
+#line 789 "./zend-scanner.l"
 {
 	return T_WHILE;
 }
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
-#line 791 "./zend-scanner.l"
+#line 793 "./zend-scanner.l"
 {
 	return T_ENDWHILE;
 }
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 795 "./zend-scanner.l"
+#line 797 "./zend-scanner.l"
 {
 	return T_DO;
 }
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-#line 799 "./zend-scanner.l"
+#line 801 "./zend-scanner.l"
 {
 	return T_FOR;
 }
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-#line 803 "./zend-scanner.l"
+#line 805 "./zend-scanner.l"
 {
 	return T_ENDFOR;
 }
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
-#line 807 "./zend-scanner.l"
+#line 809 "./zend-scanner.l"
 {
 	return T_FOREACH;
 }
 	YY_BREAK
 case 17:
 YY_RULE_SETUP
-#line 811 "./zend-scanner.l"
+#line 813 "./zend-scanner.l"
 {
 	return T_ENDFOREACH;
 }
 	YY_BREAK
 case 18:
 YY_RULE_SETUP
-#line 815 "./zend-scanner.l"
+#line 817 "./zend-scanner.l"
 {
 	return T_DECLARE;
 }
 	YY_BREAK
 case 19:
 YY_RULE_SETUP
-#line 819 "./zend-scanner.l"
+#line 821 "./zend-scanner.l"
 {
 	return T_ENDDECLARE;
 }
 	YY_BREAK
 case 20:
 YY_RULE_SETUP
-#line 823 "./zend-scanner.l"
+#line 825 "./zend-scanner.l"
 {
 	return T_AS;
 }
 	YY_BREAK
 case 21:
 YY_RULE_SETUP
-#line 827 "./zend-scanner.l"
+#line 829 "./zend-scanner.l"
 {
 	return T_SWITCH;
 }
 	YY_BREAK
 case 22:
 YY_RULE_SETUP
-#line 831 "./zend-scanner.l"
+#line 833 "./zend-scanner.l"
 {
 	return T_ENDSWITCH;
 }
 	YY_BREAK
 case 23:
 YY_RULE_SETUP
-#line 835 "./zend-scanner.l"
+#line 837 "./zend-scanner.l"
 {
 	return T_CASE;
 }
 	YY_BREAK
 case 24:
 YY_RULE_SETUP
-#line 839 "./zend-scanner.l"
+#line 841 "./zend-scanner.l"
 {
 	return T_DEFAULT;
 }
 	YY_BREAK
 case 25:
 YY_RULE_SETUP
-#line 843 "./zend-scanner.l"
+#line 845 "./zend-scanner.l"
 {
 	return T_BREAK;
 }
 	YY_BREAK
 case 26:
 YY_RULE_SETUP
-#line 847 "./zend-scanner.l"
+#line 849 "./zend-scanner.l"
 {
 	return T_CONTINUE;
 }
 	YY_BREAK
 case 27:
 YY_RULE_SETUP
-#line 851 "./zend-scanner.l"
+#line 853 "./zend-scanner.l"
 {
 	return T_ECHO;
 }
 	YY_BREAK
 case 28:
 YY_RULE_SETUP
-#line 855 "./zend-scanner.l"
+#line 857 "./zend-scanner.l"
 {
 	return T_PRINT;
 }
 	YY_BREAK
 case 29:
 YY_RULE_SETUP
-#line 859 "./zend-scanner.l"
+#line 861 "./zend-scanner.l"
 {
 	return T_CLASS;
 }
 	YY_BREAK
 case 30:
 YY_RULE_SETUP
-#line 863 "./zend-scanner.l"
+#line 865 "./zend-scanner.l"
 {
 	return T_EXTENDS;
 }
 	YY_BREAK
 case 31:
 YY_RULE_SETUP
-#line 867 "./zend-scanner.l"
+#line 869 "./zend-scanner.l"
 {
 	yy_push_state(ST_LOOKING_FOR_PROPERTY);
 	return T_OBJECT_OPERATOR;
@@ -3784,7 +3786,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 32:
 YY_RULE_SETUP
-#line 872 "./zend-scanner.l"
+#line 874 "./zend-scanner.l"
 {
 	yy_pop_state();
 	zendlval->value.str.val = (char *)estrndup(yytext, yyleng);
@@ -3795,7 +3797,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 33:
 YY_RULE_SETUP
-#line 880 "./zend-scanner.l"
+#line 882 "./zend-scanner.l"
 {
 	/*unput(yytext[0]);*/
 	yyless(0);
@@ -3804,364 +3806,364 @@ YY_RULE_SETUP
 	YY_BREAK
 case 34:
 YY_RULE_SETUP
-#line 886 "./zend-scanner.l"
+#line 888 "./zend-scanner.l"
 {
 	return T_PAAMAYIM_NEKUDOTAYIM;
 }
 	YY_BREAK
 case 35:
 YY_RULE_SETUP
-#line 890 "./zend-scanner.l"
+#line 892 "./zend-scanner.l"
 {
 	return T_NEW;
 }
 	YY_BREAK
 case 36:
 YY_RULE_SETUP
-#line 894 "./zend-scanner.l"
+#line 896 "./zend-scanner.l"
 {
 	return T_VAR;
 }
 	YY_BREAK
 case 37:
 YY_RULE_SETUP
-#line 898 "./zend-scanner.l"
+#line 900 "./zend-scanner.l"
 {
 	return T_INT_CAST;
 }
 	YY_BREAK
 case 38:
 YY_RULE_SETUP
-#line 902 "./zend-scanner.l"
+#line 904 "./zend-scanner.l"
 {
 	return T_DOUBLE_CAST;
 }
 	YY_BREAK
 case 39:
 YY_RULE_SETUP
-#line 906 "./zend-scanner.l"
+#line 908 "./zend-scanner.l"
 {
 	return T_STRING_CAST;
 }
 	YY_BREAK
 case 40:
 YY_RULE_SETUP
-#line 910 "./zend-scanner.l"
+#line 912 "./zend-scanner.l"
 {
 	return T_ARRAY_CAST;
 }
 	YY_BREAK
 case 41:
 YY_RULE_SETUP
-#line 914 "./zend-scanner.l"
+#line 916 "./zend-scanner.l"
 {
 	return T_OBJECT_CAST;
 }
 	YY_BREAK
 case 42:
 YY_RULE_SETUP
-#line 918 "./zend-scanner.l"
+#line 920 "./zend-scanner.l"
 {
 	return T_BOOL_CAST;
 }
 	YY_BREAK
 case 43:
 YY_RULE_SETUP
-#line 922 "./zend-scanner.l"
+#line 924 "./zend-scanner.l"
 {
 	return T_UNSET_CAST;
 }
 	YY_BREAK
 case 44:
 YY_RULE_SETUP
-#line 926 "./zend-scanner.l"
+#line 928 "./zend-scanner.l"
 {
 	return T_EVAL;
 }
 	YY_BREAK
 case 45:
 YY_RULE_SETUP
-#line 930 "./zend-scanner.l"
+#line 932 "./zend-scanner.l"
 {
 	return T_INCLUDE;
 }
 	YY_BREAK
 case 46:
 YY_RULE_SETUP
-#line 934 "./zend-scanner.l"
+#line 936 "./zend-scanner.l"
 {
 	return T_INCLUDE_ONCE;
 }
 	YY_BREAK
 case 47:
 YY_RULE_SETUP
-#line 938 "./zend-scanner.l"
+#line 940 "./zend-scanner.l"
 {
 	return T_REQUIRE;
 }
 	YY_BREAK
 case 48:
 YY_RULE_SETUP
-#line 942 "./zend-scanner.l"
+#line 944 "./zend-scanner.l"
 {
 	return T_REQUIRE_ONCE;
 }
 	YY_BREAK
 case 49:
 YY_RULE_SETUP
-#line 946 "./zend-scanner.l"
+#line 948 "./zend-scanner.l"
 {
 	return T_USE;
 }
 	YY_BREAK
 case 50:
 YY_RULE_SETUP
-#line 950 "./zend-scanner.l"
+#line 952 "./zend-scanner.l"
 {
 	return T_GLOBAL;
 }
 	YY_BREAK
 case 51:
 YY_RULE_SETUP
-#line 954 "./zend-scanner.l"
+#line 956 "./zend-scanner.l"
 {
 	return T_ISSET;
 }
 	YY_BREAK
 case 52:
 YY_RULE_SETUP
-#line 958 "./zend-scanner.l"
+#line 960 "./zend-scanner.l"
 {
 	return T_EMPTY;
 }
 	YY_BREAK
 case 53:
 YY_RULE_SETUP
-#line 962 "./zend-scanner.l"
+#line 964 "./zend-scanner.l"
 {
 	return T_STATIC;
 }
 	YY_BREAK
 case 54:
 YY_RULE_SETUP
-#line 966 "./zend-scanner.l"
+#line 968 "./zend-scanner.l"
 {
 	return T_UNSET;
 }
 	YY_BREAK
 case 55:
 YY_RULE_SETUP
-#line 970 "./zend-scanner.l"
+#line 972 "./zend-scanner.l"
 {
 	return T_DOUBLE_ARROW;
 }
 	YY_BREAK
 case 56:
 YY_RULE_SETUP
-#line 974 "./zend-scanner.l"
+#line 976 "./zend-scanner.l"
 {
 	return T_LIST;
 }
 	YY_BREAK
 case 57:
 YY_RULE_SETUP
-#line 978 "./zend-scanner.l"
+#line 980 "./zend-scanner.l"
 {
 	return T_ARRAY;
 }
 	YY_BREAK
 case 58:
 YY_RULE_SETUP
-#line 982 "./zend-scanner.l"
+#line 984 "./zend-scanner.l"
 {
 	return T_INC;
 }
 	YY_BREAK
 case 59:
 YY_RULE_SETUP
-#line 986 "./zend-scanner.l"
+#line 988 "./zend-scanner.l"
 {
 	return T_DEC;
 }
 	YY_BREAK
 case 60:
 YY_RULE_SETUP
-#line 990 "./zend-scanner.l"
+#line 992 "./zend-scanner.l"
 {
 	return T_IS_IDENTICAL;
 }
 	YY_BREAK
 case 61:
 YY_RULE_SETUP
-#line 994 "./zend-scanner.l"
+#line 996 "./zend-scanner.l"
 {
 	return T_IS_NOT_IDENTICAL;
 }
 	YY_BREAK
 case 62:
 YY_RULE_SETUP
-#line 998 "./zend-scanner.l"
+#line 1000 "./zend-scanner.l"
 {
 	return T_IS_EQUAL;
 }
 	YY_BREAK
 case 63:
 YY_RULE_SETUP
-#line 1002 "./zend-scanner.l"
+#line 1004 "./zend-scanner.l"
 {
 	return T_IS_NOT_EQUAL;
 }
 	YY_BREAK
 case 64:
 YY_RULE_SETUP
-#line 1006 "./zend-scanner.l"
+#line 1008 "./zend-scanner.l"
 {
 	return T_IS_SMALLER_OR_EQUAL;
 }
 	YY_BREAK
 case 65:
 YY_RULE_SETUP
-#line 1010 "./zend-scanner.l"
+#line 1012 "./zend-scanner.l"
 {
 	return T_IS_GREATER_OR_EQUAL;
 }
 	YY_BREAK
 case 66:
 YY_RULE_SETUP
-#line 1014 "./zend-scanner.l"
+#line 1016 "./zend-scanner.l"
 {
 	return T_PLUS_EQUAL;
 }
 	YY_BREAK
 case 67:
 YY_RULE_SETUP
-#line 1018 "./zend-scanner.l"
+#line 1020 "./zend-scanner.l"
 {
 	return T_MINUS_EQUAL;
 }
 	YY_BREAK
 case 68:
 YY_RULE_SETUP
-#line 1022 "./zend-scanner.l"
+#line 1024 "./zend-scanner.l"
 {
 	return T_MUL_EQUAL;
 }
 	YY_BREAK
 case 69:
 YY_RULE_SETUP
-#line 1026 "./zend-scanner.l"
+#line 1028 "./zend-scanner.l"
 {
 	return T_DIV_EQUAL;
 }
 	YY_BREAK
 case 70:
 YY_RULE_SETUP
-#line 1030 "./zend-scanner.l"
+#line 1032 "./zend-scanner.l"
 {
 	return T_CONCAT_EQUAL;
 }
 	YY_BREAK
 case 71:
 YY_RULE_SETUP
-#line 1035 "./zend-scanner.l"
+#line 1037 "./zend-scanner.l"
 {
 	return T_MOD_EQUAL;
 }
 	YY_BREAK
 case 72:
 YY_RULE_SETUP
-#line 1039 "./zend-scanner.l"
+#line 1041 "./zend-scanner.l"
 {
 	return T_SL_EQUAL;
 }
 	YY_BREAK
 case 73:
 YY_RULE_SETUP
-#line 1043 "./zend-scanner.l"
+#line 1045 "./zend-scanner.l"
 {
 	return T_SR_EQUAL;
 }
 	YY_BREAK
 case 74:
 YY_RULE_SETUP
-#line 1047 "./zend-scanner.l"
+#line 1049 "./zend-scanner.l"
 {
 	return T_AND_EQUAL;
 }
 	YY_BREAK
 case 75:
 YY_RULE_SETUP
-#line 1051 "./zend-scanner.l"
+#line 1053 "./zend-scanner.l"
 {
 	return T_OR_EQUAL;
 }
 	YY_BREAK
 case 76:
 YY_RULE_SETUP
-#line 1055 "./zend-scanner.l"
+#line 1057 "./zend-scanner.l"
 {
-	return XT_OR_EQUAL;
+	return T_XOR_EQUAL;
 }
 	YY_BREAK
 case 77:
 YY_RULE_SETUP
-#line 1059 "./zend-scanner.l"
+#line 1061 "./zend-scanner.l"
 {
 	return T_BOOLEAN_OR;
 }
 	YY_BREAK
 case 78:
 YY_RULE_SETUP
-#line 1063 "./zend-scanner.l"
+#line 1065 "./zend-scanner.l"
 {
 	return T_BOOLEAN_AND;
 }
 	YY_BREAK
 case 79:
 YY_RULE_SETUP
-#line 1067 "./zend-scanner.l"
+#line 1069 "./zend-scanner.l"
 {
 	return T_LOGICAL_OR;
 }
 	YY_BREAK
 case 80:
 YY_RULE_SETUP
-#line 1071 "./zend-scanner.l"
+#line 1073 "./zend-scanner.l"
 {
 	return T_LOGICAL_AND;
 }
 	YY_BREAK
 case 81:
 YY_RULE_SETUP
-#line 1075 "./zend-scanner.l"
+#line 1077 "./zend-scanner.l"
 {
 	return T_LOGICAL_XOR;
 }
 	YY_BREAK
 case 82:
 YY_RULE_SETUP
-#line 1079 "./zend-scanner.l"
+#line 1081 "./zend-scanner.l"
 {
 	return T_SL;
 }
 	YY_BREAK
 case 83:
 YY_RULE_SETUP
-#line 1083 "./zend-scanner.l"
+#line 1085 "./zend-scanner.l"
 {
 	return T_SR;
 }
 	YY_BREAK
 case 84:
 YY_RULE_SETUP
-#line 1087 "./zend-scanner.l"
+#line 1089 "./zend-scanner.l"
 {
 	return yytext[0];
 }
 	YY_BREAK
 case 85:
 YY_RULE_SETUP
-#line 1092 "./zend-scanner.l"
+#line 1094 "./zend-scanner.l"
 {
 	yy_push_state(ST_IN_SCRIPTING);
 	return '{';
@@ -4169,7 +4171,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 86:
 YY_RULE_SETUP
-#line 1098 "./zend-scanner.l"
+#line 1100 "./zend-scanner.l"
 {
 	yy_push_state(ST_LOOKING_FOR_VARNAME);
 	return T_DOLLAR_OPEN_CURLY_BRACES;
@@ -4177,7 +4179,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 87:
 YY_RULE_SETUP
-#line 1104 "./zend-scanner.l"
+#line 1106 "./zend-scanner.l"
 {
 	/* This is a temporary fix which is dependant on flex and it's implementation */
 	if (yy_start_stack_ptr) {
@@ -4188,7 +4190,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 88:
 YY_RULE_SETUP
-#line 1113 "./zend-scanner.l"
+#line 1115 "./zend-scanner.l"
 {
 	zendlval->value.str.val = (char *) estrndup(yytext, yyleng);
 	zendlval->value.str.len = yyleng;
@@ -4200,7 +4202,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 89:
 YY_RULE_SETUP
-#line 1123 "./zend-scanner.l"
+#line 1125 "./zend-scanner.l"
 {
 	/*unput(yytext[0]);*/
 	yyless(0);
@@ -4210,7 +4212,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 90:
 YY_RULE_SETUP
-#line 1131 "./zend-scanner.l"
+#line 1133 "./zend-scanner.l"
 {
 	errno = 0;
 	zendlval->value.lval = strtol(yytext, NULL, 0);
@@ -4226,7 +4228,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 91:
 YY_RULE_SETUP
-#line 1144 "./zend-scanner.l"
+#line 1146 "./zend-scanner.l"
 { /* treat numbers (almost) as strings inside encapsulated strings */
 	zendlval->value.str.val = (char *)estrndup(yytext, yyleng);
 	zendlval->value.str.len = yyleng;
@@ -4236,7 +4238,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 92:
 YY_RULE_SETUP
-#line 1151 "./zend-scanner.l"
+#line 1153 "./zend-scanner.l"
 {
 	zendlval->value.dval = strtod(yytext,NULL);
 	zendlval->type = IS_DOUBLE;
@@ -4245,7 +4247,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 93:
 YY_RULE_SETUP
-#line 1157 "./zend-scanner.l"
+#line 1159 "./zend-scanner.l"
 {
 	zendlval->value.lval = CG(zend_lineno);
 	zendlval->type = IS_LONG;
@@ -4254,7 +4256,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 94:
 YY_RULE_SETUP
-#line 1163 "./zend-scanner.l"
+#line 1165 "./zend-scanner.l"
 {
 	char *filename = zend_get_compiled_filename(CLS_C);
 	
@@ -4269,7 +4271,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 95:
 YY_RULE_SETUP
-#line 1176 "./zend-scanner.l"
+#line 1178 "./zend-scanner.l"
 {
 	zendlval->value.str.val = (char *) estrndup(yytext, yyleng);
 	zendlval->value.str.len = yyleng;
@@ -4280,7 +4282,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 96:
 YY_RULE_SETUP
-#line 1184 "./zend-scanner.l"
+#line 1186 "./zend-scanner.l"
 {
 	HANDLE_NEWLINES(yytext,yyleng);
 	if (CG(short_tags) || yyleng>2) { /* yyleng>2 means it's not <? but <script> */
@@ -4299,7 +4301,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 97:
 YY_RULE_SETUP
-#line 1201 "./zend-scanner.l"
+#line 1203 "./zend-scanner.l"
 {
 	if ((yytext[1]=='%' && CG(asp_tags))
 		|| (yytext[1]=='?' && CG(short_tags))) {
@@ -4318,13 +4320,14 @@ YY_RULE_SETUP
 	YY_BREAK
 case 98:
 YY_RULE_SETUP
-#line 1218 "./zend-scanner.l"
+#line 1220 "./zend-scanner.l"
 {
 	if (CG(asp_tags)) {
 		zendlval->value.str.val = yytext; /* no copying - intentional */
 		zendlval->value.str.len = yyleng;
 		zendlval->type = IS_STRING;
 		BEGIN(ST_IN_SCRIPTING);
+		return T_OPEN_TAG;
 	} else {
 		zendlval->value.str.val = (char *) estrndup(yytext, yyleng);
 		zendlval->value.str.len = yyleng;
@@ -4335,7 +4338,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 99:
 YY_RULE_SETUP
-#line 1233 "./zend-scanner.l"
+#line 1236 "./zend-scanner.l"
 {
 	zendlval->value.str.val = yytext; /* no copying - intentional */
 	zendlval->value.str.len = yyleng;
@@ -4347,16 +4350,19 @@ YY_RULE_SETUP
 	YY_BREAK
 case 100:
 YY_RULE_SETUP
-#line 1243 "./zend-scanner.l"
+#line 1246 "./zend-scanner.l"
 {
-	zend_message_dispatcher(ZMSG_ENABLE_TRACK_VARS, NULL);
+	zend_error(E_WARNING, "<?php_track_vars?> is no longer supported - please use the track_vars INI directive instead");
 	HANDLE_NEWLINE(yytext[yyleng-1]);
-	return T_PHP_TRACK_VARS;
+	zendlval->value.str.val = (char *) estrndup(yytext, yyleng);
+	zendlval->value.str.len = yyleng;
+	zendlval->type = IS_STRING;
+	return T_INLINE_HTML;
 }
 	YY_BREAK
 case 101:
 YY_RULE_SETUP
-#line 1249 "./zend-scanner.l"
+#line 1255 "./zend-scanner.l"
 {
 	zendlval->value.str.val = (char *)estrndup(yytext+1, yyleng-1);
 	zendlval->value.str.len = yyleng-1;
@@ -4366,7 +4372,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 102:
 YY_RULE_SETUP
-#line 1257 "./zend-scanner.l"
+#line 1263 "./zend-scanner.l"
 {
 	zendlval->value.str.val = (char *)estrndup(yytext, yyleng);
 	zendlval->value.str.len = yyleng;
@@ -4376,7 +4382,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 103:
 YY_RULE_SETUP
-#line 1265 "./zend-scanner.l"
+#line 1271 "./zend-scanner.l"
 {
 	zendlval->value.str.val = (char *)estrndup(yytext, yyleng);
 	zendlval->value.str.len = yyleng;
@@ -4386,7 +4392,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 104:
 YY_RULE_SETUP
-#line 1273 "./zend-scanner.l"
+#line 1279 "./zend-scanner.l"
 {
 	zendlval->value.str.val = yytext; /* no copying - intentional */
 	zendlval->value.str.len = yyleng;
@@ -4397,7 +4403,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 105:
 YY_RULE_SETUP
-#line 1282 "./zend-scanner.l"
+#line 1288 "./zend-scanner.l"
 { /* eat one line comments */
 	HANDLE_NEWLINE(yytext[yyleng-1]);
 	return T_COMMENT;
@@ -4405,7 +4411,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 106:
 YY_RULE_SETUP
-#line 1287 "./zend-scanner.l"
+#line 1293 "./zend-scanner.l"
 {
 	CG(comment_start_line) = CG(zend_lineno);
 	BEGIN(ST_COMMENT);
@@ -4414,14 +4420,14 @@ YY_RULE_SETUP
 	YY_BREAK
 case 107:
 YY_RULE_SETUP
-#line 1294 "./zend-scanner.l"
+#line 1300 "./zend-scanner.l"
 {
 	yymore();
 }
 	YY_BREAK
 case 108:
 YY_RULE_SETUP
-#line 1298 "./zend-scanner.l"
+#line 1304 "./zend-scanner.l"
 {
 	HANDLE_NEWLINES(yytext, yyleng);
 	BEGIN(ST_IN_SCRIPTING);
@@ -4430,14 +4436,14 @@ YY_RULE_SETUP
 	YY_BREAK
 case 109:
 YY_RULE_SETUP
-#line 1304 "./zend-scanner.l"
+#line 1310 "./zend-scanner.l"
 {
 	yymore();
 }
 	YY_BREAK
 case 110:
 YY_RULE_SETUP
-#line 1308 "./zend-scanner.l"
+#line 1314 "./zend-scanner.l"
 {
 	zendlval->value.str.val = yytext; /* no copying - intentional */
 	zendlval->value.str.len = yyleng;
@@ -4449,7 +4455,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 111:
 YY_RULE_SETUP
-#line 1318 "./zend-scanner.l"
+#line 1324 "./zend-scanner.l"
 {
 	zendlval->value.str.len = yyleng;
 	zendlval->type = IS_STRING;
@@ -4466,7 +4472,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 112:
 YY_RULE_SETUP
-#line 1333 "./zend-scanner.l"
+#line 1339 "./zend-scanner.l"
 {
 	register char *s, *t;
 	char *end;
@@ -4550,7 +4556,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 113:
 YY_RULE_SETUP
-#line 1415 "./zend-scanner.l"
+#line 1421 "./zend-scanner.l"
 {
 	register char *s, *t;
 	char *end;
@@ -4592,7 +4598,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 114:
 YY_RULE_SETUP
-#line 1455 "./zend-scanner.l"
+#line 1461 "./zend-scanner.l"
 {
 	BEGIN(ST_DOUBLE_QUOTES);
 	return '\"';
@@ -4600,7 +4606,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 115:
 YY_RULE_SETUP
-#line 1461 "./zend-scanner.l"
+#line 1467 "./zend-scanner.l"
 {
 	char *s;
 	CG(zend_lineno)++;
@@ -4617,7 +4623,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 116:
 YY_RULE_SETUP
-#line 1476 "./zend-scanner.l"
+#line 1482 "./zend-scanner.l"
 {
 	BEGIN(ST_BACKQUOTE);
 	return '`';
@@ -4625,7 +4631,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 117:
 YY_RULE_SETUP
-#line 1482 "./zend-scanner.l"
+#line 1488 "./zend-scanner.l"
 {
 	BEGIN(ST_SINGLE_QUOTE);
 	return '\'';
@@ -4633,7 +4639,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 118:
 YY_RULE_SETUP
-#line 1488 "./zend-scanner.l"
+#line 1494 "./zend-scanner.l"
 {
 	int label_len;
 	unsigned char unput_semicolon;
@@ -4673,7 +4679,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 119:
 YY_RULE_SETUP
-#line 1526 "./zend-scanner.l"
+#line 1532 "./zend-scanner.l"
 {
 	HANDLE_NEWLINES(yytext,yyleng);
 	zendlval->value.str.val = (char *) estrndup(yytext, yyleng);
@@ -4684,7 +4690,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 120:
 YY_RULE_SETUP
-#line 1534 "./zend-scanner.l"
+#line 1540 "./zend-scanner.l"
 {
 	HANDLE_NEWLINES(yytext,yyleng);
 	zendlval->value.str.val = (char *) estrndup(yytext, yyleng);
@@ -4695,7 +4701,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 121:
 YY_RULE_SETUP
-#line 1543 "./zend-scanner.l"
+#line 1549 "./zend-scanner.l"
 {
 	zendlval->value.str.val = (char *) estrndup(yytext, yyleng);
 	zendlval->value.str.len = yyleng;
@@ -4705,7 +4711,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 122:
 YY_RULE_SETUP
-#line 1551 "./zend-scanner.l"
+#line 1557 "./zend-scanner.l"
 {
 	zendlval->value.str.val = (char *) estrndup(yytext, yyleng);
 	zendlval->value.str.len = yyleng;
@@ -4715,7 +4721,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 123:
 YY_RULE_SETUP
-#line 1559 "./zend-scanner.l"
+#line 1565 "./zend-scanner.l"
 {
 	zendlval->value.lval = (long) yytext[0];
 	if (yyleng == 2) {
@@ -4729,7 +4735,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 124:
 YY_RULE_SETUP
-#line 1571 "./zend-scanner.l"
+#line 1577 "./zend-scanner.l"
 {
 	zendlval->value.lval = (long) yytext[0];
 	return yytext[0];
@@ -4737,7 +4743,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 125:
 YY_RULE_SETUP
-#line 1576 "./zend-scanner.l"
+#line 1582 "./zend-scanner.l"
 {
 	zendlval->value.lval = (long) yytext[0];
 	yy_push_state(ST_IN_SCRIPTING);
@@ -4748,7 +4754,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 126:
 YY_RULE_SETUP
-#line 1585 "./zend-scanner.l"
+#line 1591 "./zend-scanner.l"
 {
 	zendlval->value.lval = (long) '\'';
 	return T_CHARACTER;
@@ -4756,7 +4762,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 127:
 YY_RULE_SETUP
-#line 1590 "./zend-scanner.l"
+#line 1596 "./zend-scanner.l"
 {
 	zendlval->value.lval = (long)'\\';
 	return T_CHARACTER;
@@ -4764,7 +4770,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 128:
 YY_RULE_SETUP
-#line 1595 "./zend-scanner.l"
+#line 1601 "./zend-scanner.l"
 {
 	zendlval->value.lval = (long) '"';
 	return T_CHARACTER;
@@ -4772,7 +4778,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 129:
 YY_RULE_SETUP
-#line 1600 "./zend-scanner.l"
+#line 1606 "./zend-scanner.l"
 {
 	zendlval->value.lval = (long) '`';
 	return T_CHARACTER;
@@ -4780,7 +4786,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 130:
 YY_RULE_SETUP
-#line 1605 "./zend-scanner.l"
+#line 1611 "./zend-scanner.l"
 {
 	zendlval->value.lval = strtol(yytext+1, NULL, 8);
 	return T_CHARACTER;
@@ -4788,7 +4794,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 131:
 YY_RULE_SETUP
-#line 1610 "./zend-scanner.l"
+#line 1616 "./zend-scanner.l"
 {
 	zendlval->value.lval = strtol (yytext+2, NULL, 16);
 	return T_CHARACTER;
@@ -4796,7 +4802,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 132:
 YY_RULE_SETUP
-#line 1615 "./zend-scanner.l"
+#line 1621 "./zend-scanner.l"
 {
 	switch (yytext[1]) {
 		case 'n':
@@ -4829,7 +4835,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 133:
 YY_RULE_SETUP
-#line 1646 "./zend-scanner.l"
+#line 1652 "./zend-scanner.l"
 {
 	zendlval->value.str.val = (char *) estrndup(yytext, yyleng);
 	zendlval->value.str.len = yyleng;
@@ -4839,7 +4845,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 134:
 YY_RULE_SETUP
-#line 1654 "./zend-scanner.l"
+#line 1660 "./zend-scanner.l"
 {
 	BEGIN(ST_IN_SCRIPTING);
 	return '\"';
@@ -4847,7 +4853,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 135:
 YY_RULE_SETUP
-#line 1660 "./zend-scanner.l"
+#line 1666 "./zend-scanner.l"
 {
 	BEGIN(ST_IN_SCRIPTING);
 	return '`';
@@ -4855,7 +4861,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 136:
 YY_RULE_SETUP
-#line 1666 "./zend-scanner.l"
+#line 1672 "./zend-scanner.l"
 {
 	BEGIN(ST_IN_SCRIPTING);
 	return '\'';
@@ -4866,13 +4872,13 @@ case YY_STATE_EOF(ST_BACKQUOTE):
 case YY_STATE_EOF(INITIAL):
 case YY_STATE_EOF(ST_IN_SCRIPTING):
 case YY_STATE_EOF(ST_LOOKING_FOR_PROPERTY):
-#line 1672 "./zend-scanner.l"
+#line 1678 "./zend-scanner.l"
 {
 	return 0;
 }
 	YY_BREAK
 case YY_STATE_EOF(ST_COMMENT):
-#line 1676 "./zend-scanner.l"
+#line 1682 "./zend-scanner.l"
 {
 	zend_error(E_COMPILE_WARNING,"Unterminated comment starting line %d", CG(comment_start_line));
 	return 0;
@@ -4880,17 +4886,17 @@ case YY_STATE_EOF(ST_COMMENT):
 	YY_BREAK
 case 137:
 YY_RULE_SETUP
-#line 1683 "./zend-scanner.l"
+#line 1689 "./zend-scanner.l"
 {
 	zend_error(E_COMPILE_WARNING,"Unexpected character in input:  '%c' (ASCII=%d) state=%d",yytext[0],yytext[0],YYSTATE);
 }
 	YY_BREAK
 case 138:
 YY_RULE_SETUP
-#line 1686 "./zend-scanner.l"
+#line 1692 "./zend-scanner.l"
 ECHO;
 	YY_BREAK
-#line 4894 "zend-scanner-cc.cc"
+#line 4900 "zend-scanner-cc.cc"
 case YY_STATE_EOF(ST_SINGLE_QUOTE):
 case YY_STATE_EOF(ST_HEREDOC):
 case YY_STATE_EOF(ST_LOOKING_FOR_VARNAME):
@@ -5701,4 +5707,4 @@ int main()
 	return 0;
 	}
 #endif
-#line 1686 "./zend-scanner.l"
+#line 1692 "./zend-scanner.l"

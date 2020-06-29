@@ -19,7 +19,7 @@
  */
 
 
-/* $Id: datetime.c,v 1.38 2000/05/18 15:34:35 zeev Exp $ */
+/* $Id: datetime.c,v 1.49 2000/06/25 17:55:13 eschmid Exp $ */
 
 
 #include "php.h"
@@ -54,6 +54,7 @@ char *day_short_names[] =
 
 #if !defined(HAVE_TM_ZONE) && !defined(_TIMEZONE) && !defined(HAVE_DECLARED_TIMEZONE)
 extern time_t timezone;
+extern int daylight;
 #endif
 
 static int phpday_tab[2][12] =
@@ -64,7 +65,7 @@ static int phpday_tab[2][12] =
 
 #define isleap(year) (((year%4) == 0 && (year%100)!=0) || (year%400)==0)
 
-extern PHPAPI time_t parsedate(char *p, struct timeval *now);
+extern PHPAPI time_t parse_date (const char *p, const time_t *now);
 
 /* {{{ proto int time(void)
    Return current UNIX timestamp */
@@ -79,7 +80,8 @@ void php_mktime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 	pval **arguments[7];
 	struct tm *ta, tmbuf;
 	time_t t;
-	int i, gmadjust, seconds, arg_count = ARG_COUNT(ht);
+	int i, gmadjust, seconds, arg_count = ZEND_NUM_ARGS();
+	int is_dst = -1;
 
 	if (arg_count > 7 || zend_get_parameters_array_ex(arg_count,arguments) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -115,7 +117,7 @@ void php_mktime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 	*/
 	switch(arg_count) {
 	case 7:
-		ta->tm_isdst = (*arguments[6])->value.lval;
+		ta->tm_isdst = is_dst = (*arguments[6])->value.lval;
 		/* fall-through */
 	case 6:
 		/*
@@ -154,6 +156,8 @@ void php_mktime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 	}
 
 	seconds = mktime(ta);
+	if (is_dst == -1)
+		is_dst = ta->tm_isdst;
 
 	if (gm) {
 #if HAVE_TM_GMTOFF
@@ -164,11 +168,11 @@ void php_mktime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 	    gmadjust = ta->tm_gmtoff;
 #else
 	    /*
-	    ** Without tm_gmtoff, the non-ANSI C run-time global 'timezone'
-	    ** variable simply returns the current Winter GMT offset
-	    ** in the current locale (defined in DOS/Windows compilers).
+	    ** If correcting for daylight savings time, we set the adjustment to
+		** the value of timezone - 3600 seconds. Otherwise, we need to overcorrect and
+		** set the adjustment to the main timezone + 3600 seconds.
 	    */
-	    gmadjust = timezone;
+	    gmadjust = -(is_dst ? timezone - 3600 : timezone + 3600);
 #endif
 		seconds += gmadjust;
 	}
@@ -176,7 +180,7 @@ void php_mktime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 	RETURN_LONG(seconds);
 }
 
-/* {{{ proto int mktime(int hour, int min, int sec, int mon, int mday, int year)
+/* {{{ proto int mktime(int hour, int min, int sec, int mon, int day, int year)
    Get UNIX timestamp for a date */
 PHP_FUNCTION(mktime)
 {
@@ -184,7 +188,7 @@ PHP_FUNCTION(mktime)
 }
 /* }}} */
 
-/* {{{ proto int gmmktime(int hour, int min, int sec, int mon, int mday, int year)
+/* {{{ proto int gmmktime(int hour, int min, int sec, int mon, int day, int year)
    Get UNIX timestamp for a GMT date */
 PHP_FUNCTION(gmmktime)
 {
@@ -201,7 +205,7 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 	int i, size = 0, length, h, beat;
 	char tmp_buff[16];
 
-	switch(ARG_COUNT(ht)) {
+	switch(ZEND_NUM_ARGS()) {
 	case 1:
 		if (zend_get_parameters_ex(1, &format) == FAILURE) {
 			WRONG_PARAM_COUNT;
@@ -404,9 +408,9 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 				break;
 			case 'Z':		/* timezone offset in seconds */
 #if HAVE_TM_GMTOFF
-				sprintf(tmp_buff, "%ld", ta->tm_gmtoff );
+				sprintf(tmp_buff, "%ld", ta->tm_gmtoff);
 #else
-				sprintf(tmp_buff, "%ld", timezone);
+				sprintf(tmp_buff, "%ld", ta->tm_isdst ? timezone - 3600 : timezone);
 #endif
 				strcat(return_value->value.str.val, tmp_buff);
 				break;
@@ -467,7 +471,7 @@ PHP_FUNCTION(localtime)
 	struct tm *ta, tmbuf;
 	time_t timestamp;
 	int assoc_array = 0;
-	int arg_count = ARG_COUNT(ht);
+	int arg_count = ZEND_NUM_ARGS();
 
 	if (arg_count < 0 || arg_count > 2 ||
 		zend_get_parameters_ex(arg_count, &timestamp_arg, &assoc_array_arg) == FAILURE) {
@@ -527,9 +531,9 @@ PHP_FUNCTION(getdate)
 	struct tm *ta, tmbuf;
 	time_t timestamp;
 
-	if (ARG_COUNT(ht) == 0) {
+	if (ZEND_NUM_ARGS() == 0) {
 		timestamp = time(NULL);
-	} else if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1,&timestamp_arg) == FAILURE) {
+	} else if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1,&timestamp_arg) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	} else {
 		convert_to_long_ex(timestamp_arg);
@@ -594,11 +598,18 @@ char *php_std_date(time_t t)
 PHP_FUNCTION(checkdate)
 {
 	pval **month, **day, **year;
-	int m, d, y;
+	int m, d, y, res=0;
 	
-	if (ARG_COUNT(ht) != 3 ||
+	if (ZEND_NUM_ARGS() != 3 ||
 		zend_get_parameters_ex(3, &month, &day, &year) == FAILURE) {
 		WRONG_PARAM_COUNT;
+	}
+
+	if((*year)->type == IS_STRING) {
+		res = is_numeric_string((*year)->value.str.val, (*year)->value.str.len, NULL, NULL);
+		if(res!=IS_LONG && res !=IS_DOUBLE) {
+			RETURN_FALSE;	
+		}
 	}
 	convert_to_long_ex(day);
 	convert_to_long_ex(month);
@@ -633,7 +644,7 @@ void _php_strftime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 	int max_reallocs = 5;
 	size_t buf_len=64, real_len;
 
-	switch (ARG_COUNT(ht)) {
+	switch (ZEND_NUM_ARGS()) {
 		case 1:
 			if (zend_get_parameters_ex(1,&format_arg)==FAILURE) {
 				RETURN_FALSE;
@@ -654,6 +665,9 @@ void _php_strftime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 
 	convert_to_string_ex(format_arg);
 	if ((*format_arg)->value.str.len==0) {
+		RETURN_FALSE;
+	}
+	if (timestamp < 0) {
 		RETURN_FALSE;
 	}
 	format = (*format_arg)->value.str.val;
@@ -699,28 +713,27 @@ PHP_FUNCTION(gmstrftime)
    Convert string representation of date and time to a timestamp */
 PHP_FUNCTION(strtotime)
 {
-	pval	**timep, **nowp;
-	int 	 ac;
-	struct timeval tv;
+	zval	**z_time, **z_now;
+	int 	 argc;
+	time_t now;
 
-	ac = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 
-	if (ac < 1 || ac > 2 || zend_get_parameters_ex(ac, &timep,&nowp)==FAILURE) {
+	if (argc < 1 || argc > 2 || zend_get_parameters_ex(argc, &z_time, &z_now)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
-	convert_to_string_ex(timep);
-	if (ac == 2) {
-		convert_to_long_ex(nowp);
-		tv.tv_sec = (*nowp)->value.lval;
-		tv.tv_usec = 0;
-		RETURN_LONG(parsedate((*timep)->value.str.val, &tv));
+	convert_to_string_ex(z_time);
+	if (argc == 2) {
+		convert_to_long_ex(z_now);
+		now = Z_LVAL_PP(z_now);
+		RETURN_LONG(parse_date(Z_STRVAL_PP(z_time), &now));
 	} else {
-		RETURN_LONG(parsedate((*timep)->value.str.val, NULL));
+		RETURN_LONG(parse_date(Z_STRVAL_PP(z_time), NULL));
 	}
 }
-
 /* }}} */
+
 
 /*
  * Local variables:

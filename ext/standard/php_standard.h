@@ -28,10 +28,10 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_standard.h,v 1.3 2000/03/06 20:37:11 ssb Exp $ */
+/* $Id: php_standard.h,v 1.5 2000/06/13 16:31:57 sas Exp $ */
 
 #include "basic_functions.h"
-#include "phpmath.h"
+#include "php_math.h"
 #include "php_string.h"
 #include "base64.h"
 #include "php_dir.h"
@@ -42,7 +42,7 @@
 #include "html.h"
 #include "exec.h"
 #include "file.h"
-#include "php_syslog.h"
+#include "php_ext_syslog.h"
 #include "php_filestat.h"
 #include "php_browscap.h"
 #include "pack.h"

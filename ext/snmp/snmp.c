@@ -17,13 +17,10 @@
 |          Steven Lawrance <slawrance@technologist.com>                |
 +----------------------------------------------------------------------+
 */
-/* $Id: snmp.c,v 1.31 2000/05/18 15:34:34 zeev Exp $ */
+/* $Id: snmp.c,v 1.34 2000/06/24 15:31:11 sas Exp $ */
 
 #include "php.h"
 #include "ext/standard/info.h"
-#if defined(COMPILE_DL) || defined(COMPILE_DL_SNMP)
-#include "dl/phpdl.h"
-#endif
 #include "php_snmp.h"
 #include <sys/types.h>
 #ifdef PHP_WIN32
@@ -92,7 +89,7 @@ zend_module_entry snmp_module_entry = {
 	"snmp",snmp_functions,PHP_MINIT(snmp),NULL,NULL,NULL,PHP_MINFO(snmp),STANDARD_MODULE_PROPERTIES
 };
 
-#if defined(COMPILE_DL) || defined(COMPILE_DL_SNMP)
+#ifdef COMPILE_DL_SNMP
 ZEND_GET_MODULE(snmp)
 #endif
 
@@ -139,7 +136,7 @@ void php_snmp(INTERNAL_FUNCTION_PARAMETERS, int st) {
 	int keepwalking=1;
 	long timeout=SNMP_DEFAULT_TIMEOUT;
 	long retries=SNMP_DEFAULT_RETRIES;
-	int myargc = ARG_COUNT(ht);
+	int myargc = ZEND_NUM_ARGS();
     char type = (char) 0;
     char *value = (char *) 0;
 	
@@ -362,7 +359,7 @@ PHP_FUNCTION(snmp_get_quick_print) {
    Return all objects including their respective object id withing the specified one */
 PHP_FUNCTION(snmp_set_quick_print) {
 	zval **a1;
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &a1) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &a1) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long_ex(a1);

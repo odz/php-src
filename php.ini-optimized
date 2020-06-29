@@ -93,6 +93,14 @@ safe_mode_protected_env_vars = LD_LIBRARY_PATH		; This directive contains a comm
 													; even if safe_mode_allowed_env_vars is
 													; set to allow to change them.
 
+
+disable_functions	=								; This directive allows you to disable certain
+													; functions for security reasons.  It receives
+													; a comma separated list of function names.
+													; This directive is *NOT* affected by whether
+													; Safe Mode is turned on or off.
+
+
 ; Colors for Syntax Highlighting mode.  Anything that's acceptable in <font color=???> would work.
 highlight.string	=	#DD0000
 highlight.comment	=	#FF8000
@@ -113,7 +121,7 @@ expose_php	=	On		; Decides whether PHP may expose the fact that it is installed 
 ; Resource Limits ;
 ;;;;;;;;;;;;;;;;;;;
 
-max_execution_time = 30     ; Maximum execution time of each script, in seconds (UNIX only)
+max_execution_time = 30     ; Maximum execution time of each script, in seconds
 memory_limit = 8388608		; Maximum amount of memory a script may consume (8MB)
 
 
@@ -197,6 +205,10 @@ user_dir		=					; the directory under which php opens the script using /~usernam
 ;upload_tmp_dir	=	                ; temporary directory for HTTP uploaded files (will use system default if not specified)
 upload_max_filesize = 2097152       ; 2 Meg default limit on file uploads
 extension_dir	=	./				; directory in which the loadable extensions (modules) reside
+enable_dl		= On				; Whether or not to enable the dl() function.
+									; The dl() function does NOT properly work in multithreaded
+									; servers, such as IIS or Zeus, and is automatically disabled
+									; on them.
 
 
 ;;;;;;;;;;;;;;;;;;;;;;
@@ -280,6 +292,8 @@ mysql.default_port		=		; default port number for mysql_connect().  If unset,
 								; mysql_connect() will use the $MYSQL_TCP_PORT, or the mysql-tcp
 								; entry in /etc/services, or the compile-time defined MYSQL_PORT
 								; (in that order).  Win32 will only look at MYSQL_PORT.
+mysql.default_socket	=		; default socket name for local MySQL connects.  If empty, uses the built-in
+								; MySQL defaults
 mysql.default_host		=		; default host for mysql_connect() (doesn't apply in safe mode)
 mysql.default_user		=		; default user for mysql_connect() (doesn't apply in safe mode)
 mysql.default_password	=		; default password for mysql_connect() (doesn't apply in safe mode)

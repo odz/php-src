@@ -16,7 +16,7 @@
    |          Stefan Röhrich <sr@linux.de>                                |
    +----------------------------------------------------------------------+
  */
-/* $Id: zlib.c,v 1.42 2000/05/18 15:34:39 zeev Exp $ */
+/* $Id: zlib.c,v 1.50 2000/06/26 18:19:35 andi Exp $ */
 #define IS_EXT_MODULE
 
 #include "php.h"
@@ -56,8 +56,7 @@
 
 #include <zlib.h>
 
-#if defined(COMPILE_DL) || defined(COMPILE_DL_ZLIB)
-#include "dl/phpdl.h"
+#ifdef COMPILE_DL_ZLIB
 #ifndef PUTS
 #define PUTS(a) php_printf("%s",a)
 #endif
@@ -95,6 +94,8 @@ function_entry php_zlib_functions[] = {
 	PHP_FE(gzwrite,						NULL)
 	PHP_FALIAS(gzputs,		gzwrite,	NULL)
 	PHP_FE(gzfile,						NULL)
+	PHP_FE(gzcompress,                  NULL)
+	PHP_FE(gzuncompress,                NULL)
 	{NULL, NULL, NULL}
 };
 
@@ -109,7 +110,7 @@ zend_module_entry php_zlib_module_entry = {
 	STANDARD_MODULE_PROPERTIES
 };
 
-#if defined(COMPILE_DL) || defined(COMPILE_DL_ZLIB)
+#ifdef COMPILE_DL_ZLIB
 ZEND_GET_MODULE(php_zlib)
 #endif
 
@@ -149,129 +150,16 @@ PHP_MINFO_FUNCTION(zlib)
 	php_info_print_table_end();
 }
 
-static gzFile *php_gzopen_with_path(char *filename, char *mode, char *path, char **opened_path);
-
 static gzFile php_gzopen_wrapper(char *path, char *mode, int options)
 {
-	PLS_FETCH();
-	
-	if (options & USE_PATH && PG(include_path) != NULL) {
-		return php_gzopen_with_path(path, mode, PG(include_path), NULL);
-	}
-	else {
-		if (options & ENFORCE_SAFE_MODE && PG(safe_mode) && (!php_checkuid(path,1))) {
-			return NULL;
-		}
-		if (php_check_open_basedir(path)) return NULL;
-		return gzopen(path, mode);
-	}
-}
+	FILE *f;
 
-/*
- * Tries to open a .gz-file with a PATH-style list of directories.
- * If the filename starts with "." or "/", the path is ignored.
- */
-static gzFile *php_gzopen_with_path(char *filename, char *mode, char *path, char **opened_path)
-{
-	char *pathbuf, *ptr, *end;
-	char trypath[MAXPATHLEN + 1];
-	struct stat sb;
-	gzFile *zp;
-	PLS_FETCH();
-	
-	if (opened_path) {
-		*opened_path = NULL;
-	}
-	
-	/* Relative path open */
-	if (*filename == '.') {
-		if (PG(safe_mode) &&(!php_checkuid(filename,2))) {
-			return(NULL);
-		}
-		if (php_check_open_basedir(filename)) return NULL;
-		zp = gzopen(filename, mode);
-		if (zp && opened_path) {
-			*opened_path = expand_filepath(filename);
-		}
-		return zp;
-	}
+	f = php_fopen_wrapper(path, mode, options, NULL, NULL, NULL);
 
-	/* Absolute path open - prepend document_root in safe mode */
-#ifdef PHP_WIN32
-	if ((*filename == '\\')||(*filename == '/')||(filename[1] == ':')) {
-#else
-	if (*filename == '/') {
-#endif
-		if (PG(safe_mode)) {
-			if(PG(doc_root)) {
-				snprintf(trypath, MAXPATHLEN, "%s%s", PG(doc_root), filename);
-			} else {
-				strlcpy(trypath,filename,sizeof(trypath));
-			}
-			if (!php_checkuid(trypath,2)) {
-				return(NULL);
-			}
-			if (php_check_open_basedir(trypath)) return NULL;
-			zp = gzopen(trypath, mode);
-			if (zp && opened_path) {
-				*opened_path = expand_filepath(trypath);
-			}
-			return zp;
-		} else {
-			if (php_check_open_basedir(filename)) return NULL;
-			return gzopen(filename, mode);
-		}
+	if (!f) {
+		return NULL;
 	}
-
-	if (!path || (path && !*path)) {
-		if (PG(safe_mode) &&(!php_checkuid(filename,2))) {
-			return(NULL);
-		}
-		if (php_check_open_basedir(filename)) return NULL;
-		zp = gzopen(filename, mode);
-		if (zp && opened_path) {
-			*opened_path = strdup(filename);
-		}
-		return zp;
-	}
-
-	pathbuf = estrdup(path);
-
-	ptr = pathbuf;
-
-	while (ptr && *ptr) {
-#ifdef PHP_WIN32
-		end = strchr(ptr, ';');
-#else
-		end = strchr(ptr, ':');
-#endif
-		if (end != NULL) {
-			*end = '\0';
-			end++;
-		}
-		snprintf(trypath, MAXPATHLEN, "%s/%s", ptr, filename);
-		if (PG(safe_mode)) {
-			if (V_STAT(trypath,&sb) == 0 &&(!php_checkuid(trypath,2))) {
-				efree(pathbuf);
-				return(NULL);
-			}
-		}
-		if ((zp = gzopen(trypath, mode)) != NULL) {
-			if (php_check_open_basedir(trypath)) {
-				gzclose(zp);
-				efree(pathbuf);
-				return NULL;
-			}
-			if (opened_path) {
-				*opened_path = expand_filepath(trypath);
-			}
-			efree(pathbuf);
-			return zp;
-		}
-		ptr = end;
-	}
-	efree(pathbuf);
-	return NULL;
+	return gzdopen(fileno(f), mode);
 }
 
 /* {{{ proto array gzfile(string filename [, int use_include_path])
@@ -285,7 +173,7 @@ PHP_FUNCTION(gzfile) {
 	PLS_FETCH();
 
 	/* check args */
-	switch (ARG_COUNT(ht)) {
+	switch (ZEND_NUM_ARGS()) {
 	case 1:
 		if (zend_get_parameters_ex(1,&filename) == FAILURE) {
 			WRONG_PARAM_COUNT;
@@ -296,7 +184,7 @@ PHP_FUNCTION(gzfile) {
 			WRONG_PARAM_COUNT;
 		}
 		convert_to_long_ex(arg2);
-		use_include_path = (*arg2)->value.lval;
+		use_include_path = (*arg2)->value.lval?USE_PATH:0;
 		break;
 	default:
 		WRONG_PARAM_COUNT;
@@ -339,7 +227,7 @@ PHP_FUNCTION(gzopen) {
 	int use_include_path = 0;
 	ZLIBLS_FETCH();
 	
-	switch(ARG_COUNT(ht)) {
+	switch(ZEND_NUM_ARGS()) {
 	case 2:
 		if (zend_get_parameters_ex(2,&arg1,&arg2) == FAILURE) {
 			WRONG_PARAM_COUNT;
@@ -350,7 +238,7 @@ PHP_FUNCTION(gzopen) {
 			WRONG_PARAM_COUNT;
 		}
 		convert_to_long_ex(arg3);
-		use_include_path = (*arg3)->value.lval;
+		use_include_path = (*arg3)->value.lval?USE_PATH:0;
 		break;
 	default:
 		WRONG_PARAM_COUNT;
@@ -382,7 +270,7 @@ PHP_FUNCTION(gzclose) {
 	pval **arg1;
 	gzFile *zp;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &arg1) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg1) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	ZEND_FETCH_RESOURCE(zp, gzFile *, arg1, -1, "Zlib file", le_zp);
@@ -397,7 +285,7 @@ PHP_FUNCTION(gzeof) {
 	pval **arg1;
 	gzFile *zp;
 	
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &arg1) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg1) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	ZEND_FETCH_RESOURCE(zp, gzFile *, arg1, -1, "Zlib file", le_zp);
@@ -419,7 +307,7 @@ PHP_FUNCTION(gzgets) {
 	char *buf;
 	PLS_FETCH();
 	
-	if (ARG_COUNT(ht) != 2 || zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long_ex(arg2);
@@ -454,7 +342,7 @@ PHP_FUNCTION(gzgetc) {
 	int c;
 	char *buf;
 	
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &arg1) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg1) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -488,7 +376,7 @@ PHP_FUNCTION(gzgetss)
 	int allowed_tags_len=0;
 	ZLIBLS_FETCH();
 	
-	switch(ARG_COUNT(ht)) {
+	switch(ZEND_NUM_ARGS()) {
 		case 2:
 			if(zend_get_parameters_ex(2, &fd, &bytes) == FAILURE) {
 				RETURN_FALSE;
@@ -538,7 +426,7 @@ PHP_FUNCTION(gzwrite) {
 	int num_bytes;
 	PLS_FETCH();
 
-	switch (ARG_COUNT(ht)) {
+	switch (ZEND_NUM_ARGS()) {
 		case 2:
 			if (zend_get_parameters_ex(2, &arg1, &arg2)==FAILURE) {
 				RETURN_FALSE;
@@ -581,7 +469,7 @@ PHP_FUNCTION(gzrewind) {
 	pval **arg1;
 	gzFile *zp;
 	
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &arg1) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg1) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -599,7 +487,7 @@ PHP_FUNCTION(gztell) {
 	long pos;
 	gzFile *zp;
 	
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &arg1) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg1) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -617,7 +505,7 @@ PHP_FUNCTION(gzseek) {
 	int ret;
 	gzFile *zp;
 	
-	if (ARG_COUNT(ht) != 2 || zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long_ex(arg2);
@@ -643,7 +531,7 @@ PHP_FUNCTION(readgzfile) {
 
 	
 	/* check args */
-	switch (ARG_COUNT(ht)) {
+	switch (ZEND_NUM_ARGS()) {
 	case 1:
 		if (zend_get_parameters_ex(1,&arg1) == FAILURE) {
 			WRONG_PARAM_COUNT;
@@ -654,7 +542,7 @@ PHP_FUNCTION(readgzfile) {
 			WRONG_PARAM_COUNT;
 		}
 		convert_to_long_ex(arg2);
-		use_include_path = (*arg2)->value.lval;
+		use_include_path = (*arg2)->value.lval?USE_PATH:0;
 		break;
 	default:
 		WRONG_PARAM_COUNT;
@@ -691,7 +579,7 @@ PHP_FUNCTION(gzpassthru) {
 	char buf[8192];
 	int size, b;
 	
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &arg1) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg1) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -709,6 +597,7 @@ PHP_FUNCTION(gzpassthru) {
 /* }}} */
 
 /* {{{ proto string gzread(int zp, int length)
+
    Binary-safe file read */
 PHP_FUNCTION(gzread)
 {
@@ -717,7 +606,7 @@ PHP_FUNCTION(gzread)
 	int len;
 	PLS_FETCH();
 	
-	if (ARG_COUNT(ht) != 2 || zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long_ex(arg2);
@@ -736,7 +625,117 @@ PHP_FUNCTION(gzread)
 	}
 	return_value->type = IS_STRING;
 }
+
 /* }}} */
+	
+
+/* {{{ proto string gzcompress(string data [,int level]) 
+   gzip-compress a string */
+PHP_FUNCTION(gzcompress)
+{
+	zval **data, **zlimit = NULL;
+	int limit,status;
+	unsigned long l2;
+	char *s2;
+
+	switch (ZEND_NUM_ARGS()) {
+	case 1:
+		if (zend_get_parameters_ex(1, &data) == FAILURE)
+			WRONG_PARAM_COUNT;
+		limit=-1;
+		break;
+	case 2:
+		if (zend_get_parameters_ex(2, &data, &zlimit) == FAILURE)
+			WRONG_PARAM_COUNT;
+		convert_to_long_ex(zlimit);
+		limit = (*zlimit)->value.lval;
+		if((limit<0)||(limit>9)) {
+			php_error(E_WARNING,"gzcompress: compression level must be whithin 0..9");
+			RETURN_FALSE;
+		}
+		break;
+	default:
+		WRONG_PARAM_COUNT;                                         
+	}
+	convert_to_string_ex(data);
+	
+	l2 = (*data)->value.str.len + ((*data)->value.str.len/1000) + 15;
+	s2 = (char *) emalloc(l2);
+	if(! s2) RETURN_FALSE;
+	
+	if(limit>=0) {
+		status = compress2(s2,&l2,(*data)->value.str.val, (*data)->value.str.len,limit);
+	} else {
+		status = compress(s2,&l2,(*data)->value.str.val, (*data)->value.str.len);
+	}
+	
+	if(status==Z_OK) {
+		RETURN_STRINGL(s2, l2, 0);
+	} else {
+		efree(s2);
+		php_error(E_WARNING,"gzcompress: %s",zError(status));
+		RETURN_FALSE;
+	}
+}
+/* }}} */
+
+/* {{{ proto string gzuncompress(string data ,int length) 
+   unzip a gzip-compressed string */
+PHP_FUNCTION(gzuncompress)
+{
+	zval **data, **zlimit = NULL;
+	int status,factor=1,maxfactor=8;
+	unsigned long plength=0,length;
+	char *s1=NULL,*s2=NULL;
+
+	switch (ZEND_NUM_ARGS()) {
+	case 1:
+		if (zend_get_parameters_ex(1, &data) == FAILURE)
+			WRONG_PARAM_COUNT;
+		length=0;
+		break;
+	case 2:
+		if (zend_get_parameters_ex(2, &data, &zlimit) == FAILURE)
+			WRONG_PARAM_COUNT;
+		convert_to_long_ex(zlimit);
+		if((*zlimit)->value.lval<=0) {
+			php_error(E_WARNING,"gzuncompress: length must be greater zero");
+			RETURN_FALSE;
+		}
+		plength = (*zlimit)->value.lval;
+		break;
+	default:
+		WRONG_PARAM_COUNT;                                         
+	}
+	convert_to_string_ex(data);
+
+	/*
+	 zlib::uncompress() wants to know the output data length
+	 if none was given as a parameter
+	 we try from input length * 2 up to input length * 2^8
+	 doubling it whenever it wasn't big enough
+	 that should be eneugh for all real life cases	
+	*/
+	do {
+		length=plength?plength:(*data)->value.str.len*(1<<factor++);
+		s2 = (char *) erealloc(s1,length);
+		if(! s2) { if(s1) efree(s1); RETURN_FALSE; }
+		status = uncompress(s2, &length ,(*data)->value.str.val, (*data)->value.str.len);
+		s1=s2;
+	} while((status==Z_BUF_ERROR)&&(!plength)&&(factor<maxfactor));
+
+	if(status==Z_OK) {
+		s2 = erealloc(s2, length);
+		RETURN_STRINGL(s2, length, 0);
+	} else {
+		efree(s2);
+		php_error(E_WARNING,"gzuncompress: %s",zError(status));
+		RETURN_FALSE;
+	}
+}
+/* }}} */
+
+
 
 #endif /* HAVE_ZLIB */
 /*

@@ -42,20 +42,19 @@ public class servlet extends HttpServlet {
     /*                          native methods                        */ 
     /******************************************************************/
 
-    static { reflect.loadLibrary("servlet"); }
-    native void startup();
-    native long define(String name);
-    native void send(String requestMethod, String queryString,
+    public native void startup();
+    public native long define(String name);
+    public native void send(String requestMethod, String queryString,
       String pathInfo, String pathTranslated,
       String contentType, int contentLength, String authUser,
       boolean display_source_mode);
-    native void shutdown();
+    public native void shutdown();
 
     /******************************************************************/
     /*                         sapi callbacks                         */ 
     /******************************************************************/
 
-    String readPost(int bytes) {
+    public String readPost(int bytes) {
       String result;
       if (!request.getMethod().equals("POST")) {
         result = request.getQueryString();
@@ -74,14 +73,14 @@ public class servlet extends HttpServlet {
       return result; 
     }
 
-    String readCookies() {
+    public String readCookies() {
        reflect.setResult(define("request"), request);
        reflect.setResult(define("response"), response);
        reflect.setResult(define("PHP_SELF"), request.getRequestURI());
        return request.getHeader("cookie");
     }
 
-    void header(String data) {
+    public void header(String data) {
 
       // try to send the header using the most specific servlet API
       // as possible (some servlet engines will add a content type
@@ -110,7 +109,7 @@ public class servlet extends HttpServlet {
 
     }
 
-    void write(String data) {
+    public void write(String data) {
       try {
         response.getWriter().print(data);
       } catch (IOException e) {
@@ -124,7 +123,12 @@ public class servlet extends HttpServlet {
 
     public void init(ServletConfig config) throws ServletException {
       super.init(config);
-      if (0 == startup_count++) startup();
+
+      // first time in, initialize native code
+      if (0 == startup_count++) {
+        reflect.loadLibrary("servlet");
+        startup();
+      }
 
       // try to find the addHeader method (added in the servlet API 2.2)
       // otherwise settle for the setHeader method

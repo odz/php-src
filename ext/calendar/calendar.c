@@ -53,7 +53,7 @@ zend_module_entry calendar_module_entry = {
   STANDARD_MODULE_PROPERTIES,
 };
 
-#if COMPILE_DL
+#ifdef COMPILE_DL_CALENDAR
 ZEND_GET_MODULE(calendar)
 #endif
 
@@ -249,7 +249,7 @@ PHP_FUNCTION(jdtogregorian)
 	pval *julday, *mode;
 	int day;
 	char *daynamel, *daynames;
-	int myargc=ARG_COUNT(ht),mymode=0;
+	int myargc=ZEND_NUM_ARGS(),mymode=0;
 	
 	if ((myargc < 1) || (myargc > 2) || (zend_get_parameters(ht,myargc, &julday, &mode) != SUCCESS)) {
 		WRONG_PARAM_COUNT;

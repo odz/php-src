@@ -26,6 +26,10 @@ EXTENSION:           dba
 PRIMARY MAINTAINER:  Sascha Schumann <sascha@schumann.cx>
 STATUS:              Maintained
 --------------------------------------------------------------------------------
+EXTENSION:           dbase
+PRIMARY MAINTAINER:  Jim Winstead <jimw@php.net>
+STATUS:              Odd Fixes
+--------------------------------------------------------------------------------
 EXTENSION:           fdf
 PRIMARY MAINTAINER:  Uwe Steinmann <steinm@php.net>
 STATUS:              Maintained
@@ -83,6 +87,18 @@ EXTENSION:           pdf
 PRIMARY MAINTAINER:  Uwe Steinmann <steinm@php.net>
 STATUS:              Maintained
 --------------------------------------------------------------------------------
+EXTENSION:           pgsql
+PRIMARY MAINTAINER:  Jouni Ahto <jah@mork.net>
+STATUS:              Odd fixes
+--------------------------------------------------------------------------------
+EXTENSION:           posix
+PRIMARY MAINTAINER:  Kristian Köhntopp <kris@koehntopp.de>
+STATUS:              Maintained
+--------------------------------------------------------------------------------
+EXTENSION:           recode
+PRIMARY MAINTAINER:  Kristian Köhntopp <kris@koehntopp.de>
+STATUS:              Maintained
+--------------------------------------------------------------------------------
 EXTENSION:           session
 PRIMARY MAINTAINER:  Sascha Schumann <sascha@schumann.cx>
 STATUS:              Maintained
@@ -91,12 +107,20 @@ EXTENSION:           snmp
 PRIMARY MAINTAINER:  Rasmus Lerdorf <rasmus@php.net>
 STATUS:              Odd Fixes
 --------------------------------------------------------------------------------
+EXTENSION:           swf
+PRIMARY MAINTAINER:  Sterling Hughes <sterling@php.net>
+STATUS:              Maintained
+--------------------------------------------------------------------------------
 EXTENSION:           wddx
 PRIMARY MAINTAINER:  Andrei Zmievski <andrei@ispi.net>
 STATUS:              Maintained
 --------------------------------------------------------------------------------
 EXTENSION:           xml
 PRIMARY MAINTAINER:  Thies C. Arntzen <thies@digicol.de>
+STATUS:              Maintained
+--------------------------------------------------------------------------------
+EXTENSION:           yaz
+PRIMARY MAINTAINER:  Adam Dickmeiss <adam@indexdata.dk>
 STATUS:              Maintained
 --------------------------------------------------------------------------------
 EXTENSION:           zlib

@@ -21,7 +21,6 @@
  * components using JNI and reflection.
  */
 
-#include "dl/phpdl.h"
 
 #include "php.h"
 #include "zend_compile.h"
@@ -328,7 +327,7 @@ void java_call_function_handler
   zend_overloaded_element *function_name = (zend_overloaded_element *)
     property_reference->elements_list->tail->data;
 
-  int arg_count = ARG_COUNT(ht);
+  int arg_count = ZEND_NUM_ARGS();
   jlong result = 0;
 
   pval **arguments = (pval **) emalloc(sizeof(pval *)*arg_count);
@@ -452,7 +451,7 @@ PHP_MINIT_FUNCTION(java) {
     java_get_property_handler,
     java_set_property_handler);
 
-  register_internal_class(&java_class_entry);
+  zend_register_internal_class(&java_class_entry);
 
   le_jobject = register_list_destructors(_php_java_destructor,NULL);
 

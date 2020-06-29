@@ -37,18 +37,6 @@ ZEND_API zend_executor_globals executor_globals;
 
 #define SET_UNUSED(op)  (op).op_type = IS_UNUSED
 
-static int is_not_internal_function(zend_function *function)
-{
-	return(function->type != ZEND_INTERNAL_FUNCTION);
-}
-
-
-static int is_not_internal_class(zend_class_entry *ce)
-{
-	return(ce->type != ZEND_INTERNAL_CLASS);
-}
-
-
 static void free_filename(void *p)
 {
 	efree(*((char **) p));
@@ -102,9 +90,6 @@ void init_compiler(CLS_D ELS_DC)
 	zend_llist_init(&CG(list_llist), sizeof(list_llist_element), NULL, 0);
 	zend_llist_init(&CG(dimension_llist), sizeof(int), NULL, 0);
 	zend_llist_init(&CG(filenames_list), sizeof(char *), free_filename, 0);
-	CG(short_tags) = ZEND_UV(short_tags);
-	CG(asp_tags) = ZEND_UV(asp_tags);
-	CG(allow_call_time_pass_reference) = ZEND_UV(allow_call_time_pass_reference);
 	CG(handle_op_arrays) = 1;
 	CG(in_compilation) = 0;
 	zend_init_rsrc_list(ELS_C);
@@ -124,8 +109,6 @@ void shutdown_compiler(CLS_D)
 	zend_stack_destroy(&CG(object_stack));
 	zend_stack_destroy(&CG(declare_stack));
 	zend_llist_destroy(&CG(filenames_list));
-	zend_hash_apply(CG(function_table), (int (*)(void *)) is_not_internal_function);
-	zend_hash_apply(CG(class_table), (int (*)(void *)) is_not_internal_class);
 	zend_llist_destroy(&CG(open_files));
 	zend_hash_destroy(&CG(used_files));
 }
@@ -1040,7 +1023,7 @@ void do_return(znode *expr, int do_end_vparse CLS_DC)
 }
 
 
-static void function_add_ref(zend_function *function)
+ZEND_API void function_add_ref(zend_function *function)
 {
 	if (function->type == ZEND_USER_FUNCTION) {
 		zend_op_array *op_array = &function->op_array;
@@ -1072,6 +1055,18 @@ static void do_inherit_parent_constructor(zend_class_entry *ce)
 	}
 }
 
+void do_inheritance(zend_class_entry *ce, zend_class_entry *parent_ce)
+{
+	zend_function tmp_zend_function;
+	zval *tmp;
+
+	/* Perform inheritance */
+	zend_hash_merge(&ce->default_properties, &parent_ce->default_properties, (void (*)(void *)) zval_add_ref, (void *) &tmp, sizeof(zval *), 0);
+	zend_hash_merge(&ce->function_table, &parent_ce->function_table, (void (*)(void *)) function_add_ref, &tmp_zend_function, sizeof(zend_function), 0);
+	ce->parent = parent_ce;
+	do_inherit_parent_constructor(ce);
+}
+
 
 ZEND_API int do_bind_function_or_class(zend_op *opline, HashTable *function_table, HashTable *class_table, int compile_time)
 {
@@ -1095,7 +1090,10 @@ ZEND_API int do_bind_function_or_class(zend_op *opline, HashTable *function_tabl
 		case ZEND_DECLARE_CLASS: {
 				zend_class_entry *ce;
 
-				zend_hash_find(class_table, opline->op1.u.constant.value.str.val, opline->op1.u.constant.value.str.len, (void **) &ce);
+				if (zend_hash_find(class_table, opline->op1.u.constant.value.str.val, opline->op1.u.constant.value.str.len, (void **) &ce)==FAILURE) {
+					zend_error(E_ERROR, "Internal Zend error - Missing class information for %s", opline->op1.u.constant.value.str.val);
+					return FAILURE;
+				}
 				(*ce->refcount)++;
 				if (zend_hash_add(class_table, opline->op2.u.constant.value.str.val, opline->op2.u.constant.value.str.len+1, ce, sizeof(zend_class_entry), NULL)==FAILURE) {
 					(*ce->refcount)--;
@@ -1111,11 +1109,10 @@ ZEND_API int do_bind_function_or_class(zend_op *opline, HashTable *function_tabl
 		case ZEND_DECLARE_INHERITED_CLASS: {
 				zend_class_entry *ce, *parent_ce;
 				char *class_name, *parent_name;
-				zend_function tmp_zend_function;
-				zval *tmp;
+				int found_ce;
 
-				zend_hash_find(class_table, opline->op1.u.constant.value.str.val, opline->op1.u.constant.value.str.len, (void **) &ce);
-				(*ce->refcount)++;
+				
+				found_ce = zend_hash_find(class_table, opline->op1.u.constant.value.str.val, opline->op1.u.constant.value.str.len, (void **) &ce);
 
 				/* Restore base class / derived class names */
 				parent_name = opline->op2.u.constant.value.str.val;
@@ -1124,6 +1121,13 @@ ZEND_API int do_bind_function_or_class(zend_op *opline, HashTable *function_tabl
 					zend_error(E_CORE_ERROR, "Invalid runtime class entry");
 				}
 				*class_name++ = 0;
+
+				if (found_ce==FAILURE) {
+					zend_error(E_ERROR, "Cannot redeclare class %s", class_name);
+					return FAILURE;
+				}
+
+				(*ce->refcount)++;
 
 				/* Obtain parent class */
 				if (zend_hash_find(class_table, parent_name, strlen(parent_name)+1, (void **) &parent_ce)==FAILURE) {
@@ -1135,12 +1139,7 @@ ZEND_API int do_bind_function_or_class(zend_op *opline, HashTable *function_tabl
 					return FAILURE;
 				}
 
-				/* Perform inheritance */
-				zend_hash_merge(&ce->default_properties, &parent_ce->default_properties, (void (*)(void *)) zval_add_ref, (void *) &tmp, sizeof(zval *), 0);
-				zend_hash_merge(&ce->function_table, &parent_ce->function_table, (void (*)(void *)) function_add_ref, &tmp_zend_function, sizeof(zend_function), 0);
-				ce->parent = parent_ce;
-				do_inherit_parent_constructor(ce);
-
+				do_inheritance(ce, parent_ce);
 
 				/* Register the derived class */
 				if (zend_hash_add(class_table, class_name, strlen(class_name)+1, ce, sizeof(zend_class_entry), NULL)==FAILURE) {
@@ -2290,7 +2289,6 @@ int zendlex(znode *zendlval CLS_DC)
 		case T_COMMENT:
 		case T_OPEN_TAG:
 		case T_WHITESPACE:
-		case T_PHP_TRACK_VARS:
 			retval = zendlex(zendlval CLS_CC);
 			break;
 		case T_CLOSE_TAG:

@@ -50,7 +50,7 @@
 #include "zend_extensions.h"
 #include "php_ini.h"
 #include "php_globals.h"
-#include "main.h"
+#include "php_main.h"
 #include "fopen-wrappers.h"
 #include "ext/standard/php_standard.h"
 #ifdef PHP_WIN32
@@ -86,13 +86,32 @@ extern int ap_php_optind;
 
 static int sapi_cgibin_ub_write(const char *str, uint str_length)
 {
-	return fwrite(str, 1, str_length, stdout);
+	size_t ret;
+
+	ret = fwrite(str, 1, str_length, stdout);
+	if (ret != str_length) {
+		PLS_FETCH();
+
+		PG(connection_status) = PHP_CONNECTION_ABORTED;
+		if (!PG(ignore_user_abort)) {
+			zend_bailout();
+		}
+	}
+
+	return ret;
 }
 
 
 static void sapi_cgibin_flush(void *server_context)
 {
-	fflush(stdout);
+	if (fflush(stdout)==EOF) {
+		PLS_FETCH();
+
+		PG(connection_status) = PHP_CONNECTION_ABORTED;
+		if (!PG(ignore_user_abort)) {
+			zend_bailout();
+		}
+	}
 }
 
 
@@ -180,7 +199,8 @@ static int sapi_cgi_deactivate(SLS_D)
 
 
 static sapi_module_struct sapi_module = {
-	"CGI",							/* name */
+	"cgi",							/* name */
+	"CGI",							/* pretty name */
 									
 	php_module_startup,				/* startup */
 	php_module_shutdown_wrapper,	/* shutdown */
@@ -246,6 +266,10 @@ static void php_cgi_usage(char *argv0)
 static void init_request_info(SLS_D)
 {
 	char *content_length = getenv("CONTENT_LENGTH");
+
+#if 0
+/* SG(request_info).path_translated is always set to NULL at the end of this function
+   call so why the hell did this code exist in the first place? Am I missing something? */
 	char *script_filename;
 
 
@@ -259,8 +283,8 @@ static void init_request_info(SLS_D)
 	/* a hack for apache nt because it does not appear to set argv[1] and sets
 	   script filename to php.exe thus makes us parse php.exe instead of file.php
 	   requires we get the info from path translated.  This can be removed at
-	   such a time taht apache nt is fixed */
-	if (script_filename) {
+	   such a time that apache nt is fixed */
+	if (!script_filename) {
 		script_filename = getenv("PATH_TRANSLATED");
 	}
 #endif
@@ -274,15 +298,13 @@ static void init_request_info(SLS_D)
 	   php_destroy_request_info()! */
 #if DISCARD_PATH
 	if (script_filename) {
-		SLS_FETCH();
-
 		SG(request_info).path_translated = estrdup(script_filename);
 	} else {
-		SLS_FETCH();
-
 		SG(request_info).path_translated = NULL;
 	}
 #endif
+
+#endif /* 0 */
 
 	SG(request_info).request_method = getenv("REQUEST_METHOD");
 	SG(request_info).query_string = getenv("QUERY_STRING");
@@ -344,7 +366,6 @@ int main(int argc, char *argv[])
 	int cgi_started=0;
 	int behavior=PHP_MODE_STANDARD;
 	int no_headers=0;
-	int free_path_translated=0;
 	int orig_optind=ap_php_optind;
 	char *orig_optarg=ap_php_optarg;
 	char *argv0=NULL;
@@ -446,9 +467,11 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 					php_ini_path = strdup(ap_php_optarg);		/* intentional leak */
 					break;
 				case '?':
+					no_headers = 1;
 					php_output_startup();
 					SG(headers_sent) = 1;
 					php_cgi_usage(argv[0]);
+					php_end_ob_buffering(1);
 					exit(1);
 					break;
 			}
@@ -481,12 +504,12 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 					}
 					cgi_started=1;
 					SG(request_info).path_translated = estrdup(ap_php_optarg);
-					free_path_translated=1;
 					/* break missing intentionally */
 				case 'q':
 					no_headers = 1;
 					break;
 				case 'v':
+					no_headers = 1;
 					if (!cgi_started) {
 						if (php_request_startup(CLS_C ELS_CC PLS_CC SLS_CC)==FAILURE) {
 							php_module_shutdown();
@@ -497,6 +520,7 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 						SG(headers_sent) = 1;
 					}
 					php_printf("%s\n", PHP_VERSION);
+					php_end_ob_buffering(1);
 					exit(1);
 					break;
 				case 'i':
@@ -532,15 +556,18 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 					break;
 				case 'h':
 				case '?':
+					no_headers = 1;  
 					php_output_startup();
 					SG(headers_sent) = 1;
 					php_cgi_usage(argv[0]);
+					php_end_ob_buffering(1);
 					exit(1);
 					break;
 				case 'd':
 					define_command_line_ini_entry(ap_php_optarg);
 					break;
-				case 'g': {
+				case 'g':
+					{
 						char *arg = estrdup(ap_php_optarg);
 
 						zend_llist_add_element(&global_vars, &arg);
@@ -573,7 +600,7 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 	file_handle.handle.fp = stdin;
 
 	/* This actually destructs the elements of the list - ugly hack */
-	zend_llist_apply(&global_vars, php_register_command_line_global_vars);
+	zend_llist_apply(&global_vars, (llist_apply_func_t) php_register_command_line_global_vars);
 	zend_llist_destroy(&global_vars);
 
 	if (!cgi) {
@@ -591,16 +618,19 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 			SG(request_info).query_string = s;
 		}
 		if (!SG(request_info).path_translated && argc > ap_php_optind)
-			SG(request_info).path_translated = argv[ap_php_optind];
-	}
+			SG(request_info).path_translated = estrdup(argv[ap_php_optind]);
+	} else {
 	/* If for some reason the CGI interface is not setting the
 	   PATH_TRANSLATED correctly, SG(request_info).path_translated is NULL.
 	   We still call php_fopen_primary_script, because if you set doc_root
 	   or user_dir configuration directives, PATH_INFO is used to construct
 	   the filename as a side effect of php_fopen_primary_script.
 	 */
-	if(cgi) {
-		SG(request_info).path_translated = getenv("PATH_TRANSLATED");
+#if DISCARD_PATH
+		SG(request_info).path_translated = estrdup(getenv("SCRIPT_FILENAME"));
+#else
+		SG(request_info).path_translated = estrdup(getenv("PATH_TRANSLATED"));
+#endif
 	}
 	if (cgi || SG(request_info).path_translated) {
 		file_handle.handle.fp = php_fopen_primary_script();
@@ -609,16 +639,6 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 
 	if (cgi && !file_handle.handle.fp) {
 		PUTS("No input file specified.\n");
-#if 0	/* this is here for debuging under windows */
-		if (argc) {
-			i = 0;
-			php_printf("\nargc %d\n",argc); 
-			while (i <= argc) {
-				php_printf("%s\n",argv[i]); 
-				i++;
-			}
-		}
-#endif
 		php_request_shutdown((void *) 0);
 		php_module_shutdown();
 		return FAILURE;
@@ -640,7 +660,8 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 		case PHP_MODE_STANDARD:
 			php_execute_script(&file_handle CLS_CC ELS_CC PLS_CC);
 			break;
-		case PHP_MODE_HIGHLIGHT: {
+		case PHP_MODE_HIGHLIGHT:
+			{
 				zend_syntax_highlighter_ini syntax_highlighter_ini;
 
 				if (open_file_for_scanning(&file_handle CLS_CC)==SUCCESS) {
@@ -651,19 +672,29 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 				return 0;
 			}
 			break;
+#if 0
+		/* Zeev might want to do something with this one day */
 		case PHP_MODE_INDENT:
 			open_file_for_scanning(&file_handle CLS_CC);
 			zend_indent();
 			fclose(file_handle.handle.fp);
 			return 0;
 			break;
+#endif
 	}
 
 	php_header();			/* Make sure headers have been sent */
-	if (free_path_translated)
-		efree(SG(request_info).path_translated);
+	
+
+	if (SG(request_info).path_translated) {
+		persist_alloc(SG(request_info).path_translated);
+	}
+
 	php_request_shutdown((void *) 0);
 	php_module_shutdown();
+
+	STR_FREE(SG(request_info).path_translated);
+
 #ifdef ZTS
 	tsrm_shutdown();
 #endif

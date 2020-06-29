@@ -135,7 +135,7 @@ static char *php_string_from_clsid(CLSID *clsid)
 	char *clsid_str;
 
 	StringFromCLSID(clsid, &ole_clsid);
-	//s_clsid = OLE2A(ole_clsid);
+	/*s_clsid = OLE2A(ole_clsid);*/
 	clsid_str = php_OLECHAR_to_char(ole_clsid, NULL, 0);
 	LocalFree(ole_clsid);
 
@@ -236,6 +236,8 @@ PHP_MSHUTDOWN_FUNCTION(COM)
 }
 
 
+/* {{{ proto int com_load(string module_name)
+   Loads a COM module */
 PHP_FUNCTION(COM_load)
 {
 	pval *module_name, *server_name=NULL;
@@ -246,7 +248,7 @@ PHP_FUNCTION(COM_load)
 	char *error_message;
 	char *clsid_str;
 
-	switch (ARG_COUNT(ht)) {
+	switch (ZEND_NUM_ARGS()) {
 		case 1:
 			getParameters(ht, 1, &module_name);
 			break;
@@ -268,7 +270,7 @@ PHP_FUNCTION(COM_load)
 	hr=CLSIDFromProgID(ProgID, &clsid);
 	efree(ProgID);
 
-	// obtain CLSID
+	/* obtain CLSID */
 	if (FAILED(hr)) {
 		error_message = php_COM_error_message(hr);	
 		php_error(E_WARNING,"Invalid ProgID:  %s\n", error_message);
@@ -276,7 +278,7 @@ PHP_FUNCTION(COM_load)
 		RETURN_FALSE;
 	}
 
-	// obtain IDispatch
+	/* obtain IDispatch */
 	if (!server_name) {
 		hr=CoCreateInstance(&clsid, NULL, CLSCTX_SERVER, &IID_IDispatch, (void **) &i_dispatch);
 	} else {
@@ -309,6 +311,7 @@ PHP_FUNCTION(COM_load)
 
 	RETURN_LONG(zend_list_insert(i_dispatch,le_idispatch));
 }
+/* }}} */
 
 
 static void php_variant_to_pval(VARIANTARG *var_arg, pval *pval_arg, int persistent)
@@ -444,15 +447,15 @@ static void php_pval_to_variant(pval *pval_arg, VARIANTARG *var_arg)
 	case IS_LONG:
 	case IS_BOOL:
 		if (pval_arg->is_ref == 0) {
-			var_arg->vt = VT_I4;	// assuming 32-bit platform
+			var_arg->vt = VT_I4;	/* assuming 32-bit platform */
 			var_arg->lVal = pval_arg->value.lval;
 		} else {
-			var_arg->vt = VT_I4 | VT_BYREF; // assuming 32-bit platform
+			var_arg->vt = VT_I4 | VT_BYREF; /* assuming 32-bit platform */
 			var_arg->plVal = &(pval_arg->value.lval);
 		}
 		break;
 	case IS_DOUBLE:
-		var_arg->vt = VT_R8;  // assuming 64-bit double precision
+		var_arg->vt = VT_R8;  /* assuming 64-bit double precision */
 		var_arg->dblVal = pval_arg->value.dval;
 		break;
 	case IS_STRING:
@@ -520,7 +523,7 @@ int do_COM_invoke(IDispatch *i_dispatch, pval *function_name, VARIANTARG *var_re
 		return FAILURE;
 	}
 
-//	variant_args = dispparams.rgvarg;
+/*	variant_args = dispparams.rgvarg; */
 
 	for (current_arg=0; current_arg<arg_count; current_arg++) {
 		current_variant = arg_count - current_arg - 1;
@@ -535,13 +538,15 @@ int do_COM_invoke(IDispatch *i_dispatch, pval *function_name, VARIANTARG *var_re
 }
 
 
+/* {{{ proto mixed com_invoke(int module, string handler_name [, mixed arg [, ...]])
+   Invokes a COM module */
 PHP_FUNCTION(COM_invoke)
 {
 	pval **arguments;
 	pval *object, *function_name;
 	IDispatch *i_dispatch;
 	int type;
-	int arg_count = ARG_COUNT(ht);
+	int arg_count = ZEND_NUM_ARGS();
 	VARIANTARG var_result;
 
 	if (arg_count<2) {
@@ -573,6 +578,7 @@ PHP_FUNCTION(COM_invoke)
 
 	php_variant_to_pval(&var_result, return_value, 0);
 }
+/* }}} */
 
 
 
@@ -650,7 +656,6 @@ static int do_COM_propget(VARIANTARG *var_result, IDispatch *i_dispatch, pval *a
 }
 
 
-
 static void do_COM_propput(pval *return_value, IDispatch *i_dispatch, pval *arg_property, pval *value)
 {
 	DISPID dispid;
@@ -709,6 +714,8 @@ static void do_COM_propput(pval *return_value, IDispatch *i_dispatch, pval *arg_
 }
 
 
+/* {{{ proto mixed com_propget(int module, string property_name)
+   Gets properties from a COM module */
 PHP_FUNCTION(com_propget)
 {
 	pval *arg_idispatch, *arg_property;
@@ -716,7 +723,7 @@ PHP_FUNCTION(com_propget)
 	IDispatch *i_dispatch;
 	VARIANTARG var_result;
 
-	if (ARG_COUNT(ht)!=2 || getParameters(ht, 2, &arg_idispatch, &arg_property)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=2 || getParameters(ht, 2, &arg_idispatch, &arg_property)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -734,15 +741,18 @@ PHP_FUNCTION(com_propget)
 	}
 	php_variant_to_pval(&var_result, return_value, 0);
 }
+/* }}} */
 
 
+/* {{{ proto bool com_propput(int module, string property_name, mixed value)
+   Puts the properties for a module */
 PHP_FUNCTION(com_propput)
 {
 	pval *arg_idispatch, *arg_property, *arg_value;
 	int type;
 	IDispatch *i_dispatch;
 
-	if (ARG_COUNT(ht)!=3 || getParameters(ht, 3, &arg_idispatch, &arg_property, &arg_value)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=3 || getParameters(ht, 3, &arg_idispatch, &arg_property, &arg_value)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -757,6 +767,7 @@ PHP_FUNCTION(com_propput)
 
 	do_COM_propput(return_value, i_dispatch, arg_property, arg_value);
 }
+/* }}} */
 
 
 VARIANTARG _php_COM_get_property_handler(zend_property_reference *property_reference)
@@ -920,7 +931,7 @@ void php_COM_call_function_handler(INTERNAL_FUNCTION_PARAMETERS, zend_property_r
 	} else {
 		VARIANTARG object_handle = _php_COM_get_property_handler(property_reference);
 		pval **arguments;
-		int arg_count = ARG_COUNT(ht);
+		int arg_count = ZEND_NUM_ARGS();
 		VARIANTARG var_result;
 
 		if (object_handle.vt != VT_DISPATCH) {
@@ -961,7 +972,7 @@ void php_register_COM_class()
 								php_COM_get_property_handler,
 								php_COM_set_property_handler);
 
-	register_internal_class(&com_class_entry);
+	zend_register_internal_class(&com_class_entry);
 }
 
 
@@ -1024,7 +1035,7 @@ static int php_COM_load_typelib(char *typelib_name, int mode)
 				c.flags = mode;
 
 				zend_register_constant(&c ELS_CC);
-				//printf("%s -> %ld\n", ids, pVarDesc->lpvarValue->lVal);
+				/*printf("%s -> %ld\n", ids, pVarDesc->lpvarValue->lVal);*/
 				j++;
 			}
 			TypeInfo->lpVtbl->Release(TypeInfo);

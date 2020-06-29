@@ -66,7 +66,6 @@ static void zend_extension_fcall_begin_handler(zend_extension *extension, zend_o
 static void zend_extension_fcall_end_handler(zend_extension *extension, zend_op_array *op_array);
 
 
-
 #define SEPARATE_ON_READ_OBJECT(obj, _type)	\
 if ((obj) && ((_type) == BP_VAR_R) && ((*(obj))->type == IS_OBJECT)) { \
 		SEPARATE_ZVAL_IF_NOT_REF((obj));			\
@@ -347,16 +346,6 @@ static inline void zend_assign_to_variable(znode *result, znode *op1, znode *op2
 		if (variable_ptr->refcount==0) {
 			switch (type) {
 				case IS_VAR:
-					/*
-					if (PZVAL_IS_LOCKED(value)) {
-						zval *orig_value = value;
-
-						ALLOC_ZVAL(value);
-						*value = *orig_value;
-						value->refcount=0;
-						zval_copy_ctor(value);
-					}
-					*/
 					/* break missing intentionally */
 				case IS_CONST:
 					if (variable_ptr==value) {
@@ -386,16 +375,6 @@ static inline void zend_assign_to_variable(znode *result, znode *op1, znode *op2
 		} else { /* we need to split */
 			switch (type) {
 				case IS_VAR:
-					/*
-					if (PZVAL_IS_LOCKED(value)) {
-						zval *orig_value = value;
-
-						ALLOC_ZVAL(value);
-						*value = *orig_value;
-						value->refcount=0;
-						zval_copy_ctor(value);
-					}
-					*/
 					/* break missing intentionally */
 				case IS_CONST:
 					if (PZVAL_IS_REF(value) && value->refcount > 0) {
@@ -516,7 +495,7 @@ static void zend_fetch_var_address(znode *result, znode *op1, znode *op2, temp_v
 	if (op2->u.fetch_type == ZEND_FETCH_LOCAL) {
 		FREE_OP(op1, free_op1);
 	} else if (op2->u.fetch_type == ZEND_FETCH_STATIC) {
-		zval_update_constant(retval);
+		zval_update_constant(retval, (void *) 1);
 	}
 
 	if (varname == &tmp_varname) {
@@ -1013,6 +992,11 @@ void execute(zend_op_array *op_array ELS_DC)
 #else
 	while (1) {
 #endif
+#ifdef ZEND_WIN32
+		if (EG(timed_out)) {
+			zend_timeout(0);
+		}
+#endif
 		switch(opline->opcode) {
 			case ZEND_ADD:
 				EG(binary_op) = add_function;
@@ -1317,7 +1301,7 @@ binary_assign_op_addr: {
 					zval *value;
 					value = get_zval_ptr(&opline->op2, Ts, &EG(free_op2), BP_VAR_R);
 
-					zend_assign_to_variable(&opline->result, &opline->op1, &opline->op2, value, (EG(free_op2)?IS_TMP_VAR:opline->op2.op_type), Ts ELS_CC);
+ 					zend_assign_to_variable(&opline->result, &opline->op1, &opline->op2, value, (EG(free_op2)?IS_TMP_VAR:opline->op2.op_type), Ts ELS_CC);
 					/* zend_assign_to_variable() always takes care of op2, never free it! */
 				}
 				NEXT_OPCODE();
@@ -1767,7 +1751,7 @@ send_by_ref:
 					zval **param;
 
 					if (zend_ptr_stack_get_arg(opline->op1.u.constant.value.lval, (void **) &param ELS_CC)==FAILURE) {
-						zend_error(E_NOTICE, "Missing argument %d for %s()\n", opline->op1.u.constant.value.lval, get_active_function_name());
+						zend_error(E_WARNING, "Missing argument %d for %s()\n", opline->op1.u.constant.value.lval, get_active_function_name());
 						if (opline->result.op_type == IS_VAR) {
 							PZVAL_UNLOCK(*Ts[opline->result.u.var].var.ptr_ptr);
 						}
@@ -1782,18 +1766,15 @@ send_by_ref:
 					zval **param, *assignment_value;
 
 					if (zend_ptr_stack_get_arg(opline->op1.u.constant.value.lval, (void **) &param ELS_CC)==FAILURE) {
-						if (opline->op2.u.constant.type == IS_CONSTANT) {
+						if (opline->op2.u.constant.type == IS_CONSTANT || opline->op2.u.constant.type==IS_CONSTANT_ARRAY) {
 							zval *default_value;
-							zval tmp;
 
 							ALLOC_ZVAL(default_value);
 							*default_value = opline->op2.u.constant;
-							if (!zend_get_constant(default_value->value.str.val, default_value->value.str.len, &tmp)) {
-								default_value->type = IS_STRING;
+							if (opline->op2.u.constant.type==IS_CONSTANT_ARRAY) {
 								zval_copy_ctor(default_value);
-							} else {
-								*default_value = tmp;
 							}
+							zval_update_constant(&default_value, 0);
 							default_value->refcount=0;
 							default_value->is_ref=0;
 							param = &default_value;
@@ -2069,6 +2050,8 @@ send_by_ref:
 									if (opened_path) {
 										free(opened_path);
 									}
+								} else {
+									zend_message_dispatcher(ZMSG_FAILED_INCLUDE_FOPEN, file_handle.filename);
 								}
 								break;
 							}
@@ -2162,13 +2145,31 @@ send_by_ref:
 								ht = NULL;
 								break;
 						}
-						if (ht) {
+						if (ht)	{
 							switch (offset->type) {
+								case IS_DOUBLE:
+								case IS_RESOURCE:
+								case IS_BOOL: 
 								case IS_LONG:
-									zend_hash_index_del(ht, offset->value.lval);
-									break;
+									{
+										long index;
+
+										if (offset->type == IS_DOUBLE) {
+											index = (long) offset->value.lval;
+										} else {
+											index = offset->value.lval;
+										}
+										zend_hash_index_del(ht, index);
+										break;
+									}
 								case IS_STRING:
 									zend_hash_del(ht, offset->value.str.val, offset->value.str.len+1);
+									break;
+								case IS_NULL:
+									zend_hash_del(ht, "", sizeof(""));
+									break;
+								default: 
+									zend_error(E_WARNING, "Illegal offset type in unset");
 									break;
 							}
 						}
@@ -2364,6 +2365,7 @@ send_by_ref:
 			case ZEND_NOP:
 				NEXT_OPCODE();
 			EMPTY_SWITCH_DEFAULT_CASE()
+
 		}
 	}
 #if SUPPORT_INTERACTIVE

@@ -22,6 +22,7 @@
 #include "dl.h"
 #include "php_globals.h"
 #include "ext/standard/info.h"
+#include "SAPI.h"
 
 #ifdef HAVE_LIBDL
 #include <stdlib.h>
@@ -35,11 +36,14 @@
 #ifdef PHP_WIN32
 #include "win32/param.h"
 #include "win32/winutil.h"
+#define GET_DL_ERROR()	php_win_err()
 #else
 #include <sys/param.h>
+#define GET_DL_ERROR()	dlerror()
 #endif
 
 #endif
+
 
 /* {{{ proto int dl(string extension_filename)
    Load a PHP extension at runtime */
@@ -48,8 +52,14 @@ PHP_FUNCTION(dl)
 	pval **file;
 	PLS_FETCH();
 
+#ifdef ZTS
+	if (strcmp(sapi_module.name, "cgi")!=0) {
+		php_error(E_ERROR, "dl() is not supported in multithreaded Web servers - use extension statements in your php.ini");
+	}
+#endif
+
 	/* obtain arguments */
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &file) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &file) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -60,7 +70,7 @@ PHP_FUNCTION(dl)
 	} else if (PG(safe_mode)) {
 		php_error(E_ERROR, "Dynamically loaded extensions aren't allowed when running in SAFE MODE.");
 	} else {
-		php_dl(*file,MODULE_TEMPORARY,return_value);
+		php_dl(*file, MODULE_TEMPORARY, return_value);
 	}
 }
 
@@ -75,21 +85,46 @@ PHP_FUNCTION(dl)
 #define USING_ZTS 0
 #endif
 
-void php_dl(pval *file,int type,pval *return_value)
+#define IS_SLASH(c)	\
+	(((c)=='/') || ((c)=='\\'))
+
+void php_dl(pval *file, int type, pval *return_value)
 {
 	void *handle;
 	char *libpath;
 	zend_module_entry *module_entry,*tmp;
 	zend_module_entry *(*get_module)(void);
+	int error_type;
+	char *extension_dir;
 	PLS_FETCH();
 	ELS_FETCH();
 
-	if (PG(extension_dir) && PG(extension_dir)[0]){
-		int extension_dir_len = strlen(PG(extension_dir));
+
+	if (type==MODULE_PERSISTENT) {
+		/* Use the configuration hash directly */
+		if (cfg_get_string("extension_dir", &extension_dir)==FAILURE) {
+			extension_dir = NULL;
+		}
+	} else {
+		extension_dir = PG(extension_dir);
+	}
+
+	if (type==MODULE_TEMPORARY) {
+		error_type = E_WARNING;
+	} else {
+		error_type = E_CORE_WARNING;
+	}
+
+	if (extension_dir && extension_dir[0]){
+		int extension_dir_len = strlen(extension_dir);
 
 		libpath = emalloc(extension_dir_len+file->value.str.len+2);
 
-		sprintf(libpath,"%s/%s",PG(extension_dir),file->value.str.val);
+		if (IS_SLASH(extension_dir[extension_dir_len-1])) {
+			sprintf(libpath,"%s%s", extension_dir, file->value.str.val); /* SAFE */
+		} else {
+			sprintf(libpath,"%s/%s", extension_dir, file->value.str.val); /* SAFE */
+		}
 	} else {
 		libpath = estrndup(file->value.str.val, file->value.str.len);
 	}
@@ -97,21 +132,8 @@ void php_dl(pval *file,int type,pval *return_value)
 	/* load dynamic symbol */
 	handle = DL_LOAD(libpath);
 	if (!handle) {
-		int error_type;
-
-		if (type==MODULE_TEMPORARY) {
-			error_type = E_ERROR;
-		} else {
-			error_type = E_CORE_ERROR;
-		}
-#ifdef PHP_WIN32
-		php_error(error_type,"Unable to load dynamic library '%s'<br>\n%s",libpath,php_win_err());
-#else
-		php_error(error_type,"Unable to load dynamic library '%s' - %s",libpath,dlerror());
-#endif
-
+		php_error(error_type, "Unable to load dynamic library '%s' - %s", libpath, GET_DL_ERROR());
 		efree(libpath);
-
 		RETURN_FALSE;
 	}
 
@@ -131,13 +153,13 @@ void php_dl(pval *file,int type,pval *return_value)
 
 	if (!get_module) {
 		DL_UNLOAD(handle);
-		php_error(E_CORE_WARNING,"Invalid library (maybe not a PHP library) '%s' ",file->value.str.val);
+		php_error(error_type, "Invalid library (maybe not a PHP library) '%s' ", file->value.str.val);
 		RETURN_FALSE;
 	}
 	module_entry = get_module();
 	if ((module_entry->zend_debug != ZEND_DEBUG) || (module_entry->zts != USING_ZTS)
 		|| (module_entry->zend_api != ZEND_MODULE_API_NO)) {
-		php_error(E_CORE_WARNING,
+		php_error(error_type,
 					"%s: Unable to initialize module\n"
 					"Module compiled with debug=%d, thread-safety=%d module API=%d\n"
 					"PHP compiled with debug=%d, thread-safety=%d module API=%d\n"
@@ -151,7 +173,7 @@ void php_dl(pval *file,int type,pval *return_value)
 	module_entry->module_number = zend_next_free_module();
 	if (module_entry->module_startup_func) {
 		if (module_entry->module_startup_func(type, module_entry->module_number ELS_CC)==FAILURE) {
-			php_error(E_CORE_WARNING,"%s:  Unable to initialize module",module_entry->name);
+			php_error(error_type, "%s:  Unable to initialize module", module_entry->name);
 			DL_UNLOAD(handle);
 			RETURN_FALSE;
 		}
@@ -160,15 +182,15 @@ void php_dl(pval *file,int type,pval *return_value)
 
 	if ((type == MODULE_TEMPORARY) && module_entry->request_startup_func) {
 		if (module_entry->request_startup_func(type, module_entry->module_number ELS_CC)) {
-			php_error(E_CORE_WARNING,"%s:  Unable to initialize module",module_entry->name);
+			php_error(error_type, "%s:  Unable to initialize module", module_entry->name);
 			DL_UNLOAD(handle);
 			RETURN_FALSE;
 		}
 	}
 	
 	/* update the .request_started property... */
-	if (zend_hash_find(&module_registry,module_entry->name,strlen(module_entry->name)+1,(void **) &tmp)==FAILURE) {
-		php_error(E_ERROR,"%s:  Loaded module got lost",module_entry->name);
+	if (zend_hash_find(&module_registry, module_entry->name, strlen(module_entry->name)+1,(void **) &tmp)==FAILURE) {
+		php_error(error_type,"%s:  Loaded module got lost", module_entry->name);
 		RETURN_FALSE;
 	}
 	tmp->handle = handle;
@@ -184,9 +206,9 @@ PHP_MINFO_FUNCTION(dl)
 
 #else
 
-void php_dl(pval *file,int type,pval *return_value)
+void php_dl(pval *file, int type, pval *return_value)
 {
-	php_error(E_WARNING,"Cannot dynamically load %s - dynamic modules are not supported",file->value.str.val);
+	php_error(E_WARNING,"Cannot dynamically load %s - dynamic modules are not supported", file->value.str.val);
 	RETURN_FALSE;
 }
 

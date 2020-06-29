@@ -32,22 +32,54 @@
 #include "zend_list.h"
 #include "zend_fast_cache.h"
 
-#ifndef HAVE_FINITE
-#ifndef finite  				/* in case it's already a macro */
-#define finite(a) isfinite(a)	/* HPUX 11 only has isfinite() */
-#endif
-#else
-#if HAVE_IEEEFP_H
-#include <ieeefp.h>
-#endif
-#endif
-
-#define NORMALIZE_BOOL(n)			\
-	((n) ? (((n)>0) ? 1 : -1) : 0)
-
 #if WITH_BCMATH
 #include "ext/bcmath/number.h"
 #endif
+
+ZEND_API double zend_string_to_double(const char *number, zend_uint length)
+{
+	double divisor = 10.0;
+	double result = 0.0;
+	double exponent;
+	const char *end = number+length;
+	const char *digit = number;
+
+	if (!length) {
+		return result;
+	}
+
+	while (digit < end) {
+		if ((*digit <= '9' && *digit >= '0')) {
+			result *= 10;
+			result += *digit - '0';
+		} else if (*digit == '.') {
+			digit++;
+			break;
+		} else if (toupper(*digit) == 'E') {
+			exponent = (double) atoi(digit+1);
+			result *= pow(10.0, exponent);
+			return result;
+		} else {
+			return result;
+		}
+		digit++;
+	}
+
+	while (digit < end) {
+		if ((*digit <= '9' && *digit >= '0')) {
+			result += (*digit - '0') / divisor;
+			divisor *= 10;
+		} else if (toupper(*digit) == 'E') {
+			exponent = (double) atoi(digit+1);
+			result *= pow(10.0, exponent);
+			return result;
+		} else {
+			return result;
+		}
+		digit++;
+	}
+	return result;
+}
 
 
 ZEND_API void convert_scalar_to_number(zval *op)
@@ -994,16 +1026,30 @@ ZEND_API int numeric_compare_function(zval *result, zval *op1, zval *op2)
 	convert_to_double(&op1_copy);
 	convert_to_double(&op2_copy);
 
-	result->value.lval = NORMALIZE_BOOL(op1_copy.value.dval-op2_copy.value.dval);
+	result->value.lval = ZEND_NORMALIZE_BOOL(op1_copy.value.dval-op2_copy.value.dval);
 	result->type = IS_LONG;
 
 	return SUCCESS;
 }
 
+
 ZEND_API int compare_function(zval *result, zval *op1, zval *op2)
 {
 	zval op1_copy, op2_copy;
 
+	if ((op1->type == IS_NULL && op2->type == IS_STRING)
+		|| (op2->type == IS_NULL && op1->type == IS_STRING)) {
+		if (op1->type == IS_NULL) {
+			result->type = IS_LONG;
+			result->value.lval = zend_binary_strcmp("", 0, op2->value.str.val, op2->value.str.len);
+			return SUCCESS;
+		} else {
+			result->type = IS_LONG;
+			result->value.lval = zend_binary_strcmp(op1->value.str.val, op1->value.str.len, "", 0);
+			return SUCCESS;
+		}
+	}
+		
 	if (op1->type == IS_STRING && op2->type == IS_STRING) {
 		zendi_smart_strcmp(result, op1, op2);
 		return SUCCESS;
@@ -1014,7 +1060,7 @@ ZEND_API int compare_function(zval *result, zval *op1, zval *op2)
 		zendi_convert_to_boolean(op1, op1_copy, result);
 		zendi_convert_to_boolean(op2, op2_copy, result);
 		result->type = IS_LONG;
-		result->value.lval = NORMALIZE_BOOL(op1->value.lval-op2->value.lval);
+		result->value.lval = ZEND_NORMALIZE_BOOL(op1->value.lval-op2->value.lval);
 		return SUCCESS;
 	}
 
@@ -1023,22 +1069,65 @@ ZEND_API int compare_function(zval *result, zval *op1, zval *op2)
 
 	if (op1->type == IS_LONG && op2->type == IS_LONG) {
 		result->type = IS_LONG;
-		result->value.lval = NORMALIZE_BOOL(op1->value.lval-op2->value.lval);
+		result->value.lval = ZEND_NORMALIZE_BOOL(op1->value.lval-op2->value.lval);
 		return SUCCESS;
 	}
 	if ((op1->type == IS_DOUBLE || op1->type == IS_LONG)
 		&& (op2->type == IS_DOUBLE || op2->type == IS_LONG)) {
 		result->value.dval = (op1->type == IS_LONG ? (double) op1->value.lval : op1->value.dval) - (op2->type == IS_LONG ? (double) op2->value.lval : op2->value.dval);
-		result->value.lval = NORMALIZE_BOOL(result->value.dval);
+		result->value.lval = ZEND_NORMALIZE_BOOL(result->value.dval);
 		result->type = IS_LONG;
 		return SUCCESS;
 	}
-	if ((op1->type==IS_ARRAY || op1->type==IS_OBJECT)
-		&& (op2->type==IS_ARRAY || op2->type==IS_OBJECT)) {
-		zend_error(E_WARNING,"Cannot compare arrays or objects");
+	if (op1->type==IS_ARRAY && op2->type==IS_ARRAY) {
+		zend_compare_arrays(result, op1, op2);
+		return SUCCESS;
 	}
+
+	if (op1->type==IS_OBJECT && op2->type==IS_OBJECT) {
+		zend_compare_objects(result, op1, op2);
+		return SUCCESS;
+	}
+
+	if (op1->type==IS_ARRAY) {
+		result->value.lval = 1;
+		result->type = IS_LONG;
+		return SUCCESS;
+	}
+	if (op2->type==IS_ARRAY) {
+		result->value.lval = -1;
+		result->type = IS_LONG;
+		return SUCCESS;
+	}
+	if (op1->type==IS_OBJECT) {
+		result->value.lval = 1;
+		result->type = IS_LONG;
+		return SUCCESS;
+	}
+	if (op2->type==IS_OBJECT) {
+		result->value.lval = -1;
+		result->type = IS_LONG;
+		return SUCCESS;
+	}
+
 	var_reset(result);
 	return FAILURE;
+}
+
+
+static int hash_zval_identical_function(const zval **z1, const zval **z2)
+{
+	zval result;
+
+	/* is_identical_function() returns 1 in case of identity and 0 in case
+	 * of a difference;
+	 * whereas this comparison function is expected to return 0 on identity,
+	 * and non zero otherwise.
+	 */
+	if (is_identical_function(&result, (zval *) *z1, (zval *) *z2)==FAILURE) {
+		return 1;
+	}
+	return !result.value.lval;
 }
 
 
@@ -1052,17 +1141,14 @@ ZEND_API int is_identical_function(zval *result, zval *op1, zval *op2)
 	switch (op1->type) {
 		case IS_NULL:
 			result->value.lval = (op2->type==IS_NULL);
-			return SUCCESS;
 			break;
 		case IS_BOOL:
 		case IS_LONG:
 		case IS_RESOURCE:
 			result->value.lval = (op1->value.lval == op2->value.lval);
-			return SUCCESS;
 			break;
 		case IS_DOUBLE:
 			result->value.lval = (op1->value.dval == op2->value.dval);
-			return SUCCESS;
 			break;
 		case IS_STRING:
 			if ((op1->value.str.len == op2->value.str.len)
@@ -1071,22 +1157,37 @@ ZEND_API int is_identical_function(zval *result, zval *op1, zval *op2)
 			} else {
 				result->value.lval = 0;
 			}
-			return SUCCESS;
 			break;
 		case IS_ARRAY:
-		case IS_OBJECT:
-			zend_error(E_WARNING,"Cannot compare arrays or objects");
+			if (zend_hash_compare(op1->value.ht, op2->value.ht, (compare_func_t) hash_zval_identical_function, 1)==0) {
+				result->value.lval = 1;
+			} else {
+				result->value.lval = 0;
+			}
 			break;
+		case IS_OBJECT:
+			if (op1->value.obj.ce != op2->value.obj.ce) {
+				result->value.lval = 0;
+			} else {
+				if (zend_hash_compare(op1->value.obj.properties, op2->value.obj.properties, (compare_func_t) hash_zval_identical_function, 1)==0) {
+					result->value.lval = 1;
+				} else {
+					result->value.lval = 0;
+				}
+			}
+			break;
+		default:
+			var_reset(result);
+			return FAILURE;
 	}
-	var_reset(result);
-	return FAILURE;
+	return SUCCESS;
 }
 
 
 ZEND_API int is_not_identical_function(zval *result, zval *op1, zval *op2)
 {
    result->type = IS_BOOL;
-   if ( is_identical_function( result, op1, op2 ) == FAILURE ) {
+   if (is_identical_function( result, op1, op2 ) == FAILURE) {
 	  return FAILURE;
    }
    result->value.lval = !result->value.lval;
@@ -1407,7 +1508,7 @@ ZEND_API void zendi_smart_strcmp(zval *result, zval *s1, zval *s2)
 			str2num(&first,s1->value.str.val,100); /* this scale should do */
 			str2num(&second,s2->value.str.val,100); /* ditto */
 			result->value.lval = bc_compare(first,second);
-			result->value.lval = NORMALIZE_BOOL(result->value.lval);
+			result->value.lval = ZEND_NORMALIZE_BOOL(result->value.lval);
 			result->type = IS_LONG;
 			free_num(&first);
 			free_num(&second);
@@ -1420,19 +1521,55 @@ ZEND_API void zendi_smart_strcmp(zval *result, zval *s1, zval *s2)
 				dval2 = strtod(s2->value.str.val, NULL);
 			}
 			result->value.dval = dval1 - dval2;
-			result->value.lval = NORMALIZE_BOOL(result->value.dval);
+			result->value.lval = ZEND_NORMALIZE_BOOL(result->value.dval);
 			result->type = IS_LONG;
 		} else { /* they both have to be long's */
 			result->value.lval = lval1 - lval2;
-			result->value.lval = NORMALIZE_BOOL(result->value.lval);
+			result->value.lval = ZEND_NORMALIZE_BOOL(result->value.lval);
 			result->type = IS_LONG;
 		}
 	} else {
 		result->value.lval = zend_binary_zval_strcmp(s1, s2);
-		result->value.lval = NORMALIZE_BOOL(result->value.lval);
+		result->value.lval = ZEND_NORMALIZE_BOOL(result->value.lval);
 		result->type = IS_LONG;
 	}
 	return;	
+}
+
+
+static int hash_zval_compare_function(const zval **z1, const zval **z2)
+{
+	zval result;
+
+	if (compare_function(&result, (zval *) *z1, (zval *) *z2)==FAILURE) {
+		return 1;
+	}
+	return result.value.lval;
+}
+
+
+
+ZEND_API void zend_compare_symbol_tables(zval *result, HashTable *ht1, HashTable *ht2)
+{
+	result->type = IS_LONG;
+	result->value.lval = zend_hash_compare(ht1, ht2, (compare_func_t) hash_zval_compare_function, 0);
+}
+
+
+ZEND_API void zend_compare_arrays(zval *result, zval *a1, zval *a2)
+{
+	zend_compare_symbol_tables(result, a1->value.ht, a2->value.ht);
+}
+
+
+ZEND_API void zend_compare_objects(zval *result, zval *o1, zval *o2)
+{
+	if (o1->value.obj.ce != o2->value.obj.ce) {
+		result->value.lval = 1;	/* Comparing objects of different types is pretty much meaningless */
+		result->type = IS_LONG;
+		return;
+	}
+	zend_compare_symbol_tables(result, o1->value.obj.properties, o2->value.obj.properties);
 }
 
 
@@ -1442,65 +1579,7 @@ ZEND_API void zendi_smart_strcmp(zval *result, zval *s1, zval *s2)
  * returns FLAG_IS_BC if the number might lose accuracy when converted to a double
  */
  
-#if 1
-ZEND_API inline int is_numeric_string(char *str, int length, long *lval, double *dval)
-{
-	long local_lval;
-	double local_dval;
-	char *end_ptr;
-
-	if (!length) {
-		return 0;
-	}
-	
-	errno=0;
-	local_lval = strtol(str, &end_ptr, 10);
-	if (errno!=ERANGE && end_ptr == str+length) { /* integer string */
-		if (lval) {
-			*lval = local_lval;
-		}
-		return IS_LONG;
-	}
-
-	errno=0;
-	local_dval = strtod(str, &end_ptr);
-	if (errno!=ERANGE && end_ptr == str+length) { /* floating point string */
-		if (! finite(local_dval)) {
-			/* "inf","nan" and maybe other weird ones */
-			return 0;
-		}
-
-		if (dval) {
-			*dval = local_dval;
-		}
-#if WITH_BCMATH
-		if (length>16) {
-			register char *ptr=str, *end=str+length;
-			
-			while(ptr<end) {
-				switch(*ptr++) {
-					case 'e':
-					case 'E':
-						/* scientific notation, not handled by the BC library */
-						return IS_DOUBLE;
-						break;
-					default:
-						break;
-				}
-			}
-			return FLAG_IS_BC;
-		} else {
-			return IS_DOUBLE;
-		}
-#else
-		return IS_DOUBLE;
-#endif
-	}
-	
-	return 0;
-}
-
-#else
+#if 0
 
 static inline int is_numeric_string(char *str, int length, long *lval, double *dval)
 {

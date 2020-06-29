@@ -1,4 +1,4 @@
-$Id: README.SELF-CONTAINED-EXTENSIONS,v 1.2 2000/05/02 21:51:48 sas Exp $
+$Id: README.SELF-CONTAINED-EXTENSIONS,v 1.8 2000/06/10 08:59:43 jah Exp $
 =============================================================================
 
 HOW TO CREATE A SELF-CONTAINED PHP EXTENSION
@@ -69,7 +69,7 @@ CREATING THE MAKEFILE TEMPLATE
 LTLIBRARY_SHARED_NAME = foobar.la
 LTLIBRARY_SOURCES     = foo.c bar.c
 
-include $(top_srcdir)/build/rules.mk
+include $(top_srcdir)/build/dynlib.mk
 ------------------------------------------------------------------------------
 
   LTLIBRARY_SHARED_NAME specifies the name of the extension.
@@ -93,17 +93,27 @@ CREATING THE M4 CONFIGURATION FILE
 PHP_ARG_ENABLE(foobar,whether to enable foobar,
 [  --enable-foobar            Enable foobar])
 
-PHP_EXTENSION(foobar, $ext_shared)
+if test "$PHP_FOOBAR" != "no"; then
+  PHP_EXTENSION(foobar, $ext_shared)
+fi
 ------------------------------------------------------------------------------
 
   PHP_ARG_ENABLE will automatically set the correct variables, so
   that the extension will be enabled by PHP_EXTENSION in shared mode.
 
+  Please use always PHP_ARG_ENABLE or PHP_ARG_WITH. Even if you do not
+  plan to distribute your module with PHP, these facilities allow you
+  to integrate your module easily into the main PHP module framework.
 
 CREATING SOURCE FILES
 
-  [You are currently alone here. There are a lot of existing modules,
-   use a simply module as a starting point and add your own code.]
+  ext_skel can be of great help when creating the common code for all modules
+  in PHP for you and also writing basic function definitions and C code for
+  handling arguments passed to your functions. See README.EXT_SKEL for further
+  information.
+
+  As for the rest, you are currently alone here. There are a lot of existing
+  modules, use a simple module as a starting point and add your own code.
 
 
 CREATING THE SELF-CONTAINED EXTENSION
@@ -126,4 +136,26 @@ INSTALLING A SELF-CONTAINED EXTENSION
      $ ./configure \
             [--with-php-config=/path/to/php-config]
      $ make install
-  
+
+ADDING SHARED MODULE SUPPORT TO A MODULE
+
+  In order to be useful, a self-contained extension must be loadable
+  as a shared module. I will explain now how you can add shared module 
+  support to an existing module called foo.
+
+  1. In config.m4, use PHP_ARG_WITH/PHP_ARG_ENABLE. Then you will
+     automatically be able to use --with-foo=shared or
+     --enable-foo=shared.
+
+  2. In config.m4, use PHP_EXTENSION(foo, $ext_shared) to enable
+     building the extension.
+
+  3. Add the following line to Makefile.in:
+
+        LTLIBRARY_SHARED_NAME = foo.la
+
+  4. Add the following lines to your C source file:
+
+        #ifdef COMPILE_DL_FOO
+        ZEND_GET_MODULE(foo)
+        #endif

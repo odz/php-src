@@ -1,6 +1,24 @@
-dnl $Id: acinclude.m4,v 1.7 2000/01/01 20:49:33 sascha Exp $
+dnl $Id: acinclude.m4,v 1.8 2000/06/18 16:51:41 sascha Exp $
 dnl
 dnl This file contains local autoconf functions.
+
+AC_DEFUN(ZEND_FP_EXCEPT,[
+  AC_CACHE_CHECK(whether fp_except is defined, ac_cv_type_fp_except,[
+    AC_TRY_COMPILE([
+#include <floatingpoint.h>
+],[
+fp_except x = (fp_except) 0;
+],[
+     ac_cv_type_fp_except=yes
+],[
+     ac_cv_type_fp_except=no
+],[
+     ac_cv_type_fp_except=no
+])])
+  if test "$ac_cv_type_fp_except" = "yes"; then
+    AC_DEFINE(HAVE_FP_EXCEPT, 1, [whether floatingpoint.h defines fp_except])
+  fi
+])
 
 dnl
 dnl Check for broken sprintf()

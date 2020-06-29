@@ -1,7 +1,165 @@
 PHP 4.0                                                                    NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
+28 Jun 2000, Version 4.0.1
+- Fixed a possible crash in the LDAP modify code. (Eric Kilfoil)
+- Fixed a bug in opendir(), which prevented readdir() from working properly if
+  the $dir argument wasn't explicitly specified (Zeev)
+- Made --enable-discard-path work again. (Andi) 
+- Removed 8KB limit on line length of the file() function (Zeev)
+- Disabled dl() when PHP is being used as a module inside a multithreaded web
+  server - it didn't work before, and caused weird results (Zeev)
+- Added the ImageColorClosestHWB(), ImageCopyMerge() and ImagePaletteCopy() 
+  functions. (Sterling)
+- Added ImageCreateFromWBMP() function. (Jouni)
+- Fixed problems with POST requests under the NSAPI module. (Roberto Biancardi)
+- Added spliti() function. (Thies)
+- Fixed serializer behaviour with regards to serializing objects whose class
+  definition was not available in the deserializing context. (Sascha)
+- Improve memory cache performance and increase cache size. (Stas, Zend Engine)
+- Added a crc32 checksum function - used by the UdmSearch search engine
+  and currently run through a system call.  This will speed up the UdmSearch
+  php frontend significantly. (Rasmus)
+- Modified in_array() to not touch array pointer. (Andrei)
+- Added restore_error_handler(). (Zeev, Zend engine)
+- Fixed erroneous file names and line numbers in error situations under the
+  multithreaded version of PHP - most noticeably Win32 (Zeev, Zend Engine)
+- Fixed problem with CGI crashing on certain servers especially Windows Apache
+  & O'Reilly website (Andi)
+- Added Pi3Web SAPI module; run ./configure --with-pi3web to enable this.
+  (Holger; zimpel@t-online.de)
+- Enhanced WDDX functions to call __sleep() and __wakeup() when working on
+  objects. (Andrei)
+- Changed WDDX to serialize arrays as structs only if needed. (Thies)
+- Implemented max_execution_time under Win32 (Zeev)
+- Updated strtotime() to handle many more formats. It now has complete
+  feature parity with GNU date command. (Andrei)
+- Added support for multiple arguments in unset(). (Faisal, Zend Engine)
+- Functions that expect a resource but are passed something else now return 
+  NULL instead of FALSE. (Thies, Zend Engine)
+- Fixed gmmktime(), on certain systems it incorrectly adjusted for the timezone
+  offset and daylight savings time. (Andrei)
+- Moved VC++ Win32 project and workspace files to the win32 directory
+  (Zeev)
+- Fixed checkdate() to not return true on non-numeric arguments (Rasmus)
+- Added --enable-c9x-inline option for compilers which support the new C9x
+  standard. If you encounter undefined references to i_zend_is_true and
+  other symbols, you should enable this.  (Sascha, Zend Library)
+- Fixed a problem in ldap_add() and ldap_modify(), sometimes added trailing
+  garbage to the values (Stig Venaas) 
+- Fixed a problem with dbmopen() not handing 'c' correctly with dbm/db/ndbm
+  databases. (JimJag)
+- Fixed a crash in number_format() when used with locales. (Andrei)
+- Fixed an initialization problem in the MS-SQL problem that could cause
+  a crash in mssql_query() (Zeev)
+- Upgraded PCRE to version 3.2 and fixed a bug when anchored pattern
+  matched an empty string. (Andrei)
+- Fixed a bug that prevented PHP from paying attention to the extension_dir
+  directive with extensions that were loaded from the php.ini file (Zeev)
+- Changed set_error_handler() to return the name of the previously defined
+  error handler, if any (Zeev, Zend Engine)
+- Declared <?php_track_vars?> officially dead.  It didn't work in PHP 4.0.0
+  either, but now it's gone for good (Zeev)
+- Make convert_cyr_string() binary safe and stop it from corrupting other
+  PHP variables. (Andi)
+- Added functions array_unique, array_intersect and array_diff (Stig Venaas)
+- Fixed problem when using uninitialized values in comparisons with strings.
+  They behave as empty strings again just like in PHP 3.
+  (Andi & Zeev, Zend Engine)
+- Fixed 'Z' flag in date() to adjust for daylight savings time. (Andrei)
+- Fixed var_dump() not to modify the internal order of array elements (Zeev)
+- Fixed stripcslashes() to remove to strip \ in unknown escapes instead of
+  leaving it. (Andrei)
+- Changed WDDX to always serialize arrays as structs. (Andrei)
+- Fixed include_once() to issue a warning in case the supplied file name is
+  not found (Zeev, Zend Engine)
+- Fixed a bug in get_declared_classes() which could return the same class
+  multiple times under certain circumstances (Zeev, Zend Engine)
+- Fixed a bug in rawurldecode() that would cause in rawurldecode() corrupting
+  its argument (Zeev)
+- Parse errors (or other errors) in the php.ini files under Windows will no
+  longer mess up the HTTP headers in CGI mode and are now displayed in a
+  message box (Zeev)
+- Fixed a crash in OCIFetchStatement() when trying to read after all data
+  has already been read. (Thies)
+- fopen_wrappers() are now extensible via modules (Hartmut Holzgraefe)
+- Make trim strip \0 to match php 3 (Rasmus)
+- Added function imagecreatefromxbm(). (Jouni)
+- Added function imagewbmp(). (Jouni, based on patch from Rune Nordbøe
+  Skillingstad)
+- Added str_pad() for padding a string with an arbitrary string on left or
+  right. (Andrei)
+- Made the short_tags, asp_tags and allow_call_time_pass_reference INI
+  directives work on a per-directory basis as well, e.g. from .htaccess
+  files. (Zeev)
+- Added fflush() function. (Eric Huss)
+- Fixed a problem with static variables, default function arguments and class
+  member variables, that contained array values. (Andi & Zeev, Zend Engine)
+- Fix virtual() when used with output buffering (Marc Pohl)
+- Clean up constants in flock() function and add optional 3rd arg which
+  is set to true on EWOULDBLOCK (Rasmus)
+- Added functions pg_loimport(), pg_loexport(). (Jouni)
+- Added SWF support to getimagesize() function (Derick Rethans)
+- Added support for both indexed and non-indexed arrays of file uploads
+  eg. name="file[]" type="file" (Rasmus)
+- Added create_function(), which gives the ability to create functions
+  on-the-fly (Zeev, Zend Engine)
+- Added support for comparisons of arrays (with arrays) and objects (with
+  objects);  The equality operator (==) performs an unordered comparison,
+  whereas the identity operator (===) performs an ordered comparison (Zeev,
+  Zend Engine)
+- Allow all functions that receive user-defined function callbacks to accept
+  an array that contains an object and a method name, in place of a function
+  name, e.g. usort($array, array($obj, "ObjSort")) (Zeev, Zend Engine)
+- Added set_error_handler() to allow custom error handling functions,
+  instead of the built-in error handling code (Zeev, Zend Engine)
+- Renamed user_error() to trigger_error();  user_error() remains
+  defined for compatibility (Zeev, Zend Engine)
+- Fix the global/static statements to require a trailing terminating
+  semi-colon ';'. (Andi, Zend Engine)
+- Cleaned up PCRE extension and made it binary-safe. (Andrei)
+- Added third argument to in_array(). If it's true, then in_array()
+  will use strict comparison instead of the default one. (Andrei)
+- Added pg_trace() and pg_untrace (Dominic J. Eidson & Zeev)
+- ignore_user_abort=Off is now default. (Thies)
+- Added array_merge_recursive() that will recursively merge values
+  under the same keys. (Andrei)
+- fixed crash in OCIParse when parsing invalid SQL. (Thies)
+- Fixed a bug in mysql_connect() that made it ignore the socket argument, in
+  case of non-persistent connects (Zeev)
+- Added disable_functions php.ini directive, to allow administrators to disable
+  certain functions for security reasons (Zeev)
+- Fixed sessions on Win32. When setting the directory depth parameter in
+  save_path you need to now delimit it with a ';' instead of ':', e.g
+  "5;/tmp" instead of "5:/tmp" (Andi)
+- Changed the Apache handler's return status to 'Declined' when a requested
+  PHP file could not be found.  Returning 'Not Found' caused problems
+  in the ErrorDocument handler stage in that $REDIRECT_REDIRECT_ERROR_NOTES
+  was not getting set at all.  Moving to 'Declined' should fix this and I
+  can't see any other side effects.  (Rasmus)
+- Fixed scanning decimal numbers in internationalized environments. They should
+  always be in standard US format e.g. 23.3. (Andi, Zend Engine)
+- Added second argument to preg_quote() which allows quoting of
+  one additional character, usually the regex delimiter. (Andrei)
+- Uncommitted outstanding OCI8 transactions are now rolled back
+  before the connection is closed. (Thies)
+- ignore_user_abort() & friends should now work in CGI mode as well.
+  (Patch by daniel.braun@ercom.fr)
+- Added extension YAZ (dickmeiss).
+- Fixed a crash bug triggered by certain cases of class redeclarations
+  (Stanislav & Zeev, Zend Engine)
+- Fixed min()/max() segfault. (Andrei)
+- New module for reading EXIF header data from JPEG files.  Most digital
+  cameras will embed all sorts of information about a picture inside the
+  jpeg images it generates.  (Rasmus)
+- Fixed basename() bug where "file.ext///" would not return the same
+  as "/path/file.ext///" (Rasmus)
+- Added the swf_ortho function. (Sterling)
+- Moved to virtual current working directory support. This highly improves the
+  functionality and stability of multi-threaded versions of PHP (Andi, Sascha)
+
 22 May 2000, Version 4.0.0 Release
+- Allow the writing of flash files to stdout.
 - Fixed a crash bug in .phps syntax-highlighted files (Andi)
 - Improved round() to allow specification of rounding precision.
   (Andrei, Todd Kirby <kirbyt@yahoo.com>)
@@ -31,7 +189,7 @@ PHP 4.0                                                                    NEWS
 - ImagePolygon() is no longer limited by a maximum number of polygons.
   (Marc Pohl)
 - Added configure time checking for bcmath package. (Joey, Sascha)
-- Added get_declared_classes(). (Andrei, Zend library)
+- Added get_declared_classes(). (Andrei, Zend Engine)
 - Add initial NSAPI module from Jayakumar Muthukumarasamy. (Rasmus)
 - Added the SWF module which allows you to create Macromedia Flash files via 
   libswf. (Sterling)

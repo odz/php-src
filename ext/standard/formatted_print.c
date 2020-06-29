@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: formatted_print.c,v 1.17 2000/05/18 15:34:35 zeev Exp $ */
+/* $Id: formatted_print.c,v 1.21 2000/06/25 17:21:04 eschmid Exp $ */
 
 #include <math.h>				/* modf() */
 #include "php.h"
@@ -172,7 +172,7 @@ php_sprintf_appendstring(char **buffer, int *pos, int *size, char *add,
 		*buffer = erealloc(*buffer, *size);
 	}
 	if (alignment == ALIGN_RIGHT) {
-		if (sign && padding=='0') { (*buffer)[(*pos)++] = '-'; add++; }
+		if (sign && padding=='0') { (*buffer)[(*pos)++] = '-'; add++; len--; }
 		while (npad-- > 0) {
 			(*buffer)[(*pos)++] = padding;
 		}
@@ -371,7 +371,7 @@ php_formatted_print(int ht, int *len)
 	int alignment, width, precision, currarg, adjusting;
 	char *format, *result, padding;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 
 	if (argc < 1) {
 		WRONG_PARAM_COUNT_WITH_RETVAL(NULL);
@@ -553,7 +553,7 @@ php_formatted_print(int ht, int *len)
 	return result;
 }
 
-/* {{{ proto string sprintf(string format [, mixed arg1 [, ...]])
+/* {{{ proto string sprintf(string format [, mixed arg1 [, mixed ...]])
    Return a formatted string */
 PHP_FUNCTION(user_sprintf)
 {
@@ -568,7 +568,7 @@ PHP_FUNCTION(user_sprintf)
 }
 /* }}} */
 
-/* {{{ proto int printf(string format [, mixed arg1 [, ...]])
+/* {{{ proto int printf(string format [, mixed arg1 [, mixed ...]])
    Output a formatted string */
 PHP_FUNCTION(user_printf)
 {

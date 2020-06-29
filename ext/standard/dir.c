@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dir.c,v 1.33 2000/05/18 15:34:35 zeev Exp $ */
+/* $Id: dir.c,v 1.40 2000/06/27 18:44:30 zeev Exp $ */
 
 /* {{{ includes/startup/misc */
 
@@ -37,7 +37,6 @@
 #include <errno.h>
 
 #ifdef PHP_WIN32
-#define NEEDRDH 1
 #include "win32/readdir.h"
 #endif
 
@@ -46,12 +45,20 @@ typedef struct {
 } php_dir_globals;
 
 #ifdef ZTS
-#define DIR(v) (dir_globals->v)
+#define DIRG(v) (dir_globals->v)
 #define DIRLS_FETCH() php_dir_globals *dir_globals = ts_resource(dir_globals_id)
+#define DIRLS_D		php_dir_globals *dir_globals
+#define DIRLS_DC	, DIRLS_D
+#define DIRLS_C		dir_globals
+#define DIRLS_CC	, DIRLS_C
 int dir_globals_id;
 #else
-#define DIR(v) (dir_globals.v)
+#define DIRG(v) (dir_globals.v)
 #define DIRLS_FETCH()
+#define DIRLS_D
+#define DIRLS_DC
+#define DIRLS_C
+#define DIRLS_CC
 php_dir_globals dir_globals;
 #endif
 
@@ -65,7 +72,7 @@ static int le_dirp;
 static zend_class_entry *dir_class_entry_ptr;
 
 #define FETCH_DIRP() \
-	if (ARG_COUNT(ht) == 0) { \
+	if (ZEND_NUM_ARGS() == 0) { \
 		myself = getThis(); \
 		if (myself) { \
 			if (zend_hash_find(myself->value.obj.properties, "handle", sizeof("handle"), (void **)&tmp) == FAILURE) { \
@@ -74,9 +81,9 @@ static zend_class_entry *dir_class_entry_ptr;
 			} \
 			ZEND_FETCH_RESOURCE(dirp,php_dir *,tmp,-1, "Directory", le_dirp); \
 		} else { \
-			ZEND_FETCH_RESOURCE(dirp,php_dir *,0,DIR(default_dir), "Directory", le_dirp); \
+			ZEND_FETCH_RESOURCE(dirp,php_dir *,0,DIRG(default_dir), "Directory", le_dirp); \
 		} \
-	} else if ((ARG_COUNT(ht) != 1) || zend_get_parameters_ex(1, &id) == FAILURE) { \
+	} else if ((ZEND_NUM_ARGS() != 1) || zend_get_parameters_ex(1, &id) == FAILURE) { \
 		WRONG_PARAM_COUNT; \
 	} else { \
 		ZEND_FETCH_RESOURCE(dirp,php_dir *,id,-1, "Directory", le_dirp); \
@@ -90,18 +97,26 @@ static zend_function_entry php_dir_class_functions[] = {
 };
 
 
+static void php_set_default_dir(int id DIRLS_DC)
+{
+    if (DIRG(default_dir)!=-1) {
+        zend_list_delete(DIRG(default_dir));
+    }
+    DIRG(default_dir) = id;
+    zend_list_addref(id);
+}
+
+
 static void _dir_dtor(php_dir *dirp)
 {
 	closedir(dirp->dir);
 	efree(dirp);
 }
 
-#ifdef ZTS
-static void php_dir_init_globals(php_dir_globals *dir_globals)
+static void php_dir_init_globals(DIRLS_D)
 {
-	DIR(default_dir) = 0;
+	DIRG(default_dir) = -1;
 }
-#endif
 
 PHP_MINIT_FUNCTION(dir)
 {
@@ -110,12 +125,12 @@ PHP_MINIT_FUNCTION(dir)
 	le_dirp = register_list_destructors(_dir_dtor,NULL);
 
 	INIT_CLASS_ENTRY(dir_class_entry, "Directory", php_dir_class_functions);
-	dir_class_entry_ptr = register_internal_class(&dir_class_entry);
+	dir_class_entry_ptr = zend_register_internal_class(&dir_class_entry);
 
 #ifdef ZTS
 	dir_globals_id = ts_allocate_id(sizeof(php_dir_globals), (ts_allocate_ctor) php_dir_init_globals, NULL);
 #else
-	DIR(default_dir) = 0;
+	php_dir_init_globals(DIRLS_C);
 #endif
 
 	return SUCCESS;
@@ -130,7 +145,7 @@ static void _php_do_opendir(INTERNAL_FUNCTION_PARAMETERS, int createobject)
 	php_dir *dirp;
 	DIRLS_FETCH();
 	
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(arg);
@@ -141,7 +156,7 @@ static void _php_do_opendir(INTERNAL_FUNCTION_PARAMETERS, int createobject)
 	
 	dirp = emalloc(sizeof(php_dir));
 
-	dirp->dir = opendir((*arg)->value.str.val);
+	dirp->dir = V_OPENDIR((*arg)->value.str.val);
 	
 	if (! dirp->dir) {
 		efree(dirp);
@@ -151,7 +166,7 @@ static void _php_do_opendir(INTERNAL_FUNCTION_PARAMETERS, int createobject)
 
 	dirp->id = zend_list_insert(dirp,le_dirp);
 
-	DIR(default_dir) = dirp->id;
+	php_set_default_dir(dirp->id DIRLS_CC);
 
 	if (createobject) {
 		object_init_ex(return_value, dir_class_entry_ptr);
@@ -205,14 +220,14 @@ PHP_FUNCTION(chdir)
 	pval **arg;
 	int ret;
 	
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(arg);
 
 	ret = V_CHDIR((*arg)->value.str.val);
 	
-	if (ret < 0) {
+	if (ret != 0) {
 		php_error(E_WARNING, "ChDir: %s (errno %d)", strerror(errno), errno);
 		RETURN_FALSE;
 	}
@@ -229,7 +244,7 @@ PHP_FUNCTION(getcwd)
 	char path[MAXPATHLEN];
 	char *ret=NULL;
 	
-	if (ARG_COUNT(ht) != 0) {
+	if (ZEND_NUM_ARGS() != 0) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -273,14 +288,14 @@ PHP_FUNCTION(readdir)
 {
 	pval **id, **tmp, *myself;
 	php_dir *dirp;
-	struct dirent *direntp;
+	struct dirent entry;
+	struct dirent *result;
 	DIRLS_FETCH();
 
 	FETCH_DIRP();
-	
-	direntp = readdir(dirp->dir);
-	if (direntp) {
-		RETURN_STRINGL(direntp->d_name, strlen(direntp->d_name), 1);
+
+	if (php_readdir_r(dirp->dir, &entry, &result) == 0 && result) {
+		RETURN_STRINGL(result->d_name, strlen(result->d_name), 1);
 	}
 	RETURN_FALSE;
 }

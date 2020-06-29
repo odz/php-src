@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
  
-/* $Id: php_mysql.c,v 1.44 2000/05/18 15:34:30 zeev Exp $ */
+/* $Id: php_mysql.c,v 1.49 2000/06/16 01:53:35 zeev Exp $ */
 
 
 /* TODO:
@@ -27,7 +27,6 @@
 #include "php.h"
 #include "php_globals.h"
 #include "php_mysql.h"
-#include "php_globals.h"
 #include "ext/standard/info.h"
 #include "ext/standard/php_string.h"
 
@@ -151,7 +150,7 @@ zend_module_entry mysql_module_entry = {
 
 ZEND_DECLARE_MODULE_GLOBALS(mysql)
 
-#if defined(COMPILE_DL) || defined(COMPILE_DL_MYSQL)
+#ifdef COMPILE_DL_MYSQL
 ZEND_GET_MODULE(mysql)
 #endif
 
@@ -211,7 +210,7 @@ static void _close_mysql_plink(MYSQL *link)
 static PHP_INI_MH(OnMySQLPort)
 {
 	MySLS_FETCH();
-	
+
 	if (new_value==NULL) { /* default port */
 #ifndef PHP_WIN32
 		struct servent *serv_ptr;
@@ -237,11 +236,12 @@ static PHP_INI_MH(OnMySQLPort)
 PHP_INI_BEGIN()
 	STD_PHP_INI_BOOLEAN("mysql.allow_persistent",	"1",	PHP_INI_SYSTEM,		OnUpdateInt,		allow_persistent,	zend_mysql_globals,		mysql_globals)
 	STD_PHP_INI_ENTRY_EX("mysql.max_persistent",	"-1",	PHP_INI_SYSTEM,		OnUpdateInt,		max_persistent,		zend_mysql_globals,		mysql_globals,	display_link_numbers)
-	STD_PHP_INI_ENTRY_EX("mysql.max_links",		"-1",	PHP_INI_SYSTEM,			OnUpdateInt,		max_links,			zend_mysql_globals,		mysql_globals,	display_link_numbers)
-	STD_PHP_INI_ENTRY("mysql.default_host",		NULL,	PHP_INI_ALL,			OnUpdateString,		default_host,		zend_mysql_globals,		mysql_globals)
-	STD_PHP_INI_ENTRY("mysql.default_user",		NULL,	PHP_INI_ALL,			OnUpdateString,		default_user,		zend_mysql_globals,		mysql_globals)
-	STD_PHP_INI_ENTRY("mysql.default_password",	NULL,	PHP_INI_ALL,			OnUpdateString,		default_password,	zend_mysql_globals,		mysql_globals)
-	PHP_INI_ENTRY("mysql.default_port",		NULL,	PHP_INI_ALL,			OnMySQLPort)
+	STD_PHP_INI_ENTRY_EX("mysql.max_links",			"-1",	PHP_INI_SYSTEM,		OnUpdateInt,		max_links,			zend_mysql_globals,		mysql_globals,	display_link_numbers)
+	STD_PHP_INI_ENTRY("mysql.default_host",			NULL,	PHP_INI_ALL,		OnUpdateString,		default_host,		zend_mysql_globals,		mysql_globals)
+	STD_PHP_INI_ENTRY("mysql.default_user",			NULL,	PHP_INI_ALL,		OnUpdateString,		default_user,		zend_mysql_globals,		mysql_globals)
+	STD_PHP_INI_ENTRY("mysql.default_password",		NULL,	PHP_INI_ALL,		OnUpdateString,		default_password,	zend_mysql_globals,		mysql_globals)
+	PHP_INI_ENTRY("mysql.default_port",				NULL,	PHP_INI_ALL,		OnMySQLPort)
+	STD_PHP_INI_ENTRY("mysql.default_socket",		NULL,	PHP_INI_ALL,		OnUpdateStringUnempty,	default_socket,	zend_mysql_globals,		mysql_globals)
 PHP_INI_END()
 
 
@@ -312,7 +312,7 @@ PHP_MINFO_FUNCTION(mysql)
 
 static void php_mysql_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 {
-	char *user,*passwd,*host,*socket=NULL,*tmp;
+	char *user,*passwd,*host,*socket,*tmp;
 	char *hashed_details;
 	int hashed_details_length,port = MYSQL_PORT;
 	MYSQL *mysql;
@@ -320,8 +320,10 @@ static void php_mysql_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 	MySLS_FETCH();
 	PLS_FETCH();
 
+	socket = MySG(default_socket);
+
 	if (PG(sql_safe_mode)) {
-		if (ARG_COUNT(ht)>0) {
+		if (ZEND_NUM_ARGS()>0) {
 			php_error(E_NOTICE,"SQL safe mode in effect - ignoring host/user/password information");
 		}
 		host=passwd=NULL;
@@ -334,7 +336,7 @@ static void php_mysql_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 		user = MySG(default_user);
 		passwd = MySG(default_password);
 		
-		switch(ARG_COUNT(ht)) {
+		switch(ZEND_NUM_ARGS()) {
 			case 0: /* defaults */
 				break;
 			case 1: {
@@ -515,7 +517,7 @@ static void php_mysql_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 		mysql = (MYSQL *) emalloc(sizeof(MYSQL));
 #if MYSQL_VERSION_ID > 32199 /* this lets us set the port number */
 		mysql_init(mysql);
-		if (mysql_real_connect(mysql,host,user,passwd,NULL,port,NULL,0)==NULL) {
+		if (mysql_real_connect(mysql,host,user,passwd,NULL,port,socket,0)==NULL) {
 #else
 		if (mysql_connect(mysql,host,user,passwd)==NULL) {
 #endif
@@ -580,7 +582,7 @@ PHP_FUNCTION(mysql_close)
 	MYSQL *mysql;
 	MySLS_FETCH();
 
-	switch (ARG_COUNT(ht)) {
+	switch (ZEND_NUM_ARGS()) {
 		case 0:
 			id = MySG(default_link);
 			break;
@@ -612,7 +614,7 @@ PHP_FUNCTION(mysql_select_db)
 	MYSQL *mysql;
 	MySLS_FETCH();
 	
-	switch(ARG_COUNT(ht)) {
+	switch(ZEND_NUM_ARGS()) {
 		case 1:
 			if (zend_get_parameters_ex(1, &db)==FAILURE) {
 				RETURN_FALSE;
@@ -654,7 +656,7 @@ PHP_FUNCTION(mysql_create_db)
 	MYSQL *mysql;
 	MySLS_FETCH();
 	
-	switch(ARG_COUNT(ht)) {
+	switch(ZEND_NUM_ARGS()) {
 		case 1:
 			if (zend_get_parameters_ex(1, &db)==FAILURE) {
 				RETURN_FALSE;
@@ -694,7 +696,7 @@ PHP_FUNCTION(mysql_drop_db)
 	MYSQL *mysql;
 	MySLS_FETCH();
 	
-	switch(ARG_COUNT(ht)) {
+	switch(ZEND_NUM_ARGS()) {
 		case 1:
 			if (zend_get_parameters_ex(1, &db)==FAILURE) {
 				RETURN_FALSE;
@@ -736,7 +738,7 @@ PHP_FUNCTION(mysql_query)
 	MYSQL_RES *mysql_result;
 	MySLS_FETCH();
 	
-	switch(ARG_COUNT(ht)) {
+	switch(ZEND_NUM_ARGS()) {
 		case 1:
 			if (zend_get_parameters_ex(1, &query)==FAILURE) {
 				RETURN_FALSE;
@@ -791,7 +793,7 @@ PHP_FUNCTION(mysql_db_query)
 	MYSQL_RES *mysql_result;
 	MySLS_FETCH();
 	
-	switch(ARG_COUNT(ht)) {
+	switch(ZEND_NUM_ARGS()) {
 		case 2:
 			if (zend_get_parameters_ex(2, &db, &query)==FAILURE) {
 				RETURN_FALSE;
@@ -851,7 +853,7 @@ PHP_FUNCTION(mysql_list_dbs)
 	MYSQL_RES *mysql_result;
 	MySLS_FETCH();
 	
-	switch(ARG_COUNT(ht)) {
+	switch(ZEND_NUM_ARGS()) {
 		case 0:
 			id = php_mysql_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU MySLS_CC);
 			CHECK_LINK(id);
@@ -888,7 +890,7 @@ PHP_FUNCTION(mysql_list_tables)
 	MYSQL_RES *mysql_result;
 	MySLS_FETCH();
 	
-	switch(ARG_COUNT(ht)) {
+	switch(ZEND_NUM_ARGS()) {
 		case 1:
 			if (zend_get_parameters_ex(1, &db)==FAILURE) {
 				RETURN_FALSE;
@@ -932,7 +934,7 @@ PHP_FUNCTION(mysql_list_fields)
 	MYSQL_RES *mysql_result;
 	MySLS_FETCH();
 	
-	switch(ARG_COUNT(ht)) {
+	switch(ZEND_NUM_ARGS()) {
 		case 2:
 			if (zend_get_parameters_ex(2, &db, &table)==FAILURE) {
 				RETURN_FALSE;
@@ -976,7 +978,7 @@ PHP_FUNCTION(mysql_error)
 	MYSQL *mysql;
 	MySLS_FETCH();
 	
-	switch(ARG_COUNT(ht)) {
+	switch(ZEND_NUM_ARGS()) {
 		case 0:
 			id = MySG(default_link);
 			if (id==-1) {
@@ -1011,7 +1013,7 @@ PHP_FUNCTION(mysql_errno)
 	MYSQL *mysql;
 	MySLS_FETCH();
 	
-	switch(ARG_COUNT(ht)) {
+	switch(ZEND_NUM_ARGS()) {
 		case 0:
 			id = MySG(default_link);
 			if (id==-1) {
@@ -1046,7 +1048,7 @@ PHP_FUNCTION(mysql_affected_rows)
 	MYSQL *mysql;
 	MySLS_FETCH();
 	
-	switch(ARG_COUNT(ht)) {
+	switch(ZEND_NUM_ARGS()) {
 		case 0:
 			id = MySG(default_link);
 			CHECK_LINK(id);
@@ -1080,7 +1082,7 @@ PHP_FUNCTION(mysql_insert_id)
 	MYSQL *mysql;
 	MySLS_FETCH();
 	
-	switch(ARG_COUNT(ht)) {
+	switch(ZEND_NUM_ARGS()) {
 		case 0:
 			id = MySG(default_link);
 			CHECK_LINK(id);
@@ -1116,7 +1118,7 @@ PHP_FUNCTION(mysql_result)
 	int field_offset=0;
 	PLS_FETCH();
 
-	switch (ARG_COUNT(ht)) {
+	switch (ZEND_NUM_ARGS()) {
 		case 2:
 			if (zend_get_parameters_ex(2, &result, &row)==FAILURE) {
 				RETURN_FALSE;
@@ -1216,7 +1218,7 @@ PHP_FUNCTION(mysql_num_rows)
 	pval **result;
 	MYSQL_RES *mysql_result;
 	
-	if (ARG_COUNT(ht)!=1 || zend_get_parameters_ex(1, &result)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &result)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	
@@ -1235,7 +1237,7 @@ PHP_FUNCTION(mysql_num_fields)
 	pval **result;
 	MYSQL_RES *mysql_result;
 	
-	if (ARG_COUNT(ht)!=1 || zend_get_parameters_ex(1, &result)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &result)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	
@@ -1258,7 +1260,7 @@ static void php_mysql_fetch_hash(INTERNAL_FUNCTION_PARAMETERS, int result_type)
 	int i;
 	PLS_FETCH();
 
-	switch (ARG_COUNT(ht)) {
+	switch (ZEND_NUM_ARGS()) {
 		case 1:
 			if (zend_get_parameters_ex(1, &result)==FAILURE) {
 				RETURN_FALSE;
@@ -1366,7 +1368,7 @@ PHP_FUNCTION(mysql_data_seek)
 	pval **result, **offset;
 	MYSQL_RES *mysql_result;
 	
-	if (ARG_COUNT(ht)!=2 || zend_get_parameters_ex(2, &result, &offset)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2, &result, &offset)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	
@@ -1394,7 +1396,7 @@ PHP_FUNCTION(mysql_fetch_lengths)
 	int i;
 
 	
-	if (ARG_COUNT(ht)!=1 || zend_get_parameters_ex(1, &result)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &result)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	
@@ -1472,7 +1474,7 @@ PHP_FUNCTION(mysql_fetch_field)
 	MYSQL_RES *mysql_result;
 	MYSQL_FIELD *mysql_field;
 	
-	switch (ARG_COUNT(ht)) {
+	switch (ZEND_NUM_ARGS()) {
 		case 1:
 			if (zend_get_parameters_ex(1, &result)==FAILURE) {
 				RETURN_FALSE;
@@ -1528,7 +1530,7 @@ PHP_FUNCTION(mysql_field_seek)
 	pval **result, **offset;
 	MYSQL_RES *mysql_result;
 	
-	if (ARG_COUNT(ht)!=2 || zend_get_parameters_ex(2, &result, &offset)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2, &result, &offset)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	
@@ -1560,7 +1562,7 @@ static void php_mysql_field_info(INTERNAL_FUNCTION_PARAMETERS, int entry_type)
 	char buf[512];
 	int  len;
 
-	if (ARG_COUNT(ht)!=2 || zend_get_parameters_ex(2, &result, &field)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2, &result, &field)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	
@@ -1724,7 +1726,7 @@ PHP_FUNCTION(mysql_free_result)
 	pval **result;
 	MYSQL_RES *mysql_result;
 
-	if (ARG_COUNT(ht)!=1 || zend_get_parameters_ex(1, &result)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &result)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	

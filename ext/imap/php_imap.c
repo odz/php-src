@@ -20,10 +20,11 @@
    |          Rasmus Lerdorf      <rasmus@lerdorf.on.ca>                  |
    |          Chuck Hagenbuch     <chuck@horde.org>                       |
    |          Andrew Skalski      <askalski@chekinc.com>                  |
+   |          Hartmut Holzgraefe  <hartmut@six.de>                        |
    | PHP 4.0 updates:  Zeev Suraski <zeev@zend.com>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_imap.c,v 1.26 2000/05/18 15:34:26 zeev Exp $ */
+/* $Id: php_imap.c,v 1.34 2000/06/19 21:35:01 sas Exp $ */
 
 #define IMAP41
 
@@ -157,7 +158,7 @@ zend_module_entry imap_module_entry = {
 };
 
 
-#if defined(COMPILE_DL) || defined(COMPILE_DL_IMAP)
+#ifdef COMPILE_DL_IMAP
 ZEND_GET_MODULE(imap)
 #endif
 
@@ -1026,6 +1027,7 @@ PHP_FUNCTION(imap_close)
 		}	
 		imap_le_struct->flags = flags;
 	}
+
 	zend_list_delete(ind);
 	RETURN_TRUE;
 }
@@ -1675,7 +1677,7 @@ PHP_FUNCTION(imap_headerinfo)
 /* }}} */
 
 
-/* {{{ proto object imap_rfc822_parse_headers(string headers, string [default_host])
+/* {{{ proto object imap_rfc822_parse_headers(string headers [, string default_host])
    Parse a set of mail headers contained in a string, and return an object similar to imap_headerinfo() */
 PHP_FUNCTION(imap_rfc822_parse_headers)
 {
@@ -1809,7 +1811,7 @@ PHP_FUNCTION(imap_lsub_full)
 	}
 	mail_free_foblist (&IMAPG(imap_sfolder_objects));
 	efree(delim);
-	IMAPG(folderlist_style) = FLIST_ARRAY; // reset to default
+	IMAPG(folderlist_style) = FLIST_ARRAY; /* reset to default */
 }
 /* }}} */
 
@@ -2044,8 +2046,8 @@ PHP_FUNCTION(imap_binary)
 /* }}} */
 
 
-/* {{{ proto array imap_mailboxmsginfo(int stream_id)
-   Returns info about the current mailbox in an associative array */
+/* {{{ proto object imap_mailboxmsginfo(int stream_id)
+   Returns info about the current mailbox */
 PHP_FUNCTION(imap_mailboxmsginfo)
 {
 	zval **streamind;
@@ -2053,7 +2055,7 @@ PHP_FUNCTION(imap_mailboxmsginfo)
 	int ind, ind_type;
 	unsigned int msgno;
 	pils *imap_le_struct;
-	unsigned unreadmsg, msize;
+	unsigned unreadmsg, deletedmsg, msize;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &streamind) == FAILURE) {
 		ZEND_WRONG_PARAM_COUNT();
@@ -2070,21 +2072,23 @@ PHP_FUNCTION(imap_mailboxmsginfo)
 		RETURN_FALSE;
 	}
 
-	/* Initialize return array */
+	/* Initialize return object */
 	if (object_init(return_value) == FAILURE) {
 		RETURN_FALSE;
 	}
 
 	unreadmsg = 0;
+	deletedmsg = 0;
 	msize = 0;
 	for (msgno = 1; msgno <= imap_le_struct->imap_stream->nmsgs; msgno++) {
 		MESSAGECACHE * cache = mail_elt (imap_le_struct->imap_stream,msgno);
 		mail_fetchstructure (imap_le_struct->imap_stream,msgno,NIL);
-		unreadmsg = cache->recent ? (cache->seen ? unreadmsg : unreadmsg++) : unreadmsg;
-		unreadmsg = (cache->recent | cache->seen) ? unreadmsg : unreadmsg++;
+                if (!cache->seen || cache->recent) unreadmsg++;
+                if (cache->deleted) deletedmsg++;
 		msize = msize + cache->rfc822_size;
 	}
 	add_property_long(return_value, "Unread", unreadmsg);
+        add_property_long(return_value, "Deleted", deletedmsg);
 	add_property_long(return_value, "Nmsgs", imap_le_struct->imap_stream->nmsgs);
 	add_property_long(return_value, "Size", msize);
 	rfc822_date(date);
@@ -2125,8 +2129,8 @@ PHP_FUNCTION(imap_rfc822_write_address)
 	addr->next=NIL;
 	addr->error=NIL;
 	addr->adl=NIL;
-	string[0]=0x00;
-  
+
+	string[0]='\0';
 	rfc822_write_address(string, addr);
 	RETVAL_STRING(string, 1);
 }
@@ -2956,6 +2960,7 @@ PHP_FUNCTION(imap_fetch_overview)
 				}
 				if (env->from) {
 					env->from->next=NULL;
+					address[0] = '\0';
 					rfc822_write_address(address, env->from);
 					add_property_string(myoverview, "from", address, 1);
 				}
@@ -3525,7 +3530,7 @@ void _php_imap_parse_address (ADDRESS *addresslist, char *fulladdress, zval *pad
 	while (ok && addresstmp) {                                    /* while length < 1000 and we are not at the end of the list */
 		addresstmp2 = addresstmp->next;                           /* save the pointer to the next address */
 		addresstmp->next = NULL;                                  /* make this address the only one now. */
-		tempaddress[0] = 0x00;                                    /* reset tempaddress buffer */
+		tempaddress[0] = '\0';                                    /* reset tempaddress buffer */
 		rfc822_write_address(tempaddress, addresstmp);            /* ok, write the address into tempaddress string */
 		if ((strlen(tempaddress) + strlen(fulladdress)) < 1000) { /* is the new address + total address < 1000 */
 			if (strlen(fulladdress)) {

@@ -46,7 +46,7 @@
 //				 be registered here.
 //
 
-use "DB/common";
+include_once 'DB/common.php';
 
 class DB_pgsql extends DB_common {
     // {{{ properties
@@ -55,6 +55,7 @@ class DB_pgsql extends DB_common {
 	var $phptype, $dbsyntax;
 	var $prepare_tokens = array();
 	var $prepare_types = array();
+	var $numrows;
 	var $row;
 
     // }}}
@@ -70,6 +71,7 @@ class DB_pgsql extends DB_common {
 			'transactions' => true
 		);
 		$this->errorcode_map = array();
+		$this->numrows = array();
 		$this->row = array();
 	}
 
@@ -150,12 +152,12 @@ class DB_pgsql extends DB_common {
 		if (!$result) {
 			return pg_errormessage($this->connection);
 		}
-		$this->row[$result] = 0; // reset the row counter. 
-
 		// Determine which queries that should return data, and which
 		// should return an error code only.
 		if (preg_match('/(SELECT|SHOW)/i', $query)) {
 			$resultObj = new DB_result($this, $result);
+			$this->row[$result] = 0; // reset the row counter. 
+			$this->numrows[$result] = pg_numrows($result); 
 			return $resultObj;
 		} else {
 			return DB_OK;
@@ -180,11 +182,11 @@ class DB_pgsql extends DB_common {
 		if (!$result) {
 			return pg_errormessage($this->connection);
 		}
-		$this->row[$result] = 0; // reset the row counter. 
-
 		// Determine which queries that should return data, and which
 		// should return an error code only.
 		if (preg_match('/(SELECT|SHOW)/i', $query)) {
+			$this->row[$result] = 0; // reset the row counter.
+			$this->numrows[$result] = pg_numrows($result);  
 			return $result;
 		} else {
 			return DB_OK;
@@ -204,6 +206,9 @@ class DB_pgsql extends DB_common {
 	 *             if there is no more data
 	 */
 	function &fetchRow($result, $getmode = DB_GETMODE_DEFAULT) {
+		if ($this->row[$result]>=$this->numrows[$result]){
+			return NULL;
+		}
 		if ($getmode & DB_GETMODE_ASSOC) {
 			$row = pg_fetch_array($result, $this->row[$result]);
 		} else {
@@ -233,6 +238,9 @@ class DB_pgsql extends DB_common {
 	 * @return int DB_OK on success, a DB error code on failure
 	 */
 	function fetchInto($result, &$arr, $getmode = DB_GETMODE_DEFAULT) {
+		if ($this->row[$result]>=$this->numrows[$result]){
+			return NULL;
+		}
 		if ($getmode & DB_GETMODE_ASSOC) {
 			$arr = pg_fetch_array($result, $this->row[$result]);
 		} else {
@@ -273,6 +281,7 @@ class DB_pgsql extends DB_common {
 		unset($this->prepare_tokens[$result]);
 		unset($this->prepare_types[$result]);
 		unset($this->row[$result]);
+		unset($this->numrows[$result]);
 		return true; 
 	}
 
@@ -370,6 +379,8 @@ class DB_pgsql extends DB_common {
 			return pg_errormessage($this->connection);
 		}
 		if (preg_match('/(SELECT|SHOW)/i', $realquery)) {
+			$this->row[$result] = 0; // reset the row counter.
+			$this->numrows[$result] = pg_numrows($result);
 			return $result;
 		} else {
 			return DB_OK;

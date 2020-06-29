@@ -31,7 +31,6 @@
 #endif
 
 #ifdef PHP_WIN32
-#define NEEDRDH 1
 #include "win32/readdir.h"
 #endif
 #include <time.h>
@@ -154,7 +153,7 @@ static void _ps_files_open(ps_files *data, const char *key)
 static int _ps_files_cleanup_dir(const char *dirname, int maxlifetime)
 {
 	DIR *dir;
-	struct dirent *entry;
+	struct dirent *entry, dentry;
 	struct stat sbuf;
 	char buf[MAXPATHLEN];
 	time_t now;
@@ -168,7 +167,7 @@ static int _ps_files_cleanup_dir(const char *dirname, int maxlifetime)
 
 	time(&now);
 
-	while((entry = readdir(dir))) {
+	while (php_readdir_r(dir, &dentry, &entry) == 0 && entry) {
 		/* does the file start with our prefix? */
 		if (!strncmp(entry->d_name, FILE_PREFIX, sizeof(FILE_PREFIX) - 1) &&
 				/* create full path */
@@ -178,7 +177,7 @@ static int _ps_files_cleanup_dir(const char *dirname, int maxlifetime)
 				V_STAT(buf, &sbuf) == 0 &&
 				/* is it expired? */
 				(now - sbuf.st_atime) > maxlifetime) {
-			unlink(buf);
+			V_UNLINK(buf);
 			nrdels++;
 		}
 	}
@@ -199,7 +198,7 @@ PS_OPEN_FUNC(files)
 	PS_SET_MOD_DATA(data);
 
 	data->fd = -1;
-	if ((p = strchr(save_path, ':'))) {
+	if ((p = strchr(save_path, ';'))) {
 		data->dirdepth = strtol(save_path, NULL, 10);
 		save_path = p + 1;
 	}
@@ -276,7 +275,7 @@ PS_DESTROY_FUNC(files)
 	if (!_ps_files_path_create(buf, sizeof(buf), data, key))
 		return FAILURE;
 	
-	unlink(buf);
+	V_UNLINK(buf);
 
 	return SUCCESS;
 }

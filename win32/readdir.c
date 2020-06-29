@@ -2,7 +2,6 @@
 #include <string.h>
 #include <errno.h>
 
-#define NEEDRDH 1
 #include "readdir.h"
 #include "php.h"
 
@@ -50,7 +49,7 @@ DIR *opendir(const char *dir)
 	return dp;
 }
 
-struct dirent *readdir(DIR * dp)
+struct dirent *readdir(DIR *dp)
 {
 	if (!dp || dp->finished)
 		return NULL;
@@ -71,7 +70,35 @@ struct dirent *readdir(DIR * dp)
 	return &(dp->dent);
 }
 
-int closedir(DIR * dp)
+int readdir_r(DIR *dp, struct dirent *entry, struct dirent **result)
+{
+	if (!dp || dp->finished) {
+		*result = NULL;
+		return 0;
+	}
+
+	if (dp->offset != 0) {
+		if (_findnext(dp->handle, &(dp->fileinfo)) < 0) {
+			dp->finished = 1;
+			*result = NULL;
+			return 0;
+		}
+	}
+	dp->offset++;
+
+	strlcpy(dp->dent.d_name, dp->fileinfo.name, _MAX_FNAME+1);
+	dp->dent.d_ino = 1;
+	dp->dent.d_reclen = strlen(dp->dent.d_name);
+	dp->dent.d_off = dp->offset;
+
+	memcpy(entry, &dp->dent, sizeof(*entry));
+
+	*result = &dp->dent;
+
+	return 0;
+}
+
+int closedir(DIR *dp)
 {
 	if (!dp)
 		return 0;

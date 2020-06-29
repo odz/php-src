@@ -17,11 +17,8 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: db.c,v 1.35 2000/05/18 15:34:23 zeev Exp $ */
+/* $Id: db.c,v 1.43 2000/06/25 17:02:44 zeev Exp $ */
 #define IS_EXT_MODULE
-#if defined(COMPILE_DL) || defined(COMPILE_DL_DB)
-# include "dl/phpdl.h"
-#endif
 
 #if 1
 
@@ -42,7 +39,7 @@
 #ifdef PHP_31
 #include "os/nt/flock.h"
 #else
-#if WIN32|WINNT
+#ifdef PHP_WIN32
 #include "win32/flock.h"
 #else
 #include <sys/file.h>
@@ -90,7 +87,7 @@
 #define DBM_TYPE DBM *
 #define DBM_MODE_TYPE int
 #define DBM_WRITE_MODE O_RDWR
-#define DBM_CREATE_MODE O_RDWR | O_APPEND | O_CREAT
+#define DBM_CREATE_MODE O_RDWR | O_CREAT
 #define DBM_NEW_MODE O_RDWR | O_CREAT | O_TRUNC
 #define DBM_DEFAULT_MODE O_RDONLY
 #define DBM_OPEN(filename, mode) dbm_open(filename, mode, 0666)
@@ -253,7 +250,7 @@ PHP_FUNCTION(dbmopen) {
 	dbm_info *info=NULL;
 	int ret;
 
-	if (ARG_COUNT(ht)!=2 || zend_get_parameters(ht,2,&filename,&mode)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters(ht,2,&filename,&mode)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -292,7 +289,7 @@ dbm_info *php_dbm_open(char *filename, char *mode) {
 		return NULL;
 	}
 
-	if (PG(safe_mode) && (!php_checkuid(filename, 2))) {
+	if (PG(safe_mode) && (!php_checkuid(filename, NULL, 2))) {
 		return NULL;
 	}
 
@@ -399,7 +396,7 @@ dbm_info *php_dbm_open(char *filename, char *mode) {
 
 #if NFS_HACK
 		if (lockfn) {
-			unlink(lockfn);
+			V_UNLINK(lockfn);
 		}
 #endif
 		if (lockfn) efree(lockfn);
@@ -413,7 +410,7 @@ dbm_info *php_dbm_open(char *filename, char *mode) {
 PHP_FUNCTION(dbmclose) {
 	pval *id;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters(ht,1,&id)==FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(ht,1,&id)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long(id);
@@ -434,7 +431,7 @@ int php_dbm_close(dbm_info *info) {
 	dbf = info->dbf;
 
 #if NFS_HACK
-	unlink(info->lockfn);
+	V_UNLINK(info->lockfn);
 #else
 	if (info->lockfn) {
 		lockfd = V_OPEN((info->lockfn,O_RDWR,0644));
@@ -467,7 +464,7 @@ PHP_FUNCTION(dbminsert)
 	dbm_info *info;
 	int ret;
 
-	if (ARG_COUNT(ht)!=3||zend_get_parameters(ht,3,&id,&key,&value) == FAILURE) {
+	if (ZEND_NUM_ARGS()!=3||zend_get_parameters(ht,3,&id,&key,&value) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string(key);
@@ -525,7 +522,7 @@ PHP_FUNCTION(dbmreplace)
 	dbm_info *info;
 	int ret;
 
-	if (ARG_COUNT(ht)!=3||zend_get_parameters(ht,3,&id,&key,&value) == FAILURE) {
+	if (ZEND_NUM_ARGS()!=3||zend_get_parameters(ht,3,&id,&key,&value) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string(key);
@@ -583,7 +580,7 @@ PHP_FUNCTION(dbmfetch)
 	pval *id, *key;
 	dbm_info *info;
 
-	if (ARG_COUNT(ht)!=2||zend_get_parameters(ht,2,&id,&key)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=2||zend_get_parameters(ht,2,&id,&key)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string(key);
@@ -657,7 +654,7 @@ PHP_FUNCTION(dbmexists)
 	dbm_info *info;
 	int ret;
 
-	if (ARG_COUNT(ht)!=2||zend_get_parameters(ht,2,&id,&key)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=2||zend_get_parameters(ht,2,&id,&key)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string(key);
@@ -703,7 +700,7 @@ PHP_FUNCTION(dbmdelete)
 	dbm_info *info;
 	int ret;
 
-	if (ARG_COUNT(ht)!=2||zend_get_parameters(ht,2,&id,&key)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=2||zend_get_parameters(ht,2,&id,&key)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string(key);
@@ -740,7 +737,7 @@ int php_dbm_delete(dbm_info *info, char *key) {
 	return(ret);
 }
 
-/* {{{ string dbmfirstkey(int dbm_identifier)
+/* {{{ proto string dbmfirstkey(int dbm_identifier)
    Retrieves the first key from a dbm database */
 PHP_FUNCTION(dbmfirstkey)
 {
@@ -748,7 +745,7 @@ PHP_FUNCTION(dbmfirstkey)
 	dbm_info *info;
 	char *ret;
 
-	if (ARG_COUNT(ht)!=1||zend_get_parameters(ht,1,&id)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=1||zend_get_parameters(ht,1,&id)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -808,7 +805,7 @@ PHP_FUNCTION(dbmnextkey)
 	dbm_info *info;
 	char *ret;
 
-	if (ARG_COUNT(ht)!=2||zend_get_parameters(ht,2,&id,&key)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=2||zend_get_parameters(ht,2,&id,&key)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string(key);
@@ -1172,7 +1169,7 @@ zend_module_entry dbm_module_entry = {
 	"db", dbm_functions, PHP_MINIT(db), PHP_MSHUTDOWN(db), PHP_RINIT(db), NULL, PHP_MINFO(db), STANDARD_MODULE_PROPERTIES
 };
 
-#if defined(COMPILE_DL) || defined(COMPILE_DL_DB)
+#ifdef COMPILE_DL_DB
 ZEND_GET_MODULE(dbm)
 #endif
 

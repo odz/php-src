@@ -26,6 +26,7 @@
 #include "zend_fast_cache.h"
 #include "zend_operators.h"
 #include "zend_variables.h"
+#include "zend_execute.h"
 
 #define ZEND_FN(name) zend_if_##name
 #define ZEND_NAMED_FUNCTION(name) void name(INTERNAL_FUNCTION_PARAMETERS)
@@ -108,11 +109,15 @@ ZEND_API int zend_get_parameters_array_ex(int param_count, zval ***argument_arra
 
 ZEND_API int ParameterPassedByReference(int ht, uint n);
 
-int zend_register_functions(zend_function_entry *functions, HashTable *function_table);
+int zend_register_functions(zend_function_entry *functions, HashTable *function_table, int type);
 void zend_unregister_functions(zend_function_entry *functions, int count, HashTable *function_table);
 ZEND_API int zend_register_module(zend_module_entry *module_entry);
-ZEND_API zend_class_entry *register_internal_class(zend_class_entry *class_entry);
+
+ZEND_API zend_class_entry *zend_register_internal_class(zend_class_entry *class_entry);
+ZEND_API zend_class_entry *zend_register_internal_class_ex(zend_class_entry *class_entry, zend_class_entry *parent_ce, char *parent_name);
+
 ZEND_API zend_module_entry *zend_get_module(int module_number);
+ZEND_API int zend_disable_function(char *function_name, uint function_name_length);
 
 ZEND_API void wrong_param_count(void);
 
@@ -173,7 +178,7 @@ ZEND_API int add_get_index_string(zval *arg, uint idx, char *str, void **dest, i
 ZEND_API int add_get_index_stringl(zval *arg, uint idx, char *str, uint length, void **dest, int duplicate);
 
 ZEND_API int call_user_function(HashTable *function_table, zval *object, zval *function_name, zval *retval_ptr, int param_count, zval *params[]);
-ZEND_API int call_user_function_ex(HashTable *function_table, zval *object, zval *function_name, zval **retval_ptr_ptr, int param_count, zval **params[], int no_separation);
+ZEND_API int call_user_function_ex(HashTable *function_table, zval *object, zval *function_name, zval **retval_ptr_ptr, int param_count, zval **params[], int no_separation, HashTable *symbol_table);
 
 ZEND_API int add_property_long(zval *arg, char *key, long l);
 ZEND_API int add_property_unset(zval *arg, char *key);

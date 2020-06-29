@@ -29,7 +29,7 @@
  */
 
 
-/* $Id: basic_functions.h,v 1.51 2000/03/16 16:02:23 andrei Exp $ */
+/* $Id: basic_functions.h,v 1.55 2000/06/23 16:21:31 sas Exp $ */
 
 #ifndef _BASIC_FUNCTIONS_H
 #define _BASIC_FUNCTIONS_H
@@ -108,9 +108,13 @@ PHP_FUNCTION(getservbyport);
 PHP_FUNCTION(getprotobyname);
 PHP_FUNCTION(getprotobynumber);
 
+PHP_NAMED_FUNCTION(php_if_crc32);
+
 PHP_FUNCTION(get_loaded_extensions);
 PHP_FUNCTION(extension_loaded);
 PHP_FUNCTION(get_extension_funcs);
+
+PHP_FUNCTION(warn_not_available);
 
 /* From the INI parser */
 PHP_FUNCTION(parse_ini_file);
@@ -162,6 +166,13 @@ typedef struct {
 	php_uint32   state[MT_N+1];  /* state vector + 1 extra to not violate ANSI C */
 	php_uint32   *next;       /* next random value is computed from here */
 	int      left;        /* can *next++ this many times before reloading */
+
+	/* syslog.c */
+	int syslog_started;
+	char *syslog_device;
+
+	/* var.c */
+	zend_class_entry *incomplete_class;
 } php_basic_globals;
 
 #ifdef ZTS

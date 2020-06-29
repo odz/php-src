@@ -16,16 +16,9 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dav.c,v 1.18 2000/05/18 15:34:23 zeev Exp $ */
+/* $Id: dav.c,v 1.23 2000/06/24 15:31:06 sas Exp $ */
 
 #define IS_EXT_MODULE
-#if defined(COMPILE_DL) || defined(COMPILE_DL_DAV)
-# if PHP_31
-#  include "../phpdl.h"
-# else
-#  include "dl/phpdl.h"
-# endif
-#endif
 #include "php.h"
 #include "php_dav.h"
 
@@ -68,7 +61,7 @@ phpdav_module php_dav_module;
 /* }}} */
 /* {{{ dynamically loadable module stuff */
 
-#if defined(COMPILE_DL) || defined(COMPILE_DL_DAV)
+#ifdef COMPILE_DL_DAV
 ZEND_GET_MODULE(phpdav)
 # endif /* COMPILE_DL */
 
@@ -252,7 +245,7 @@ PHP_FUNCTION(dav_set_mkcol_handlers)
     pval *test, *create;
     DAV_TLS_VARS;
 
-    if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &test, &create) == FAILURE) {
+    if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &test, &create) == FAILURE) {
 		WRONG_PARAM_COUNT;
     }
     DAV_SET_HANDLER(mkcol_test, test);

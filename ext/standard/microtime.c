@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: microtime.c,v 1.23 2000/05/18 15:34:35 zeev Exp $ */
+/* $Id: microtime.c,v 1.27 2000/06/05 19:47:44 andi Exp $ */
 
 #include "php.h"
 
@@ -95,7 +95,7 @@ PHP_FUNCTION(gettimeofday)
 PHP_FUNCTION(getrusage)
 {
 	struct rusage usg;
-	int ac = ARG_COUNT(ht);
+	int ac = ZEND_NUM_ARGS();
 	pval **pwho;
 	int who = RUSAGE_SELF;
 

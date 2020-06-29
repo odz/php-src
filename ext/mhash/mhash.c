@@ -67,20 +67,21 @@ static PHP_MINIT_FUNCTION(mhash)
 	return SUCCESS;
 }
 
-/* proto mhash_count()
+/* {{{ proto int mhash_count()
    get the number of available hashes */
 PHP_FUNCTION(mhash_count)
 {
 	RETURN_LONG(mhash_count());
 }
+/* }}} */
 
-/* proto mhash_get_block_size(int hash)
+/* {{{ proto int mhash_get_block_size(int hash)
    get the block size of hash */
 PHP_FUNCTION(mhash_get_block_size)
 {
 	pval **hash;
 
-	if(ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &hash) == FAILURE) {
+	if(ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &hash) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -88,15 +89,16 @@ PHP_FUNCTION(mhash_get_block_size)
 
 	RETURN_LONG(mhash_get_block_size((*hash)->value.lval));
 }
+/* }}} */
 
-/* proto mhash_get_hash_name(int hash)
+/* {{{ proto string mhash_get_hash_name(int hash)
    get the name of hash */
 PHP_FUNCTION(mhash_get_hash_name)
 {
 	pval **hash;
 	char *name;
 
-	if(ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &hash) == FAILURE) {
+	if(ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &hash) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -110,8 +112,9 @@ PHP_FUNCTION(mhash_get_hash_name)
 		RETVAL_FALSE;
 	}
 }
+/* }}} */
 
-/* proto mhash(int hash, string data)
+/* {{{ proto string mhash(int hash, string data)
    hash data with hash */
 PHP_FUNCTION(mhash)
 {
@@ -120,7 +123,7 @@ PHP_FUNCTION(mhash)
 	int bsize;
 	unsigned char *hash_data;
 
-	if(ARG_COUNT(ht) != 2 || zend_get_parameters_ex(2, &hash, &data) == FAILURE) {
+	if(ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &hash, &data) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -146,5 +149,6 @@ PHP_FUNCTION(mhash)
 		RETURN_FALSE;
 	}
 }
+/* }}} */
 
 #endif

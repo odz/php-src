@@ -19,7 +19,7 @@
 
 #include "php.h"
 #include "SAPI.h"
-#include "main.h"
+#include "php_main.h"
 #include "php_thttpd.h"
 #include "version.h"
 
@@ -102,6 +102,7 @@ static char *sapi_thttpd_read_cookies(SLS_D)
 }
 
 static sapi_module_struct sapi_module = {
+	"thttpd",
 	"thttpd",
 	
 	php_module_startup,

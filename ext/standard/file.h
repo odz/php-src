@@ -27,7 +27,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: file.h,v 1.20 2000/03/12 19:42:29 kk Exp $ */
+/* $Id: file.h,v 1.22 2000/06/06 18:58:15 ccollie Exp $ */
 
 /* Synced with php 3.0 revision 1.30 1999-06-16 [ssb] */
 
@@ -46,9 +46,11 @@ PHP_FUNCTION(feof);
 PHP_FUNCTION(fread);
 PHP_FUNCTION(fgetc);
 PHP_FUNCTION(fgets);
+PHP_FUNCTION(fscanf);
 PHP_FUNCTION(fgetss);
 PHP_FUNCTION(fgetcsv);
 PHP_FUNCTION(fwrite);
+PHP_FUNCTION(fflush);
 PHP_FUNCTION(rewind);
 PHP_FUNCTION(ftell);
 PHP_FUNCTION(fseek);

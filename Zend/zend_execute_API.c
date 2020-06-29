@@ -29,9 +29,22 @@
 #include "zend_constants.h"
 #include "zend_extensions.h"
 #include "zend_execute_locks.h"
+#if HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif
 
 
 ZEND_API void (*zend_execute)(zend_op_array *op_array ELS_DC);
+
+#ifdef ZEND_WIN32
+#include <process.h>
+/* true global */
+static WNDCLASS wc;
+static HWND timeout_window;
+static HANDLE timeout_thread_event;
+static DWORD timeout_thread_id;
+static int timeout_thread_initialized=0;
+#endif
 
 
 #if ZEND_DEBUG
@@ -78,6 +91,18 @@ static void zend_extension_deactivator(zend_extension *extension)
 }
 
 
+static int is_not_internal_function(zend_function *function)
+{
+	return(function->type != ZEND_INTERNAL_FUNCTION);
+}
+
+
+static int is_not_internal_class(zend_class_entry *ce)
+{
+	return(ce->type != ZEND_INTERNAL_CLASS);
+}
+
+
 void init_executor(CLS_D ELS_DC)
 {
 	INIT_ZVAL(EG(uninitialized_zval));
@@ -117,6 +142,12 @@ void init_executor(CLS_D ELS_DC)
 	EG(ticks_count) = 0;
 
 	EG(user_error_handler) = NULL;
+
+	zend_ptr_stack_init(&EG(user_error_handlers));
+
+#ifdef ZEND_WIN32
+	EG(timed_out) = 0;
+#endif
 }
 
 
@@ -144,13 +175,20 @@ void shutdown_executor(ELS_D)
 		}
 	}
 
-	zend_destroy_rsrc_list(ELS_C); /* must be destroyed after the main symbol table is destroyed */
-
 	zend_ptr_stack_destroy(&EG(argument_stack));
+
+	/* Destroy all op arrays */
 	if (EG(main_op_array)) {
 		destroy_op_array(EG(main_op_array));
 		efree(EG(main_op_array));
 	}
+	zend_hash_apply(EG(function_table), (int (*)(void *)) is_not_internal_function);
+	zend_hash_apply(EG(class_table), (int (*)(void *)) is_not_internal_class);
+
+	zend_destroy_rsrc_list(ELS_C); /* must be destroyed after the main symbol table and
+									* op arrays are destroyed.
+									*/
+
 	clean_non_persistent_constants();
 #if ZEND_DEBUG
 	signal(SIGSEGV, original_sigsegv_handler);
@@ -162,6 +200,9 @@ void shutdown_executor(ELS_D)
 		zval_dtor(EG(user_error_handler));
 		FREE_ZVAL(EG(user_error_handler));
 	}
+
+	zend_ptr_stack_clean(&EG(user_error_handlers), ZVAL_DESTRUCTOR, 1);
+	zend_ptr_stack_destroy(&EG(user_error_handlers));
 }
 
 
@@ -217,16 +258,6 @@ ZEND_API zend_bool zend_is_executing()
 }
 
 
-ZEND_API inline void safe_free_zval_ptr(zval *p)
-{
-	ELS_FETCH();
-
-	if (p!=EG(uninitialized_zval_ptr)) {
-		FREE_ZVAL(p);
-	}
-}
-
-
 ZEND_API void _zval_ptr_dtor(zval **zval_ptr ZEND_FILE_LINE_DC)
 {
 #if DEBUG_ZEND>=2
@@ -242,53 +273,16 @@ ZEND_API void _zval_ptr_dtor(zval **zval_ptr ZEND_FILE_LINE_DC)
 }
 	
 
-ZEND_API inline int i_zend_is_true(zval *op)
-{
-	int result;
-
-	switch (op->type) {
-		case IS_NULL:
-			result = 0;
-			break;
-		case IS_LONG:
-		case IS_BOOL:
-		case IS_RESOURCE:
-			result = (op->value.lval?1:0);
-			break;
-		case IS_DOUBLE:
-			result = (op->value.dval ? 1 : 0);
-			break;
-		case IS_STRING:
-			if (op->value.str.len == 0
-				|| (op->value.str.len==1 && op->value.str.val[0]=='0')) {
-				result = 0;
-			} else {
-				result = 1;
-			}
-			break;
-		case IS_ARRAY:
-			result = (zend_hash_num_elements(op->value.ht)?1:0);
-			break;
-		case IS_OBJECT:
-			result = (zend_hash_num_elements(op->value.obj.properties)?1:0);
-			break;
-		default:
-			result = 0;
-			break;
-	}
-	return result;
-}
-
-
 ZEND_API int zend_is_true(zval *op)
 {
 	return i_zend_is_true(op);
 }
 
 
-ZEND_API int zval_update_constant(zval **pp)
+ZEND_API int zval_update_constant(zval **pp, void *arg)
 {
 	zval *p = *pp;
+	zend_bool inline_change = (zend_bool) (unsigned long) arg;
 
 	if (p->type == IS_CONSTANT) {
 		zval c;
@@ -304,16 +298,22 @@ ZEND_API int zval_update_constant(zval **pp)
 						p->value.str.val,
 						p->value.str.val);
 			p->type = IS_STRING;
+			if (!inline_change) {
+				zval_copy_ctor(p);
+			}
 		} else {
-			STR_FREE(p->value.str.val);
+			if (inline_change) {
+				STR_FREE(p->value.str.val);
+			}
 			*p = c;
 		}
 		INIT_PZVAL(p);
 		p->refcount = refcount;
-	} else if (p->type == IS_ARRAY) {
+	} else if (p->type == IS_CONSTANT_ARRAY) {
 		SEPARATE_ZVAL(pp);
 		p = *pp;
-		zend_hash_apply(p->value.ht, (int (*)(void *)) zval_update_constant);
+		p->type = IS_ARRAY;
+		zend_hash_apply_with_argument(p->value.ht, (int (*)(void *,void *)) zval_update_constant, (void *) 1);
 	}
 	return 0;
 }
@@ -329,7 +329,7 @@ int call_user_function(HashTable *function_table, zval *object, zval *function_n
 	for (i=0; i<param_count; i++) {
 		params_array[i] = &params[i];
 	}
-	ex_retval = call_user_function_ex(function_table, object, function_name, &local_retval_ptr, param_count, params_array, 1);
+	ex_retval = call_user_function_ex(function_table, object, function_name, &local_retval_ptr, param_count, params_array, 1, NULL);
 	if (local_retval_ptr) {
 		COPY_PZVAL_TO_ZVAL(*retval_ptr, local_retval_ptr);
 	} else {
@@ -340,7 +340,7 @@ int call_user_function(HashTable *function_table, zval *object, zval *function_n
 }
 
 
-int call_user_function_ex(HashTable *function_table, zval *object, zval *function_name, zval **retval_ptr_ptr, int param_count, zval **params[], int no_separation)
+int call_user_function_ex(HashTable *function_table, zval *object, zval *function_name, zval **retval_ptr_ptr, int param_count, zval **params[], int no_separation, HashTable *symbol_table)
 {
 	int i;
 	zval **original_return_value;
@@ -353,12 +353,30 @@ int call_user_function_ex(HashTable *function_table, zval *object, zval *functio
 
 	*retval_ptr_ptr = NULL;
 
+	if (function_name->type==IS_ARRAY) { /* assume array($obj, $name) couple */
+		zval **tmp_object_ptr, **tmp_real_function_name;
+
+		if (zend_hash_index_find(function_name->value.ht, 0, (void **) &tmp_object_ptr)==FAILURE) {
+			return FAILURE;
+		}
+		if (zend_hash_index_find(function_name->value.ht, 1, (void **) &tmp_real_function_name)==FAILURE) {
+			return FAILURE;
+		}
+		function_name = *tmp_real_function_name;
+		object = *tmp_object_ptr;
+	}
+
 	if (object) {
 		if (object->type != IS_OBJECT) {
 			return FAILURE;
 		}
 		function_table = &object->value.obj.ce->function_table;
 	}
+
+	if (function_name->type!=IS_STRING) {
+		return FAILURE;
+	}
+
 	original_function_state_ptr = EG(function_state_ptr);
 	zend_str_tolower(function_name->value.str.val, function_name->value.str.len);
 	if (zend_hash_find(function_table, function_name->value.str.val, function_name->value.str.len+1, (void **) &function_state.function)==FAILURE) {
@@ -403,8 +421,12 @@ int call_user_function_ex(HashTable *function_table, zval *object, zval *functio
 
 	if (function_state.function->type == ZEND_USER_FUNCTION) {
 		calling_symbol_table = EG(active_symbol_table);
-		ALLOC_HASHTABLE(EG(active_symbol_table));
-		zend_hash_init(EG(active_symbol_table), 0, NULL, ZVAL_PTR_DTOR, 0);
+		if (symbol_table) {
+			EG(active_symbol_table) = symbol_table;
+		} else {
+			ALLOC_HASHTABLE(EG(active_symbol_table));
+			zend_hash_init(EG(active_symbol_table), 0, NULL, ZVAL_PTR_DTOR, 0);
+		}
 		if (object) {
 			zval *dummy, **this_ptr;
 
@@ -420,8 +442,10 @@ int call_user_function_ex(HashTable *function_table, zval *object, zval *functio
 		EG(active_op_array) = (zend_op_array *) function_state.function;
 		original_opline_ptr = EG(opline_ptr);
 		zend_execute(EG(active_op_array) ELS_CC);
-		zend_hash_destroy(EG(active_symbol_table));		
-		FREE_HASHTABLE(EG(active_symbol_table));
+		if (!symbol_table) {
+			zend_hash_destroy(EG(active_symbol_table));
+			FREE_HASHTABLE(EG(active_symbol_table));
+		}
 		EG(active_symbol_table) = calling_symbol_table;
 		EG(active_op_array) = original_op_array;
 		EG(return_value_ptr_ptr)=original_return_value;
@@ -505,57 +529,6 @@ ZEND_API int zend_eval_string(char *str, zval *retval_ptr CLS_DC ELS_DC)
 }
 
 
-ZEND_API inline void zend_assign_to_variable_reference(znode *result, zval **variable_ptr_ptr, zval **value_ptr_ptr, temp_variable *Ts ELS_DC)
-{
-	zval *variable_ptr = *variable_ptr_ptr;
-	zval *value_ptr;
-	
-
-	if (!value_ptr_ptr) {
-		zend_error(E_ERROR, "Cannot create references to string offsets nor overloaded objects");
-		return;
-	}
-
-	value_ptr = *value_ptr_ptr;
-	if (variable_ptr == EG(error_zval_ptr) || value_ptr==EG(error_zval_ptr)) {
-		variable_ptr_ptr = &EG(uninitialized_zval_ptr);
-/*	} else if (variable_ptr==&EG(uninitialized_zval) || variable_ptr!=value_ptr) { */
-	} else if (variable_ptr_ptr != value_ptr_ptr) {
-		variable_ptr->refcount--;
-		if (variable_ptr->refcount==0) {
-			zendi_zval_dtor(*variable_ptr);
-			FREE_ZVAL(variable_ptr);
-		}
-
-		if (!PZVAL_IS_REF(value_ptr)) {
-			/* break it away */
-			value_ptr->refcount--;
-			if (value_ptr->refcount>0) {
-				ALLOC_ZVAL(*value_ptr_ptr);
-				**value_ptr_ptr = *value_ptr;
-				value_ptr = *value_ptr_ptr;
-				zendi_zval_copy_ctor(*value_ptr);
-			}
-			value_ptr->refcount = 1;
-			value_ptr->is_ref = 1;
-		}
-
-		*variable_ptr_ptr = value_ptr;
-		value_ptr->refcount++;
-	} else {
-		if (variable_ptr->refcount>1) { /* we need to break away */
-			SEPARATE_ZVAL(variable_ptr_ptr);
-		}
-		(*variable_ptr_ptr)->is_ref = 1;
-	}
-
-	if (result && (result->op_type != IS_UNUSED)) {
-		Ts[result->u.var].var.ptr_ptr = variable_ptr_ptr;
-		SELECTIVE_PZVAL_LOCK(*variable_ptr_ptr, result);
-		AI_USE_PTR(Ts[result->u.var].var);
-	}
-}
-
 
 #if SUPPORT_INTERACTIVE
 void execute_new_code(CLS_D)
@@ -577,32 +550,159 @@ void execute_new_code(CLS_D)
 #endif
 
 
-/* these are a dedicated, optimized, function, and shouldn't be used for any purpose
- * other than by Zend's executor
- */
-ZEND_API inline void zend_ptr_stack_clear_multiple(ELS_D)
+void zend_timeout(int dummy)
 {
-	void **p = EG(argument_stack).top_element-2;
-	int delete_count = (ulong) *p;
+	ELS_FETCH();
 
-	EG(argument_stack).top -= (delete_count+2);
-	while (--delete_count>=0) {
-		zval_ptr_dtor((zval **) --p);
+	/* is there any point in this?  we're terminating the request anyway...
+	PLS_FETCH();
+
+	PG(connection_status) |= PHP_CONNECTION_TIMEOUT;
+	*/
+	zend_error(E_ERROR, "Maximum execution time of %d second%s exceeded",
+			  EG(timeout_seconds), EG(timeout_seconds) == 1 ? "" : "s");
+}
+
+
+#ifdef ZEND_WIN32
+static LRESULT CALLBACK zend_timeout_WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
+{
+	switch (message) {
+		case WM_DESTROY:
+			PostQuitMessage(0);
+			break;
+		case WM_REGISTER_ZEND_TIMEOUT:
+			/* wParam is the thread id pointer, lParam is the timeout amount in seconds */
+			if (lParam==0) {
+				KillTimer(timeout_window, wParam);
+			} else {
+				SetTimer(timeout_window, wParam, lParam*1000, NULL);
+			}
+			break;
+		case WM_UNREGISTER_ZEND_TIMEOUT:
+			/* wParam is the thread id pointer */
+			KillTimer(timeout_window, wParam);
+			break;
+		case WM_TIMER: {
+#ifdef ZTS
+				zend_executor_globals *executor_globals;
+
+				executor_globals = ts_resource_ex(executor_globals_id, &wParam);
+				if (!executor_globals) {
+					/* Thread died before receiving its timeout? */
+					break;
+				}
+#endif
+				KillTimer(timeout_window, wParam);
+				EG(timed_out) = 1;
+			}
+			break;
+		default:
+			return DefWindowProc(hWnd,message,wParam,lParam);
 	}
-	EG(argument_stack).top_element = p;
+	return 0;
 }
 
 
 
-ZEND_API int zend_ptr_stack_get_arg(int requested_arg, void **data ELS_DC)
+static unsigned __stdcall timeout_thread_proc(void *pArgs)
 {
-	void **p = EG(argument_stack).top_element-2;
-	int arg_count = (ulong) *p;
+	MSG message;
 
-	if (requested_arg>arg_count) {
-		return FAILURE;
+	wc.style=0;
+	wc.lpfnWndProc = zend_timeout_WndProc;
+	wc.cbClsExtra=0;
+	wc.cbWndExtra=0;
+	wc.hInstance=NULL;
+	wc.hIcon=NULL;
+	wc.hCursor=NULL;
+	wc.hbrBackground=(HBRUSH)(COLOR_BACKGROUND + 5);
+	wc.lpszMenuName=NULL;
+	wc.lpszClassName = "Zend Timeout Window";
+	if(!RegisterClass(&wc)) {
+		return -1;
 	}
-	*data = (p-arg_count+requested_arg-1);
-	return SUCCESS;
+	timeout_window = CreateWindow(wc.lpszClassName, wc.lpszClassName, 0, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, NULL, NULL);
+	SetEvent(timeout_thread_event);
+	while (GetMessage(&message, NULL, 0, 0)) {
+		SendMessage(timeout_window, message.message, message.wParam, message.lParam);
+		if (message.message == WM_QUIT) {
+			break;
+		}
+	}
+	DestroyWindow(timeout_window);
+	UnregisterClass(wc.lpszClassName, NULL);
+	return 0;
 }
 
+
+void zend_init_timeout_thread()
+{
+	timeout_thread_event = CreateEvent(NULL, FALSE, FALSE, NULL);
+	_beginthreadex(NULL, 0, timeout_thread_proc, NULL, 0, &timeout_thread_id);
+	WaitForSingleObject(timeout_thread_event, INFINITE);
+}
+
+
+void zend_shutdown_timeout_thread()
+{
+	if (!timeout_thread_initialized) {
+		return;
+	}
+	PostThreadMessage(timeout_thread_id, WM_QUIT, 0, 0);
+}
+
+#endif
+
+/* This one doesn't exists on QNX */
+#ifndef SIGPROF
+#define SIGPROF 27
+#endif
+
+void zend_set_timeout(long seconds)
+{
+	ELS_FETCH();
+
+	EG(timeout_seconds) = seconds;
+#ifdef ZEND_WIN32
+	if (timeout_thread_initialized==0 && InterlockedIncrement(&timeout_thread_initialized)==1) {
+		/* We start up this process-wide thread here and not in zend_startup(), because if Zend
+		 * is initialized inside a DllMain(), you're not supposed to start threads from it.
+		 */
+		zend_init_timeout_thread();
+	}
+	PostThreadMessage(timeout_thread_id, WM_REGISTER_ZEND_TIMEOUT, (WPARAM) GetCurrentThreadId(), (LPARAM) seconds);
+#else
+#	ifdef HAVE_SETITIMER
+	{
+		struct itimerval t_r;		/* timeout requested */
+
+		t_r.it_value.tv_sec = seconds;
+		t_r.it_value.tv_usec = t_r.it_interval.tv_sec = t_r.it_interval.tv_usec = 0;
+
+		setitimer(ITIMER_PROF, &t_r, NULL);
+		signal(SIGPROF, zend_timeout);
+	}
+#	endif
+#endif
+}
+
+
+void zend_unset_timeout(void)
+{
+	ELS_FETCH();
+
+#ifdef ZEND_WIN32
+	PostThreadMessage(timeout_thread_id, WM_UNREGISTER_ZEND_TIMEOUT, (WPARAM) GetCurrentThreadId(), (LPARAM) 0);
+#else
+#	ifdef HAVE_SETITIMER
+	{
+		struct itimerval no_timeout;
+
+		no_timeout.it_value.tv_sec = no_timeout.it_value.tv_usec = no_timeout.it_interval.tv_sec = no_timeout.it_interval.tv_usec = 0;
+
+		setitimer(ITIMER_PROF, &no_timeout, NULL);
+	}
+#	endif
+#endif
+}

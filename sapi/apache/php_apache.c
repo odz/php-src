@@ -17,7 +17,7 @@
    |          David Sklar <sklar@student.net>                             |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_apache.c,v 1.15 2000/05/18 15:34:40 zeev Exp $ */
+/* $Id: php_apache.c,v 1.17 2000/06/15 23:45:04 andi Exp $ */
 
 #define NO_REGEX_EXTRA_H
 
@@ -179,7 +179,7 @@ PHP_MINFO_FUNCTION(apache)
 
 	serv = ((request_rec *) SG(server_context))->server;
 
-#if WIN32|WINNT
+#ifdef PHP_WIN32
 	PUTS("Apache for Windows 95/NT<br>");
 	php_info_print_table_start();
 #else
@@ -319,6 +319,9 @@ PHP_FUNCTION(virtual)
 		if (rr) destroy_sub_req (rr);
 		RETURN_FALSE;
 	}
+	
+	php_end_ob_buffering(1);
+	php_header();
 
 	if (run_sub_req(rr)) {
 		php_error(E_WARNING, "Unable to include '%s' - request execution failed", (*filename)->value.str.val);

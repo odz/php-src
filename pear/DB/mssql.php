@@ -17,13 +17,13 @@
 // |                                                                      |
 // +----------------------------------------------------------------------+
 //
-// $Id: mssql.php,v 1.4 2000/03/09 21:57:14 ssb Exp $
+// $Id: mssql.php,v 1.5 2000/06/21 02:22:04 chagenbu Exp $
 //
 // Database independent query interface definition for PHP's Microsoft SQL Server
 // extension.
 //
 
-use "DB/common";
+include_once 'DB/common.php';
 
 class DB_mssql extends DB_common {
 

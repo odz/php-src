@@ -16,11 +16,13 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: link.c,v 1.21 2000/05/18 15:34:35 zeev Exp $ */
+/* $Id: link.c,v 1.25 2000/06/25 17:02:45 zeev Exp $ */
 
 #include "php.h"
 #include "php_filestat.h"
 #include "php_globals.h"
+
+#ifdef HAVE_SYMLINK
 
 #include <stdlib.h>
 #if HAVE_UNISTD_H
@@ -52,12 +54,11 @@
    Return the target of a symbolic link */
 PHP_FUNCTION(readlink)
 {
-#if HAVE_SYMLINK
 	pval **filename;
 	char buff[256];
 	int ret;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &filename) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &filename) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(filename);
@@ -70,7 +71,6 @@ PHP_FUNCTION(readlink)
 	/* Append NULL to the end of the string */
 	buff[ret] = '\0';
 	RETURN_STRING(buff,1);
-#endif
 }
 /* }}} */
 
@@ -78,12 +78,11 @@ PHP_FUNCTION(readlink)
    Returns the st_dev field of the UNIX C stat structure describing the link */
 PHP_FUNCTION(linkinfo)
 {
-#if HAVE_SYMLINK
 	pval **filename;
 	struct stat sb;
 	int ret;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &filename) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &filename) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(filename);
@@ -94,7 +93,6 @@ PHP_FUNCTION(linkinfo)
 		RETURN_LONG(-1L);
 	}
 	RETURN_LONG((long) sb.st_dev);
-#endif
 }
 /* }}} */
 
@@ -102,18 +100,17 @@ PHP_FUNCTION(linkinfo)
    Create a symbolic link */
 PHP_FUNCTION(symlink)
 {
-#if HAVE_SYMLINK
 	pval **topath, **frompath;
 	int ret;
 	PLS_FETCH();
 
-	if (ARG_COUNT(ht) != 2 || zend_get_parameters_ex(2, &topath, &frompath) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &topath, &frompath) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(topath);
 	convert_to_string_ex(frompath);
 
-	if (PG(safe_mode) && !php_checkuid((*topath)->value.str.val, 2)) {
+	if (PG(safe_mode) && !php_checkuid((*topath)->value.str.val, NULL, 2)) {
 		RETURN_FALSE;
 	}
 	if (!strncasecmp((*topath)->value.str.val,"http://",7) || !strncasecmp((*topath)->value.str.val,"ftp://",6)) {
@@ -127,7 +124,6 @@ PHP_FUNCTION(symlink)
 		RETURN_FALSE;
 	}
 	RETURN_TRUE;
-#endif
 }
 /* }}} */
 
@@ -135,18 +131,17 @@ PHP_FUNCTION(symlink)
    Create a hard link */
 PHP_FUNCTION(link)
 {
-#if HAVE_LINK
 	pval **topath, **frompath;
 	int ret;
 	PLS_FETCH();
 
-	if (ARG_COUNT(ht) != 2 || zend_get_parameters_ex(2, &topath, &frompath) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &topath, &frompath) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(topath);
 	convert_to_string_ex(frompath);
 
-	if (PG(safe_mode) && !php_checkuid((*topath)->value.str.val, 2)) {
+	if (PG(safe_mode) && !php_checkuid((*topath)->value.str.val, NULL, 2)) {
 		RETURN_FALSE;
 	}
 	if (!strncasecmp((*topath)->value.str.val,"http://",7) || !strncasecmp((*topath)->value.str.val,"ftp://",6)) {
@@ -160,7 +155,6 @@ PHP_FUNCTION(link)
 		RETURN_FALSE;
 	}
 	RETURN_TRUE;
-#endif
 }
 /* }}} */
 
@@ -172,16 +166,16 @@ PHP_FUNCTION(unlink)
 	int ret;
 	PLS_FETCH();
 	
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &filename) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &filename) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(filename);
 
-	if (PG(safe_mode) && !php_checkuid((*filename)->value.str.val, 2)) {
+	if (PG(safe_mode) && !php_checkuid((*filename)->value.str.val, NULL, 2)) {
 		RETURN_FALSE;
 	}
 
-	ret = unlink((*filename)->value.str.val);
+	ret = V_UNLINK((*filename)->value.str.val);
 	if (ret == -1) {
 		php_error(E_WARNING, "Unlink failed (%s)", strerror(errno));
 		RETURN_FALSE;
@@ -191,6 +185,8 @@ PHP_FUNCTION(unlink)
 	RETURN_TRUE;
 }
 /* }}} */
+
+#endif
 
 
 /*

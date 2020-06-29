@@ -17,15 +17,10 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_interbase.h,v 1.11 2000/05/18 15:34:27 zeev Exp $ */
+/* $Id: php_interbase.h,v 1.13 2000/06/24 16:24:29 jah Exp $ */
 
 #ifndef _PHP_IBASE_H
 #define _PHP_IBASE_H
-
-#if COMPILE_DL
-#undef HAVE_IBASE
-#define HAVE_IBASE 1
-#endif
 
 #if HAVE_IBASE
 #include <ibase.h>
@@ -127,6 +122,7 @@ typedef struct {
 	ibase_array *in_array, *out_array;
 	int in_array_cnt, out_array_cnt;
 	int dialect;
+	int cursor_open;
 } ibase_query;
 
 typedef struct {

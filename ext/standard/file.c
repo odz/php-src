@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: file.c,v 1.78 2000/05/18 15:34:35 zeev Exp $ */
+/* $Id: file.c,v 1.96 2000/06/27 09:55:52 thies Exp $ */
 
 /* Synced with php 3.0 revision 1.218 1999-06-16 [ssb] */
 
@@ -86,6 +86,9 @@ extern int fclose();
 #endif
 
 #include "php_realpath.h"
+#include "scanf.h"
+#include "zend_API.h"
+
 
 /* }}} */
 /* {{{ ZTS-stuff / Globals / Prototypes */
@@ -231,7 +234,7 @@ static void _file_socket_dtor(int *sock)
 
 static void _file_upload_dtor(char *file)
 {
-	unlink(file);
+	V_UNLINK(file);
 }
 
 
@@ -289,23 +292,27 @@ PHP_MINIT_FUNCTION(file)
 	REGISTER_LONG_CONSTANT("SEEK_SET", SEEK_SET, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SEEK_CUR", SEEK_CUR, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SEEK_END", SEEK_END, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LOCK_SH", 1, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LOCK_EX", 2, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LOCK_UN", 3, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LOCK_NB", 4, CONST_CS | CONST_PERSISTENT);
 
 	return SUCCESS;
 }
 
 /* }}} */
-/* {{{ proto bool flock(int fp, int operation)
+/* {{{ proto bool flock(int fp, int operation [, int wouldblock])
    Portable file locking */
 
 static int flock_values[] = { LOCK_SH, LOCK_EX, LOCK_UN };
 
 PHP_FUNCTION(flock)
 {
-    pval **arg1, **arg2;
-    int type, fd, act;
+    pval **arg1, **arg2, **arg3;
+    int type, fd, act, ret, arg_count = ARG_COUNT(ht);
 	void *what;
 	
-    if (ARG_COUNT(ht) != 2 || zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE) {
+    if (arg_count > 3 || zend_get_parameters_ex(arg_count, &arg1, &arg2, &arg3) == FAILURE) {
         WRONG_PARAM_COUNT;
     }
 	
@@ -322,17 +329,20 @@ PHP_FUNCTION(flock)
 
     act = (*arg2)->value.lval & 3;
     if (act < 1 || act > 3) {
-		php_error(E_WARNING, "illegal value for second argument");
+		php_error(E_WARNING, "Illegal operation argument");
 		RETURN_FALSE;
     }
 
     /* flock_values contains all possible actions
        if (arg2 & 4) we won't block on the lock */
     act = flock_values[act - 1] | ((*arg2)->value.lval & 4 ? LOCK_NB : 0);
-    if (flock(fd, act) == -1) {
+    if ((ret=flock(fd, act)) == -1) {
         RETURN_FALSE;
     }
-
+	if(ret==-1 && errno==EWOULDBLOCK && arg_count==3) {
+		(*arg3)->type = IS_LONG;
+		(*arg3)->value.lval=1;
+	}
     RETURN_TRUE;
 }
 
@@ -469,17 +479,21 @@ PHP_FUNCTION(get_meta_tags)
 }
 
 /* }}} */
-/* {{{ proto array file(string filename)
+/* {{{ proto array file(string filename [, int use_include_path])
    Read entire file into an array */
+
+#define PHP_FILE_BUF_SIZE	80
 
 PHP_FUNCTION(file)
 {
 	pval **filename, **arg2;
 	FILE *fp;
-	char *slashed, buf[8192];
+	char *slashed, *target_buf;
 	register int i=0;
 	int use_include_path = 0;
 	int issock=0, socketd=0;
+	int target_len, len;
+	zend_bool reached_eof=0;
 	PLS_FETCH();
 	
 	/* check args */
@@ -518,16 +532,42 @@ PHP_FUNCTION(file)
 	}	
 	
 	/* Now loop through the file and do the magic quotes thing if needed */
-	memset(buf,0,8191);
-	while (FP_FGETS(buf,8191,socketd,fp,issock) != NULL) {
+	target_len = 0;
+	target_buf = NULL;
+	while (1) {
+		if (!target_buf) {
+			target_buf = (char *) emalloc(PHP_FILE_BUF_SIZE+1);
+			target_buf[PHP_FILE_BUF_SIZE] = 0; /* avoid overflows */
+		} else {
+			target_buf = (char *) erealloc(target_buf, target_len+PHP_FILE_BUF_SIZE+1);
+			target_buf[target_len+PHP_FILE_BUF_SIZE] = 0; /* avoid overflows */
+		}
+		if (FP_FGETS(target_buf+target_len, PHP_FILE_BUF_SIZE, socketd, fp, issock)==NULL) {
+			if (target_len==0) {
+				efree(target_buf);
+				break;
+			} else {
+				reached_eof = 1;
+			}
+		}
+		if (!reached_eof) {
+			target_len += strlen(target_buf+target_len);
+			if (target_buf[target_len-1]!='\n') {
+				continue;
+			}
+		}
 		if (PG(magic_quotes_runtime)) {
-			int len;
-			
-			slashed = php_addslashes(buf,0,&len,0); /* 0 = don't free source string */
+			slashed = php_addslashes(target_buf, target_len, &len, 1); /* 1 = free source string */
             add_index_stringl(return_value, i++, slashed, len, 0);
 		} else {
-			add_index_string(return_value, i++, buf, 1);
+			target_buf = erealloc(target_buf, target_len+1); /* do we really want to do that? */
+			add_index_stringl(return_value, i++, target_buf, target_len, 0);
 		}
+		if (reached_eof) {
+			break;
+		}
+		target_buf = NULL;
+		target_len = 0;
 	}
 	if (issock) {
 		SOCK_FCLOSE(socketd);
@@ -703,7 +743,7 @@ PHP_FUNCTION(popen)
 		}
 
 		tmp = php_escape_shell_cmd(buf);
-		fp = popen(tmp,p);
+		fp = V_POPEN(tmp,p);
 		efree(tmp);
 
 		if (!fp) {
@@ -711,7 +751,7 @@ PHP_FUNCTION(popen)
 			RETURN_FALSE;
 		}
 	} else {
-		fp = popen((*arg1)->value.str.val,p);
+		fp = V_POPEN((*arg1)->value.str.val,p);
 		if (!fp) {
 			php_error(E_WARNING,"popen(\"%s\",\"%s\") - %s",(*arg1)->value.str.val,p,strerror(errno));
 			efree(p);
@@ -776,7 +816,7 @@ PHP_FUNCTION(feof)
 /* }}} */
 
 
-/* {{{ proto int socket_set_blocking(int socket descriptor, int mode)
+/* {{{ proto int set_socket_blocking(int socket_descriptor, int mode)
    Set blocking/non-blocking mode on a socket */
 PHPAPI int php_set_sock_blocking(int socketd, int block)
 {
@@ -843,11 +883,11 @@ PHP_FUNCTION(set_socket_blocking)
 	PHP_FN(socket_set_blocking)(INTERNAL_FUNCTION_PARAM_PASSTHRU);
 }
 
-/* {{{ proto bool socket_set_timeout(int socket descriptor, int seconds, int microseconds)
+/* {{{ proto bool socket_set_timeout(int socket_descriptor, int seconds, int microseconds)
    Set timeout on socket read to seconds + microseonds */
-#if HAVE_SYS_TIME_H
 PHP_FUNCTION(socket_set_timeout)
 {
+#if HAVE_SYS_TIME_H
 	zval **socket, **seconds, **microseconds;
 	int type;
 	void *what;
@@ -876,8 +916,8 @@ PHP_FUNCTION(socket_set_timeout)
 
 	php_sockset_timeout(socketd, &t);
 	RETURN_TRUE;
-}
 #endif /* HAVE_SYS_TIME_H */
+}
 
 /* }}} */
 
@@ -992,6 +1032,7 @@ PHP_FUNCTION(fgetc) {
 }
 
 /* }}} */
+
 /* {{{ proto string fgetss(int fp, int length [, string allowable_tags])
    Get a line from file pointer and strip HTML tags */
 
@@ -1053,6 +1094,73 @@ PHP_FUNCTION(fgetss)
 }
 
 /* }}} */
+/* {{{ proto mixed fscanf(string str, string format [, string ...])
+   Implements a mostly ANSI compatible fscanf() */
+PHP_FUNCTION(fscanf)
+{
+    int  result;
+    pval **file_handle, **format_string;
+    int len, type;
+    char *buf;
+    int issock=0;
+    int socketd=0;
+    void *what;
+    
+    zval ***args;
+    int argCount;   
+    
+    argCount = ZEND_NUM_ARGS();
+    if (argCount < 2) {
+        WRONG_PARAM_COUNT;
+    }
+    args = (zval ***)emalloc(argCount * sizeof(zval **));
+    if (!args || (zend_get_parameters_array_ex(argCount,args) == FAILURE)) {
+        efree( args );
+        WRONG_PARAM_COUNT;
+    }
+    
+    file_handle    = args[0];
+    format_string  = args[1];
+
+    what = zend_fetch_resource(file_handle,-1,"File-Handle",&type,3,le_fopen,le_popen,le_socket);
+
+    /*
+     * we can't do a ZEND_VERIFY_RESOURCE(what), otherwise we end up
+     * with a leak if we have an invalid filehandle. This needs changing
+     * if the code behind ZEND_VERIFY_RESOURCE changed. - cc
+     */
+    if (!what) {
+        efree(args);
+        RETURN_FALSE;
+    }
+
+    len = SCAN_MAX_FSCANF_BUFSIZE;
+
+    if (type == le_socket) {
+        issock=1;
+        socketd=*(int*)what;
+    }
+    buf = emalloc(sizeof(char) * (len + 1));
+    /* needed because recv doesnt put a null at the end*/
+    memset(buf,0,len+1);
+    if (FP_FGETS(buf, len, socketd, (FILE*)what, issock) == NULL) {
+        efree(buf);
+        RETVAL_FALSE;
+    } else {
+        convert_to_string_ex( format_string );  
+        result = php_sscanf_internal( buf,(*format_string)->value.str.val,
+                        argCount,args, 2,&return_value);
+        efree(args);
+        efree(buf);
+        if (SCAN_ERROR_WRONG_PARAM_COUNT == result) {
+            WRONG_PARAM_COUNT
+        }
+    }
+
+
+}
+/* }}} */
+
 /* {{{ proto int fwrite(int fp, string str [, int length])
    Binary-safe file write */
 
@@ -1107,6 +1215,43 @@ PHP_FUNCTION(fwrite)
 		ret = fwrite((*arg2)->value.str.val,1,num_bytes,(FILE*)what);
 	}
 	RETURN_LONG(ret);
+}
+
+/* }}} */	
+/* {{{ proto int fflush(int fp)
+   Flushes output */
+
+PHP_FUNCTION(fflush)
+{
+	pval **arg1;
+	int ret,type;
+	int issock=0;
+	int socketd=0;
+	void *what;
+
+	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &arg1) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	what = zend_fetch_resource(arg1,-1,"File-Handle",&type,3,le_fopen,le_popen,le_socket);
+	ZEND_VERIFY_RESOURCE(what);
+
+	if (type == le_socket) {
+		issock=1;
+		socketd=*(int*)what;
+	}
+
+	if (issock){
+		ret = fsync(socketd);
+	} else {
+		ret = fflush((FILE*)what);
+	}
+
+	if (ret) {
+		RETURN_FALSE;
+	} else {
+		RETURN_TRUE;
+	}
 }
 
 /* }}} */	
@@ -1229,10 +1374,10 @@ PHP_FUNCTION(mkdir)
 	convert_to_string_ex(arg1);
 	convert_to_long_ex(arg2);
 	mode = (*arg2)->value.lval;
-	if (PG(safe_mode) &&(!php_checkuid((*arg1)->value.str.val,3))) {
+	if (PG(safe_mode) &&(!php_checkuid((*arg1)->value.str.val, NULL, 3))) {
 		RETURN_FALSE;
 	}
-	ret = mkdir((*arg1)->value.str.val,mode);
+	ret = V_MKDIR((*arg1)->value.str.val,mode);
 	if (ret < 0) {
 		php_error(E_WARNING,"MkDir failed (%s)", strerror(errno));
 		RETURN_FALSE;
@@ -1254,7 +1399,7 @@ PHP_FUNCTION(rmdir)
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(arg1);
-	if (PG(safe_mode) &&(!php_checkuid((*arg1)->value.str.val,1))) {
+	if (PG(safe_mode) &&(!php_checkuid((*arg1)->value.str.val, NULL, 1))) {
 		RETURN_FALSE;
 	}
 	ret = rmdir((*arg1)->value.str.val);
@@ -1448,7 +1593,7 @@ PHP_FUNCTION(rename)
 	old_name = (*old_arg)->value.str.val;
 	new_name = (*new_arg)->value.str.val;
 
-	if (PG(safe_mode) &&(!php_checkuid(old_name, 2))) {
+	if (PG(safe_mode) &&(!php_checkuid(old_name, NULL, 2))) {
 		RETURN_FALSE;
 	}
 	ret = rename(old_name, new_name);
@@ -1491,7 +1636,7 @@ PHP_FUNCTION(ftruncate)
 }
 /* }}} */
 
-/* {{{ proto int fstat (int fp)
+/* {{{ proto int fstat(int fp)
    Stat() on a filehandle */
 PHP_FUNCTION(fstat)
 {
@@ -1554,7 +1699,7 @@ PHP_FUNCTION(copy)
 	convert_to_string_ex(source);
 	convert_to_string_ex(target);
 
-	if (PG(safe_mode) &&(!php_checkuid((*source)->value.str.val,2))) {
+	if (PG(safe_mode) &&(!php_checkuid((*source)->value.str.val, NULL, 2))) {
 		RETURN_FALSE;
 	}
 	
@@ -1759,6 +1904,7 @@ PHP_FUNCTION(fgetcsv) {
                                                 memset(buf,0,len+1);
 						if (FP_FGETS(buf, len, socketd, (FILE*)what, issock) == NULL) {
                                                         efree(lineEnd); efree(temp); efree(buf);
+														zval_dtor(return_value);
                                                         RETURN_FALSE;
                                                         }
                                                 bptr = buf;
@@ -1813,6 +1959,8 @@ PHP_FUNCTION(realpath)
 	}
 }
 /* }}} */
+
+
 
 #if 0
 

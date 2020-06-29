@@ -19,12 +19,12 @@
    | Based on code from: Shawn Cokus <Cokus@math.washington.edu>          |
    +----------------------------------------------------------------------+
  */
-/* $Id: rand.c,v 1.17 2000/05/18 15:34:35 zeev Exp $ */
+/* $Id: rand.c,v 1.20 2000/06/13 16:31:57 sas Exp $ */
 
 #include <stdlib.h>
 
 #include "php.h"
-#include "phpmath.h"
+#include "php_math.h"
 #include "php_rand.h"
 
 #include "basic_functions.h"
@@ -195,7 +195,7 @@ PHP_FUNCTION(srand)
 {
 	pval **arg;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long_ex(arg);
@@ -218,7 +218,7 @@ PHP_FUNCTION(mt_srand)
 	pval **arg;
 	BLS_FETCH();
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long_ex(arg);
@@ -232,7 +232,7 @@ PHP_FUNCTION(rand)
 {
 	pval **p_min=NULL, **p_max=NULL;
 	
-	switch (ARG_COUNT(ht)) {
+	switch (ZEND_NUM_ARGS()) {
 		case 0:
 			break;
 		case 2:
@@ -243,6 +243,8 @@ PHP_FUNCTION(rand)
 			convert_to_long_ex(p_max);
 			if ((*p_max)->value.lval-(*p_min)->value.lval <= 0) {
 				php_error(E_WARNING,"rand():  Invalid range:  %ld..%ld", (*p_min)->value.lval, (*p_max)->value.lval);
+			}else if ((*p_max)->value.lval-(*p_min)->value.lval > RAND_MAX){
+				php3_error(E_WARNING,"rand():  Invalid range:  %ld..%ld", (*p_min)->value.lval, (*p_max)->value.lval);
 			}
 			break;
 		default:
@@ -287,7 +289,7 @@ PHP_FUNCTION(rand)
      */
 	if (p_min && p_max) { /* implement range */
 		return_value->value.lval = (*p_min)->value.lval +
-			(int)((double)((*p_max)->value.lval - (*p_min)->value.lval + 1) * return_value->value.lval/(PHP_RAND_MAX+1.0));     
+			(int)((double)((*p_max)->value.lval - (*p_min)->value.lval + 1.0) * return_value->value.lval/(PHP_RAND_MAX+1.0));     
 	}
 }
 /* }}} */
@@ -298,7 +300,7 @@ PHP_FUNCTION(mt_rand)
 {
 	pval **p_min=NULL, **p_max=NULL;
 	
-	switch (ARG_COUNT(ht)) {
+	switch (ZEND_NUM_ARGS()) {
 		case 0:
 			break;
 		case 2:
@@ -308,7 +310,9 @@ PHP_FUNCTION(mt_rand)
 			convert_to_long_ex(p_min);
 			convert_to_long_ex(p_max);
 			if ((*p_max)->value.lval-(*p_min)->value.lval <= 0) {
-				php_error(E_WARNING,"mtrand():  Invalid range:  %ld..%ld", (*p_min)->value.lval, (*p_max)->value.lval);
+				php_error(E_WARNING,"mt_rand():  Invalid range:  %ld..%ld", (*p_min)->value.lval, (*p_max)->value.lval);
+			}else if ((*p_max)->value.lval-(*p_min)->value.lval > MT_RAND_MAX){
+				php3_error(E_WARNING,"mt_rand():  Invalid range:  %ld..%ld",(*p_min)->value.lval, (*p_max)->value.lval);
 			}
 			break;
 		default:
@@ -329,7 +333,7 @@ PHP_FUNCTION(mt_rand)
 
 	if (p_min && p_max) { /* implement range */
 		return_value->value.lval = (*p_min)->value.lval +
-			(long)((double)((*p_max)->value.lval - (*p_min)->value.lval + 1) * return_value->value.lval/(MT_RAND_MAX+1.0));
+			(long)((double)((*p_max)->value.lval - (*p_min)->value.lval + 1.0) * return_value->value.lval/(MT_RAND_MAX+1.0));
 	}
 }
 /* }}} */

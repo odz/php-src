@@ -1,24 +1,16 @@
-/* $Id: php_mcal.h,v 1.6 2000/03/11 02:15:13 chagenbu Exp $ */
+/* $Id: php_mcal.h,v 1.8 2000/06/14 12:28:20 thies Exp $ */
 
 #ifndef _INCLUDED_MCAL_H
 #define _INCLUDED_MCAL_H
 
-#if COMPILE_DL
-#undef HAVE_MCAL
-#define HAVE_MCAL 1
-#endif
-
 #if HAVE_MCAL
 
-#ifdef THREAD_SAFE
-#include "tls.h"
-#endif
-#ifndef MSVC5
+#ifndef PHP_WIN32
 #include "build-defs.h"
 #endif
 
 /* Functions accessable to PHP */
-//extern zend_module_entry php_mcal_module_entry;
+/* extern zend_module_entry php_mcal_module_entry; */
 extern zend_module_entry php_mcal_module_entry;
 #define php_mcal_module_ptr &php_mcal_module_entry
 #define phpext_mcal_ptr php_mcal_module_ptr
@@ -84,7 +76,3 @@ PHP_FUNCTION(mcal_fetch_current_stream_event);
 
 
 #endif
-
-
-
-

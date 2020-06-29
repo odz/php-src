@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: gettext.c,v 1.17 2000/05/18 15:34:25 zeev Exp $ */
+/* $Id: gettext.c,v 1.19 2000/06/05 19:47:41 andi Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -41,6 +41,10 @@ zend_module_entry php_gettext_module_entry = {
 	"gettext", php_gettext_functions, NULL, NULL, NULL, NULL, PHP_MINFO(gettext), STANDARD_MODULE_PROPERTIES
 };
 
+#ifdef COMPILE_DL_GETTEXT
+ZEND_GET_MODULE(php_gettext)
+#endif
+
 PHP_MINFO_FUNCTION(gettext)
 {
 	php_info_print_table_start();
@@ -56,7 +60,7 @@ PHP_FUNCTION(textdomain)
     char *domain_name, *retval;
 	char *val;
 
-    if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &domain) == FAILURE) {
+    if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &domain) == FAILURE) {
 		WRONG_PARAM_COUNT;
     }
     convert_to_string_ex(domain);
@@ -81,7 +85,7 @@ PHP_FUNCTION(gettext)
     pval **msgid;
     char *msgstr;
 
-    if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &msgid) == FAILURE) {
+    if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &msgid) == FAILURE) {
 		WRONG_PARAM_COUNT;
     }
     convert_to_string_ex(msgid);
@@ -99,7 +103,7 @@ PHP_FUNCTION(dgettext)
 	pval **domain_name, **msgid;
 	char *msgstr;
 
-	if (ARG_COUNT(ht) != 2
+	if (ZEND_NUM_ARGS() != 2
 		|| zend_get_parameters_ex(2, &domain_name, &msgid) == FAILURE)
 	{
 		WRONG_PARAM_COUNT;
@@ -120,7 +124,7 @@ PHP_FUNCTION(dcgettext)
 	pval **domain_name, **msgid, **category;
 	char *msgstr;
 
-	if (ARG_COUNT(ht) != 3
+	if (ZEND_NUM_ARGS() != 3
 		|| zend_get_parameters_ex(3, &domain_name, &msgid, &category) == FAILURE)
 	{
 		WRONG_PARAM_COUNT;
@@ -145,7 +149,7 @@ PHP_FUNCTION(bindtextdomain)
 	char *retval, *dir_name;
 	char *val;
 
-	if (ARG_COUNT(ht) != 2
+	if (ZEND_NUM_ARGS() != 2
 		|| zend_get_parameters_ex(2, &domain_name, &dir) == FAILURE)
 	{
 		WRONG_PARAM_COUNT;

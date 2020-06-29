@@ -17,7 +17,7 @@
    | PHP 4.0 patches by Zeev Suraski <zeev@zend.com>                      |
    +----------------------------------------------------------------------+
  */
-/* $Id: mod_php4.c,v 1.49 2000/05/18 15:34:40 zeev Exp $ */
+/* $Id: mod_php4.c,v 1.53 2000/06/28 18:27:13 zeev Exp $ */
 
 #define NO_REGEX_EXTRA_H
 #ifdef WIN32
@@ -48,7 +48,7 @@
 #include "php_ini.h"
 #include "php_globals.h"
 #include "SAPI.h"
-#include "main.h"
+#include "php_main.h"
 
 #include "zend_compile.h"
 #include "zend_execute.h"
@@ -332,7 +332,8 @@ static char *php_apache_getenv(char *name, int name_len SLS_DC)
 
 
 static sapi_module_struct sapi_module = {
-	"Apache",						/* name */
+	"apache",						/* name */
+	"Apache",						/* pretty name */
 									
 	php_apache_startup,				/* startup */
 	php_module_shutdown_wrapper,	/* shutdown */
@@ -447,7 +448,9 @@ int send_php(request_rec *r, int display_source_mode, char *filename)
 		return OK;
 	}
 	per_dir_conf = (HashTable *) get_module_config(r->per_dir_config, &php4_module);
-	zend_hash_apply((HashTable *) per_dir_conf, (int (*)(void *)) php_apache_alter_ini_entries);
+	if (per_dir_conf) {
+		zend_hash_apply((HashTable *) per_dir_conf, (int (*)(void *)) php_apache_alter_ini_entries);
+	}
 
 	/* We don't accept OPTIONS requests, but take everything else */
 	if (r->method_number == M_OPTIONS) {
@@ -457,7 +460,7 @@ int send_php(request_rec *r, int display_source_mode, char *filename)
 
 	/* Make sure file exists */
 	if (filename == NULL && r->finfo.st_mode == 0) {
-		return NOT_FOUND;
+		return DECLINED;
 	}
 
 	/* If PHP parser engine has been turned off with an "engine off"

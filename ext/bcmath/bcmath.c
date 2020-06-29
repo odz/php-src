@@ -40,7 +40,7 @@ zend_module_entry bcmath_module_entry = {
 	"bcmath", bcmath_functions, NULL, NULL, PHP_RINIT(bcmath), PHP_RSHUTDOWN(bcmath), NULL, STANDARD_MODULE_PROPERTIES
 };
 
-#if defined(COMPILE_DL) || defined(COMPILE_DL_BCMATH)
+#ifdef COMPILE_DL_BCMATH
 ZEND_GET_MODULE(bcmath)
 #endif
 
@@ -71,7 +71,7 @@ PHP_FUNCTION(bcadd)
 	bc_num first, second, result;
 	int scale=bc_precision;
 
-	switch (ARG_COUNT(ht)) {
+	switch (ZEND_NUM_ARGS()) {
 		case 2:
 				if (zend_get_parameters_ex(2, &left,&right) == FAILURE) {
 		        	WRONG_PARAM_COUNT;
@@ -114,7 +114,7 @@ PHP_FUNCTION(bcsub)
 	bc_num first, second, result;
 	int scale=bc_precision;
 
-	switch (ARG_COUNT(ht)) {
+	switch (ZEND_NUM_ARGS()) {
 		case 2:
 				if (zend_get_parameters_ex(2, &left,&right) == FAILURE) {
 		        	WRONG_PARAM_COUNT;
@@ -157,7 +157,7 @@ PHP_FUNCTION(bcmul)
 	bc_num first, second, result;
 	int scale=bc_precision;
 
-	switch (ARG_COUNT(ht)) {
+	switch (ZEND_NUM_ARGS()) {
 		case 2:
 				if (zend_get_parameters_ex(2, &left,&right) == FAILURE) {
 		        	WRONG_PARAM_COUNT;
@@ -200,7 +200,7 @@ PHP_FUNCTION(bcdiv)
 	bc_num first, second, result;
 	int scale=bc_precision;
 
-	switch (ARG_COUNT(ht)) {
+	switch (ZEND_NUM_ARGS()) {
 		case 2:
 				if (zend_get_parameters_ex(2, &left,&right) == FAILURE) {
 		        	WRONG_PARAM_COUNT;
@@ -248,7 +248,7 @@ PHP_FUNCTION(bcmod)
 	pval **left, **right;
 	bc_num first, second, result;
 
-	switch (ARG_COUNT(ht)) {
+	switch (ZEND_NUM_ARGS()) {
 		case 2:
 				if (zend_get_parameters_ex(2, &left,&right) == FAILURE) {
 		        	WRONG_PARAM_COUNT;
@@ -290,7 +290,7 @@ PHP_FUNCTION(bcpow)
 	bc_num first, second, result;
 	int scale=bc_precision;
 
-	switch (ARG_COUNT(ht)) {
+	switch (ZEND_NUM_ARGS()) {
 		case 2:
 				if (zend_get_parameters_ex(2, &left,&right) == FAILURE) {
 		        	WRONG_PARAM_COUNT;
@@ -333,7 +333,7 @@ PHP_FUNCTION(bcsqrt)
 	bc_num result;
 	int scale=bc_precision;
 
-	switch (ARG_COUNT(ht)) {
+	switch (ZEND_NUM_ARGS()) {
 		case 1:
 				if (zend_get_parameters_ex(1, &left)== FAILURE) {
 		        	WRONG_PARAM_COUNT;
@@ -373,7 +373,7 @@ PHP_FUNCTION(bccomp)
 	bc_num first, second;
 	int scale=bc_precision;
 
-	switch (ARG_COUNT(ht)) {
+	switch (ZEND_NUM_ARGS()) {
 		case 2:
 				if (zend_get_parameters_ex(2, &left,&right) == FAILURE) {
 		        	WRONG_PARAM_COUNT;
@@ -413,7 +413,7 @@ PHP_FUNCTION(bcscale)
 {
 	pval **new_scale;
 	
-	if (ARG_COUNT(ht)!=1 || zend_get_parameters_ex(1,&new_scale)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1,&new_scale)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	

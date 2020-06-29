@@ -9,6 +9,7 @@ Zend
 
 global
 ------
+    * make everything on the language-level independent of your locale setings.
     * always build the standalone executable as well as the chosen SAPI 
       target.
     * make sure all source files have the "right" copyright.
@@ -53,6 +54,7 @@ ext/oci8
 --------
     * all OCIFetch*() functions should return 0 for no more data and false on error.
     * have a flag that trims trailing spaces from CHAR fields on retrieval.
+	* make allow_call_time_pass_reference=Off working.
 
 ext/pcre
 --------
@@ -60,17 +62,34 @@ ext/pcre
     * have an option for preg_grep() to return keys as well.
     * update the online docs from version 3.1 man page
 
+ext/session
+-----------
+    * implement a call to set a session read-only to overcome 
+      the need to serialize frame-loads.
+    * maybe implement finer-grained session variables that could be 
+      locked individually.
+
 ext/standard
 ------------
     * add a version number to data serialized via serialize().
-    * array_add(), array_uniq(). (Andrei)
-    * implement pathinfo() (what the heck is it?)
+    * array_add(). (Andrei)
+    * implement pathinfo()
+        $a = pathinfo("/some/file.bla");
+
+        => array("dirname" => "/some/",
+                "basename" => "file.bla",
+                "extension" => "bla");
+
+
+        We could also make it return just one part as a sting if used
+        like this:
+
+        $a = pathinfo("/some/file.bla", PATHINFO_BASENAME);
+
     * possibly modify parsing of GPC data to automatically create arrays if
       variable name is seen more than once.
     * implement regex-cache for url-functions.
-    * strpad(). (Andrei)
     * strcase_replace(). (Andrei)
-    * comparing arrays semantically (like Python). (Andrei)
     * move socket related functions to fsock.c.
     * get_defined_funcs(), get_defined_vars().
     * NOT binary safe:

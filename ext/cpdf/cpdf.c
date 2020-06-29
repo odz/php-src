@@ -27,7 +27,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: cpdf.c,v 1.14 2000/05/02 00:44:22 sas Exp $ */
+/* $Id: cpdf.c,v 1.19 2000/06/24 15:31:06 sas Exp $ */
 /* cpdflib.h -- C language API definitions for ClibPDF library
  * Copyright (C) 1998 FastIO Systems, All Rights Reserved.
 */
@@ -50,7 +50,7 @@
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
-#if WIN32|WINNT
+#ifdef PHP_WIN32
 # include <io.h>
 # include <fcntl.h>
 #endif
@@ -158,8 +158,7 @@ zend_module_entry cpdf_module_entry = {
 	"cpdf", cpdf_functions, PHP_MINIT(cpdf), PHP_MSHUTDOWN(cpdf), PHP_RINIT(cpdf), NULL, PHP_MINFO(cpdf), STANDARD_MODULE_PROPERTIES
 };
 
-#if defined(COMPILE_DL) || defined(COMPILE_DL_CPDF)
-#include "dl/phpdl.h"
+#ifdef COMPILE_DL_CPDF
 ZEND_GET_MODULE(cpdf)
 #endif
 
@@ -205,7 +204,7 @@ PHP_FUNCTION(cpdf_global_set_document_limits) {
 	int argc;
 	CPDF_TLS_VARS;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if(argc != 5)
 		WRONG_PARAM_COUNT;
 	if (getParametersArray(ht, argc, argv) == FAILURE)
@@ -232,7 +231,7 @@ PHP_FUNCTION(cpdf_set_creator) {
 	CPDF_TLS_VARS;
 
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -260,7 +259,7 @@ PHP_FUNCTION(cpdf_set_title) {
 	CPDF_TLS_VARS;
 
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -288,7 +287,7 @@ PHP_FUNCTION(cpdf_set_subject) {
 	CPDF_TLS_VARS;
 
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -316,7 +315,7 @@ PHP_FUNCTION(cpdf_set_keywords) {
 	CPDF_TLS_VARS;
 
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -344,7 +343,7 @@ PHP_FUNCTION(cpdf_set_viewer_preferences) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if(argc < 1 || argc > 2)
 		WRONG_PARAM_COUNT;
 	if (getParametersArray(ht, argc, argv) == FAILURE)
@@ -360,7 +359,7 @@ PHP_FUNCTION(cpdf_set_viewer_preferences) {
 		RETURN_FALSE;
 	}
 
-//	cpdf_setViewerPreferences(pdf, pagemode, 0, 0, 0, 0, 0, 0, pagemode);
+/*	cpdf_setViewerPreferences(pdf, pagemode, 0, 0, 0, 0, 0, 0, pagemode); */
 
 	RETURN_TRUE;
 }
@@ -374,7 +373,7 @@ PHP_FUNCTION(cpdf_open) {
 	CPDFdoc *cpdf;
 	CPDF_TLS_VARS;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	switch(argc) {
 		case 1:
 			if (getParameters(ht, 1, &arg1) == FAILURE) {
@@ -428,7 +427,7 @@ PHP_FUNCTION(cpdf_close) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -456,7 +455,7 @@ PHP_FUNCTION(cpdf_page_init) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if(argc < 5 || argc > 6)
 		WRONG_PARAM_COUNT;
 	if (getParametersArray(ht, argc, argv) == FAILURE)
@@ -499,7 +498,7 @@ PHP_FUNCTION(cpdf_finalize_page) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -527,7 +526,7 @@ PHP_FUNCTION(cpdf_set_current_page) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -555,7 +554,7 @@ PHP_FUNCTION(cpdf_begin_text) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -581,7 +580,7 @@ PHP_FUNCTION(cpdf_end_text) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -607,7 +606,7 @@ PHP_FUNCTION(cpdf_show) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -634,7 +633,7 @@ PHP_FUNCTION(cpdf_show_xy) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if((argc < 4) || (argc > 5))
 		WRONG_PARAM_COUNT;
 	if (getParametersArray(ht, argc, argv) == FAILURE)
@@ -672,7 +671,7 @@ PHP_FUNCTION(cpdf_continue_text) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -699,7 +698,7 @@ PHP_FUNCTION(cpdf_text) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if((argc < 2) || (argc == 3) || (argc > 7) || getParametersArray(ht, argc, argv) == FAILURE)
 			WRONG_PARAM_COUNT;
 
@@ -789,7 +788,7 @@ PHP_FUNCTION(cpdf_set_font) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 4 || getParameters(ht, 4, &arg1, &arg2, &arg3, &arg4) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 4 || getParameters(ht, 4, &arg1, &arg2, &arg3, &arg4) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -823,7 +822,7 @@ PHP_FUNCTION(cpdf_set_leading) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -850,7 +849,7 @@ PHP_FUNCTION(cpdf_set_text_rendering) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -877,7 +876,7 @@ PHP_FUNCTION(cpdf_set_horiz_scaling) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -904,7 +903,7 @@ PHP_FUNCTION(cpdf_set_text_rise) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -934,7 +933,7 @@ PHP_FUNCTION(cpdf_set_text_matrix) {
 	float pdfmatrix[6];
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -984,7 +983,7 @@ PHP_FUNCTION(cpdf_set_text_pos) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if((argc < 3) || (argc > 4))
 		WRONG_PARAM_COUNT;
 	if (getParametersArray(ht, argc, argv) == FAILURE)
@@ -1021,7 +1020,7 @@ PHP_FUNCTION(cpdf_rotate_text) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1048,7 +1047,7 @@ PHP_FUNCTION(cpdf_set_char_spacing) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1075,7 +1074,7 @@ PHP_FUNCTION(cpdf_set_word_spacing) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1103,7 +1102,7 @@ PHP_FUNCTION(cpdf_stringwidth) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1130,7 +1129,7 @@ PHP_FUNCTION(cpdf_save) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1156,7 +1155,7 @@ PHP_FUNCTION(cpdf_restore) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1182,7 +1181,7 @@ PHP_FUNCTION(cpdf_translate) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 3 || getParameters(ht, 3, &arg1, &arg2, &arg3) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 3 || getParameters(ht, 3, &arg1, &arg2, &arg3) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1210,7 +1209,7 @@ PHP_FUNCTION(cpdf_scale) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 3 || getParameters(ht, 3, &arg1, &arg2, &arg3) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 3 || getParameters(ht, 3, &arg1, &arg2, &arg3) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1238,7 +1237,7 @@ PHP_FUNCTION(cpdf_rotate) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1265,7 +1264,7 @@ PHP_FUNCTION(cpdf_setflat) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1297,7 +1296,7 @@ PHP_FUNCTION(cpdf_setlinejoin) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1329,7 +1328,7 @@ PHP_FUNCTION(cpdf_setlinecap) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1361,7 +1360,7 @@ PHP_FUNCTION(cpdf_setmiterlimit) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1393,7 +1392,7 @@ PHP_FUNCTION(cpdf_setlinewidth) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1422,7 +1421,7 @@ PHP_FUNCTION(cpdf_setdash) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 3 || getParameters(ht, 3, &arg1, &arg2, &arg3) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 3 || getParameters(ht, 3, &arg1, &arg2, &arg3) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1452,7 +1451,7 @@ PHP_FUNCTION(cpdf_moveto) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if((argc < 3) || (argc > 4))
 		WRONG_PARAM_COUNT;
 	if (getParametersArray(ht, argc, argv) == FAILURE)
@@ -1489,7 +1488,7 @@ PHP_FUNCTION(cpdf_rmoveto) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if((argc < 3) || (argc > 4))
 		WRONG_PARAM_COUNT;
 	if (getParametersArray(ht, argc, argv) == FAILURE)
@@ -1526,7 +1525,7 @@ PHP_FUNCTION(cpdf_curveto) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if((argc < 7) || (argc > 8))
 		WRONG_PARAM_COUNT;
 	if (getParametersArray(ht, argc, argv) == FAILURE)
@@ -1577,7 +1576,7 @@ PHP_FUNCTION(cpdf_lineto) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if((argc < 3) || (argc > 4))
 		WRONG_PARAM_COUNT;
 	if (getParametersArray(ht, argc, argv) == FAILURE)
@@ -1614,7 +1613,7 @@ PHP_FUNCTION(cpdf_rlineto) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if((argc < 3) || (argc > 4))
 		WRONG_PARAM_COUNT;
 	if (getParametersArray(ht, argc, argv) == FAILURE)
@@ -1651,7 +1650,7 @@ PHP_FUNCTION(cpdf_circle) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if((argc < 4) || (argc > 5))
 		WRONG_PARAM_COUNT;
 	if (getParametersArray(ht, argc, argv) == FAILURE)
@@ -1689,7 +1688,7 @@ PHP_FUNCTION(cpdf_arc) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if((argc < 6) || (argc > 7))
 		WRONG_PARAM_COUNT;
 	if (getParametersArray(ht, argc, argv) == FAILURE)
@@ -1729,7 +1728,7 @@ PHP_FUNCTION(cpdf_rect) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if((argc < 5) || (argc > 6))
 		WRONG_PARAM_COUNT;
 	if (getParametersArray(ht, argc, argv) == FAILURE)
@@ -1774,7 +1773,7 @@ PHP_FUNCTION(cpdf_newpath) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1800,7 +1799,7 @@ PHP_FUNCTION(cpdf_closepath) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1826,7 +1825,7 @@ PHP_FUNCTION(cpdf_closepath_stroke) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1853,7 +1852,7 @@ PHP_FUNCTION(cpdf_stroke) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1879,7 +1878,7 @@ PHP_FUNCTION(cpdf_fill) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1905,7 +1904,7 @@ PHP_FUNCTION(cpdf_fill_stroke) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1932,7 +1931,7 @@ PHP_FUNCTION(cpdf_closepath_fill_stroke) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1960,7 +1959,7 @@ PHP_FUNCTION(cpdf_clip) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -1986,7 +1985,7 @@ PHP_FUNCTION(cpdf_setgray_fill) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -2013,7 +2012,7 @@ PHP_FUNCTION(cpdf_setgray_stroke) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -2040,7 +2039,7 @@ PHP_FUNCTION(cpdf_setgray) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -2067,7 +2066,7 @@ PHP_FUNCTION(cpdf_setrgbcolor_fill) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 4 || getParameters(ht, 4, &arg1, &arg2, &arg3, &arg4) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 4 || getParameters(ht, 4, &arg1, &arg2, &arg3, &arg4) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -2096,7 +2095,7 @@ PHP_FUNCTION(cpdf_setrgbcolor_stroke) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 4 || getParameters(ht, 4, &arg1, &arg2, &arg3, &arg4) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 4 || getParameters(ht, 4, &arg1, &arg2, &arg3, &arg4) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -2125,7 +2124,7 @@ PHP_FUNCTION(cpdf_setrgbcolor) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 4 || getParameters(ht, 4, &arg1, &arg2, &arg3, &arg4) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 4 || getParameters(ht, 4, &arg1, &arg2, &arg3, &arg4) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -2154,7 +2153,7 @@ PHP_FUNCTION(cpdf_set_page_animation) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 6 || getParameters(ht, 6, &arg1, &arg2, &arg3, &arg4, &arg5, &arg6) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 6 || getParameters(ht, 6, &arg1, &arg2, &arg3, &arg4, &arg5, &arg6) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -2186,7 +2185,7 @@ PHP_FUNCTION(cpdf_finalize) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -2213,7 +2212,7 @@ PHP_FUNCTION(cpdf_output_buffer) {
 	char *buffer;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || getParameters(ht, 1, &arg1) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -2241,7 +2240,7 @@ PHP_FUNCTION(cpdf_save_to_file) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	if (ARG_COUNT(ht) != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || getParameters(ht, 2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -2274,7 +2273,7 @@ PHP_FUNCTION(cpdf_import_jpeg) {
 	CPDFdoc *pdf;
 	CPDF_TLS_VARS;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if((argc < 10) || (argc > 11))
 		WRONG_PARAM_COUNT;
 	if (getParametersArray(ht, argc, argv) == FAILURE)
@@ -2344,7 +2343,7 @@ PHP_FUNCTION(cpdf_place_inline_image) {
 	gdImagePtr im;
 	CPDF_TLS_VARS;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if((argc < 8) || (argc > 9))
 		WRONG_PARAM_COUNT;
 	if (getParametersArray(ht, argc, argv) == FAILURE)
@@ -2427,7 +2426,7 @@ PHP_FUNCTION(cpdf_add_annotation) {
 	CPDFannotAttrib attrib;
 	CPDF_TLS_VARS;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if((argc < 7) || (argc > 8))
 		WRONG_PARAM_COUNT;
 	if (getParametersArray(ht, argc, argv) == FAILURE)
@@ -2487,7 +2486,7 @@ PHP_FUNCTION(cpdf_set_action_url) {
 	CPDFannotAttrib attrib;
 	CPDF_TLS_VARS;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if((argc < 6) || (argc > 7))
 		WRONG_PARAM_COUNT;
 	if (getParametersArray(ht, argc, argv) == FAILURE)
@@ -2544,7 +2543,7 @@ PHP_FUNCTION(cpdf_add_outline) {
 	CPDFoutlineEntry *lastoutline;
 	CPDF_TLS_VARS;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if(argc != 6)
 		WRONG_PARAM_COUNT;
 	if (getParametersArray(ht, argc, argv) == FAILURE)

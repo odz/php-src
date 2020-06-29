@@ -29,7 +29,7 @@
  */
 
 
-/* $Id: php_string.h,v 1.14 2000/05/20 05:07:53 hholzgra Exp $ */
+/* $Id: php_string.h,v 1.21 2000/06/06 20:42:33 andrei Exp $ */
 
 /* Synced with php 3.0 revision 1.43 1999-06-16 [ssb] */
 
@@ -43,6 +43,7 @@ PHP_FUNCTION(chop);
 PHP_FUNCTION(trim);
 PHP_FUNCTION(ltrim);
 PHP_FUNCTION(soundex);
+PHP_FUNCTION(levenshtein);
 
 PHP_FUNCTION(count_chars);
 PHP_FUNCTION(explode);
@@ -85,6 +86,8 @@ PHP_FUNCTION(substr_replace);
 PHP_FUNCTION(strnatcmp);
 PHP_FUNCTION(strnatcasecmp);
 PHP_FUNCTION(substr_count);
+PHP_FUNCTION(str_pad);
+PHP_FUNCTION(sscanf);
 
 #define strnatcmp(a, b) \
 	strnatcmp_ex(a, strlen(a), b, strlen(b), 0)
@@ -99,6 +102,7 @@ PHPAPI char *php_addslashes(char *str, int length, int *new_length, int freeit);
 PHPAPI char *php_addcslashes(char *str, int length, int *new_length, int freeit, char *what, int wlength);
 PHPAPI void php_stripslashes(char *str, int *len);
 PHPAPI void php_stripcslashes(char *str, int *len);
+PHPAPI char *php_basename(char *str, size_t  len);
 PHPAPI void php_dirname(char *str, int len);
 PHPAPI char *php_stristr(unsigned char *s, unsigned char *t, size_t s_len, size_t t_len);
 PHPAPI char *php_str_to_str(char *haystack, int length, char *needle,
@@ -109,7 +113,7 @@ PHPAPI void php_strip_tags(char *rbuf, int len, int state, char *allow, int allo
 PHPAPI void php_char_to_str(char *str, uint len, char from, char *to, int to_len, pval *result);
 
 PHPAPI void php_implode(pval *delim, pval *arr, pval *return_value);
-PHPAPI void php_explode(pval *delim, pval *str, pval *return_value);
+PHPAPI void php_explode(pval *delim, pval *str, pval *return_value, int limit);
 PHPAPI inline char *php_memnstr(char *haystack, char *needle, int needle_len, char *end);
 PHPAPI size_t php_strspn(char *s1, char *s2, char *s1_end, char *s2_end); 
 PHPAPI size_t php_strcspn(char *s1, char *s2, char *s1_end, char *s2_end); 

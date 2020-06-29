@@ -45,7 +45,7 @@
 %}
 
 %pure_parser
-%expect 7
+%expect 4
 
 %left T_INCLUDE T_INCLUDE_ONCE T_EVAL
 %left ','
@@ -53,7 +53,7 @@
 %left T_LOGICAL_XOR
 %left T_LOGICAL_AND
 %right T_PRINT
-%left '=' T_PLUS_EQUAL T_MINUS_EQUAL T_MUL_EQUAL T_DIV_EQUAL T_CONCAT_EQUAL T_MOD_EQUAL T_AND_EQUAL T_OR_EQUAL XT_OR_EQUAL T_SL_EQUAL T_SR_EQUAL
+%left '=' T_PLUS_EQUAL T_MINUS_EQUAL T_MUL_EQUAL T_DIV_EQUAL T_CONCAT_EQUAL T_MOD_EQUAL T_AND_EQUAL T_OR_EQUAL T_XOR_EQUAL T_SL_EQUAL T_SR_EQUAL
 %left '?' ':'
 %left T_BOOLEAN_OR
 %left T_BOOLEAN_AND
@@ -133,7 +133,6 @@
 %token T_DOLLAR_OPEN_CURLY_BRACES
 %token T_CURLY_OPEN
 %token T_PAAMAYIM_NEKUDOTAYIM
-%token T_PHP_TRACK_VARS
 
 %% /* Rules */
 
@@ -193,20 +192,28 @@ unticked_statement:
 	|	T_RETURN ';'			{ do_return(NULL, 0 CLS_CC); }
 	|	T_RETURN expr_without_variable ';'		{ do_return(&$2, 0 CLS_CC); }
 	|	T_RETURN cvar ';'		{ do_return(&$2, 1 CLS_CC); }
-	|	T_GLOBAL global_var_list
-	|	T_STATIC static_var_list
+	|	T_GLOBAL global_var_list ';'
+	|	T_STATIC static_var_list ';'
 	|	T_ECHO echo_expr_list ';'
 	|	T_INLINE_HTML			{ do_echo(&$1 CLS_CC); }
 	|	expr ';'			{ do_free(&$1 CLS_CC); }
 	|	T_REQUIRE expr ';'			{ do_require(&$2, 0 CLS_CC); }
 	|	T_REQUIRE_ONCE use_filename ';'			{ do_require(&$2, 1 CLS_CC); }
 	|	T_USE use_filename ';'		{ use_filename($2.u.constant.value.str.val, $2.u.constant.value.str.len CLS_CC); zval_dtor(&$2.u.constant); }
-	|	T_UNSET '(' cvar ')' ';' { do_end_variable_parse(BP_VAR_UNSET, 0 CLS_CC); do_unset(&$3 CLS_CC); }
+	|	T_UNSET '(' unset_variables ')' ';'
 	|	T_FOREACH '(' expr T_AS { do_foreach_begin(&$1, &$3, &$2, &$4 CLS_CC); } w_cvar foreach_optional_arg ')' { do_foreach_cont(&$6, &$7, &$4 CLS_CC); } foreach_statement { do_foreach_end(&$1, &$2 CLS_CC); }
 	|	T_DECLARE { do_declare_begin(CLS_C); } '(' declare_list ')' declare_statement { do_declare_end(CLS_C); }
 	|	';'		/* empty statement */
 ;
 
+unset_variables:
+		unset_variable
+	|	unset_variables ',' unset_variable
+;
+
+unset_variable:
+		cvar	{ do_end_variable_parse(BP_VAR_UNSET, 0 CLS_CC); do_unset(&$1 CLS_CC); }
+;
 
 use_filename:
 		T_CONSTANT_ENCAPSED_STRING			{ $$ = $1; }
@@ -426,7 +433,7 @@ expr_without_variable:
 	|	cvar T_MOD_EQUAL expr		{ do_end_variable_parse(BP_VAR_RW, 0 CLS_CC); do_binary_assign_op(ZEND_ASSIGN_MOD, &$$, &$1, &$3 CLS_CC); }
 	|	cvar T_AND_EQUAL expr		{ do_end_variable_parse(BP_VAR_RW, 0 CLS_CC); do_binary_assign_op(ZEND_ASSIGN_BW_AND, &$$, &$1, &$3 CLS_CC); }
 	|	cvar T_OR_EQUAL expr 		{ do_end_variable_parse(BP_VAR_RW, 0 CLS_CC); do_binary_assign_op(ZEND_ASSIGN_BW_OR, &$$, &$1, &$3 CLS_CC); }
-	|	cvar XT_OR_EQUAL expr 		{ do_end_variable_parse(BP_VAR_RW, 0 CLS_CC); do_binary_assign_op(ZEND_ASSIGN_BW_XOR, &$$, &$1, &$3 CLS_CC); }
+	|	cvar T_XOR_EQUAL expr 		{ do_end_variable_parse(BP_VAR_RW, 0 CLS_CC); do_binary_assign_op(ZEND_ASSIGN_BW_XOR, &$$, &$1, &$3 CLS_CC); }
 	|	cvar T_SL_EQUAL expr	{ do_end_variable_parse(BP_VAR_RW, 0 CLS_CC); do_binary_assign_op(ZEND_ASSIGN_SL, &$$, &$1, &$3 CLS_CC); } 
 	|	cvar T_SR_EQUAL expr	{ do_end_variable_parse(BP_VAR_RW, 0 CLS_CC); do_binary_assign_op(ZEND_ASSIGN_SR, &$$, &$1, &$3 CLS_CC); } 
 	|	rw_cvar T_INC { do_post_incdec(&$$, &$1, ZEND_POST_INC CLS_CC); }
@@ -530,7 +537,7 @@ static_scalar: /* compile-time evaluated scalars */
 	|	T_STRING 				{ do_fetch_constant(&$$, &$1, ZEND_CT CLS_CC); }
 	|	'+' static_scalar	{ $$ = $1; }
 	|	'-' static_scalar	{ zval minus_one;  minus_one.type = IS_LONG; minus_one.value.lval = -1;  mul_function(&$2.u.constant, &$2.u.constant, &minus_one);  $$ = $2; }
-	|	T_ARRAY '(' static_array_pair_list ')' { $$ = $3; }
+	|	T_ARRAY '(' static_array_pair_list ')' { $$ = $3; $$.u.constant.type = IS_CONSTANT_ARRAY; }
 ;
 
 

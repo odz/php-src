@@ -15,7 +15,7 @@
    | Author: Rasmus Lerdorf                                               |
    +----------------------------------------------------------------------+
  */
-/* $Id: exec.c,v 1.32 2000/05/18 15:34:35 zeev Exp $ */
+/* $Id: exec.c,v 1.37 2000/06/26 17:12:38 stas Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -87,9 +87,9 @@ static int _Exec(int type, char *cmd, pval *array, pval *return_value)
 		efree(d);
 		d = tmp;
 #ifdef PHP_WIN32
-		fp = popen(d, "rb");
+		fp = V_POPEN(d, "rb");
 #else
-		fp = popen(d, "r");
+		fp = V_POPEN(d, "r");
 #endif
 		if (!fp) {
 			php_error(E_WARNING, "Unable to fork [%s]", d);
@@ -99,9 +99,9 @@ static int _Exec(int type, char *cmd, pval *array, pval *return_value)
 		}
 	} else { /* not safe_mode */
 #ifdef PHP_WIN32
-		fp = popen(cmd, "rb");
+		fp = V_POPEN(cmd, "rb");
 #else
-		fp = popen(cmd, "r");
+		fp = V_POPEN(cmd, "r");
 #endif
 		if (!fp) {
 			php_error(E_WARNING, "Unable to fork [%s]", cmd);
@@ -200,7 +200,7 @@ static int _Exec(int type, char *cmd, pval *array, pval *return_value)
 PHP_FUNCTION(exec)
 {
 	pval **arg1, **arg2, **arg3;
-	int arg_count = ARG_COUNT(ht);
+	int arg_count = ZEND_NUM_ARGS();
 	int ret;
 
 	if (arg_count > 3 || zend_get_parameters_ex(arg_count, &arg1,&arg2, &arg3) == FAILURE) {
@@ -237,7 +237,7 @@ PHP_FUNCTION(exec)
 PHP_FUNCTION(system)
 {
 	pval **arg1, **arg2;
-	int arg_count = ARG_COUNT(ht);
+	int arg_count = ZEND_NUM_ARGS();
 	int ret;
 
 	if (arg_count > 2 || zend_get_parameters_ex(arg_count, &arg1,&arg2) == FAILURE) {
@@ -264,7 +264,7 @@ PHP_FUNCTION(system)
 PHP_FUNCTION(passthru)
 {
 	pval **arg1, **arg2;
-	int arg_count = ARG_COUNT(ht);
+	int arg_count = ZEND_NUM_ARGS();
 	int ret;
 
 	if (arg_count > 2 || zend_get_parameters_ex(arg_count, &arg1,&arg2) == FAILURE) {
@@ -324,7 +324,7 @@ char * php_escape_shell_cmd(char *str) {
 	return cmd;
 }
 
-/* {{{ proto escapeshellcmd(string command)
+/* {{{ proto string escapeshellcmd(string command)
    Escape shell metacharacters */
 PHP_FUNCTION(escapeshellcmd)
 {
@@ -344,7 +344,8 @@ PHP_FUNCTION(escapeshellcmd)
 }
 /* }}} */
 
-
+/* {{{ proto string shell_exec(strng cmd)
+   What excatly is this variant for ??? */
 PHP_FUNCTION(shell_exec)
 {
 	FILE *in;
@@ -352,7 +353,7 @@ PHP_FUNCTION(shell_exec)
 	pval **cmd;
 	PLS_FETCH();
 
-	if (ARG_COUNT(ht)!=1 || zend_get_parameters_ex(1,&cmd)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1,&cmd)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	
@@ -363,9 +364,9 @@ PHP_FUNCTION(shell_exec)
 
 	convert_to_string_ex(cmd);
 #ifdef PHP_WIN32
-	if ((in=popen((*cmd)->value.str.val,"rt"))==NULL) {
+	if ((in=V_POPEN((*cmd)->value.str.val,"rt"))==NULL) {
 #else
-	if ((in=popen((*cmd)->value.str.val,"r"))==NULL) {
+	if ((in=V_POPEN((*cmd)->value.str.val,"r"))==NULL) {
 #endif
 		php_error(E_WARNING,"Unable to execute '%s'",(*cmd)->value.str.val);
 	}
@@ -387,7 +388,7 @@ PHP_FUNCTION(shell_exec)
 	return_value->value.str.len = total_readbytes;
 	return_value->type = IS_STRING;
 }
-
+/* }}} */
 
 /*
  * Local variables:

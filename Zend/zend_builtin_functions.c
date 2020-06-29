@@ -52,9 +52,14 @@ static ZEND_FUNCTION(is_subclass_of);
 static ZEND_FUNCTION(get_class_vars);
 static ZEND_FUNCTION(get_object_vars);
 static ZEND_FUNCTION(get_class_methods);
-static ZEND_FUNCTION(user_error);
-static ZEND_FUNCTION(set_user_error_handler);
+static ZEND_FUNCTION(trigger_error);
+static ZEND_FUNCTION(set_error_handler);
+static ZEND_FUNCTION(restore_error_handler);
 static ZEND_FUNCTION(get_declared_classes);
+static ZEND_FUNCTION(create_function);
+#if ZEND_DEBUG
+static ZEND_FUNCTION(zend_test_func);
+#endif
 
 unsigned char first_arg_force_ref[] = { 1, BYREF_FORCE };
 unsigned char first_arg_allow_ref[] = { 1, BYREF_ALLOW };
@@ -89,16 +94,22 @@ static zend_function_entry builtin_functions[] = {
 	ZEND_FE(get_class_vars,		NULL)
 	ZEND_FE(get_object_vars,	NULL)
 	ZEND_FE(get_class_methods,	NULL)
-	ZEND_FE(user_error,			NULL)
-	ZEND_FE(set_user_error_handler,		NULL)
+	ZEND_FE(trigger_error,		NULL)
+	ZEND_FALIAS(user_error,		trigger_error,		NULL)
+	ZEND_FE(set_error_handler,		NULL)
+	ZEND_FE(restore_error_handler,	NULL)
 	ZEND_FE(get_declared_classes, NULL)
+	ZEND_FE(create_function,	NULL)
+#if ZEND_DEBUG
+	ZEND_FE(zend_test_func,		NULL)
+#endif
 	{ NULL, NULL, NULL }
 };
 
 
 int zend_startup_builtin_functions()
 {
-	return zend_register_functions(builtin_functions, NULL);
+	return zend_register_functions(builtin_functions, NULL, MODULE_PERSISTENT);
 }
 
 
@@ -708,9 +719,9 @@ ZEND_FUNCTION(get_included_files)
 /* }}} */
 
 
-/* {{{ proto void user_error(string messsage [, int error_type])
+/* {{{ proto void trigger_error(string messsage [, int error_type])
    Generates a user-level error/warning/notice message */
-ZEND_FUNCTION(user_error)
+ZEND_FUNCTION(trigger_error)
 {
 	int error_type = E_USER_NOTICE;
 	zval **z_error_type, **z_error_message;
@@ -746,9 +757,12 @@ ZEND_FUNCTION(user_error)
 /* }}} */
 
 
-ZEND_FUNCTION(set_user_error_handler)
+/* {{{ proto string set_error_handler(string error_handler)
+   Sets a user-defined error handler function.  Returns the previously defined error handler, or false on error */
+ZEND_FUNCTION(set_error_handler)
 {
 	zval **error_handler;
+	zend_bool had_orig_error_handler=0;
 
 	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &error_handler)==FAILURE) {
 		ZEND_WRONG_PARAM_COUNT();
@@ -756,20 +770,53 @@ ZEND_FUNCTION(set_user_error_handler)
 
 	convert_to_string_ex(error_handler);
 	if (EG(user_error_handler)) {
-		zval_dtor(EG(user_error_handler));
-	} else {
-		ALLOC_ZVAL(EG(user_error_handler));
+		had_orig_error_handler = 1;
+		*return_value = *EG(user_error_handler);
+		zval_copy_ctor(return_value);
+		zend_ptr_stack_push(&EG(user_error_handlers), EG(user_error_handler));
+	}
+	ALLOC_ZVAL(EG(user_error_handler));
+
+	if (Z_STRLEN_PP(error_handler)==0) { /* unset user-defined handler */
+		FREE_ZVAL(EG(user_error_handler));
+		EG(user_error_handler) = NULL;
+		RETURN_TRUE;
 	}
 
 	*EG(user_error_handler) = **error_handler;
 	zval_copy_ctor(EG(user_error_handler));
 
+	if (!had_orig_error_handler) {
+		RETURN_NULL();
+	}
+}
+/* }}} */
+
+
+
+/* {{{ proto void restore_error_handler(void)
+   Restores the previously defined error handler function */
+ZEND_FUNCTION(restore_error_handler)
+{
+	if (EG(user_error_handler)) {
+		zval_ptr_dtor(&EG(user_error_handler));
+	}
+	if (zend_ptr_stack_num_elements(&EG(user_error_handlers))==0) {
+		EG(user_error_handler) = NULL;
+	} else {
+		EG(user_error_handler) = zend_ptr_stack_pop(&EG(user_error_handlers));
+	}
 	RETURN_TRUE;
 }
 
-static int copy_class_name(zend_class_entry *ce, zval *array)
+
+static int copy_class_name(zend_class_entry *ce, int num_args, va_list args, zend_hash_key *hash_key)
 {
-	add_next_index_stringl(array, ce->name, ce->name_length, 1);
+	zval *array = va_arg(args, zval *);
+
+	if (hash_key->nKeyLength==0 || hash_key->arKey[0]!=0) {
+		add_next_index_stringl(array, ce->name, ce->name_length, 1);
+	}
 	return 0;
 }
 
@@ -784,6 +831,69 @@ ZEND_FUNCTION(get_declared_classes)
 	}
 
 	array_init(return_value);
-	zend_hash_apply_with_argument(CG(class_table), (apply_func_arg_t)copy_class_name, return_value);
+	zend_hash_apply_with_arguments(CG(class_table), (apply_func_args_t)copy_class_name, 1, return_value);
 }
 /* }}} */
+
+
+#define LAMBDA_TEMP_FUNCNAME	"__lambda_func"
+
+/* {{{ proto string create_function(string args, string code)
+   Creates an anonymous function, and returns its name (funny, eh?) */
+ZEND_FUNCTION(create_function)
+{
+	char *eval_code, *function_name;
+	int eval_code_length, function_name_length;
+	zval **z_function_args, **z_function_code;
+	int retval;
+	CLS_FETCH();
+
+	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2, &z_function_args, &z_function_code)==FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	convert_to_string_ex(z_function_args);
+	convert_to_string_ex(z_function_code);
+
+	eval_code_length = sizeof("function " LAMBDA_TEMP_FUNCNAME)
+			+Z_STRLEN_PP(z_function_args)
+			+2	/* for the args parentheses */
+			+2	/* for the curly braces */
+			+Z_STRLEN_PP(z_function_code);
+
+	eval_code = (char *) emalloc(eval_code_length);
+	sprintf(eval_code, "function " LAMBDA_TEMP_FUNCNAME "(%s){%s}", Z_STRVAL_PP(z_function_args), Z_STRVAL_PP(z_function_code));
+
+	retval = zend_eval_string(eval_code, NULL CLS_CC ELS_CC);
+	efree(eval_code);
+	if (retval==SUCCESS) {
+		zend_function *func;
+
+		if (zend_hash_find(EG(function_table), LAMBDA_TEMP_FUNCNAME, sizeof(LAMBDA_TEMP_FUNCNAME), (void **) &func)==FAILURE) {
+			zend_error(E_ERROR, "Unexpected inconsistency in create_function()");
+			RETURN_FALSE;
+		}
+		function_add_ref(func);
+
+		function_name = (char *) emalloc(sizeof("0lambda_")+MAX_LENGTH_OF_LONG);
+
+		do {
+			sprintf(function_name, "%clambda_%d", 0, ++EG(lambda_count));
+			function_name_length = strlen(function_name+1)+1;
+		} while (zend_hash_add(EG(function_table), function_name, function_name_length+1, func, sizeof(zend_function), NULL)==FAILURE);
+		zend_hash_del(EG(function_table), LAMBDA_TEMP_FUNCNAME, sizeof(LAMBDA_TEMP_FUNCNAME));
+		RETURN_STRINGL(function_name, function_name_length, 0);
+	} else {
+		RETURN_FALSE;
+	}
+}
+/* }}} */
+
+
+
+ZEND_FUNCTION(zend_test_func)
+{
+	zval *arg1, *arg2;
+
+	zend_get_parameters(ht, 2, &arg1, &arg2);
+}

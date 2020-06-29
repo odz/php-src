@@ -18,11 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_odbc.c,v 1.49 2000/05/21 08:46:51 kara Exp $ */
-
-#if defined(COMPILE_DL) || defined(COMPILE_DL_ODBC)
-#include "dl/phpdl.h"
-#endif
+/* $Id: php_odbc.c,v 1.56 2000/06/24 15:31:09 sas Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -42,7 +38,7 @@
 #include "ext/standard/head.h"
 #include "php_ini.h"
 
-#if WIN32|WINNT
+#ifdef PHP_WIN32
 #include <winsock.h>
 
 #define ODBC_TYPE "Win32"
@@ -133,7 +129,7 @@ int odbc_globals_id;
 ZEND_API php_odbc_globals odbc_globals;
 #endif
 
-#if defined(COMPILE_DL) || defined(COMPILE_DL_ODBC)
+#ifdef COMPILE_DL_ODBC
 ZEND_GET_MODULE(odbc)
 #endif
 
@@ -444,7 +440,7 @@ PHP_MINFO_FUNCTION(odbc)
 	sprintf(buf, "%ld", ODBCG(num_links));
 	php_info_print_table_row(2, "Active Links", buf);
 	php_info_print_table_row(2, "ODBC library", PHP_ODBC_TYPE);
-#if !(WIN32|WINNT)
+#ifndef PHP_WIN32
 	php_info_print_table_row(2, "ODBC_INCLUDE", PHP_ODBC_INCLUDE);
 	php_info_print_table_row(2, "ODBC_LFLAGS", PHP_ODBC_LFLAGS);
 	php_info_print_table_row(2, "ODBC_LIBS", PHP_ODBC_LIBS);
@@ -455,11 +451,7 @@ PHP_MINFO_FUNCTION(odbc)
 
 }	 
 
-#if defined ( HAVE_IBMDB2 ) || defined ( HAVE_UNIXODBC )
-void ODBC_SQL_ERROR(SQLHANDLE henv, SQLHANDLE conn, SQLHANDLE stmt, char *func)
-#else
-void ODBC_SQL_ERROR(HENV henv, HDBC conn, HSTMT stmt, char *func)
-#endif
+void odbc_sql_error(ODBC_SQL_ERROR_PARAMS)
 {
 	char	state[6];
 	SDWORD	error;        /* Not used */
@@ -488,7 +480,7 @@ void ODBC_SQL_ERROR(HENV henv, HDBC conn, HSTMT stmt, char *func)
 	*/
 }
 
-void php_odgbc_fetch_attribs(INTERNAL_FUNCTION_PARAMETERS, int mode)
+void php_odbc_fetch_attribs(INTERNAL_FUNCTION_PARAMETERS, int mode)
 {
 	odbc_result *result;
 	pval **pv_res, **pv_flag;
@@ -591,7 +583,7 @@ void odbc_transact(INTERNAL_FUNCTION_PARAMETERS, int type)
 	
 	rc = SQLTransact(conn->henv, conn->hdbc, (UWORD)((type)?SQL_COMMIT:SQL_ROLLBACK));
 	if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLTransact");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLTransact");
 		RETURN_FALSE;
 	}
 
@@ -611,7 +603,7 @@ static int _close_pconn_with_id(list_entry *le, int *id)
 void odbc_column_lengths(INTERNAL_FUNCTION_PARAMETERS, int type)
 {
 	odbc_result *result;
-	SDWORD len;
+	SQLINTEGER len;
 	pval **pv_res, **pv_num;
 
 	if (zend_get_parameters_ex(2, &pv_res, &pv_num) == FAILURE) {
@@ -638,7 +630,8 @@ void odbc_column_lengths(INTERNAL_FUNCTION_PARAMETERS, int type)
 	}
 
 	SQLColAttributes(result->stmt, (UWORD)(*pv_num)->value.lval, 
-					(type?SQL_COLUMN_SCALE:SQL_COLUMN_PRECISION), NULL, 0, NULL, &len);
+					(SQLUSMALLINT) (type?SQL_COLUMN_SCALE:SQL_COLUMN_PRECISION),
+					NULL, 0, NULL, &len);
 
 	RETURN_LONG(len);
 }
@@ -687,7 +680,7 @@ PHP_FUNCTION(odbc_close_all)
    Handle binary column data */
 PHP_FUNCTION(odbc_binmode)
 {
-	php_odgbc_fetch_attribs(INTERNAL_FUNCTION_PARAM_PASSTHRU,0);
+	php_odbc_fetch_attribs(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0);
 }
 /* }}} */
 
@@ -695,7 +688,7 @@ PHP_FUNCTION(odbc_binmode)
    Handle LONG columns */
 PHP_FUNCTION(odbc_longreadlen)
 {
-	php_odgbc_fetch_attribs(INTERNAL_FUNCTION_PARAM_PASSTHRU,1);
+	php_odbc_fetch_attribs(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1);
 }
 /* }}} */
 
@@ -734,13 +727,13 @@ PHP_FUNCTION(odbc_prepare)
 	}
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
 
 	if ((rc = SQLPrepare(result->stmt, query, SQL_NTS)) != SQL_SUCCESS) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, result->stmt, "SQLPrepare");
+		odbc_sql_error(conn->henv, conn->hdbc, result->stmt, "SQLPrepare");
 		SQLFreeStmt(result->stmt, SQL_DROP);
 		RETURN_FALSE;
 	}
@@ -785,7 +778,7 @@ PHP_FUNCTION(odbc_execute)
 	int numArgs, i, ne;
 	RETCODE rc;
 	
-	numArgs = ARG_COUNT(ht);
+	numArgs = ZEND_NUM_ARGS();
 	if (numArgs == 1) {
 		if (zend_get_parameters_ex(1, &pv_res) == FAILURE)
 			WRONG_PARAM_COUNT;
@@ -878,7 +871,7 @@ PHP_FUNCTION(odbc_execute)
 	rc = SQLFreeStmt(result->stmt, SQL_CLOSE);
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(result->conn_ptr->henv, result->conn_ptr->hdbc, result->stmt, "SQLFreeStmt");	
+		odbc_sql_error(result->conn_ptr->henv, result->conn_ptr->hdbc, result->stmt, "SQLFreeStmt");	
 	}
 
 	rc = SQLExecute(result->stmt);
@@ -896,7 +889,7 @@ PHP_FUNCTION(odbc_execute)
 		}
 	} else {
 		if (rc != SQL_SUCCESS) {
-			ODBC_SQL_ERROR(result->conn_ptr->henv, result->conn_ptr->hdbc, result->stmt, "SQLExecute");
+			odbc_sql_error(result->conn_ptr->henv, result->conn_ptr->hdbc, result->stmt, "SQLExecute");
 			RETVAL_FALSE;
 		}
 	}	
@@ -972,7 +965,7 @@ PHP_FUNCTION(odbc_cursor)
 			if (!strncmp(state,"S1015",5)) {
 				sprintf(cursorname,"php_curs_%d", (int)result->stmt);
 				if (SQLSetCursorName(result->stmt,cursorname,SQL_NTS) != SQL_SUCCESS) {
-					ODBC_SQL_ERROR(result->conn_ptr->henv, result->conn_ptr->hdbc,
+					odbc_sql_error(result->conn_ptr->henv, result->conn_ptr->hdbc,
 									result->stmt, "SQLSetCursorName");
 					RETVAL_FALSE;
 				} else {
@@ -1007,7 +1000,7 @@ PHP_FUNCTION(odbc_exec)
 	UDWORD      scrollopts;
 #endif
 
-	numArgs = ARG_COUNT(ht);
+	numArgs = ZEND_NUM_ARGS();
 	if (numArgs > 2) {
 		if (zend_get_parameters_ex(3, &pv_conn, &pv_query, &pv_flags) == FAILURE)
 			WRONG_PARAM_COUNT;
@@ -1036,7 +1029,7 @@ PHP_FUNCTION(odbc_exec)
 	}
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -1052,7 +1045,7 @@ PHP_FUNCTION(odbc_exec)
 			 */
 			if (SQLSetStmtOption(result->stmt, SQL_CURSOR_TYPE, SQL_CURSOR_DYNAMIC)
 				== SQL_ERROR) {
-				ODBC_SQL_ERROR(conn->henv, conn->hdbc, result->stmt, " SQLSetStmtOption");
+				odbc_sql_error(conn->henv, conn->hdbc, result->stmt, " SQLSetStmtOption");
 				SQLFreeStmt(result->stmt, SQL_DROP);
 				efree(result);
 				RETURN_FALSE;
@@ -1068,7 +1061,7 @@ PHP_FUNCTION(odbc_exec)
 		/* XXX FIXME we should really check out SQLSTATE with SQLError
 		 * in case rc is SQL_SUCCESS_WITH_INFO here.
 		 */
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, result->stmt, "SQLExecDirect"); 
+		odbc_sql_error(conn->henv, conn->hdbc, result->stmt, "SQLExecDirect"); 
 		SQLFreeStmt(result->stmt, SQL_DROP);
 		efree(result);
 		RETURN_FALSE;
@@ -1109,7 +1102,7 @@ PHP_FUNCTION(odbc_fetch_into)
 	SDWORD rownum = -1;
 	pval **pv_res, **pv_row, **pv_res_arr, *tmp;
 	
-	numArgs = ARG_COUNT(ht);
+	numArgs = ZEND_NUM_ARGS();
 
 	switch(numArgs) {
 		case 2:
@@ -1129,7 +1122,7 @@ PHP_FUNCTION(odbc_fetch_into)
 #else
 	pval **pv_res, **pv_res_arr, *tmp;
 
-	numArgs = ARG_COUNT(ht);
+	numArgs = ZEND_NUM_ARGS();
 
 	if (numArgs != 2 || zend_get_parameters_ex(2, &pv_res, &pv_res_arr) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -1203,7 +1196,7 @@ PHP_FUNCTION(odbc_fetch_into)
 								buf, result->longreadlen + 1, &result->values[i].vallen);
 
 					if (rc == SQL_ERROR) {
-					ODBC_SQL_ERROR(result->conn_ptr->henv, result->conn_ptr->hdbc, result->stmt, "SQLGetData");
+					odbc_sql_error(result->conn_ptr->henv, result->conn_ptr->hdbc, result->stmt, "SQLGetData");
 					efree(buf);
 					RETURN_FALSE;
 				}
@@ -1275,7 +1268,7 @@ PHP_FUNCTION(odbc_fetch_row)
 	UWORD RowStatus[1];
 #endif
 
-	numArgs = ARG_COUNT(ht);
+	numArgs = ZEND_NUM_ARGS();
 	if (numArgs ==  1) {
 		if (zend_get_parameters_ex(1, &pv_res) == FAILURE)
 			WRONG_PARAM_COUNT;
@@ -1337,7 +1330,7 @@ PHP_FUNCTION(odbc_result)
 	field_ind = -1;
 	field = NULL;
 
-	if (ARG_COUNT(ht) != 2 || zend_get_parameters_ex(2 , &pv_res, &pv_field) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2 , &pv_res, &pv_field) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	
@@ -1423,7 +1416,7 @@ PHP_FUNCTION(odbc_result)
                             field, fieldsize, &result->values[field_ind].vallen);
             
             if (rc == SQL_ERROR) {
-                ODBC_SQL_ERROR(result->conn_ptr->henv, result->conn_ptr->hdbc, result->stmt, "SQLGetData");
+                odbc_sql_error(result->conn_ptr->henv, result->conn_ptr->hdbc, result->stmt, "SQLGetData");
                 efree(field);
                 RETURN_FALSE;
             }
@@ -1466,7 +1459,7 @@ PHP_FUNCTION(odbc_result)
                             field, fieldsize, &result->values[field_ind].vallen);
 
 		if (rc == SQL_ERROR) {
-			ODBC_SQL_ERROR(result->conn_ptr->henv, result->conn_ptr->hdbc, result->stmt, "SQLGetData");
+			odbc_sql_error(result->conn_ptr->henv, result->conn_ptr->hdbc, result->stmt, "SQLGetData");
             efree(field);
 			RETURN_FALSE;
 		}
@@ -1503,7 +1496,7 @@ PHP_FUNCTION(odbc_result_all)
 	UWORD RowStatus[1];
 #endif
 
-	numArgs = ARG_COUNT(ht);
+	numArgs = ZEND_NUM_ARGS();
 	if (numArgs ==  1) {
 		if (zend_get_parameters_ex(1, &pv_res) == FAILURE)
 			WRONG_PARAM_COUNT;
@@ -1572,7 +1565,7 @@ PHP_FUNCTION(odbc_result_all)
 					php_printf("<td>");
 
 					if (rc == SQL_ERROR) {
-						ODBC_SQL_ERROR(result->conn_ptr->henv, result->conn_ptr->hdbc, result->stmt, "SQLGetData");
+						odbc_sql_error(result->conn_ptr->henv, result->conn_ptr->hdbc, result->stmt, "SQLGetData");
 						php_printf("</td></tr></table>");
 						efree(buf);
 						RETURN_FALSE;
@@ -1671,7 +1664,7 @@ int odbc_sqlconnect(odbc_connection **conn, char *db, char *uid, char *pwd, int 
 	if (cur_opt != SQL_CUR_DEFAULT) {
 		rc = SQLSetConnectOption((*conn)->hdbc, SQL_ODBC_CURSORS, cur_opt);
 		if (rc != SQL_SUCCESS) {  /* && rc != SQL_SUCCESS_WITH_INFO ? */
-			ODBC_SQL_ERROR((*conn)->henv, (*conn)->hdbc, SQL_NULL_HSTMT, "SQLSetConnectOption");
+			odbc_sql_error((*conn)->henv, (*conn)->hdbc, SQL_NULL_HSTMT, "SQLSetConnectOption");
 			SQLFreeConnect((*conn)->hdbc);
 			pefree(*conn, persistent);
 			return FALSE;
@@ -1709,7 +1702,7 @@ int odbc_sqlconnect(odbc_connection **conn, char *db, char *uid, char *pwd, int 
 #endif
 #endif
 	if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
-		ODBC_SQL_ERROR((*conn)->henv, (*conn)->hdbc, SQL_NULL_HSTMT, "SQLConnect");
+		odbc_sql_error((*conn)->henv, (*conn)->hdbc, SQL_NULL_HSTMT, "SQLConnect");
 		SQLFreeConnect((*conn)->hdbc);
 		pefree((*conn), persistent);
 		return FALSE;
@@ -1745,7 +1738,7 @@ void odbc_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 	/*  Now an optional 4th parameter specifying the cursor type
 	 *  defaulting to the cursors default
 	 */
-	switch(ARG_COUNT(ht)) {
+	switch(ZEND_NUM_ARGS()) {
 		case 3:	
 			if (zend_get_parameters_ex(3, &pv_db, &pv_uid, &pv_pwd) == FAILURE) {
 				WRONG_PARAM_COUNT;
@@ -2127,7 +2120,7 @@ PHP_FUNCTION(odbc_autocommit)
 	pval **pv_conn, **pv_onoff = NULL;
 	int argc;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if (argc == 2) {
 		if (zend_get_parameters_ex(2, &pv_conn, &pv_onoff) == FAILURE) {
 			WRONG_PARAM_COUNT;
@@ -2152,7 +2145,7 @@ PHP_FUNCTION(odbc_autocommit)
 								 ((*pv_onoff)->value.lval) ?
 								 SQL_AUTOCOMMIT_ON : SQL_AUTOCOMMIT_OFF);
 		if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
-			ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "Set autocommit");
+			odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "Set autocommit");
 			RETURN_FALSE;
 		}
 		RETVAL_TRUE;
@@ -2161,7 +2154,7 @@ PHP_FUNCTION(odbc_autocommit)
 
 		rc = SQLGetConnectOption(conn->hdbc, SQL_AUTOCOMMIT, (PTR)&status);
 		if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
-			ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "Get commit status");
+			odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "Get commit status");
 			RETURN_FALSE;
 		}
 		RETVAL_LONG((long)status);
@@ -2218,7 +2211,7 @@ PHP_FUNCTION(odbc_setoption)
 			}
 			rc = SQLSetConnectOption(conn->hdbc, (unsigned short)((*pv_opt)->value.lval), (*pv_val)->value.lval);
 			if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
-				ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SetConnectOption");
+				odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SetConnectOption");
 				RETURN_FALSE;
 			}
 			break;
@@ -2228,7 +2221,7 @@ PHP_FUNCTION(odbc_setoption)
 			rc = SQLSetStmtOption(result->stmt, (unsigned short)((*pv_opt)->value.lval), ((*pv_val)->value.lval));
 
 			if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
-				ODBC_SQL_ERROR(result->conn_ptr->henv, result->conn_ptr->hdbc, result->stmt, "SetStmtOption");
+				odbc_sql_error(result->conn_ptr->henv, result->conn_ptr->hdbc, result->stmt, "SetStmtOption");
 				RETURN_FALSE;
 			}
 			break;
@@ -2246,7 +2239,7 @@ PHP_FUNCTION(odbc_setoption)
  * metadata functions
  */
 
-/* {{{ proto int odbc_tables(int connection_id [, string catalog, string schema, string table, string table_types])
+/* {{{ proto int odbc_tables(int connection_id [, string qualifier, string owner, string name, string table_types])
    Call the SQLTables function */
 PHP_FUNCTION(odbc_tables)
 {
@@ -2257,7 +2250,7 @@ PHP_FUNCTION(odbc_tables)
 	RETCODE rc;
 	int argc;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if (argc == 1) {
 		if (zend_get_parameters_ex(1, &pv_conn) == FAILURE) {
             WRONG_PARAM_COUNT;
@@ -2294,7 +2287,7 @@ PHP_FUNCTION(odbc_tables)
 	}
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2306,7 +2299,7 @@ PHP_FUNCTION(odbc_tables)
             type, SAFE_SQL_NTS(type));
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLTables");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLTables");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2328,7 +2321,7 @@ PHP_FUNCTION(odbc_tables)
 }
 /* }}} */
 
-/* {{{ proto int odbc_columns(int connection_id, string catalog, string schema, string table, string column)
+/* {{{ proto int odbc_columns(int connection_id, string qualifier, string owner, string table_name, string column_name)
    Returns a result identifier that can be used to fetch a list of column names in specified tables */
 PHP_FUNCTION(odbc_columns)
 {
@@ -2339,7 +2332,7 @@ PHP_FUNCTION(odbc_columns)
 	RETCODE rc;
 	int argc;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if (argc == 1) {
         if (zend_get_parameters_ex(1, &pv_conn) == FAILURE) {
             WRONG_PARAM_COUNT;
@@ -2376,7 +2369,7 @@ PHP_FUNCTION(odbc_columns)
 	}
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2388,7 +2381,7 @@ PHP_FUNCTION(odbc_columns)
             column, SAFE_SQL_NTS(column));
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLColumns");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLColumns");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2422,7 +2415,7 @@ PHP_FUNCTION(odbc_columnprivileges)
 	RETCODE rc;
 	int argc;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if (argc == 5) {
 		if (zend_get_parameters_ex(5, &pv_conn, &pv_cat, &pv_schema, &pv_table, &pv_column) == FAILURE) {
 			WRONG_PARAM_COUNT;
@@ -2455,7 +2448,7 @@ PHP_FUNCTION(odbc_columnprivileges)
 	}
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2467,7 +2460,7 @@ PHP_FUNCTION(odbc_columnprivileges)
             column, SAFE_SQL_NTS(column));
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLColumnPrivileges");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLColumnPrivileges");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2491,7 +2484,7 @@ PHP_FUNCTION(odbc_columnprivileges)
 #endif /* HAVE_DBMAKER || HAVE_SOLID*/
 
 #if !defined(HAVE_SOLID)
-/* {{{ proto int odbc_foreignkeys(int connection_id, string pk_catalog, string pk_schema, string pk_table, string fk_catalog, string fk_schema, string fk_table)
+/* {{{ proto int odbc_foreignkeys(int connection_id, string pk_qualifier, string pk_owner, string pk_table, string fk_qualifier, string fk_owner, string fk_table)
    Returns a result identifier to either a list of foreign keys in the specified table or a list of foreign keys in other tables that refer to the primary key in the specified table */
 PHP_FUNCTION(odbc_foreignkeys)
 {
@@ -2504,7 +2497,7 @@ PHP_FUNCTION(odbc_foreignkeys)
 	RETCODE rc;
 	int argc;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if (argc == 7) {
 		if (zend_get_parameters_ex(7, &pv_conn, &pv_pcat, &pv_pschema, &pv_ptable, 
                     &pv_fcat, &pv_fschema, &pv_ftable) == FAILURE) {
@@ -2553,7 +2546,7 @@ PHP_FUNCTION(odbc_foreignkeys)
 	}
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2567,7 +2560,7 @@ PHP_FUNCTION(odbc_foreignkeys)
             ftable, SAFE_SQL_NTS(ftable) );
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLForeignKeys");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLForeignKeys");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2601,7 +2594,7 @@ PHP_FUNCTION(odbc_gettypeinfo)
 	int argc;
 	SWORD data_type = SQL_ALL_TYPES;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if (argc == 1) {
         if (zend_get_parameters_ex(1, &pv_conn) == FAILURE) {
             WRONG_PARAM_COUNT;
@@ -2632,7 +2625,7 @@ PHP_FUNCTION(odbc_gettypeinfo)
 	}
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2640,7 +2633,7 @@ PHP_FUNCTION(odbc_gettypeinfo)
 	rc = SQLGetTypeInfo(result->stmt, data_type );
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLGetTypeInfo");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLGetTypeInfo");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2662,7 +2655,7 @@ PHP_FUNCTION(odbc_gettypeinfo)
 }
 /* }}} */
 
-/* {{{ proto int odbc_primarykeys(int connection_id, string database, string schema, string table)
+/* {{{ proto int odbc_primarykeys(int connection_id, string qualifier, string owner, string table)
    Returns a result identifier listing the column names that comprise the primary key for a table */
 PHP_FUNCTION(odbc_primarykeys)
 {
@@ -2673,7 +2666,7 @@ PHP_FUNCTION(odbc_primarykeys)
 	RETCODE rc;
 	int argc;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if (argc == 4) {
 		if (zend_get_parameters_ex(4, &pv_conn, &pv_cat, &pv_schema, &pv_table) == FAILURE) {
 			WRONG_PARAM_COUNT;
@@ -2704,7 +2697,7 @@ PHP_FUNCTION(odbc_primarykeys)
 	}
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2715,7 +2708,7 @@ PHP_FUNCTION(odbc_primarykeys)
             table, SAFE_SQL_NTS(table) );
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLPrimaryKeys");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLPrimaryKeys");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2738,7 +2731,7 @@ PHP_FUNCTION(odbc_primarykeys)
 /* }}} */
 
 #if !defined(HAVE_SOLID)
-/* {{{ proto int odbc_procedurecolumns(int connection_id [, string database, string schema, string proc, string column])
+/* {{{ proto int odbc_procedurecolumns(int connection_id [, string qualifier, string owner, string proc, string column])
    Returns a result identifier containing the list of input and output parameters, as well as the columns that make up the result set for the specified procedures */
 PHP_FUNCTION(odbc_procedurecolumns)
 {
@@ -2749,7 +2742,7 @@ PHP_FUNCTION(odbc_procedurecolumns)
 	RETCODE rc;
 	int argc;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if (argc == 1) {
         if (zend_get_parameters_ex(1, &pv_conn) == FAILURE) {
             WRONG_PARAM_COUNT;
@@ -2786,7 +2779,7 @@ PHP_FUNCTION(odbc_procedurecolumns)
 	}
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2798,7 +2791,7 @@ PHP_FUNCTION(odbc_procedurecolumns)
             col, SAFE_SQL_NTS(col) );
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLProcedureColumns");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLProcedureColumns");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2822,7 +2815,7 @@ PHP_FUNCTION(odbc_procedurecolumns)
 #endif /* HAVE_SOLID */
 
 #if !defined(HAVE_SOLID)
-/* {{{ proto int odbc_procedures(int connection_id [, string database, string schema, string proc])
+/* {{{ proto int odbc_procedures(int connection_id [, string qualifier, string owner, string name])
    Returns a result identifier containg the list of procedure names in a datasource */
 PHP_FUNCTION(odbc_procedures)
 {
@@ -2833,7 +2826,7 @@ PHP_FUNCTION(odbc_procedures)
 	RETCODE rc;
 	int argc;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if (argc == 1) {
         if (zend_get_parameters_ex(1, &pv_conn) == FAILURE) {
             WRONG_PARAM_COUNT;
@@ -2868,7 +2861,7 @@ PHP_FUNCTION(odbc_procedures)
 	}
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2879,7 +2872,7 @@ PHP_FUNCTION(odbc_procedures)
             proc, SAFE_SQL_NTS(proc) );
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLProcedures");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLProcedures");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2902,7 +2895,7 @@ PHP_FUNCTION(odbc_procedures)
 /* }}} */
 #endif /* HAVE_SOLID */
 
-/* {{{ proto int odbc_specialcolumns(int connection_id, int type, string catalog, string schema, string name, int scope, int nullable)
+/* {{{ proto int odbc_specialcolumns(int connection_id, int type, string qualifier, string owner, string table, int scope, int nullable)
    Returns a result identifier containing either the optimal set of columns that uniquely identifies a row in the table or columns that are automatically updated when any value in the row is updated by a transaction */
 PHP_FUNCTION(odbc_specialcolumns)
 {
@@ -2916,7 +2909,7 @@ PHP_FUNCTION(odbc_specialcolumns)
 	RETCODE rc;
 	int argc;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if (argc == 7) {
 		if (zend_get_parameters_ex(7, &pv_conn, &pv_type, &pv_cat, &pv_schema, 
                     &pv_name, &pv_scope, &pv_nullable) == FAILURE) {
@@ -2954,7 +2947,7 @@ PHP_FUNCTION(odbc_specialcolumns)
 	}
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2968,7 +2961,7 @@ PHP_FUNCTION(odbc_specialcolumns)
             nullable);
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLSpecialColumns");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLSpecialColumns");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -2990,7 +2983,7 @@ PHP_FUNCTION(odbc_specialcolumns)
 }
 /* }}} */
 
-/* {{{ proto int odbc_statistics(int connection_id, string catalog, string schema, string name, int unique, int reserved)
+/* {{{ proto int odbc_statistics(int connection_id, string qualifier, string owner, string name, int unique, int accuracy)
    Returns a result identifier that contains statistics about a single table and the indexes associated with the table */
 PHP_FUNCTION(odbc_statistics)
 {
@@ -3003,7 +2996,7 @@ PHP_FUNCTION(odbc_statistics)
 	RETCODE rc;
 	int argc;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if (argc == 6) {
 		if (zend_get_parameters_ex(6, &pv_conn, &pv_cat, &pv_schema, 
                     &pv_name, &pv_unique, &pv_reserved) == FAILURE) {
@@ -3039,7 +3032,7 @@ PHP_FUNCTION(odbc_statistics)
 	}
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -3052,7 +3045,7 @@ PHP_FUNCTION(odbc_statistics)
             reserved);
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLStatistics");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLStatistics");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -3075,7 +3068,7 @@ PHP_FUNCTION(odbc_statistics)
 /* }}} */
 
 #if !defined(HAVE_DBMAKER) && !defined(HAVE_SOLID)
-/* {{{ proto int odbc_tableprivilegess(int connection_id, string catalog, string schema, string table)
+/* {{{ proto int odbc_tableprivileges(int connection_id, string qualifier, string owner, string name)
    Returns a result identifier containing a list of tables and the privileges associated with each table */
 PHP_FUNCTION(odbc_tableprivileges)
 {
@@ -3086,7 +3079,7 @@ PHP_FUNCTION(odbc_tableprivileges)
 	RETCODE rc;
 	int argc;
 
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	if (argc == 4) {
 		if (zend_get_parameters_ex(4, &pv_conn, &pv_cat, &pv_schema, &pv_table) == FAILURE) {
 			WRONG_PARAM_COUNT;
@@ -3117,7 +3110,7 @@ PHP_FUNCTION(odbc_tableprivileges)
 	}
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
 	}
@@ -3128,7 +3121,7 @@ PHP_FUNCTION(odbc_tableprivileges)
             table, SAFE_SQL_NTS(table));
 
 	if (rc == SQL_ERROR) {
-		ODBC_SQL_ERROR(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLTablePrivileges");
+		odbc_sql_error(conn->henv, conn->hdbc, SQL_NULL_HSTMT, "SQLTablePrivileges");
 		efree(result);
 		RETURN_FALSE;
 	}

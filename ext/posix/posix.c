@@ -27,7 +27,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: posix.c,v 1.14 2000/05/02 00:44:25 sas Exp $ */
+/* $Id: posix.c,v 1.17 2000/06/25 17:02:45 zeev Exp $ */
 
 
 #include "php.h"
@@ -129,14 +129,14 @@ zend_module_entry posix_module_entry = {
 	STANDARD_MODULE_PROPERTIES
 };
 
-#if defined(COMPILE_DL) || defined(COMPILE_DL_POSIX)
+#ifdef COMPILE_DL_POSIX
 ZEND_GET_MODULE(posix)
 #endif
 
 static PHP_MINFO_FUNCTION(posix)
 {
 	php_info_print_table_start();
-	php_info_print_table_row(2, "Revision", "$Revision: 1.14 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.17 $");
 	php_info_print_table_end();
 }
 
@@ -149,7 +149,7 @@ PHP_FUNCTION(posix_kill)
 	pval   *sig;
 	int     result;
 
-	if (ARG_COUNT(ht) != 2 || zend_get_parameters(ht, 2, &pid, &sig)==FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters(ht, 2, &pid, &sig)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -242,7 +242,7 @@ PHP_FUNCTION(posix_setuid)
 	pval *uid;
 	int   result;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters(ht, 1, &uid)==FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(ht, 1, &uid)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -267,7 +267,7 @@ PHP_FUNCTION(posix_setgid)
 	pval *gid;
 	int   result;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters(ht, 1, &gid)==FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(ht, 1, &gid)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -360,7 +360,7 @@ PHP_FUNCTION(posix_setpgid)
 	pval   *pgid;
 	int     result;
 
-	if (ARG_COUNT(ht) != 2 || zend_get_parameters(ht, 2, &pid, &pgid)==FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters(ht, 2, &pid, &pgid)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -388,7 +388,7 @@ PHP_FUNCTION(posix_getpgid)
 	pid_t  pgid;
 	pval  *pid;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters(ht, 1, &pid)==FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(ht, 1, &pid)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -417,7 +417,7 @@ PHP_FUNCTION(posix_getsid)
 	pid_t  sid;
 	pval  *pid;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters(ht, 1, &pid)==FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(ht, 1, &pid)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -518,7 +518,7 @@ PHP_FUNCTION(posix_ttyname)
 	pval *fd;
 	char *p;
 
-    if (ARG_COUNT(ht) != 1 || zend_get_parameters(ht, 1, &fd)==FAILURE) {
+    if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(ht, 1, &fd)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long(fd);
@@ -542,7 +542,7 @@ PHP_FUNCTION(posix_isatty)
 	pval *fd;
 	int   result;
 	
-    if (ARG_COUNT(ht) != 1 || zend_get_parameters(ht, 1, &fd)==FAILURE) {
+    if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(ht, 1, &fd)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long(fd);
@@ -597,13 +597,13 @@ PHP_FUNCTION(posix_mkfifo)
 	pval   *mode;
 	int     result;
 	
-	if (ARG_COUNT(ht) != 2 || zend_get_parameters(ht, 2, &path, &mode) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters(ht, 2, &path, &mode) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string(path);
 	convert_to_long(mode);
 
-	if (php3_ini.safe_mode && (!php_checkuid(path->value.str.val, 3))) {
+	if (php3_ini.safe_mode && (!php_checkuid(path->value.str.val, NULL, 3))) {
 		RETURN_FALSE;
 	}
 	result = mkfifo(path->value.str.val, mode->value.lval);
@@ -644,7 +644,7 @@ PHP_FUNCTION(posix_getgrnam)
 	char         **p;
 	int            count;
 	
-    if (ARG_COUNT(ht) != 1 || zend_get_parameters(ht, 1, &name)==FAILURE) {
+    if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(ht, 1, &name)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string(name);
@@ -680,7 +680,7 @@ PHP_FUNCTION(posix_getgrgid)
 	char         **p;
 	int            count;
 	
-    if (ARG_COUNT(ht) != 1 || zend_get_parameters(ht, 1, &gid)==FAILURE) {
+    if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(ht, 1, &gid)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long(gid);
@@ -712,7 +712,7 @@ PHP_FUNCTION(posix_getpwnam)
 	pval          *name;
 	struct passwd *pw;
 	
-    if (ARG_COUNT(ht) != 1 || zend_get_parameters(ht, 1, &name)==FAILURE) {
+    if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(ht, 1, &name)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string(name);
@@ -744,7 +744,7 @@ PHP_FUNCTION(posix_getpwuid)
 	pval          *uid;
 	struct passwd *pw;
 	
-    if (ARG_COUNT(ht) != 1 || zend_get_parameters(ht, 1, &uid)==FAILURE) {
+    if (ZEND_NUM_ARGS() != 1 || zend_get_parameters(ht, 1, &uid)==FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long(uid);

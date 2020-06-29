@@ -15,13 +15,13 @@
    | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: head.c,v 1.33 2000/05/18 15:34:35 zeev Exp $ */
+/* $Id: head.c,v 1.35 2000/06/05 23:21:57 sas Exp $ */
 
 #include <stdio.h>
 #include "php.h"
 #include "ext/standard/php_standard.h"
 #include "SAPI.h"
-#include "main.h"
+#include "php_main.h"
 #include "head.h"
 #include "SAPI.h"
 #ifdef TM_IN_SYS_TIME
@@ -125,7 +125,7 @@ PHP_FUNCTION(setcookie)
 	pval **arg[6];
 	int arg_count;
 
-	arg_count = ARG_COUNT(ht);
+	arg_count = ZEND_NUM_ARGS();
 	if (arg_count < 1 || arg_count > 6 || zend_get_parameters_array_ex(arg_count, arg) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}

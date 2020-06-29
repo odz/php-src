@@ -14,10 +14,11 @@
    +----------------------------------------------------------------------+
    | Authors: Jani Lehtimäki <jkl@njet.net>                               |
    |          Thies C. Arntzen <thies@digicol.de>                         |
+   |          Sascha Schumann <sascha@schumann.cx>                        |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: var.c,v 1.56 2000/05/18 15:34:36 zeev Exp $ */
+/* $Id: var.c,v 1.70 2000/06/23 16:58:30 sas Exp $ */
 
 
 /* {{{ includes 
@@ -29,103 +30,81 @@
 #include "php.h"
 #include "php_string.h"
 #include "php_var.h"
+#include "basic_functions.h"
+#include "php_incomplete_class.h"
 
-#define COMMON level, ' ', ((*struc)->is_ref?"&":"")
+#define COMMON ((*struc)->is_ref?"&":"")
 
 /* }}} */
 /* {{{ php_var_dump */
 
+static int php_array_element_dump(zval **zv, int num_args, va_list args, zend_hash_key *hash_key)
+{
+	int level;
+
+	level = va_arg(args, int);
+
+	if (hash_key->nKeyLength==0) { /* numeric key */
+		php_printf("%*c[%ld]=>\n", level + 1, ' ', hash_key->h);
+	} else { /* string key */
+		php_printf("%*c[\"%s\"]=>\n", level + 1, ' ', hash_key->arKey);
+	}
+	php_var_dump(zv, level + 2);
+	return 0;
+}
+
 void php_var_dump(pval **struc, int level)
 {
-	ulong index;
-	char *key;
-	int i;
-	pval **data;
-	char buf[512];
 	HashTable *myht;
+
+	if (level>1) {
+		php_printf("%*c", level-1, ' ');
+	}
 
 	switch ((*struc)->type) {
 		case IS_BOOL:
-			i = sprintf(buf, "%*c%sbool(%s)\n", COMMON, ((*struc)->value.lval?"true":"false"));
-			PHPWRITE(&buf[1], i - 1);
+			php_printf("%sbool(%s)\n", COMMON, ((*struc)->value.lval?"true":"false"));
 			break;
-
 		case IS_NULL:
-			i = sprintf(buf, "%*c%sNULL\n", COMMON);
-			PHPWRITE(&buf[1], i - 1);
+			php_printf("%sNULL\n", COMMON);
 			break;
-
 		case IS_LONG:
-			i = sprintf(buf, "%*c%sint(%ld)\n", COMMON, (*struc)->value.lval);
-			PHPWRITE(&buf[1], i - 1);
+			php_printf("%sint(%ld)\n", COMMON, (*struc)->value.lval);
 			break;
-
 		case IS_DOUBLE: {
 				ELS_FETCH();
-				i = sprintf(buf, "%*c%sfloat(%.*G)\n", COMMON, (int) EG(precision), (*struc)->value.dval);
-				PHPWRITE(&buf[1], i - 1);
+
+				php_printf("%sfloat(%.*G)\n", COMMON, (int) EG(precision), (*struc)->value.dval);
 			}
 			break;
-
 		case IS_STRING:
-			i = sprintf(buf, "%*c%sstring(%d) \"", COMMON, (*struc)->value.str.len);
-			PHPWRITE(&buf[1], i - 1);
+			php_printf("%sstring(%d) \"", COMMON, (*struc)->value.str.len);
 			PHPWRITE((*struc)->value.str.val, (*struc)->value.str.len);
-			strcpy(buf, "\"\n");
-			PHPWRITE(buf, strlen(buf));
+			PUTS("\"\n");
 			break;
-
 		case IS_ARRAY:
 			myht = HASH_OF(*struc);
-			i = sprintf(buf, "%*c%sarray(%d) {\n", COMMON, zend_hash_num_elements(myht));
-			PHPWRITE(&buf[1], i - 1);
+			php_printf("%sarray(%d) {\n", COMMON, zend_hash_num_elements(myht));
 			goto head_done;
-
 		case IS_OBJECT:
 			myht = HASH_OF(*struc);
-			i = sprintf(buf, "%*c%sobject(%s)(%d) {\n", COMMON, (*struc)->value.obj.ce->name, zend_hash_num_elements(myht));
-			PHPWRITE(&buf[1], i - 1);
-		  head_done:
-
-			zend_hash_internal_pointer_reset(myht);
-			for (;; zend_hash_move_forward(myht)) {
-				if ((i = zend_hash_get_current_key(myht, &key, &index)) == HASH_KEY_NON_EXISTANT)
-					break;
-
-				if (zend_hash_get_current_data(myht, (void **) (&data)) != SUCCESS || !data || (data == struc)) {
-					if (i == HASH_KEY_IS_STRING)
-						efree(key);
-					continue;
-				}
-				switch (i) {
-					case HASH_KEY_IS_LONG:
-						sprintf(buf, "%*c[%ld]=>\n", level + 1, ' ', index);
-						PHPWRITE(buf,strlen(buf));
-						break;
-
-					case HASH_KEY_IS_STRING:
-						sprintf(buf, "%*c[\"%s\"]=>\n", level + 1, ' ', key);
-						PHPWRITE(buf, strlen(buf));
-						efree(key);
-						break;
-				}
-				php_var_dump(data, level + 2);
+			php_printf("%sobject(%s)(%d) {\n", COMMON, (*struc)->value.obj.ce->name, zend_hash_num_elements(myht));
+head_done:
+			zend_hash_apply_with_arguments(myht, (ZEND_STD_HASH_APPLIER) php_array_element_dump, 1, level);
+			if (level>1) {
+				php_printf("%*c\n", level-1, ' ');
 			}
-			i = sprintf(buf, "%*c}\n", level, ' ');
-			PHPWRITE(&buf[1], i - 1);
-			break;
-			
+			PUTS("}\n");
+			break;	
 		case IS_RESOURCE: {
 			int type;
 			zend_list_find((*struc)->value.lval, &type);
-			i = sprintf(buf, "%*c%sresource(%ld) of type %d\n", COMMON,(*struc)->value.lval, type);
-			PHPWRITE(&buf[1], i - 1);
+			php_printf("%sresource(%ld) of type %d\n", COMMON, (*struc)->value.lval, type);
 			break;
 		}
-
 		default:
-			i = sprintf(buf, "%*c%sUNKNOWN:0\n",COMMON);
-			PHPWRITE(&buf[1], i - 1);
+			php_printf("%sUNKNOWN:0\n",COMMON);
+			break;
 	}
 }
 
@@ -140,10 +119,10 @@ PHP_FUNCTION(var_dump)
 	int argc;
 	int	i;
 	
-	argc = ARG_COUNT(ht);
+	argc = ZEND_NUM_ARGS();
 	
 	args = (zval ***)emalloc(argc * sizeof(zval **));
-	if (ARG_COUNT(ht) == 0 || zend_get_parameters_array_ex(argc, args) == FAILURE) {
+	if (ZEND_NUM_ARGS() == 0 || zend_get_parameters_array_ex(argc, args) == FAILURE) {
 		efree(args);
 		WRONG_PARAM_COUNT;
 	}
@@ -181,6 +160,7 @@ void php_var_serialize(pval *buf, pval **struc)
 	ulong slen;
 	int i;
 	HashTable *myht;
+	BLS_FETCH();
 
 	switch ((*struc)->type) {
 		case IS_BOOL:
@@ -222,36 +202,42 @@ void php_var_serialize(pval *buf, pval **struc)
 			return;
 
 		case IS_OBJECT: {
-				zval *retval_ptr;
+				zval *retval_ptr = NULL;
 				zval *fname;
 				int res;
+				PHP_CLASS_ATTRIBUTES;
 				CLS_FETCH();
 
 				MAKE_STD_ZVAL(fname);
 				ZVAL_STRING(fname,"__sleep",1);
 
-				res =  call_user_function_ex(CG(function_table), *struc, fname, &retval_ptr, 0, 0, 1);
+				res =  call_user_function_ex(CG(function_table), *struc, fname, &retval_ptr, 0, 0, 1, NULL);
 
-				if ((res == SUCCESS)) {
+				if (res == SUCCESS) {
 					if (retval_ptr && HASH_OF(retval_ptr)) {
 						int count = zend_hash_num_elements(HASH_OF(retval_ptr));
-						slen = sprintf(s, "O:%d:\"%s\":%d:{",(*struc)->value.obj.ce->name_length,(*struc)->value.obj.ce->name, count);
+						
+						PHP_SET_CLASS_ATTRIBUTES(*struc);
+						slen = sprintf(s, "O:%d:\"%s\":%d:{",name_len,class_name, count);
+						PHP_CLEANUP_CLASS_ATTRIBUTES();
+						
 						STR_CAT(buf, s, slen);
 						if (count > 0) {
 							char *key;
 							zval **d,**name;
 							ulong index;
+							HashPosition pos;
 							
-							zend_hash_internal_pointer_reset(HASH_OF(retval_ptr));
-							for (;; zend_hash_move_forward(HASH_OF(retval_ptr))) {
-								if ((i = zend_hash_get_current_key(HASH_OF(retval_ptr), &key, &index)) == HASH_KEY_NON_EXISTANT) {
+							zend_hash_internal_pointer_reset_ex(HASH_OF(retval_ptr),&pos);
+							for (;; zend_hash_move_forward_ex(HASH_OF(retval_ptr),&pos)) {
+								if ((i = zend_hash_get_current_key_ex(HASH_OF(retval_ptr), &key, NULL, &index, &pos)) == HASH_KEY_NON_EXISTANT) {
 									break;
 								}
 
-								zend_hash_get_current_data(HASH_OF(retval_ptr), (void **) (&name));
+								zend_hash_get_current_data_ex(HASH_OF(retval_ptr), (void **) (&name), &pos);
 
 								if ((*name)->type != IS_STRING) {
-									php_error(E_NOTICE, "_sleep_ should return an array only containing the names of instance-variables to serialize.");
+									php_error(E_NOTICE, "__sleep should return an array only containing the names of instance-variables to serialize.");
 									continue;
 								}
 
@@ -269,8 +255,7 @@ void php_var_serialize(pval *buf, pval **struc)
 					FREE_ZVAL(fname);
 
 					if (retval_ptr) {
-						zval_dtor(retval_ptr);
-						FREE_ZVAL(retval_ptr);
+						zval_ptr_dtor(&retval_ptr);
 					}
 					goto std_array;
 				}
@@ -279,8 +264,7 @@ void php_var_serialize(pval *buf, pval **struc)
 				FREE_ZVAL(fname);
 
 				if (retval_ptr) {
-					zval_dtor(retval_ptr);
-					FREE_ZVAL(retval_ptr);
+					zval_ptr_dtor(&retval_ptr);
 				}
 				return;	
 			}
@@ -292,20 +276,25 @@ void php_var_serialize(pval *buf, pval **struc)
 			if ((*struc)->type == IS_ARRAY) {
 				slen = sprintf(s, "a:%d:{", i);
 			} else {
-				slen = sprintf(s, "O:%d:\"%s\":%d:{",(*struc)->value.obj.ce->name_length,(*struc)->value.obj.ce->name, i);
+				PHP_CLASS_ATTRIBUTES;
+
+				PHP_SET_CLASS_ATTRIBUTES(*struc);
+				slen = sprintf(s, "O:%d:\"%s\":%d:{",name_len,class_name,i);
+				PHP_CLEANUP_CLASS_ATTRIBUTES();
 			}
 			STR_CAT(buf, s, slen);
 			if (i > 0) {
 				char *key;
 				pval **data,*d;
 				ulong index;
+				HashPosition pos;
 				
-				zend_hash_internal_pointer_reset(myht);
-				for (;; zend_hash_move_forward(myht)) {
-					if ((i = zend_hash_get_current_key(myht, &key, &index)) == HASH_KEY_NON_EXISTANT) {
+				zend_hash_internal_pointer_reset_ex(myht, &pos);
+				for (;; zend_hash_move_forward_ex(myht, &pos)) {
+					if ((i = zend_hash_get_current_key_ex(myht, &key, NULL, &index, &pos)) == HASH_KEY_NON_EXISTANT) {
 						break;
 					}
-					if (zend_hash_get_current_data(myht, (void **) (&data)) != SUCCESS || !data || ((*data) == (*struc))) {
+					if (zend_hash_get_current_data_ex(myht, (void **) (&data), &pos) != SUCCESS || !data || ((*data) == (*struc))) {
 						if (i == HASH_KEY_IS_STRING)
 							efree(key);
 						continue;
@@ -352,6 +341,7 @@ int php_var_unserialize(pval **rval, const char **p, const char *max)
 	char cur;
 	HashTable *myht;
 	ELS_FETCH();
+	BLS_FETCH();
 
 	switch (cur = **p) {
 		case 'N':
@@ -436,7 +426,11 @@ int php_var_unserialize(pval **rval, const char **p, const char *max)
 
 		case 'a':
 		case 'o':
-		case 'O': 
+		case 'O': {
+			zend_bool incomplete_class = 0;
+			char *class_name = NULL;
+			size_t name_len = 0;
+			
 			INIT_PZVAL(*rval);
 
 			if (cur == 'a') {
@@ -447,8 +441,6 @@ int php_var_unserialize(pval **rval, const char **p, const char *max)
 				zend_class_entry *ce;
 
 				if (cur == 'O') { /* php4 serialized - we get the class-name */
-					char *class_name;
-
 					if (*((*p) + 1) != ':') {
 						return 0;
 					}
@@ -460,7 +452,7 @@ int php_var_unserialize(pval **rval, const char **p, const char *max)
 					if (**p != ':') {
 						return 0;
 					}
-					i = atoi(q);
+					name_len = i = atoi(q);
 					if (i < 0 || (*p + 3 + i) > max || *((*p) + 1) != '\"' ||
 						*((*p) + 2 + i) != '\"' || *((*p) + 3 + i) != ':') {
 						return 0;
@@ -474,17 +466,21 @@ int php_var_unserialize(pval **rval, const char **p, const char *max)
 					(*p) += i;
 					
 					if (zend_hash_find(EG(class_table), class_name, i+1, (void **) &ce)==FAILURE) {
-						php_error(E_NOTICE, "Unserializing non-existant class: %s! No methods will be available!", class_name);
-						ce = &zend_standard_class_def;
+						incomplete_class = 1;
+						ce = PHP_IC_ENTRY_READ;
 					}
-
-					efree(class_name);
 				} else { /* old php 3.0 data 'o' */
 					ce = &zend_standard_class_def;
 				}
 
 				object_init_ex(*rval,ce);
 				myht = (*rval)->value.obj.properties;
+
+				if (incomplete_class)
+					php_store_class_name(*rval, class_name, name_len);
+
+				if (class_name)
+					efree(class_name);
 			}
 
 			(*p) += 2;
@@ -533,20 +529,23 @@ int php_var_unserialize(pval **rval, const char **p, const char *max)
 			}
 
 			if ((*rval)->type == IS_OBJECT) {
-				zval *retval_ptr;
+				zval *retval_ptr = NULL;
 				zval *fname;
 				CLS_FETCH();
 
 				MAKE_STD_ZVAL(fname);
 				ZVAL_STRING(fname,"__wakeup",1);
 
-				call_user_function_ex(CG(function_table), *rval, fname, &retval_ptr, 0, 0, 1);
+				call_user_function_ex(CG(function_table), *rval, fname, &retval_ptr, 0, 0, 1, NULL);
 
 				zval_dtor(fname);
 				FREE_ZVAL(fname);
+				if (retval_ptr)
+					zval_ptr_dtor(&retval_ptr);
 			}
 
 			return *((*p)++) == '}';
+		  }
 	}
 
 	return 0;
@@ -559,7 +558,7 @@ PHP_FUNCTION(serialize)
 {
 	pval **struc;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &struc) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &struc) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	return_value->type = IS_STRING;
@@ -577,7 +576,7 @@ PHP_FUNCTION(unserialize)
 {
 	pval **buf;
 	
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &buf) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &buf) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 

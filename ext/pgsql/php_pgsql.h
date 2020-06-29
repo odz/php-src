@@ -1,41 +1,26 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP HTML Embedded Scripting Language Version 3.0                     |
+   | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997,1998 PHP Development Team (See Credits file)      |
+   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
    +----------------------------------------------------------------------+
-   | This program is free software; you can redistribute it and/or modify |
-   | it under the terms of one of the following licenses:                 |
-   |                                                                      |
-   |  A) the GNU General Public License as published by the Free Software |
-   |     Foundation; either version 2 of the License, or (at your option) |
-   |     any later version.                                               |
-   |                                                                      |
-   |  B) the PHP License as published by the PHP Development Team and     |
-   |     included in the distribution in the file: LICENSE                |
-   |                                                                      |
-   | This program is distributed in the hope that it will be useful,      |
-   | but WITHOUT ANY WARRANTY; without even the implied warranty of       |
-   | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the        |
-   | GNU General Public License for more details.                         |
-   |                                                                      |
-   | You should have received a copy of both licenses referred to here.   |
-   | If you did not, or have any questions about PHP licensing, please    |
-   | contact core@php.net.                                                |
+   | This source file is subject to version 2.02 of the PHP license,      |
+   | that is bundled with this package in the file LICENSE, and is        |
+   | available at through the world-wide-web at                           |
+   | http://www.php.net/license/2_02.txt.                                 |
+   | If you did not receive a copy of the PHP license and are unable to   |
+   | obtain it through the world-wide-web, please send a note to          |
+   | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Jouni Ahto                                                  |
+   | Authors: Zeev Suraski <zeev@zend.com>                                |
+   |          Jouni Ahto <jah@mork.net>                                   |
    +----------------------------------------------------------------------+
  */
  
-/* $Id: php_pgsql.h,v 1.8 2000/05/02 05:27:35 sas Exp $ */
+/* $Id: php_pgsql.h,v 1.15 2000/06/10 08:47:57 andi Exp $ */
 
 #ifndef _PHP_PGSQL_H
 #define _PHP_PGSQL_H
-
-#if COMPILE_DL
-#undef HAVE_PGSQL
-#define HAVE_PGSQL 1
-#endif
 
 #if HAVE_PGSQL
 
@@ -43,10 +28,11 @@ extern zend_module_entry pgsql_module_entry;
 #define pgsql_module_ptr &pgsql_module_entry
 
 #ifdef PHP_PGSQL_PRIVATE
-
+#undef SOCKET_SIZE_TYPE
+#include <postgres.h>
 #include <libpq-fe.h>
 
-#if (WIN32||WINNT)
+#ifdef PHP_WIN32
 #define INV_WRITE            0x00020000
 #define INV_READ             0x00040000
 #else
@@ -62,11 +48,14 @@ extern zend_module_entry pgsql_module_entry;
 PHP_MINIT_FUNCTION(pgsql);
 PHP_MSHUTDOWN_FUNCTION(pgsql);
 PHP_RINIT_FUNCTION(pgsql);
+PHP_MINFO_FUNCTION(pgsql);
 PHP_FUNCTION(pg_connect);
 PHP_FUNCTION(pg_pconnect);
 PHP_FUNCTION(pg_close);
 PHP_FUNCTION(pg_dbname);
 PHP_FUNCTION(pg_errormessage);
+PHP_FUNCTION(pg_trace);
+PHP_FUNCTION(pg_untrace);
 PHP_FUNCTION(pg_options);
 PHP_FUNCTION(pg_port);
 PHP_FUNCTION(pg_tty);
@@ -94,6 +83,8 @@ PHP_FUNCTION(pg_loclose);
 PHP_FUNCTION(pg_loread);
 PHP_FUNCTION(pg_lowrite);
 PHP_FUNCTION(pg_loreadall);
+PHP_FUNCTION(pg_loimport);
+PHP_FUNCTION(pg_loexport);
 
 void php_pgsql_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent);
 int php_pgsql_get_default_link(INTERNAL_FUNCTION_PARAMETERS);
