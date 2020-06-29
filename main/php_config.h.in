@@ -3,7 +3,6 @@
 #define ZEND_API
 #define ZEND_DLEXPORT
 
-#ifndef NETWARE
 
 /* Define if on AIX 3.
    System headers sometimes define this.
@@ -2416,6 +2415,9 @@
 #undef HAVE_FLUSHIO
 
 /*   */
+#undef HAVE_REGEX_T_RE_MAGIC
+
+/*   */
 #undef HSREGEX
 
 /*   */
@@ -2423,6 +2425,9 @@
 
 /*   */
 #undef REGEX
+
+/* 1 */
+#undef HAVE_REGEX_T_RE_MAGIC
 
 /*  see #24142  */
 #undef PHP_ROUND_FUZZ
@@ -2655,6 +2660,12 @@
 /* PHP build date */
 #undef PHP_BUILD_DATE
 
+/* hardcode for each of the cross compiler host */
+#undef PHP_OS
+
+/* hardcode for each of the cross compiler host */
+#undef PHP_UNAME
+
 /* uname -a output */
 #undef PHP_UNAME
 
@@ -2664,7 +2675,6 @@
 /*   */
 #undef HAVE_BUILD_DEFS_H
 
-#endif
 
 #ifdef HAVE_STDLIB_H
 # include <stdlib.h>
@@ -2672,6 +2682,10 @@
 
 #ifdef HAVE_SYS_TYPES_H
 # include <sys/types.h>
+#endif
+
+#ifdef HAVE_SYS_SELECT_H 
+#include <sys/select.h> 
 #endif
 
 #ifdef HAVE_IEEEFP_H
@@ -2717,6 +2731,13 @@ int zend_sprintf(char *buffer, const char *format, ...);
 #define zend_finite(a) ((fpclassify((a))!=FP_INFINITE&&fpclassify((a))!=FP_NAN)?1:0)
 #else
 #define zend_finite(a) (zend_isnan(a) ? 0 : zend_isinf(a) ? 0 : 1)
+#endif
+
+#ifdef NETWARE
+#ifdef USE_WINSOCK
+#/*This detection against winsock is of no use*/ undef HAVE_SOCKLEN_T
+#/*This detection against winsock is of no use*/ undef HAVE_SYS_SOCKET_H
+#endif
 #endif
 
 /*

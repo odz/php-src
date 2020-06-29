@@ -338,9 +338,14 @@ void zend_do_assign(znode *result, znode *variable, znode *value TSRMLS_DC)
 
 static inline zend_bool zend_is_function_or_method_call(znode *variable)
 {
-	zend_uint type = variable->u.EA.type;
-
-	return  (type == ZEND_PARSED_FCALL);
+	zend_uint type;
+	
+	if (variable->op_type != IS_VAR) {
+		return 0;
+	} else {
+		type = variable->u.EA.type;
+		return (type == ZEND_PARSED_FCALL);
+	}
 }
 
 
@@ -1121,7 +1126,7 @@ void zend_do_return(znode *expr, int do_end_vparse TSRMLS_DC)
 		INIT_ZVAL(opline->op1.u.constant);
 	}
 
-	if (do_end_vparse) {
+	if (expr) {
 		if (zend_is_function_or_method_call(expr)) {
 			opline->extended_value = ZEND_RETURNS_FUNCTION;	
 		} else {

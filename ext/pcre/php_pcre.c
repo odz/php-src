@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_pcre.c,v 1.132.2.24 2005/05/31 12:56:00 sniper Exp $ */
+/* $Id: php_pcre.c,v 1.132.2.24.2.1 2005/10/11 06:48:33 dmitry Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -608,6 +608,7 @@ static void php_pcre_match(INTERNAL_FUNCTION_PARAMETERS, int global)
 			if (subpat_names[i]) {
 				zend_hash_update(Z_ARRVAL_P(subpats), subpat_names[i],
 								 strlen(subpat_names[i])+1, &match_sets[i], sizeof(zval *), NULL);
+				ZVAL_ADDREF(match_sets[i]);
 			}
 			zend_hash_next_index_insert(Z_ARRVAL_P(subpats), &match_sets[i], sizeof(zval *), NULL);
 		}

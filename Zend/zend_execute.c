@@ -266,12 +266,6 @@ void zend_assign_to_variable_reference(znode *result, zval **variable_ptr_ptr, z
 		variable_ptr_ptr = &EG(uninitialized_zval_ptr);
 /*	} else if (variable_ptr==&EG(uninitialized_zval) || variable_ptr!=value_ptr) { */
 	} else if (variable_ptr != value_ptr) {
-		variable_ptr->refcount--;
-		if (variable_ptr->refcount==0) {
-			zendi_zval_dtor(*variable_ptr);
-			FREE_ZVAL(variable_ptr);
-		}
-
 		if (!PZVAL_IS_REF(value_ptr)) {
 			/* break it away */
 			value_ptr->refcount--;
@@ -287,6 +281,12 @@ void zend_assign_to_variable_reference(znode *result, zval **variable_ptr_ptr, z
 
 		*variable_ptr_ptr = value_ptr;
 		value_ptr->refcount++;
+		
+		variable_ptr->refcount--;
+		if (variable_ptr->refcount==0) {
+			zendi_zval_dtor(*variable_ptr);
+			FREE_ZVAL(variable_ptr);
+		}
 	} else if (!variable_ptr->is_ref) {
 		if (variable_ptr_ptr == value_ptr_ptr) {
 			SEPARATE_ZVAL(variable_ptr_ptr);
@@ -1324,6 +1324,9 @@ binary_assign_op_addr: {
 					/* Behave like FETCH_DIM_W */
 					zend_fetch_dimension_address(&EX(opline)->result, &EX(opline)->op1, &EX(opline)->op2, EX(Ts), BP_VAR_W TSRMLS_CC);
 				} else {
+					if (EX(opline)->op2.op_type == IS_UNUSED) {
+						zend_error(E_ERROR, "Cannot use [] for reading");
+					}
 					/* Behave like FETCH_DIM_R, except for locking used for list() */
 					zend_fetch_dimension_address(&EX(opline)->result, &EX(opline)->op1, &EX(opline)->op2, EX(Ts), BP_VAR_R TSRMLS_CC);
 					AI_USE_PTR(EX(Ts)[EX(opline)->result.u.var].var);
@@ -1770,8 +1773,10 @@ do_fcall_common:
 						}
 
 						if (!(*retval_ptr_ptr)->is_ref) {
-							if (EX(Ts)[EX(opline)->op1.u.var].var.ptr_ptr == &EX(Ts)[EX(opline)->op1.u.var].var.ptr
-								|| (EX(opline)->extended_value == ZEND_RETURNS_FUNCTION && !EX(Ts)[EX(opline)->op1.u.var].var.fcall_returned_reference)) {
+							if (EX(opline)->extended_value == ZEND_RETURNS_FUNCTION &&
+								EX(Ts)[EX(opline)->op1.u.var].var.fcall_returned_reference) {
+								/* intentionally left empty */
+							} else if (EX(Ts)[EX(opline)->op1.u.var].var.ptr_ptr == &EX(Ts)[EX(opline)->op1.u.var].var.ptr) {
 								PZVAL_LOCK(*retval_ptr_ptr); /* undo the effect of get_zval_ptr_ptr() */
 								zend_error(E_NOTICE, "Only variable references should be returned by reference");
 								goto return_by_value;
@@ -1856,9 +1861,18 @@ return_by_value:
 						varptr->is_ref = 1;
 						varptr->refcount++;
 						zend_ptr_stack_push(&EG(argument_stack), varptr);
-						NEXT_OPCODE();
+					} else {
+						zval *valptr;
+
+						zend_error(E_NOTICE, "Only variables can be passed by reference");
+						ALLOC_ZVAL(valptr);
+						*valptr = *varptr;
+						if (!EG(free_op1)) {
+							zval_copy_ctor(valptr);
+						}
+						INIT_PZVAL(valptr);
+						zend_ptr_stack_push(&EG(argument_stack), valptr);
 					}
-					zend_error(E_ERROR, "Only variables can be passed by reference");
 				}
 				NEXT_OPCODE();
 			case ZEND_SEND_VAR:
@@ -2176,7 +2190,8 @@ send_by_ref:
 					zend_op_array *new_op_array=NULL;
 					zval **original_return_value = EG(return_value_ptr_ptr);
 					int return_value_used;
-					zval *inc_filename = get_zval_ptr(&EX(opline)->op1, EX(Ts), &EG(free_op1), BP_VAR_R);
+					int free_op1;
+					zval *inc_filename = get_zval_ptr(&EX(opline)->op1, EX(Ts), &free_op1, BP_VAR_R);
 					zval tmp_inc_filename;
 					zend_bool failure_retval=0;
 
@@ -2238,7 +2253,6 @@ send_by_ref:
 					if (inc_filename==&tmp_inc_filename) {
 						zval_dtor(&tmp_inc_filename);
 					}
-					FREE_OP(EX(Ts), &EX(opline)->op1, EG(free_op1));
 					EX(Ts)[EX(opline)->result.u.var].var.ptr_ptr = &EX(Ts)[EX(opline)->result.u.var].var.ptr;
 					if (new_op_array) {
 						zend_class_entry *saved_ce;
@@ -2286,6 +2300,7 @@ send_by_ref:
 							EX(Ts)[EX(opline)->result.u.var].var.ptr->type = IS_BOOL;
 						}
 					}
+					FREE_OP(EX(Ts), &EX(opline)->op1, free_op1);
 					EG(return_value_ptr_ptr) = original_return_value;
 				}
 				NEXT_OPCODE();

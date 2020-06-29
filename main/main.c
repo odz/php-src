@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: main.c,v 1.512.2.63.2.1 2005/06/20 19:59:43 tony2001 Exp $ */
+/* $Id: main.c,v 1.512.2.63.2.4 2005/09/15 14:06:15 hyanantha Exp $ */
 
 /* {{{ includes
  */
@@ -29,14 +29,6 @@
 #include "win32/signal.h"
 #include <process.h>
 #elif defined(NETWARE)
-#ifdef NEW_LIBC
-#include <sys/timeval.h>
-#else
-#include "netware/time_nw.h"
-#endif
-/*#include "netware/signal_nw.h"*/
-/*#include "netware/env.h"*/    /* Temporary */
-/*#include <process.h>*/
 #ifdef USE_WINSOCK
 #include <novsock2.h>
 #endif
@@ -265,7 +257,7 @@ static PHP_INI_MH(OnUpdateTimeout)
 #	define PHP_SAFE_MODE_EXEC_DIR ""
 #endif
 
-#ifdef PHP_PROG_SENDMAIL
+#if defined(PHP_PROG_SENDMAIL) && !defined(NETWARE) 
 #	define DEFAULT_SENDMAIL_PATH PHP_PROG_SENDMAIL " -t -i "
 #else
 #	define DEFAULT_SENDMAIL_PATH NULL
@@ -386,7 +378,7 @@ PHPAPI void php_log_err(char *log_message TSRMLS_DC)
 			return;
 		}
 #endif
-		log_file = VCWD_FOPEN(PG(error_log), "a");
+		log_file = VCWD_FOPEN(PG(error_log), "ab");
 		if (log_file != NULL) {
 			time(&error_time);
 			strftime(error_time_str, sizeof(error_time_str), "%d-%b-%Y %H:%M:%S", php_localtime_r(&error_time, &tmbuf)); 

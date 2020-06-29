@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: cgi_main.c,v 1.190.2.68 2005/04/28 14:24:47 sniper Exp $ */
+/* $Id: cgi_main.c,v 1.190.2.68.2.1 2005/10/06 20:39:26 johannes Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -1395,7 +1395,7 @@ consult the installation file that came with this distribution, or visit \n\
 						}
 						php_print_info(0xFFFFFFFF TSRMLS_CC);
 						php_end_ob_buffers(1 TSRMLS_CC);
-						exit(1);
+						exit(0);
 						break;
 
   				case 'l': /* syntax check mode */
@@ -1413,7 +1413,7 @@ consult the installation file that came with this distribution, or visit \n\
 					print_extensions(TSRMLS_C);
 					php_printf("\n");
 					php_end_ob_buffers(1 TSRMLS_CC);
-					exit(1);
+					exit(0);
 					break;
 
 #if 0 /* not yet operational, see also below ... */
@@ -1446,7 +1446,7 @@ consult the installation file that came with this distribution, or visit \n\
 						php_printf("PHP %s (%s) (built: %s %s)\nCopyright (c) 1997-2004 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__, __TIME__, get_zend_version());
 #endif
 						php_end_ob_buffers(1 TSRMLS_CC);
-						exit(1);
+						exit(0);
 						break;
 
   				case 'w': 

@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: session.c,v 1.336.2.53 2005/05/22 12:59:29 tony2001 Exp $ */
+/* $Id: session.c,v 1.336.2.53.2.3 2005/09/23 08:16:01 sniper Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -178,6 +178,7 @@ static ps_serializer ps_serializers[MAX_SERIALIZERS + 1] = {
 };
 
 #define MAX_MODULES 10
+#define PREDEFINED_MODULES 2
 
 static ps_module *ps_modules[MAX_MODULES + 1] = {
 	ps_files_ptr,
@@ -1627,7 +1628,9 @@ static void php_rinit_session_globals(TSRMLS_D)
 static void php_rshutdown_session_globals(TSRMLS_D)
 {
 	if (PS(mod_data)) {
-		PS(mod)->s_close(&PS(mod_data) TSRMLS_CC);
+		zend_try {
+			PS(mod)->s_close(&PS(mod_data) TSRMLS_CC);
+		} zend_end_try();
 	}
 	if (PS(id)) {
 		efree(PS(id));
@@ -1664,10 +1667,12 @@ PHP_RINIT_FUNCTION(session)
 
 static void php_session_flush(TSRMLS_D)
 {
-	if(PS(session_status)==php_session_active) {
-		php_session_save_current_state(TSRMLS_C);
+	if (PS(session_status) == php_session_active) {
+		PS(session_status) = php_session_none;
+		zend_try {
+			php_session_save_current_state(TSRMLS_C);
+		} zend_end_try();
 	}
-	PS(session_status)=php_session_none;
 }
 
 /* {{{ proto void session_write_close(void)
@@ -1681,6 +1686,7 @@ PHP_RSHUTDOWN_FUNCTION(session)
 {
 	php_session_flush(TSRMLS_C);
 	php_rshutdown_session_globals(TSRMLS_C);
+
 	return SUCCESS;
 }
 /* }}} */
@@ -1727,6 +1733,7 @@ PHP_MSHUTDOWN_FUNCTION(session)
 #ifdef HAVE_LIBMM
 	PHP_MSHUTDOWN(ps_mm) (SHUTDOWN_FUNC_ARGS_PASSTHRU);
 #endif
+	memset(&ps_modules[PREDEFINED_MODULES], 0, (MAX_MODULES-PREDEFINED_MODULES)*sizeof(ps_module *));
 
 	return SUCCESS;
 }

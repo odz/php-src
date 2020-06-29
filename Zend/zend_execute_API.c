@@ -862,10 +862,18 @@ void zend_set_timeout(long seconds)
 		t_r.it_value.tv_sec = seconds;
 		t_r.it_value.tv_usec = t_r.it_interval.tv_sec = t_r.it_interval.tv_usec = 0;
 
+#	ifdef __CYGWIN__
+		setitimer(ITIMER_REAL, &t_r, NULL);
+		signal(SIGALRM, zend_timeout);
+		sigemptyset(&sigset);
+		sigaddset(&sigset, SIGALRM);
+#	else
 		setitimer(ITIMER_PROF, &t_r, NULL);
 		signal(SIGPROF, zend_timeout);
 		sigemptyset(&sigset);
 		sigaddset(&sigset, SIGPROF);
+#	endif
+
 		sigprocmask(SIG_UNBLOCK, &sigset, NULL);
 	}
 #	endif
@@ -884,7 +892,12 @@ void zend_unset_timeout(TSRMLS_D)
 
 		no_timeout.it_value.tv_sec = no_timeout.it_value.tv_usec = no_timeout.it_interval.tv_sec = no_timeout.it_interval.tv_usec = 0;
 
+#ifdef __CYGWIN__
+		setitimer(ITIMER_REAL, &no_timeout, NULL);
+#else
 		setitimer(ITIMER_PROF, &no_timeout, NULL);
+#endif
+
 	}
 #	endif
 #endif

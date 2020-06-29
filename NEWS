@@ -1,5 +1,70 @@
 PHP 4                                                                      NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+31 Oct 2005, Version 4.4.1
+	
+- Added missing safe_mode checks for image* functions and cURL. (Ilia)
+- Added missing safe_mode/open_basedir checks for file uploads. (Ilia)
+- Fixed a memory corruption bug regarding included files. (Derick)
+- Fixed possible INI setting leak via virtual() in Apache 2 sapi. (Ilia)
+- Fixed possible crash and/or memory corruption in import_request_variables().
+  (Ilia)
+- Fixed potential GLOBALS overwrite via import_request_variables(). (Ilia)
+- Fixed possible GLOBALS variable override when register_globals are ON.
+  (Ilia, Stefan)
+- Fixed possible register_globals toggle via parse_str(). (Ilia, Stefan)
+- Added "new_link" parameter to mssql_connect(). Bug #34369. (Frank)
+- Fixed bug #34850 (--program-suffix and --program-prefix not included in 
+  man page names). (Jani)
+- Fixed bug #34790 (preg_match_all(), named capturing groups, variable
+  assignment/return => crash). (Dmitry)
+- Fixed bug #34742 (ftp wrapper failures caused from segmented command 
+  transfer). (Ilia)
+- Fixed bug #34704 (Infinite recursion due to corrupt JPEG). (Marcus)
+- Fixed bug #34645 (ctype corrupts memory when validating large numbers). (Ilia)
+- Fixed bug #34565 (mb_send_mail does not fetch mail.force_extra_parameters).
+  (Marco, Ilia)
+- Fixed bug #34557 (php -m exits with "error" 1). (Johannes)
+- Fixed bug #34456 (Possible crash inside pspell extension). (Ilia)
+- Fixed bug #34311 (unserialize() crashes with chars above 191 dec). (Nuno)
+- Fixed bug #34307 (on_modify handler not called to set the default value if
+  setting from php.ini was invalid). (Andrei)
+- Fixed bug #34302 (date('W') do not return leading zeros for week 1 to 9).
+  (Derick)
+- Fixed bug #34277 (array_filter() crashes with references and objects).
+  (Dmitry)
+- Fixed bug #34191 (ob_gzhandler does not enforce trailing \0). (Ilia)
+- Fixed bug #34156 (memory usage remains elevated after memory limit is 
+  reached). (Ilia)
+- Fixed bug #34148 (+,- and . not supported as parts of scheme). (Ilia)
+- Fixed bug #34137 (assigning array element by reference causes binary mess).
+  (Dmitry) 
+- Fixed bug #34068 (Numeric string as array key not cast to integer in 
+  wddx_deserialize()). (Ilia)
+- Fixed bug #34064 (arr[] as param to function is allowed only if function 
+  receives argument by reference). (Dmitry)
+- Fixed bug #33989 (extract($GLOBALS,EXTR_REFS) crashes PHP). (Dmitry)
+- Fixed bug #33987 (php script as ErrorDocument causes crash in Apache 2).
+  (Ilia)
+- Fixed bug #33940 (array_map() fails to pass by reference when called
+  recursively). (Dmitry)
+- Fixed bug #33690 (Crash setting some ini directives in httpd.conf). (Rasmus)
+- Fixed bug #33673 (Added detection for partially uploaded files). (Ilia)
+- Fixed bug #33648 (Using --with-regex=system causes compile failure). (Andrei)
+- Fixed bug #33558 (Warning with nested calls to functions returning by
+  reference). (Dmitry, Derick)
+- Fixed bug #33383 (crash when retrieving empty LOBs). (Tony)
+- Fixed bug #33156 (cygwin version of setitimer doesn't accept ITIMER_PROF).
+  (Nuno)
+- Fixed bug #32937 (open_basedir looses trailing / in the limiter). (Adam C.)
+- Fixed bug #32589 (possible crash inside imap_mail_compose() function). (Ilia)
+- Fixed bug #32179 (xmlrpc_encode() segfaults with recursive references). (Tony)
+- Fixed bug #32160 (copying a file into itself leads to data loss). (Ilia)
+- Fixed bug #31158 (array_splice on $GLOBALS crashes). (Dmitry)
+- Fixed bug #29983 (PHP does not explicitly set mime type & charset). (Ilia)
+- Fixed bug #29253 (array_diff with $GLOBALS argument fails). (Dmitry)
+- Fixed bug #21306 (ext/sesssion: catch bailouts of write handler during
+  RSHUTDOWN). (Jani, Xuefer at 21cn dot com)
+
 11 Jul 2005, Version 4.4.0
 - Added man pages for "phpize" and "php-config" scripts. (Jakub Vrana)
 - Added support for .cc files in extensions. (Brian)

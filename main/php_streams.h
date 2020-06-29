@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_streams.h,v 1.61.2.18 2005/05/16 08:55:31 tony2001 Exp $ */
+/* $Id: php_streams.h,v 1.61.2.18.2.1 2005/07/27 09:14:44 hyanantha Exp $ */
 
 #ifndef PHP_STREAMS_H
 #define PHP_STREAMS_H
@@ -106,11 +106,7 @@ typedef void (*php_stream_notification_func)(php_stream_context *context,
 		void * ptr TSRMLS_DC);
 
 typedef struct _php_stream_statbuf {
-#if defined(NETWARE) && defined(CLIB_STAT_PATCH)
-	struct stat_libc sb; /* regular info */
-#else
 	struct stat sb; /* regular info */
-#endif
 	/* extended info to go here some day: content-type etc. etc. */
 } php_stream_statbuf;
 

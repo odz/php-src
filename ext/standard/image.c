@@ -17,13 +17,10 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: image.c,v 1.72.2.19 2005/06/01 22:29:20 iliaa Exp $ */
+/* $Id: image.c,v 1.72.2.19.2.1 2005/07/27 11:22:36 hyanantha Exp $ */
 
 #include "php.h"
 #include <stdio.h>
-#if defined(NETWARE) && !defined(NEW_LIBC)
-#include <sys/socket.h>
-#endif
 #if HAVE_FCNTL_H
 #include <fcntl.h>
 #endif

@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: basic_functions.c,v 1.543.2.51 2005/05/16 08:55:31 tony2001 Exp $ */
+/* $Id: basic_functions.c,v 1.543.2.51.2.3 2005/09/29 16:31:48 iliaa Exp $ */
 
 #include "php.h"
 #include "php_streams.h"
@@ -42,18 +42,7 @@
 #include <time.h>
 #include <stdio.h>
 
-#ifndef NETWARE
 #include <netdb.h>
-#else
-/*#include "netware/env.h"*/    /* Temporary */
-#ifdef NEW_LIBC /* Same headers hold good for Winsock and Berkeley sockets */
-#include <netinet/in.h>
-/*#include <arpa/inet.h>*/
-#include <netdb.h>
-#else
-#include <sys/socket.h>
-#endif
-#endif
 
 #if HAVE_ARPA_INET_H
 # include <arpa/inet.h>
@@ -813,8 +802,8 @@ function_entry basic_functions[] = {
 	PHP_FE(prev,					first_arg_force_ref)
 	PHP_FE(next,					first_arg_force_ref)
 	PHP_FE(reset,					first_arg_force_ref)
-	PHP_FE(current,					first_arg_force_ref)
-	PHP_FE(key,						first_arg_force_ref)
+	PHP_FE(current,					NULL)
+	PHP_FE(key,					NULL)
 	PHP_FE(min,																NULL)
 	PHP_FE(max,																NULL)
 	PHP_FE(in_array,														NULL)
@@ -3038,11 +3027,25 @@ static int copy_request_variable(void *pDest, int num_args, va_list args, zend_h
 	prefix = va_arg(args, char *);
 	prefix_len = va_arg(args, uint);
 
-	new_key_len = prefix_len + hash_key->nKeyLength;
-	new_key = (char *) emalloc(new_key_len);
+	if (!prefix_len) {
+		if (!hash_key->nKeyLength) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Numeric key detected - possible security hazard.");
+			return 0;
+		} else if (!strcmp(hash_key->arKey, "GLOBALS")) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Attempted GLOBALS variable overwrite.");
+			return 0; 
+		}
+	}
 
-	memcpy(new_key, prefix, prefix_len);
-	memcpy(new_key+prefix_len, hash_key->arKey, hash_key->nKeyLength);
+	if (hash_key->nKeyLength) {
+		new_key_len = prefix_len + hash_key->nKeyLength;
+		new_key = (char *) emalloc(new_key_len);
+
+		memcpy(new_key, prefix, prefix_len);
+		memcpy(new_key+prefix_len, hash_key->arKey, hash_key->nKeyLength);
+	} else {
+		new_key_len = spprintf(&new_key, 0, "%s%ld", prefix, hash_key->h);
+	}
 
 	zend_hash_del(&EG(symbol_table), new_key, new_key_len);
 	ZEND_SET_SYMBOL_WITH_LENGTH(&EG(symbol_table), new_key, new_key_len, *var, (*var)->refcount+1, 0);

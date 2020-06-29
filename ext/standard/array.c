@@ -22,7 +22,7 @@
 */
 
 
-/* $Id: array.c,v 1.199.2.44.2.2 2005/06/21 12:11:19 dmitry Exp $ */
+/* $Id: array.c,v 1.199.2.44.2.9 2005/10/03 14:05:07 iliaa Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -1252,6 +1252,10 @@ PHP_FUNCTION(extract)
 				/* break omitted intentionally */
 
 			case EXTR_OVERWRITE:
+				/* GLOBALS protection */
+				if (var_exists && !strcmp(var_name, "GLOBALS")) {
+					break;
+				}
 				smart_str_appendl(&final_name, var_name, var_name_len);
 				break;
 
@@ -1300,11 +1304,11 @@ PHP_FUNCTION(extract)
 					zval **orig_var;
 
 					if (zend_hash_find(EG(active_symbol_table), final_name.c, final_name.len+1, (void **) &orig_var) == SUCCESS) {
-						zval_ptr_dtor(orig_var);
-
 						SEPARATE_ZVAL_TO_MAKE_IS_REF(entry);
 						zval_add_ref(entry);
 						
+						zval_ptr_dtor(orig_var);
+
 						*orig_var = *entry;
 					} else {
 						if ((*var_array)->refcount > 1) {
@@ -1831,8 +1835,8 @@ PHP_FUNCTION(array_unshift)
 	   hashtable and replace it with new one */
 	new_hash = php_splice(Z_ARRVAL_P(stack), 0, 0, &args[1], argc-1, NULL);
 	zend_hash_destroy(Z_ARRVAL_P(stack));
-	efree(Z_ARRVAL_P(stack));
-	Z_ARRVAL_P(stack) = new_hash;
+	*Z_ARRVAL_P(stack) = *new_hash;
+	FREE_HASHTABLE(new_hash);
 
 	/* Clean up and return the number of elements in the stack */
 	efree(args);
@@ -1909,8 +1913,8 @@ PHP_FUNCTION(array_splice)
 	
 	/* Replace input array's hashtable with the new one */
 	zend_hash_destroy(Z_ARRVAL_P(array));
-	efree(Z_ARRVAL_P(array));
-	Z_ARRVAL_P(array) = new_hash;
+	*Z_ARRVAL_P(array) = *new_hash;
+	FREE_HASHTABLE(new_hash);
 	
 	/* Clean up */
 	if (argc == 4)
@@ -2397,8 +2401,8 @@ PHP_FUNCTION(array_pad)
 	
 	/* Copy the result hash into return value */
 	zend_hash_destroy(Z_ARRVAL_P(return_value));
-	efree(Z_ARRVAL_P(return_value));
-	Z_ARRVAL_P(return_value) = new_hash;
+	*Z_ARRVAL_P(return_value) = *new_hash;
+	FREE_HASHTABLE(new_hash);
 	
 	/* Clean up */
 	efree(pads);
@@ -2622,6 +2626,15 @@ static void php_array_intersect(INTERNAL_FUNCTION_PARAMETERS, int behavior)
 	/* copy the argument array */
 	*return_value = **args[0];
 	zval_copy_ctor(return_value);
+	if (return_value->value.ht == &EG(symbol_table)) {
+		HashTable *ht;
+		zval *tmp;
+
+		ALLOC_HASHTABLE(ht);
+		zend_hash_init(ht, 0, NULL, ZVAL_PTR_DTOR, 0);
+		zend_hash_copy(ht, return_value->value.ht, (copy_ctor_func_t) zval_add_ref, (void *) &tmp, sizeof(zval *));
+		return_value->value.ht = ht;		
+	}
 
 	/* go through the lists and look for common values */
 	while (*ptrs[0]) {
@@ -2772,6 +2785,15 @@ static void php_array_diff(INTERNAL_FUNCTION_PARAMETERS, int behavior)
 	/* copy the argument array */
 	*return_value = **args[0];
 	zval_copy_ctor(return_value);
+	if (return_value->value.ht == &EG(symbol_table)) {
+		HashTable *ht;
+		zval *tmp;
+
+		ALLOC_HASHTABLE(ht);
+		zend_hash_init(ht, 0, NULL, ZVAL_PTR_DTOR, 0);
+		zend_hash_copy(ht, return_value->value.ht, (copy_ctor_func_t) zval_add_ref, (void *) &tmp, sizeof(zval *));
+		return_value->value.ht = ht;		
+	}
 
 	/* go through the lists and look for values of ptr[0]
 		   that are not in the others */
@@ -3299,6 +3321,7 @@ PHP_FUNCTION(array_reduce)
 PHP_FUNCTION(array_filter)
 {
 	zval **input, **callback = NULL;
+	zval *array, *func = NULL;
 	zval **operand;
 	zval **args[1];
 	zval *retval = NULL;
@@ -3317,9 +3340,13 @@ PHP_FUNCTION(array_filter)
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "The first argument should be an array");
 		return;
 	}
+	if (callback) {
+		func = *callback;
+	}
+	array = *input;
 
 	if (ZEND_NUM_ARGS() > 1) {
-		if (!zend_is_callable(*callback, 0, &callback_name)) {
+		if (!zend_is_callable(func, 0, &callback_name)) {
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "The second argument, '%s', should be a valid callback", callback_name);
 			efree(callback_name);
 			return;
@@ -3328,16 +3355,16 @@ PHP_FUNCTION(array_filter)
 	}
 
 	array_init(return_value);
-	if (zend_hash_num_elements(Z_ARRVAL_PP(input)) == 0)
+	if (zend_hash_num_elements(Z_ARRVAL_P(array)) == 0)
 		return;
 
-	for (zend_hash_internal_pointer_reset_ex(Z_ARRVAL_PP(input), &pos);
-		 zend_hash_get_current_data_ex(Z_ARRVAL_PP(input), (void **)&operand, &pos) == SUCCESS;
-		 zend_hash_move_forward_ex(Z_ARRVAL_PP(input), &pos)) {
+	for (zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(array), &pos);
+		 zend_hash_get_current_data_ex(Z_ARRVAL_P(array), (void **)&operand, &pos) == SUCCESS;
+		 zend_hash_move_forward_ex(Z_ARRVAL_P(array), &pos)) {
 
-		if (callback) {
+		if (func) {
 			args[0] = operand;
-			if (call_user_function_ex(EG(function_table), NULL, *callback, &retval, 1, args, 0, NULL TSRMLS_CC) == SUCCESS && retval) {
+			if (call_user_function_ex(EG(function_table), NULL, func, &retval, 1, args, 0, NULL TSRMLS_CC) == SUCCESS && retval) {
 				if (!zend_is_true(retval)) {
 					zval_ptr_dtor(&retval);
 					continue;
@@ -3351,7 +3378,7 @@ PHP_FUNCTION(array_filter)
 			continue;
 
 		zval_add_ref(operand);
-		switch (zend_hash_get_current_key_ex(Z_ARRVAL_PP(input), &string_key, &string_key_len, &num_key, 0, &pos)) {
+		switch (zend_hash_get_current_key_ex(Z_ARRVAL_P(array), &string_key, &string_key_len, &num_key, 0, &pos)) {
 			case HASH_KEY_IS_STRING:
 				zend_hash_update(Z_ARRVAL_P(return_value), string_key,
 								 string_key_len, operand, sizeof(zval *), NULL);
@@ -3418,6 +3445,7 @@ PHP_FUNCTION(array_map)
 			efree(array_pos);
 			return;
 		}
+		SEPARATE_ZVAL_IF_NOT_REF(pargs[i]);
 		args[i] = *pargs[i];
 		array_len[i] = zend_hash_num_elements(Z_ARRVAL_PP(pargs[i]));
 		if (array_len[i] > maxlen) {

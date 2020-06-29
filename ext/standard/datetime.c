@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: datetime.c,v 1.96.2.19 2005/04/14 13:30:27 iliaa Exp $ */
+/* $Id: datetime.c,v 1.96.2.19.2.2 2005/08/30 09:14:51 derick Exp $ */
 
 #include "php.h"
 #include "zend_operators.h"
@@ -52,7 +52,7 @@ char *day_short_names[] = {
 };
 
 #if !defined(HAVE_TM_ZONE) && !defined(_TIMEZONE) && !defined(HAVE_DECLARED_TIMEZONE)
-#if defined(NETWARE) && defined(NEW_LIBC)
+#ifdef NETWARE
 #define timezone    _timezone   /* timezone is called '_timezone' in new version of LibC */
 #endif
 extern time_t timezone;
@@ -626,7 +626,7 @@ static void php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 					wk = (yd + 6 - wd + fd) / 7 - (fd > 3);
 				}
 
-				sprintf(tmp_buff, "%d", wk);  /* SAFE */
+				sprintf(tmp_buff, "%02d", wk);  /* SAFE */
 				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 
