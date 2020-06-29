@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: libxml.c,v 1.18.2.2 2004/08/05 21:03:15 edink Exp $ */
+/* $Id: libxml.c,v 1.18.2.4 2004/09/08 10:16:57 rrichards Exp $ */
 
 #define IS_EXT_MODULE
 
@@ -253,15 +253,18 @@ int php_libxml_streams_IO_match_wrapper(const char *filename)
 
 void *php_libxml_streams_IO_open_wrapper(const char *filename, const char *mode, const int read_only)
 {
-	char resolved_path[MAXPATHLEN + 1];
 	php_stream_statbuf ssbuf;
 	php_stream_context *context = NULL;
 	php_stream_wrapper *wrapper = NULL;
-	char *path_to_open = NULL;
+	char *resolved_path, *path_to_open = NULL;
+	void *ret_val = NULL;
 
 	TSRMLS_FETCH();
-	xmlURIUnescapeString(filename, 0, resolved_path);
-	path_to_open = resolved_path;
+	resolved_path = xmlURIUnescapeString(filename, 0, NULL);
+
+	if (resolved_path == NULL) {
+		return NULL;
+	}
 
 	/* logic copied from _php_stream_stat, but we only want to fail
 	   if the wrapper supports stat, otherwise, figure it out from
@@ -272,15 +275,20 @@ void *php_libxml_streams_IO_open_wrapper(const char *filename, const char *mode,
 	wrapper = php_stream_locate_url_wrapper(resolved_path, &path_to_open, ENFORCE_SAFE_MODE TSRMLS_CC);
 	if (wrapper && read_only && wrapper->wops->url_stat) {
 		if (wrapper->wops->url_stat(wrapper, path_to_open, 0, &ssbuf, NULL TSRMLS_CC) == -1) {
+			xmlFree(resolved_path);
 			return NULL;
 		}
 	}
 
 	if (LIBXML(stream_context)) {
 		context = zend_fetch_resource(&LIBXML(stream_context) TSRMLS_CC, -1, "Stream-Context", NULL, 1, php_le_stream_context());
-		return php_stream_open_wrapper_ex((char *)resolved_path, (char *)mode, ENFORCE_SAFE_MODE|REPORT_ERRORS, NULL, context);
+		ret_val = php_stream_open_wrapper_ex(path_to_open, (char *)mode, ENFORCE_SAFE_MODE|REPORT_ERRORS, NULL, context);
+		xmlFree(resolved_path);
+		return ret_val;
 	}
-	return php_stream_open_wrapper((char *)resolved_path, (char *)mode, ENFORCE_SAFE_MODE|REPORT_ERRORS, NULL);
+	ret_val = php_stream_open_wrapper(path_to_open, (char *)mode, ENFORCE_SAFE_MODE|REPORT_ERRORS, NULL);
+	xmlFree(resolved_path);
+	return ret_val;
 }
 
 void *php_libxml_streams_IO_open_read_wrapper(const char *filename)
@@ -497,6 +505,32 @@ PHP_FUNCTION(libxml_set_streams_context)
 
 
 /* {{{ Common functions shared by extensions */
+int php_libxml_xmlCheckUTF8(const unsigned char *s)
+{
+	int i;
+	unsigned char c;
+
+	for (i = 0; (c = s[i++]);) {
+		if ((c & 0x80) == 0) {
+		} else if ((c & 0xe0) == 0xc0) {
+			if ((s[i++] & 0xc0) != 0x80) {
+				return 0;
+			}
+		} else if ((c & 0xf0) == 0xe0) {
+			if ((s[i++] & 0xc0) != 0x80 || (s[i++] & 0xc0) != 0x80) {
+				return 0;
+			}
+		} else if ((c & 0xf8) == 0xf0) {
+			if ((s[i++] & 0xc0) != 0x80 || (s[i++] & 0xc0) != 0x80 || (s[i++] & 0xc0) != 0x80) {
+				return 0;
+			}
+		} else {
+			return 0;
+		}
+	}
+	return 1;
+}
+
 int php_libxml_register_export(zend_class_entry *ce, php_libxml_export_node export_function)
 {
 	php_libxml_func_handler export_hnd;

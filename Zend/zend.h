@@ -17,12 +17,12 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend.h,v 1.257.2.6 2004/08/12 20:39:36 andi Exp $ */
+/* $Id: zend.h,v 1.257.2.9 2004/09/23 21:21:59 andi Exp $ */
 
 #ifndef ZEND_H
 #define ZEND_H
 
-#define ZEND_VERSION "2.0.1"
+#define ZEND_VERSION "2.0.2"
 
 #define ZEND_ENGINE_2
 

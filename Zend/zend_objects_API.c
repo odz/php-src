@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_objects_API.c,v 1.41.2.1 2004/07/25 17:37:55 helly Exp $ */
+/* $Id: zend_objects_API.c,v 1.41.2.2 2004/09/17 10:19:47 stas Exp $ */
 
 #include "zend.h"
 #include "zend_globals.h"
@@ -58,6 +58,16 @@ ZEND_API void zend_objects_store_call_destructors(zend_objects_store *objects TS
 	}
 }
 
+ZEND_API void zend_objects_store_mark_destructed(zend_objects_store *objects TSRMLS_DC)
+{
+	zend_uint i = 1;
+
+	for (i = 1; i < objects->top ; i++) {
+		if (objects->object_buckets[i].valid) {
+			objects->object_buckets[i].destructor_called = 1;
+		}
+	}
+}
 
 ZEND_API void zend_objects_store_free_object_storage(zend_objects_store *objects TSRMLS_DC)
 {

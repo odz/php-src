@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: array.c,v 1.266.2.2 2004/08/10 06:01:20 moriyoshi Exp $ */
+/* $Id: array.c,v 1.266.2.5 2004/09/15 11:51:56 derick Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -65,6 +65,7 @@ php_array_globals array_globals;
 #define SORT_REGULAR			0
 #define SORT_NUMERIC			1
 #define	SORT_STRING				2
+#define	SORT_LOCALE_STRING      5
 
 #define SORT_DESC				3
 #define SORT_ASC				4
@@ -112,6 +113,8 @@ PHP_MINIT_FUNCTION(array)
 	REGISTER_LONG_CONSTANT("SORT_REGULAR", SORT_REGULAR, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SORT_NUMERIC", SORT_NUMERIC, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SORT_STRING", SORT_STRING, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SORT_LOCALE_STRING", SORT_LOCALE_STRING, CONST_CS | CONST_PERSISTENT);
+
 	REGISTER_LONG_CONSTANT("CASE_LOWER", CASE_LOWER, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("CASE_UPPER", CASE_UPPER, CONST_CS | CONST_PERSISTENT);
 
@@ -140,6 +143,12 @@ static void set_compare_func(int sort_type TSRMLS_DC)
 		case SORT_STRING:
 			ARRAYG(compare_func) = string_compare_function;
 			break;
+
+#if HAVE_STRCOLL
+		case SORT_LOCALE_STRING:
+			ARRAYG(compare_func) = string_locale_compare_function;
+			break;
+#endif
 
 		case SORT_REGULAR:
 		default:
@@ -2081,7 +2090,8 @@ PHP_FUNCTION(array_slice)
 	zval	   **input,		/* Input array */
 		   **offset,		/* Offset to get elements from */
 		   **length,		/* How many elements to get */
-		   **entry;		/* An array entry */
+		   **entry,			/* An array entry */
+		   **z_preserve_keys; /* Whether to preserve keys while copying to the new array or not */
 	int	     offset_val,	/* Value of the offset argument */
 		     length_val,	/* Value of the length argument */
 		     num_in,		/* Number of elements in the input array */
@@ -2092,10 +2102,11 @@ PHP_FUNCTION(array_slice)
 	uint string_key_len;
 	ulong num_key;
 	HashPosition hpos;
+	zend_bool	 preserve_keys = 0;
 
 	/* Get the arguments and do error-checking */	
 	argc = ZEND_NUM_ARGS();
-	if (argc < 2 || argc > 3 || zend_get_parameters_ex(argc, &input, &offset, &length)) {
+	if (argc < 2 || argc > 4 || zend_get_parameters_ex(argc, &input, &offset, &length, &z_preserve_keys)) {
 		WRONG_PARAM_COUNT;
 	}
 	
@@ -2109,11 +2120,16 @@ PHP_FUNCTION(array_slice)
 	   is not passed */
 	convert_to_long_ex(offset);
 	offset_val = Z_LVAL_PP(offset);
-	if (argc == 3) {
+	if (argc >= 3) {
 		convert_to_long_ex(length);
 		length_val = Z_LVAL_PP(length);
 	} else {
 		length_val = zend_hash_num_elements(Z_ARRVAL_PP(input));
+	}
+
+	if (ZEND_NUM_ARGS() > 3) {
+		convert_to_boolean_ex(z_preserve_keys);
+		preserve_keys = Z_BVAL_PP(z_preserve_keys);
 	}
 	
 	/* Initialize returned array */
@@ -2158,8 +2174,12 @@ PHP_FUNCTION(array_slice)
 				break;
 	
 			case HASH_KEY_IS_LONG:
-				zend_hash_next_index_insert(Z_ARRVAL_P(return_value),
-											entry, sizeof(zval *), NULL);
+				if (preserve_keys)
+					zend_hash_index_update(Z_ARRVAL_P(return_value), num_key,
+										   entry, sizeof(zval *), NULL);
+				else
+					zend_hash_next_index_insert(Z_ARRVAL_P(return_value),
+												entry, sizeof(zval *), NULL);
 				break;
 		}
 		pos++;
@@ -2413,6 +2433,7 @@ PHP_FUNCTION(array_count_values)
 	zend_hash_internal_pointer_reset_ex(myht, &pos);
 	while (zend_hash_get_current_data_ex(myht, (void **)&entry, &pos) == SUCCESS) {
 		if (Z_TYPE_PP(entry) == IS_LONG) {
+int_key:
 			if (zend_hash_index_find(Z_ARRVAL_P(return_value), 
 									 Z_LVAL_PP(entry), 
 									 (void**)&tmp) == FAILURE) {
@@ -2425,6 +2446,13 @@ PHP_FUNCTION(array_count_values)
 				Z_LVAL_PP(tmp)++;
 			}
 		} else if (Z_TYPE_PP(entry) == IS_STRING) {
+			/* make sure our array does not end up with numeric string keys */
+			if (is_numeric_string(Z_STRVAL_PP(entry), Z_STRLEN_PP(entry), NULL, NULL, 0) == IS_LONG) {
+				SEPARATE_ZVAL(entry);
+				convert_to_long_ex(entry);
+				goto int_key;
+			}
+		
 			if (zend_hash_find(Z_ARRVAL_P(return_value), Z_STRVAL_PP(entry), Z_STRLEN_PP(entry)+1, (void**)&tmp) == FAILURE) {
 				zval *data;
 				MAKE_STD_ZVAL(data);

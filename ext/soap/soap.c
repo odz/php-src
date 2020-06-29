@@ -17,7 +17,7 @@
   |          Dmitry Stogov <dmitry@zend.com>                             |
   +----------------------------------------------------------------------+
 */
-/* $Id: soap.c,v 1.110.2.2 2004/08/10 16:30:30 dmitry Exp $ */
+/* $Id: soap.c,v 1.110.2.9 2004/09/16 08:11:07 dmitry Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -251,6 +251,12 @@ PHP_METHOD(SoapParam, SoapParam);
 /* SoapHeader Functions */
 PHP_METHOD(SoapHeader, SoapHeader);
 
+#ifdef ZEND_ENGINE_2
+#define SOAP_CTOR(class_name, func_name, arginfo, flags) ZEND_FENTRY(__construct, ZEND_FN(class_name##_##func_name), arginfo, flags)
+#else
+#define SOAP_CTOR(class_name, func_name, arginfo, flags) PHP_ME(class_name, func_name, arginfo, flags)
+#endif
+
 static zend_function_entry soap_functions[] = {
 #ifdef HAVE_PHP_DOMXML
 	PHP_FE(soap_encode_to_xml, NULL)
@@ -262,7 +268,7 @@ static zend_function_entry soap_functions[] = {
 };
 
 static zend_function_entry soap_fault_functions[] = {
-	PHP_ME(SoapFault, SoapFault, NULL, 0)
+	SOAP_CTOR(SoapFault, SoapFault, NULL, 0)
 #ifdef ZEND_ENGINE_2
 	PHP_ME(SoapFault, __toString, NULL, 0)
 #endif
@@ -270,7 +276,7 @@ static zend_function_entry soap_fault_functions[] = {
 };
 
 static zend_function_entry soap_server_functions[] = {
-	PHP_ME(SoapServer, SoapServer, NULL, 0)
+	SOAP_CTOR(SoapServer, SoapServer, NULL, 0)
 	PHP_ME(SoapServer, setPersistence, NULL, 0)
 	PHP_ME(SoapServer, setClass, NULL, 0)
 	PHP_ME(SoapServer, addFunction, NULL, 0)
@@ -287,17 +293,27 @@ static zend_function_entry soap_server_functions[] = {
 ZEND_BEGIN_ARG_INFO(__call_args, 0)
 	ZEND_ARG_PASS_INFO(0)
 	ZEND_ARG_PASS_INFO(0)
+ZEND_END_ARG_INFO()
+ZEND_BEGIN_ARG_INFO(__soap_call_args, 0)
+	ZEND_ARG_PASS_INFO(0)
+	ZEND_ARG_PASS_INFO(0)
 	ZEND_ARG_PASS_INFO(0)
 	ZEND_ARG_PASS_INFO(0)
 	ZEND_ARG_PASS_INFO(1)
 ZEND_END_ARG_INFO()
 #else
-unsigned char __call_args[] = { 5, BYREF_NONE, BYREF_NONE, BYREF_NONE, BYREF_NONE, BYREF_FORCE };
+unsigned char __call_args[] = { 2, BYREF_NONE, BYREF_NONE };
+unsigned char __soap_call_args[] = { 5, BYREF_NONE, BYREF_NONE, BYREF_NONE, BYREF_NONE, BYREF_FORCE };
 #endif
 
 static zend_function_entry soap_client_functions[] = {
-	PHP_ME(SoapClient, SoapClient, NULL, 0)
+	SOAP_CTOR(SoapClient, SoapClient, NULL, 0)
 	PHP_ME(SoapClient, __call, __call_args, 0)
+#ifdef ZEND_ENGINE_2
+	ZEND_FENTRY(__soapCall, ZEND_FN(SoapClient___call), __soap_call_args, 0)
+#else
+	ZEND_NAMED_FE(__soapCall, ZEND_FN(SoapClient___call), __soap_call_args)
+#endif
 	PHP_ME(SoapClient, __getLastRequest, NULL, 0)
 	PHP_ME(SoapClient, __getLastResponse, NULL, 0)
 	PHP_ME(SoapClient, __getLastRequestHeaders, NULL, 0)
@@ -309,17 +325,17 @@ static zend_function_entry soap_client_functions[] = {
 };
 
 static zend_function_entry soap_var_functions[] = {
-	PHP_ME(SoapVar, SoapVar, NULL, 0)
+	SOAP_CTOR(SoapVar, SoapVar, NULL, 0)
 	{NULL, NULL, NULL}
 };
 
 static zend_function_entry soap_param_functions[] = {
-	PHP_ME(SoapParam, SoapParam, NULL, 0)
+	SOAP_CTOR(SoapParam, SoapParam, NULL, 0)
 	{NULL, NULL, NULL}
 };
 
 static zend_function_entry soap_header_functions[] = {
-	PHP_ME(SoapHeader, SoapHeader, NULL, 0)
+	SOAP_CTOR(SoapHeader, SoapHeader, NULL, 0)
 	{NULL, NULL, NULL}
 };
 
@@ -394,6 +410,7 @@ static void php_soap_init_globals(zend_soap_globals *soap_globals)
 	zend_hash_add(&soap_globals->defEncNs, XSD_1999_NAMESPACE, sizeof(XSD_1999_NAMESPACE), XSD_NS_PREFIX, sizeof(XSD_NS_PREFIX), NULL);
 	zend_hash_add(&soap_globals->defEncNs, XSD_NAMESPACE, sizeof(XSD_NAMESPACE), XSD_NS_PREFIX, sizeof(XSD_NS_PREFIX), NULL);
 	zend_hash_add(&soap_globals->defEncNs, XSI_NAMESPACE, sizeof(XSI_NAMESPACE), XSI_NS_PREFIX, sizeof(XSI_NS_PREFIX), NULL);
+	zend_hash_add(&soap_globals->defEncNs, XML_NAMESPACE, sizeof(XML_NAMESPACE), XML_NS_PREFIX, sizeof(XML_NS_PREFIX), NULL);
 	zend_hash_add(&soap_globals->defEncNs, SOAP_1_1_ENC_NAMESPACE, sizeof(SOAP_1_1_ENC_NAMESPACE), SOAP_1_1_ENC_NS_PREFIX, sizeof(SOAP_1_1_ENC_NS_PREFIX), NULL);
 	zend_hash_add(&soap_globals->defEncNs, SOAP_1_2_ENC_NAMESPACE, sizeof(SOAP_1_2_ENC_NAMESPACE), SOAP_1_2_ENC_NS_PREFIX, sizeof(SOAP_1_2_ENC_NS_PREFIX), NULL);
 
@@ -1126,7 +1143,9 @@ PHP_METHOD(SoapServer, getFunctions)
 		HashPosition pos;
 		zend_hash_internal_pointer_reset_ex(ft, &pos);
 		while (zend_hash_get_current_data_ex(ft, (void **)&f, &pos) != FAILURE) {
-			add_next_index_string(return_value, f->common.function_name, 1);
+			if ((service->type != SOAP_CLASS) || (f->common.fn_flags & ZEND_ACC_PUBLIC)) {
+				add_next_index_string(return_value, f->common.function_name, 1);
+			}
 			zend_hash_move_forward_ex(ft, &pos);
 		}
 	}
@@ -1737,6 +1756,7 @@ static void soap_server_fault_ex(sdlFunctionPtr function, zval* fault, soapHeade
 
 	xmlFreeDoc(doc_return);
 	xmlFree(buf);
+	zend_clear_exception(TSRMLS_C);
 	zend_bailout();
 }
 
@@ -2225,7 +2245,7 @@ PHP_METHOD(SoapClient, __call)
 	zval *headers = NULL;
 	zval *output_headers = NULL;
 	zval *args;
-	zval **real_args;
+	zval **real_args = NULL;
 	zval **param;
 	int arg_count;
 
@@ -2280,18 +2300,22 @@ PHP_METHOD(SoapClient, __call)
 
 	arg_count = zend_hash_num_elements(Z_ARRVAL_P(args));
 
-	real_args = safe_emalloc(sizeof(zval *), arg_count, 0);
-	for (zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(args), &pos);
-		zend_hash_get_current_data_ex(Z_ARRVAL_P(args), (void **) &param, &pos) == SUCCESS;
-		zend_hash_move_forward_ex(Z_ARRVAL_P(args), &pos)) {
-			/*zval_add_ref(param);*/
-			real_args[i++] = *param;
+	if (arg_count > 0) {
+		real_args = safe_emalloc(sizeof(zval *), arg_count, 0);
+		for (zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(args), &pos);
+			zend_hash_get_current_data_ex(Z_ARRVAL_P(args), (void **) &param, &pos) == SUCCESS;
+			zend_hash_move_forward_ex(Z_ARRVAL_P(args), &pos)) {
+				/*zval_add_ref(param);*/
+				real_args[i++] = *param;
+		}
 	}
 	if (output_headers) {
 		array_init(output_headers);
 	}
 	do_soap_call(this_ptr, function, function_len, arg_count, real_args, return_value, soap_action, uri, soap_headers, output_headers TSRMLS_CC);
-	efree(real_args);
+	if (arg_count > 0) {
+		efree(real_args);
+	}
 
 	if (soap_headers && ! headers) {
 		zend_hash_destroy(soap_headers);
@@ -2471,7 +2495,7 @@ static void clear_soap_fault(zval *obj TSRMLS_DC)
 zval* add_soap_fault(zval *obj, char *fault_code, char *fault_string, char *fault_actor, zval *fault_detail TSRMLS_DC)
 {
 	zval *fault;
-	MAKE_STD_ZVAL(fault);
+	ALLOC_INIT_ZVAL(fault);
 	set_soap_fault(fault, fault_code, fault_string, fault_actor, fault_detail, NULL TSRMLS_CC);
 #ifdef ZEND_ENGINE_2
 	fault->refcount--;  /*FIXME*/

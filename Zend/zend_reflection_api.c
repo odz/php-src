@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_reflection_api.c,v 1.111.2.2 2004/07/20 18:23:49 helly Exp $ */
+/* $Id: zend_reflection_api.c,v 1.111.2.5 2004/09/23 18:41:15 helly Exp $ */
 #include "zend.h"
 #include "zend_API.h"
 #include "zend_exceptions.h"
@@ -1356,7 +1356,7 @@ ZEND_METHOD(reflection_function, returnsReference)
 }
 /* }}} */
 
-/* {{{ proto public ReflectionParameter[] Reflection_Function::getParameters()
+/* {{{ proto public ReflectionParameter[] ReflectionFunction::getParameters()
    Returns an array of parameter objects for this function */
 ZEND_METHOD(reflection_function, getParameters)
 {
@@ -2159,7 +2159,7 @@ ZEND_METHOD(reflection_class, getMethod)
 	reflection_object *intern;
 	zend_class_entry *ce;
 	zend_function *mptr;
-	char *name; 
+	char *name, *lc_name; 
 	int name_len;
 
 	METHOD_NOTSTATIC;
@@ -2168,10 +2168,12 @@ ZEND_METHOD(reflection_class, getMethod)
 	}
 
 	GET_REFLECTION_OBJECT_PTR(ce);
-	zend_str_tolower(name, name_len);
-	if (zend_hash_find(&ce->function_table, name, name_len + 1, (void**) &mptr) == SUCCESS) {
+	lc_name = zend_str_tolower_dup(name, name_len);
+	if (zend_hash_find(&ce->function_table, lc_name, name_len + 1, (void**) &mptr) == SUCCESS) {
 		reflection_method_factory(ce, mptr, return_value TSRMLS_CC);
+		efree(lc_name);
 	} else {
+		efree(lc_name);
 		zend_throw_exception_ex(reflection_exception_ptr, 0 TSRMLS_CC, 
 				"Method %s does not exist", name);
 		return;
@@ -2304,6 +2306,7 @@ ZEND_METHOD(reflection_class, getConstants)
 	METHOD_NOTSTATIC_NUMPARAMS(0);	
 	GET_REFLECTION_OBJECT_PTR(ce);
 	array_init(return_value);
+	zend_hash_apply_with_argument(&ce->constants_table, (apply_func_arg_t) zval_update_constant, (void*)1 TSRMLS_CC);
 	zend_hash_copy(Z_ARRVAL_P(return_value), &ce->constants_table, (copy_ctor_func_t) zval_add_ref, (void *) &tmp_copy, sizeof(zval *));
 }
 /* }}} */
@@ -2324,6 +2327,7 @@ ZEND_METHOD(reflection_class, getConstant)
 	}
 
 	GET_REFLECTION_OBJECT_PTR(ce);
+	zend_hash_apply_with_argument(&ce->constants_table, (apply_func_arg_t) zval_update_constant, (void*)1 TSRMLS_CC);
 	if (zend_hash_find(&ce->constants_table, name, name_len + 1, (void **) &value) == FAILURE) {
 		RETURN_FALSE;
 	}
@@ -2563,7 +2567,7 @@ ZEND_METHOD(reflection_class, isSubclassOf)
 			/* no break */
 		default:
 			zend_throw_exception_ex(reflection_exception_ptr, 0 TSRMLS_CC, 
-					"Parameter one must either be a string or a Reflection_Class object");
+					"Parameter one must either be a string or a ReflectionClass object");
 			return;
 	}
 
@@ -2609,7 +2613,7 @@ ZEND_METHOD(reflection_class, implementsInterface)
 			/* no break */
 		default:
 			zend_throw_exception_ex(reflection_exception_ptr, 0 TSRMLS_CC, 
-					"Parameter one must either be a string or a Reflection_Class object");
+					"Parameter one must either be a string or a ReflectionClass object");
 			return;
 	}
 
@@ -2636,7 +2640,7 @@ ZEND_METHOD(reflection_class, isIterateable)
 }
 /* }}} */
 
-/* {{{ proto public ReflectionExtension|NULL Reflection_Class::getExtension()
+/* {{{ proto public ReflectionExtension|NULL ReflectionClass::getExtension()
    Returns NULL or the extension the class belongs to */
 ZEND_METHOD(reflection_class, getExtension)
 {
@@ -3177,7 +3181,7 @@ static int add_extension_class(zend_class_entry **pce, int num_args, va_list arg
 /* }}} */
 
 /* {{{ proto public ReflectionClass[] ReflectionExtension::getClasses()
-   Returns an array containing Reflection_Class objects for all classes of this extension */
+   Returns an array containing ReflectionClass objects for all classes of this extension */
 ZEND_METHOD(reflection_extension, getClasses)
 {
 	reflection_object *intern;

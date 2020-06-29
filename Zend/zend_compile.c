@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_compile.c,v 1.567.2.2 2004/08/02 22:43:16 helly Exp $ */
+/* $Id: zend_compile.c,v 1.567.2.10 2004/09/16 00:44:12 andi Exp $ */
 
 #include "zend_language_parser.h"
 #include "zend.h"
@@ -761,6 +761,9 @@ void zend_do_end_variable_parse(int type, int arg_offset TSRMLS_DC)
 				opline->opcode += 3;
 				break;
 			case BP_VAR_IS:
+				if (opline->opcode == ZEND_FETCH_DIM_W && opline->op2.op_type == IS_UNUSED) {
+					zend_error(E_COMPILE_ERROR, "Cannot use [] for reading");
+				}
 				opline->opcode += 6; /* 3+3 */
 				break;
 			case BP_VAR_FUNC_ARG:
@@ -992,35 +995,37 @@ void zend_do_begin_function_declaration(znode *function_token, znode *function_n
 			fn_flags |= ZEND_ACC_PUBLIC;
 		}
 
-		short_class_name = do_alloca(short_class_name_length + 1);
-		zend_str_tolower_copy(short_class_name, CG(active_class_entry)->name, short_class_name_length);
-		/* Improve after RC: cache the lowercase class name */
-
-		if ((short_class_name_length == name_len) && (!memcmp(short_class_name, lcname, name_len))) {
-			if (CG(active_class_entry)->constructor) {
-				zend_error(E_STRICT, "Redefining already defined constructor for class %s", CG(active_class_entry)->name);
-			} else {
+		if (!(CG(active_class_entry)->ce_flags & ZEND_ACC_INTERFACE)) {
+			short_class_name = do_alloca(short_class_name_length + 1);
+			zend_str_tolower_copy(short_class_name, CG(active_class_entry)->name, short_class_name_length);
+			/* Improve after RC: cache the lowercase class name */
+	
+			if ((short_class_name_length == name_len) && (!memcmp(short_class_name, lcname, name_len))) {
+				if (CG(active_class_entry)->constructor) {
+					zend_error(E_STRICT, "Redefining already defined constructor for class %s", CG(active_class_entry)->name);
+				} else {
+					CG(active_class_entry)->constructor = (zend_function *) CG(active_op_array);
+				}
+			} else if ((name_len == sizeof(ZEND_CONSTRUCTOR_FUNC_NAME)-1) && (!memcmp(lcname, ZEND_CONSTRUCTOR_FUNC_NAME, sizeof(ZEND_CONSTRUCTOR_FUNC_NAME)))) {
+				if (CG(active_class_entry)->constructor) {
+					zend_error(E_STRICT, "Redefining already defined constructor for class %s", CG(active_class_entry)->name);
+				}
 				CG(active_class_entry)->constructor = (zend_function *) CG(active_op_array);
+			} else if ((name_len == sizeof(ZEND_DESTRUCTOR_FUNC_NAME)-1) && (!memcmp(lcname, ZEND_DESTRUCTOR_FUNC_NAME, sizeof(ZEND_DESTRUCTOR_FUNC_NAME)))) {
+				CG(active_class_entry)->destructor = (zend_function *) CG(active_op_array);
+			} else if ((name_len == sizeof(ZEND_CLONE_FUNC_NAME)-1) && (!memcmp(lcname, ZEND_CLONE_FUNC_NAME, sizeof(ZEND_CLONE_FUNC_NAME)))) {
+				CG(active_class_entry)->clone = (zend_function *) CG(active_op_array);
+			} else if ((name_len == sizeof(ZEND_CALL_FUNC_NAME)-1) && (!memcmp(lcname, ZEND_CALL_FUNC_NAME, sizeof(ZEND_CALL_FUNC_NAME)))) {
+				CG(active_class_entry)->__call = (zend_function *) CG(active_op_array);
+			} else if ((name_len == sizeof(ZEND_GET_FUNC_NAME)-1) && (!memcmp(lcname, ZEND_GET_FUNC_NAME, sizeof(ZEND_GET_FUNC_NAME)))) {
+				CG(active_class_entry)->__get = (zend_function *) CG(active_op_array);
+			} else if ((name_len == sizeof(ZEND_SET_FUNC_NAME)-1) && (!memcmp(lcname, ZEND_SET_FUNC_NAME, sizeof(ZEND_SET_FUNC_NAME)))) {
+				CG(active_class_entry)->__set = (zend_function *) CG(active_op_array);
+			} else if (!(fn_flags & ZEND_ACC_STATIC)) {
+				CG(active_op_array)->fn_flags |= ZEND_ACC_ALLOW_STATIC;
 			}
-		} else if ((name_len == sizeof(ZEND_CONSTRUCTOR_FUNC_NAME)-1) && (!memcmp(lcname, ZEND_CONSTRUCTOR_FUNC_NAME, sizeof(ZEND_CONSTRUCTOR_FUNC_NAME)))) {
-			if (CG(active_class_entry)->constructor) {
-				zend_error(E_STRICT, "Redefining already defined constructor for class %s", CG(active_class_entry)->name);
-			}
-			CG(active_class_entry)->constructor = (zend_function *) CG(active_op_array);
-		} else if ((name_len == sizeof(ZEND_DESTRUCTOR_FUNC_NAME)-1) && (!memcmp(lcname, ZEND_DESTRUCTOR_FUNC_NAME, sizeof(ZEND_DESTRUCTOR_FUNC_NAME)))) {
-			CG(active_class_entry)->destructor = (zend_function *) CG(active_op_array);
-		} else if ((name_len == sizeof(ZEND_CLONE_FUNC_NAME)-1) && (!memcmp(lcname, ZEND_CLONE_FUNC_NAME, sizeof(ZEND_CLONE_FUNC_NAME)))) {
-			CG(active_class_entry)->clone = (zend_function *) CG(active_op_array);
-		} else if ((name_len == sizeof(ZEND_CALL_FUNC_NAME)-1) && (!memcmp(lcname, ZEND_CALL_FUNC_NAME, sizeof(ZEND_CALL_FUNC_NAME)))) {
-			CG(active_class_entry)->__call = (zend_function *) CG(active_op_array);
-		} else if ((name_len == sizeof(ZEND_GET_FUNC_NAME)-1) && (!memcmp(lcname, ZEND_GET_FUNC_NAME, sizeof(ZEND_GET_FUNC_NAME)))) {
-			CG(active_class_entry)->__get = (zend_function *) CG(active_op_array);
-		} else if ((name_len == sizeof(ZEND_SET_FUNC_NAME)-1) && (!memcmp(lcname, ZEND_SET_FUNC_NAME, sizeof(ZEND_SET_FUNC_NAME)))) {
-			CG(active_class_entry)->__set = (zend_function *) CG(active_op_array);
-		} else if (!(fn_flags & ZEND_ACC_STATIC)) {
-			CG(active_op_array)->fn_flags |= ZEND_ACC_ALLOW_STATIC;
+			free_alloca(short_class_name);
 		}
-		free_alloca(short_class_name);
 
 		efree(lcname);
 	} else {
@@ -1096,25 +1101,14 @@ void zend_do_end_function_declaration(znode *function_token TSRMLS_DC)
 
 	pass_two(CG(active_op_array) TSRMLS_CC);
 
-	/* we don't care if the function name is longer, in fact lowercasing only 
-	 * the beginning of the name speeds up the check process */
-	name_len = strlen(CG(active_op_array)->function_name);
-	zend_str_tolower_copy(lcname, CG(active_op_array)->function_name, MIN(name_len, sizeof(lcname)-1));
-	lcname[sizeof(lcname)-1] = '\0'; // zend_str_tolower_copy won't necessarily set the zero byte
-
 	if (CG(active_class_entry)) {
-		if (name_len == sizeof(ZEND_DESTRUCTOR_FUNC_NAME) - 1 && !memcmp(lcname, ZEND_DESTRUCTOR_FUNC_NAME, sizeof(ZEND_DESTRUCTOR_FUNC_NAME)) && CG(active_op_array)->num_args != 0) {
-			zend_error(E_COMPILE_ERROR, "Destuctor %s::%s() cannot take arguments", CG(active_class_entry)->name, ZEND_DESTRUCTOR_FUNC_NAME);
-		} else if (name_len == sizeof(ZEND_CLONE_FUNC_NAME) - 1 && !memcmp(lcname, ZEND_CLONE_FUNC_NAME, sizeof(ZEND_CLONE_FUNC_NAME)) && CG(active_op_array)->num_args != 0) {
-			zend_error(E_COMPILE_ERROR, "Method %s::%s() cannot accept any arguments", CG(active_class_entry)->name, ZEND_CLONE_FUNC_NAME);
-		} else if (name_len == sizeof(ZEND_GET_FUNC_NAME) - 1 && !memcmp(lcname, ZEND_GET_FUNC_NAME, sizeof(ZEND_GET_FUNC_NAME)) && CG(active_op_array)->num_args != 1) {
-			zend_error(E_COMPILE_ERROR, "Method %s::%s() must take exactly 1 argument", CG(active_class_entry)->name, ZEND_GET_FUNC_NAME);
-		} else if (name_len == sizeof(ZEND_SET_FUNC_NAME) - 1 && !memcmp(lcname, ZEND_SET_FUNC_NAME, sizeof(ZEND_SET_FUNC_NAME)) && CG(active_op_array)->num_args != 2) {
-			zend_error(E_COMPILE_ERROR, "Method %s::%s() must take exactly 2 arguments", CG(active_class_entry)->name, ZEND_SET_FUNC_NAME);
-		} else if (name_len == sizeof(ZEND_CALL_FUNC_NAME) - 1 && !memcmp(lcname, ZEND_CALL_FUNC_NAME, sizeof(ZEND_CALL_FUNC_NAME)) && CG(active_op_array)->num_args != 2) {
-			zend_error(E_COMPILE_ERROR, "Method %s::%s() must take exactly 2 arguments", CG(active_class_entry)->name, ZEND_CALL_FUNC_NAME);
-		}
+		zend_check_magic_method_implementation(CG(active_class_entry), (zend_function*)CG(active_op_array), E_COMPILE_ERROR TSRMLS_CC);
 	} else {
+		/* we don't care if the function name is longer, in fact lowercasing only 
+		 * the beginning of the name speeds up the check process */
+		name_len = strlen(CG(active_op_array)->function_name);
+		zend_str_tolower_copy(lcname, CG(active_op_array)->function_name, MIN(name_len, sizeof(lcname)-1));
+		lcname[sizeof(lcname)-1] = '\0'; /* zend_str_tolower_copy won't necessarily set the zero byte */
 		if (name_len == sizeof(ZEND_AUTOLOAD_FUNC_NAME) - 1 && !memcmp(lcname, ZEND_AUTOLOAD_FUNC_NAME, sizeof(ZEND_AUTOLOAD_FUNC_NAME)) && CG(active_op_array)->num_args != 1) {
 			zend_error(E_COMPILE_ERROR, "%s() must take exactly 1 argument", ZEND_AUTOLOAD_FUNC_NAME);
 		}		
@@ -1315,36 +1309,27 @@ void zend_do_fetch_class_name(znode *result, znode *class_name_entry, znode *cla
 	result->u.constant.value.str.len = length;
 }
 
-void zend_do_begin_class_member_function_call(TSRMLS_D)
+void zend_do_begin_class_member_function_call(znode *class_name, znode *method_name TSRMLS_DC)
 {
 	unsigned char *ptr = NULL;
-	long fetch_const_op_number = get_next_op_number(CG(active_op_array));
-	zend_op *last_op = &CG(active_op_array)->opcodes[fetch_const_op_number-1];
+	zend_op *opline = get_next_op(CG(active_op_array) TSRMLS_CC);
 
-	if (last_op->opcode == ZEND_FETCH_CONSTANT) { /* regular method call */
-		/* a tmp var is leaked here */
-		last_op->opcode = ZEND_INIT_STATIC_METHOD_CALL;
-		if(last_op->op2.op_type == IS_CONST &&
-		   (sizeof(ZEND_CONSTRUCTOR_FUNC_NAME)-1) == Z_STRLEN(last_op->op2.u.constant) &&
-		   memcmp(Z_STRVAL(last_op->op2.u.constant), ZEND_CONSTRUCTOR_FUNC_NAME, sizeof(ZEND_CONSTRUCTOR_FUNC_NAME)-1) == 0) {
-			zval_dtor(&last_op->op2.u.constant);
-			SET_UNUSED(last_op->op2);
+	opline->opcode = ZEND_INIT_STATIC_METHOD_CALL;
+	opline->op1 = *class_name;
+	opline->op2 = *method_name;
+
+	if (opline->op2.op_type == IS_CONST) {
+		if ((sizeof(ZEND_CONSTRUCTOR_FUNC_NAME)-1) == Z_STRLEN(opline->op2.u.constant) &&
+		    memcmp(Z_STRVAL(opline->op2.u.constant), ZEND_CONSTRUCTOR_FUNC_NAME, sizeof(ZEND_CONSTRUCTOR_FUNC_NAME)-1) == 0) {
+			zval_dtor(&opline->op2.u.constant);
+			SET_UNUSED(opline->op2);
 		} else {
-			zend_lowercase_znode_if_const(&last_op->op2);
+			zend_str_tolower(opline->op2.u.constant.value.str.val, opline->op2.u.constant.value.str.len);
 		}
-	} else if (last_op->opcode == ZEND_FETCH_R) { /* indirect method call */
-		zend_op *opline = get_next_op(CG(active_op_array) TSRMLS_CC);
-
-		last_op->op2.u.EA.type = ZEND_FETCH_LOCAL;
-		opline->opcode = ZEND_INIT_STATIC_METHOD_CALL;
-		opline->op1 = last_op->op2;
-		opline->op2 = last_op->result;
-	} else {
-		zend_error(E_COMPILE_ERROR, "Internal compiler error - please report!");
 	}
 
-
 	zend_stack_push(&CG(function_call_stack), (void *) &ptr, sizeof(zend_function *));
+	zend_do_extended_fcall_begin(TSRMLS_C);
 }
 
 
@@ -1692,9 +1677,11 @@ static void do_inherit_parent_constructor(zend_class_entry *ce)
 		if (!zend_hash_exists(&ce->function_table, lc_class_name, ce->name_length+1)) {
 			lc_parent_class_name = zend_str_tolower_dup(ce->parent->name, ce->parent->name_length);
 			if (zend_hash_find(&ce->parent->function_table, lc_parent_class_name, ce->parent->name_length+1, (void **)&function)==SUCCESS) {
-				/* inherit parent's constructor */
-				zend_hash_update(&ce->function_table, lc_class_name, ce->name_length+1, function, sizeof(zend_function), NULL);
-				function_add_ref(function);
+				if (function->common.fn_flags & ZEND_ACC_CTOR) {
+					/* inherit parent's constructor */
+					zend_hash_update(&ce->function_table, lc_class_name, ce->name_length+1, function, sizeof(zend_function), NULL);
+					function_add_ref(function);
+				}
 			}
 			efree(lc_parent_class_name);
 		}
@@ -2010,6 +1997,8 @@ void zend_do_inheritance(zend_class_entry *ce, zend_class_entry *parent_ce TSRML
 	zend_hash_merge(&ce->constants_table, &parent_ce->constants_table, (void (*)(void *)) zval_add_ref, NULL, sizeof(zval *), 0);
 	zend_hash_merge_ex(&ce->function_table, &parent_ce->function_table, (copy_ctor_func_t) do_inherit_method, sizeof(zend_function), (merge_checker_func_t) do_inherit_method_check, ce);
 	do_inherit_parent_constructor(ce);
+	
+	zend_verify_abstract_class(ce TSRMLS_CC);
 }
 
 
@@ -2115,6 +2104,10 @@ ZEND_API zend_class_entry *do_bind_inherited_class(zend_op *opline, HashTable *c
 		return NULL;
 	} else {
 		ce = *pce;
+	}
+
+	if (parent_ce->ce_flags & ZEND_ACC_INTERFACE) {
+		zend_error(E_COMPILE_ERROR, "Class %s cannot extend from interface %s", ce->name, parent_ce->name);
 	}
 
 	zend_do_inheritance(ce, parent_ce TSRMLS_CC);

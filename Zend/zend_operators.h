@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_operators.h,v 1.88.2.1 2004/07/16 02:02:09 iliaa Exp $ */
+/* $Id: zend_operators.h,v 1.88.2.3 2004/09/15 13:41:38 iliaa Exp $ */
 
 #ifndef ZEND_OPERATORS_H
 #define ZEND_OPERATORS_H
@@ -87,7 +87,7 @@ static inline zend_bool is_numeric_string(char *str, int length, long *lval, dou
 				*lval = local_lval;
 			}
 			return IS_LONG;
-		} else if (end_ptr_long == str && *end_ptr_long != '\0') { /* ignore partial string matches */
+		} else if (end_ptr_long == str && *end_ptr_long != '\0' && *str != '.') { /* ignore partial string matches */
 			return 0;
 		}
 	} else {
@@ -179,6 +179,9 @@ ZEND_API int zval_is_true(zval *op);
 ZEND_API int compare_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
 ZEND_API int numeric_compare_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
 ZEND_API int string_compare_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
+#if HAVE_STRCOLL
+ZEND_API int string_locale_compare_function(zval *result, zval *op1, zval *op2 TSRMLS_DC);
+#endif
 
 ZEND_API void zend_str_tolower(char *str, unsigned int length);
 ZEND_API char *zend_str_tolower_copy(char *dest, const char *source, unsigned int length);

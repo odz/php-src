@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_execute_API.c,v 1.287.2.1 2004/08/01 21:55:39 helly Exp $ */
+/* $Id: zend_execute_API.c,v 1.287.2.2 2004/09/17 10:19:47 stas Exp $ */
 
 #include <stdio.h>
 #include <signal.h>
@@ -208,6 +208,9 @@ void shutdown_executor(TSRMLS_D)
 		zend_llist_apply(&zend_extensions, (llist_apply_func_t) zend_extension_deactivator TSRMLS_CC);
 		zend_objects_store_call_destructors(&EG(objects_store) TSRMLS_CC);
 		zend_hash_graceful_reverse_destroy(&EG(symbol_table));
+	} zend_catch {
+		/* if we couldn't destruct cleanly, mark all objects as destructed anyway */
+		zend_objects_store_mark_destructed(&EG(objects_store) TSRMLS_CC);
 	} zend_end_try();
 
 	zend_try {

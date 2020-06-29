@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_alloc.c,v 1.137 2004/07/10 07:45:49 andi Exp $ */
+/* $Id: zend_alloc.c,v 1.137.2.1 2004/08/27 16:49:54 andi Exp $ */
 
 #include "zend.h"
 #include "zend_alloc.h"
@@ -481,7 +481,7 @@ ZEND_API void shutdown_memory_manager(int silent, int full_shutdown TSRMLS_DC)
 		unsigned int i, j;
 		zend_mem_header *ptr;
 
-		for (i=1; i<MAX_CACHED_MEMORY; i++) {
+		for (i=0; i<MAX_CACHED_MEMORY; i++) {
 			for (j=0; j<AG(cache_count)[i]; j++) {
 				ptr = (zend_mem_header *) AG(cache)[i][j];
 #  if MEMORY_LIMIT

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_pcre.c,v 1.157 2004/06/22 22:21:58 andrei Exp $ */
+/* $Id: php_pcre.c,v 1.157.2.3 2004/08/25 20:48:25 andrei Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -105,6 +105,22 @@ static PHP_MSHUTDOWN_FUNCTION(pcre)
 #endif
 
 	return SUCCESS;
+}
+/* }}} */
+
+#define PCRE_CACHE_SIZE 4096
+
+/* {{{ static pcre_clean_cache */
+static int pcre_clean_cache(void *data, void *arg TSRMLS_DC)
+{
+	int *num_clean = (int *)arg;
+
+	if (*num_clean > 0) {
+		(*num_clean)--;
+		return 1;
+	} else {
+		return 0;
+	}
 }
 /* }}} */
 
@@ -289,6 +305,16 @@ PHPAPI pcre* pcre_get_compiled_regex_ex(char *regex, pcre_extra **extra, int *pr
 	*compile_options = coptions;
 
 	efree(pattern);
+
+	/*
+	 * If we reached cache limit, clean out the items from the head of the list;
+	 * these are supposedly the oldest ones (but not necessarily the least used
+	 * ones).
+	 */
+	if (zend_hash_num_elements(&PCRE_G(pcre_cache)) == PCRE_CACHE_SIZE) {
+		int num_clean = PCRE_CACHE_SIZE / 8;
+		zend_hash_apply_with_argument(&PCRE_G(pcre_cache), pcre_clean_cache, &num_clean TSRMLS_CC);
+	}
 
 	/* Store the compiled pattern and extra info in the cache. */
 	new_entry.re = re;

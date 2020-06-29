@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: streams.c,v 1.61 2004/07/13 16:34:56 wez Exp $ */
+/* $Id: streams.c,v 1.61.2.2 2004/09/08 18:45:05 pollita Exp $ */
 
 #define _GNU_SOURCE
 #include "php.h"
@@ -1211,6 +1211,17 @@ PHPAPI size_t _php_stream_copy_to_mem(php_stream *src, char **buf, size_t maxlen
 		}
 	}
 
+	if (maxlen > 0) {
+		ptr = *buf = pemalloc_rel_orig(maxlen + 1, persistent);
+		while ((len < maxlen) & !php_stream_eof(src)) {
+			ret = php_stream_read(src, ptr, maxlen - len);
+			len += ret;
+			ptr += ret;
+		}
+		*ptr = '\0';
+		return len;
+	}
+
 	/* avoid many reallocs by allocating a good sized chunk to begin with, if
 	 * we can.  Note that the stream may be filtered, in which case the stat
 	 * result may be inaccurate, as the filter may inflate or deflate the
@@ -1454,7 +1465,11 @@ PHPAPI php_stream_wrapper *php_stream_locate_url_wrapper(const char *path, char 
 	}
 	/* TODO: curl based streams probably support file:// properly */
 	if (!protocol || !strncasecmp(protocol, "file", n))	{
+#ifdef PHP_WIN32
+		if (protocol && path[n+1] == '/' && path[n+2] == '/' && path[n+4] != ':')	{
+#else
 		if (protocol && path[n+1] == '/' && path[n+2] == '/' && path[n+3] != '/')	{
+#endif
 			if (options & REPORT_ERRORS) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "remote host file access not supported, %s", path);
 			}

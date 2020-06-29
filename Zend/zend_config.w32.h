@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_config.w32.h,v 1.36 2004/01/08 17:31:47 sniper Exp $ */
+/* $Id: zend_config.w32.h,v 1.36.2.1 2004/09/15 12:29:24 derick Exp $ */
 
 #ifndef ZEND_CONFIG_W32_H
 #define ZEND_CONFIG_W32_H
@@ -55,6 +55,7 @@ typedef unsigned int uint;
 #define HAVE_STDARG_H	1
 #define HAVE_SNPRINTF	1
 #define HAVE_VSNPRINTF	1
+#define HAVE_STRCOLL	1
 
 #define snprintf _snprintf
 #define vsnprintf _vsnprintf

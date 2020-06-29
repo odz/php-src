@@ -1,5 +1,61 @@
 PHP                                                                        NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+23 Sep 2004, PHP 5.0.2
+- Added new boolean (fourth) parameter to array_slice() that turns on the
+  preservation of keys in the returned array. (Derick)
+- Added the sorting flag SORT_LOCALE_STRING to the sort() functions which makes
+  them sort based on the current locale. (Derick)
+- Added interface_exists() and make class_exists() only return true for real
+  classes. (Andrey)
+- Added PHP_EOL constant that contains the OS way of representing newlines.
+  (Paul Hudson, Derick)
+- Implemented periodic PCRE compiled regexp cache cleanup, to avoid memory
+  exhaustion. (Andrei)
+- Renamed SoapClient->__call() to SoapClinet->__soapCall(). (Dmitry)
+- Fixed bug with raw_post_data not getting set (Brian)
+- Fixed a file-descriptor leak with phpinfo() and other 'special' URLs (Zeev)
+- Fixed bug #30209 (ReflectionClass::getMethod() lowercases attribute). 
+  (Marcus)
+- Fixed bug #30182 (SOAP module processing WSDL file dumps core). (Dmitry)
+- Fixed bug #30045 (Cannot pass big integers (> 2147483647) in SOAP requests).
+  (Dmitry)
+- Fixed bug #29985 (unserialize()/ __PHP_Incomplete_class does not report 
+  correctly class name). (Marcus, Tony)
+- Fixed bug #29945 (simplexml_load_file URL limitation 255 char). (Rob)
+- Fixed bug #29873 (No defines around pcntl_*priority definitions). (Derick)
+- Fixed bug #29844 (SOAP doesn't return the result of a valid SOAP request).
+  (Dmitry)
+- Fixed bug #29842 (soapclient return null value). (Dmitry)
+- Fixed bug #29839 (incorrect convert (xml:lang to lang)). (Dmitry)
+- Fixed bug #29830 (SoapServer::setClass() should not export non-public
+  methods). (Dmitry)
+- Fixed bug #29828 (Interfaces no longer work). (Marcus)
+- Fixed bug #29821 (Fixed possible crashes in convert_uudecode() on invalid
+  data). (Ilia)
+- Fixed bug #29808 (array_count_values() breaks with numeric strings). (Ilia)
+- Fixed bug #29805 (HTTP Authentication Issues). (Uwe Schindler)
+- Fixed bug #29795 (SegFault with Soap and Amazon's Web Services). (Dmitry)
+- Fixed bug #29737 (ip2long should return -1 if IP is 255.255.255.255 and FALSE
+  on error). (Tony)
+- Fixed bug #29711 (Changed ext/xml to default to UTF-8 output). (Rob)
+- Fixed bug #29678 (opendir() with ftp:// wrapper segfaults if path does not
+  have trailing slash). (Ilia)
+- Fixed bug #29657 (xml_* functions throw non descriptive error). 
+  (Christian, Rob)
+- Fixed bug #29656 (segfault on result and statement properties). (Georg)
+- Fixed bug #29566 (foreach/string handling strangeness (crash)). (Dmitry)
+- Fixed bug #29447 (Reflection API issues). (Marcus)
+- Fixed bug #29296 (Added sslv2 and sslv3 transports). (Wez)
+- Fixed bug #29283 (Invalid statement handle in mysqli on execute). (Georg)
+- Fixed bug #29913 (parse_url() is now binary safe). (Ilia)
+- Fixed bug #27994 (segfault with Soapserver when WSDL-Cache is enabled).
+  (Dmitry)
+- Fixed bug #27791 (Apache 2.0 SAPI build against Apache 2 HEAD). (Joe Orton,
+  Derick)
+- Fixed bug #26737 (private/protected properties not serialized when user
+  declared method __sleep() exists). E_NOTICE thrown when __sleep() returns
+  name of non-existing member. (Andrey, Curt)
+
 12 Aug 2004, PHP 5.0.1
 - Changed destructor mechanism so that destructors are called prior to request
   shutdown. (Marcus)
@@ -51,6 +107,8 @@ PHP                                                                        NEWS
 - Fixed bug #28895 (ReflectionClass::isAbstract always returns false). (Marcus)
 - Fixed bug #28829 (Thread-unsafety in bcmath elementary values). (Sara)
 - Fixed bug #28464 (catch() does not catch exceptions by interfaces). (Marcus)
+- Fixed bug #27669 (PHP 5 didn't support all possibilities for calling static
+  methods dynamically). (Dmitry)
 - Fixed ReflectionClass::getMethod() and ReflectionClass::getProperty() to
   raise an ReflectionException instead of returning NULL on failure.
   (Sebastian)

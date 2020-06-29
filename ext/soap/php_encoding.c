@@ -17,16 +17,16 @@
   |          Dmitry Stogov <dmitry@zend.com>                             |
   +----------------------------------------------------------------------+
 */
-/* $Id: php_encoding.c,v 1.71.2.1 2004/08/10 16:30:30 dmitry Exp $ */
+/* $Id: php_encoding.c,v 1.71.2.6 2004/09/14 12:13:38 dmitry Exp $ */
 
 #include <time.h>
 
 #include "php_soap.h"
+#include "ext/libxml/php_libxml.h"
 
 /* zval type decode */
 static zval *to_zval_double(encodeTypePtr type, xmlNodePtr data);
 static zval *to_zval_long(encodeTypePtr type, xmlNodePtr data);
-static zval *to_zval_ulong(encodeTypePtr type, xmlNodePtr data);
 static zval *to_zval_bool(encodeTypePtr type, xmlNodePtr data);
 static zval *to_zval_string(encodeTypePtr type, xmlNodePtr data);
 static zval *to_zval_stringr(encodeTypePtr type, xmlNodePtr data);
@@ -36,7 +36,6 @@ static zval *to_zval_map(encodeTypePtr type, xmlNodePtr data);
 static zval *to_zval_null(encodeTypePtr type, xmlNodePtr data);
 
 static xmlNodePtr to_xml_long(encodeTypePtr type, zval *data, int style, xmlNodePtr parent);
-static xmlNodePtr to_xml_ulong(encodeTypePtr type, zval *data, int style, xmlNodePtr parent);
 static xmlNodePtr to_xml_double(encodeTypePtr type, zval *data, int style, xmlNodePtr parent);
 static xmlNodePtr to_xml_bool(encodeTypePtr type, zval *data, int style, xmlNodePtr parent);
 
@@ -160,7 +159,8 @@ encode defaultEncoding[] = {
 	{{XSD_UNSIGNEDBYTE, XSD_UNSIGNEDBYTE_STRING, XSD_NAMESPACE, NULL}, to_zval_long, to_xml_long},
 	{{XSD_UNSIGNEDSHORT, XSD_UNSIGNEDSHORT_STRING, XSD_NAMESPACE, NULL}, to_zval_long, to_xml_long},
 	{{XSD_UNSIGNEDINT, XSD_UNSIGNEDINT_STRING, XSD_NAMESPACE, NULL}, to_zval_long, to_xml_long},
-	{{XSD_UNSIGNEDLONG, XSD_UNSIGNEDLONG_STRING, XSD_NAMESPACE, NULL}, to_zval_ulong, to_xml_ulong},
+	{{XSD_UNSIGNEDLONG, XSD_UNSIGNEDLONG_STRING, XSD_NAMESPACE, NULL}, to_zval_long, to_xml_long},
+	{{XSD_INTEGER, XSD_INTEGER_STRING, XSD_NAMESPACE, NULL}, to_zval_long, to_xml_long},
 
 	{{XSD_ANYTYPE, XSD_ANYTYPE_STRING, XSD_NAMESPACE, NULL}, guess_zval_convert, guess_xml_convert},
 	{{XSD_UR_TYPE, XSD_UR_TYPE_STRING, XSD_NAMESPACE, NULL}, guess_zval_convert, guess_xml_convert},
@@ -612,12 +612,12 @@ static xmlNodePtr to_xml_string(encodeTypePtr type, zval *data, int style, xmlNo
 			efree(str);
 			str = estrdup(xmlBufferContent(out));
 			new_len = n;
-		} else if (!xmlCheckUTF8(str)) {
+		} else if (!php_libxml_xmlCheckUTF8(str)) {
 			soap_error1(E_ERROR,  "Encoding: string '%s' is not a valid utf-8 string", str);
 		}
 		xmlBufferFree(out);
 		xmlBufferFree(in);
-	} else if (!xmlCheckUTF8(str)) {
+	} else if (!php_libxml_xmlCheckUTF8(str)) {
 		soap_error1(E_ERROR,  "Encoding: string '%s' is not a valid utf-8 string", str);
 	}
 
@@ -683,25 +683,6 @@ static zval *to_zval_long(encodeTypePtr type, xmlNodePtr data)
 	if (data && data->children) {
 		if (data->children->type == XML_TEXT_NODE && data->children->next == NULL) {
 			whiteSpace_collapse(data->children->content);
-			ZVAL_LONG(ret, atol(data->children->content));
-		} else {
-			soap_error0(E_ERROR, "Encoding: Violation of encoding rules");
-		}
-	} else {
-		ZVAL_NULL(ret);
-	}
-	return ret;
-}
-
-static zval *to_zval_ulong(encodeTypePtr type, xmlNodePtr data)
-{
-	zval *ret;
-	MAKE_STD_ZVAL(ret);
-	FIND_XML_NULL(data, ret);
-
-	if (data && data->children) {
-		if (data->children->type == XML_TEXT_NODE && data->children->next == NULL) {
-			whiteSpace_collapse(data->children->content);
 			errno = 0;
 			ret->value.lval = strtol(data->children->content, NULL, 0);
 			if (errno == ERANGE) { /* overflow */
@@ -722,38 +703,15 @@ static zval *to_zval_ulong(encodeTypePtr type, xmlNodePtr data)
 static xmlNodePtr to_xml_long(encodeTypePtr type, zval *data, int style, xmlNodePtr parent)
 {
 	xmlNodePtr ret;
-	zval tmp;
-
-	ret = xmlNewNode(NULL,"BOGUS");
-	xmlAddChild(parent, ret);
-	FIND_ZVAL_NULL(data, ret, style);
-
-	tmp = *data;
-	zval_copy_ctor(&tmp);
-	if (Z_TYPE(tmp) != IS_LONG) {
-		convert_to_long(&tmp);
-	}
-	convert_to_string(&tmp);
-	xmlNodeSetContentLen(ret, Z_STRVAL(tmp), Z_STRLEN(tmp));
-	zval_dtor(&tmp);
-
-	if (style == SOAP_ENCODED) {
-		set_ns_and_type(ret, type);
-	}
-	return ret;
-}
-
-static xmlNodePtr to_xml_ulong(encodeTypePtr type, zval *data, int style, xmlNodePtr parent)
-{
-	xmlNodePtr ret;
 
 	ret = xmlNewNode(NULL,"BOGUS");
 	xmlAddChild(parent, ret);
 	FIND_ZVAL_NULL(data, ret, style);
 
 	if (Z_TYPE_P(data) == IS_DOUBLE) {
-		char s[16];
-		sprintf(s, "%0.0f",Z_DVAL_P(data));
+		char s[256];
+
+		sprintf(s, "%0.0f",floor(Z_DVAL_P(data)));
 		xmlNodeSetContent(ret, s);
 	} else {
 		zval tmp = *data;
@@ -1357,7 +1315,14 @@ static xmlNodePtr to_xml_object(encodeTypePtr type, zval *data, int style, xmlNo
 								if ((*attr)->fixed && strcmp((*attr)->fixed,dummy->children->content) != 0) {
 									soap_error3(E_ERROR, "Encoding: Attribute '%s' has fixed value '%s' (value '%s' is not allowed)", (*attr)->name, (*attr)->fixed, dummy->children->content);
 								}
-								xmlSetProp(xmlParam, (*attr)->name, dummy->children->content);
+								if ((*attr)->namens && 
+								    (type->ns == NULL || strcmp((*attr)->namens, type->ns))) {
+									xmlNsPtr nsp = encode_add_ns(xmlParam, (*attr)->namens);
+
+									xmlSetNsProp(xmlParam, nsp, (*attr)->name, dummy->children->content);
+								} else {
+									xmlSetProp(xmlParam, (*attr)->name, dummy->children->content);
+								}
 							}
 							xmlUnlinkNode(dummy);
 							xmlFreeNode(dummy);
@@ -2437,6 +2402,9 @@ zval *sdl_guess_convert_zval(encodeTypePtr enc, xmlNodePtr data)
 	sdlTypePtr type;
 
 	type = enc->sdl_type;
+	if (type == NULL) {
+		return guess_zval_convert(enc, data);
+	}
 /*FIXME: restriction support
 	if (type && type->restrictions &&
 	    data &&  data->children && data->children->content) {
@@ -2500,6 +2468,13 @@ xmlNodePtr sdl_guess_convert_xml(encodeTypePtr enc, zval *data, int style, xmlNo
 
 	type = enc->sdl_type;
 
+	if (type == NULL) {
+		ret = guess_xml_convert(enc, data, style, parent);
+		if (style == SOAP_ENCODED) {
+			set_ns_and_type(ret, enc);
+		}
+		return ret;
+	}
 /*FIXME: restriction support
 	if (type) {
 		if (type->restrictions && Z_TYPE_P(data) == IS_STRING) {

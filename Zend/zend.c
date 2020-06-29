@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend.c,v 1.287 2004/07/12 16:38:45 andi Exp $ */
+/* $Id: zend.c,v 1.287.2.1 2004/09/09 13:29:37 helly Exp $ */
 
 #include "zend.h"
 #include "zend_extensions.h"
@@ -83,7 +83,6 @@ ZEND_INI_END()
 ZEND_API int compiler_globals_id;
 ZEND_API int executor_globals_id;
 ZEND_API int alloc_globals_id;
-zend_class_entry global_main_class;
 HashTable *global_function_table;
 HashTable *global_class_table;
 HashTable *global_constants_table;

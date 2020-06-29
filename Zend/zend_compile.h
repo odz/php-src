@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_compile.h,v 1.284.2.1 2004/08/01 21:55:39 helly Exp $ */
+/* $Id: zend_compile.h,v 1.284.2.2 2004/09/16 00:44:12 andi Exp $ */
 
 #ifndef ZEND_COMPILE_H
 #define ZEND_COMPILE_H
@@ -375,7 +375,7 @@ void zend_do_clone(znode *result, znode *expr TSRMLS_DC);
 void zend_do_begin_dynamic_function_call(znode *function_name TSRMLS_DC);
 void zend_do_fetch_class(znode *result, znode *class_name TSRMLS_DC);
 void zend_do_fetch_class_name(znode *result, znode *class_entry, znode *class_name TSRMLS_DC);
-void zend_do_begin_class_member_function_call(TSRMLS_D);
+void zend_do_begin_class_member_function_call(znode *class_name, znode *method_name TSRMLS_DC);
 void zend_do_end_function_call(znode *function_name, znode *result, znode *argument_list, int is_method, int is_dynamic_fcall TSRMLS_DC);
 void zend_do_return(znode *expr, int do_end_vparse TSRMLS_DC);
 void zend_do_handle_exception(TSRMLS_D);

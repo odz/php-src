@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_language_parser.y,v 1.144 2004/04/20 14:14:55 andi Exp $ */
+/* $Id: zend_language_parser.y,v 1.144.2.2 2004/09/16 05:44:39 sebastian Exp $ */
 
 /* 
  * LALR shift/reduce conflicts and how they are resolved:
@@ -614,12 +614,12 @@ function_call:
 		T_STRING	'(' { $2.u.opline_num = zend_do_begin_function_call(&$1 TSRMLS_CC); }
 				function_call_parameter_list
 				')' { zend_do_end_function_call(&$1, &$$, &$4, 0, $2.u.opline_num TSRMLS_CC); zend_do_extended_fcall_end(TSRMLS_C); }
-	|	class_constant '(' { zend_do_begin_class_member_function_call(TSRMLS_C); zend_do_extended_fcall_begin(TSRMLS_C); } 
+	|	fully_qualified_class_name T_PAAMAYIM_NEKUDOTAYIM T_STRING '(' { zend_do_begin_class_member_function_call(&$1, &$3 TSRMLS_CC); } 
 			function_call_parameter_list 
-			')' { zend_do_end_function_call(NULL, &$$, &$4, 1, 1 TSRMLS_CC); zend_do_extended_fcall_end(TSRMLS_C);}
-	|	static_member '(' { zend_do_end_variable_parse(BP_VAR_R, 0 TSRMLS_CC); zend_do_begin_class_member_function_call(TSRMLS_C); zend_do_extended_fcall_begin(TSRMLS_C); } 
+			')' { zend_do_end_function_call(NULL, &$$, &$6, 1, 1 TSRMLS_CC); zend_do_extended_fcall_end(TSRMLS_C);}
+	| fully_qualified_class_name T_PAAMAYIM_NEKUDOTAYIM variable_without_objects '(' { zend_do_end_variable_parse(BP_VAR_R, 0 TSRMLS_CC); zend_do_begin_class_member_function_call(&$1, &$3 TSRMLS_CC); } 
 			function_call_parameter_list 
-			')' { zend_do_end_function_call(NULL, &$$, &$4, 1, 1 TSRMLS_CC); zend_do_extended_fcall_end(TSRMLS_C);}
+			')' { zend_do_end_function_call(NULL, &$$, &$6, 1, 1 TSRMLS_CC); zend_do_extended_fcall_end(TSRMLS_C);}
 	|	variable_without_objects  '(' { zend_do_end_variable_parse(BP_VAR_R, 0 TSRMLS_CC); zend_do_begin_dynamic_function_call(&$1 TSRMLS_CC); }
 			function_call_parameter_list ')'
 			{ zend_do_end_function_call(&$1, &$$, &$4, 0, 1 TSRMLS_CC); zend_do_extended_fcall_end(TSRMLS_C);}

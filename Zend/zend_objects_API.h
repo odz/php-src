@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_objects_API.h,v 1.14.2.1 2004/07/25 17:37:55 helly Exp $ */
+/* $Id: zend_objects_API.h,v 1.14.2.2 2004/09/17 10:19:47 stas Exp $ */
 
 #ifndef ZEND_OBJECTS_API_H
 #define ZEND_OBJECTS_API_H
@@ -57,6 +57,7 @@ typedef struct _zend_objects_store {
 BEGIN_EXTERN_C()
 ZEND_API void zend_objects_store_init(zend_objects_store *objects, zend_uint init_size);
 ZEND_API void zend_objects_store_call_destructors(zend_objects_store *objects TSRMLS_DC);
+ZEND_API void zend_objects_store_mark_destructed(zend_objects_store *objects TSRMLS_DC);
 ZEND_API void zend_objects_store_destroy(zend_objects_store *objects);
 
 /* Store API functions */

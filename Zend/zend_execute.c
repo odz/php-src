@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_execute.c,v 1.652.2.3 2004/08/02 02:35:03 iliaa Exp $ */
+/* $Id: zend_execute.c,v 1.652.2.6 2004/09/22 07:12:15 dmitry Exp $ */
 
 #define ZEND_INTENSIVE_DEBUGGING 0
 
@@ -1775,6 +1775,9 @@ static inline int zend_binary_assign_op_helper(int (*binary_op)(zval *result, zv
 		EX_T(opline->result.u.var).var.ptr_ptr = &EG(uninitialized_zval_ptr);
 		SELECTIVE_PZVAL_LOCK(*EX_T(opline->result.u.var).var.ptr_ptr, &opline->result);
 		AI_USE_PTR(EX_T(opline->result.u.var).var);
+	    if (increment_opline) {
+    	    INC_OPCODE();
+    	}
 		NEXT_OPCODE();
 	}
 	
@@ -3706,7 +3709,7 @@ int zend_fe_reset_handler(ZEND_OPCODE_HANDLER_ARGS)
 	if (opline->extended_value) {
 		array_ptr_ptr = get_zval_ptr_ptr(&opline->op1, EX(Ts), BP_VAR_R);
 		if (array_ptr_ptr == NULL) {
-			MAKE_STD_ZVAL(array_ptr);
+			ALLOC_INIT_ZVAL(array_ptr);
 		} else if (Z_TYPE_PP(array_ptr_ptr) == IS_OBJECT) {
 			ce = Z_OBJCE_PP(array_ptr_ptr);
 			if (!ce || ce->get_iterator == NULL) {
@@ -4032,12 +4035,12 @@ static int zend_isset_isempty_dim_prop_obj_handler(int prop_dim, ZEND_OPCODE_HAN
 		} else if ((*container)->type == IS_STRING) { /* string offsets */
 			switch (opline->extended_value) {
 				case ZEND_ISSET:
-					if (offset->value.lval <= Z_STRLEN_PP(container)) {
+					if (offset->value.lval < Z_STRLEN_PP(container)) {
 						result = 1;
 					}
 					break;
 				case ZEND_ISEMPTY:
-					if (offset->value.lval <= Z_STRLEN_PP(container) && Z_STRVAL_PP(container)[offset->value.lval] != '0') {
+					if (offset->value.lval < Z_STRLEN_PP(container) && Z_STRVAL_PP(container)[offset->value.lval] != '0') {
 						result = 1;
 					}
 					break;
