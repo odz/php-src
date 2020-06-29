@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_sybase_ct.c,v 1.73.2.16 2004/05/21 21:00:19 edink Exp $ */
+/* $Id: php_sybase_ct.c,v 1.73.2.16.2.1 2004/07/13 13:15:30 iliaa Exp $ */
 
 
 #ifdef HAVE_CONFIG_H
@@ -448,11 +448,13 @@ PHP_MSHUTDOWN_FUNCTION(sybase)
 PHP_RSHUTDOWN_FUNCTION(sybase)
 {
 	efree(SybCtG(appname));
+	SybCtG(appname) = NULL;
 	if (SybCtG(callback_name)) {
 		zval_ptr_dtor(&SybCtG(callback_name));
 		SybCtG(callback_name)= NULL;
 	}
 	STR_FREE(SybCtG(server_message));
+	SybCtG(server_message) = NULL;
 	return SUCCESS;
 }
 

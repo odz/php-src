@@ -174,6 +174,7 @@ ZEND_API ulong zend_hash_func(char *arKey, uint nKeyLength)
 ZEND_API int zend_hash_init(HashTable *ht, uint nSize, hash_func_t pHashFunction, dtor_func_t pDestructor, int persistent)
 {
 	uint i = 3;
+	Bucket **tmp;
 
 	SET_INCONSISTENT(HT_OK);
 
@@ -183,14 +184,6 @@ ZEND_API int zend_hash_init(HashTable *ht, uint nSize, hash_func_t pHashFunction
 
 	ht->nTableSize = 1 << i;
 	ht->nTableMask = ht->nTableSize - 1;
-
-	/* Uses ecalloc() so that Bucket* == NULL */
-	ht->arBuckets = (Bucket **) pecalloc(ht->nTableSize, sizeof(Bucket *), persistent);
-
-	if (!ht->arBuckets) {
-		return FAILURE;
-	}
-
 	ht->pDestructor = pDestructor;
 	ht->pListHead = NULL;
 	ht->pListTail = NULL;
@@ -200,6 +193,16 @@ ZEND_API int zend_hash_init(HashTable *ht, uint nSize, hash_func_t pHashFunction
 	ht->persistent = persistent;
 	ht->nApplyCount = 0;
 	ht->bApplyProtection = 1;
+	ht->arBuckets = NULL;
+
+	/* Uses ecalloc() so that Bucket* == NULL */
+	tmp = (Bucket **) pecalloc(ht->nTableSize, sizeof(Bucket *), persistent);
+
+	if (!tmp) {
+		return FAILURE;
+	}
+	ht->arBuckets = tmp;
+
 	return SUCCESS;
 }
 

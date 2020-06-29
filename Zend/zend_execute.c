@@ -1038,7 +1038,7 @@ ZEND_API void execute(zend_op_array *op_array TSRMLS_DC)
 	EX(ce) = NULL;
 	EX(object).ptr = NULL;
 	EX(op_array) = op_array;
-	EX(Ts) = (temp_variable *) do_alloca(sizeof(temp_variable)*op_array->T);
+	EX(Ts) = (temp_variable *) safe_emalloc(sizeof(temp_variable), op_array->T, 0);
 	EX(prev_execute_data) = EG(current_execute_data);
 	EX(original_in_execution)=EG(in_execution);
 
@@ -1757,7 +1757,7 @@ do_fcall_common:
 							(*EG(return_value_ptr_ptr))->is_ref = 0;
 						}
 					}
-					free_alloca(EX(Ts));
+					efree(EX(Ts));
 					EG(in_execution) = EX(original_in_execution);
 					EG(current_execute_data) = EX(prev_execute_data);
 					return;
