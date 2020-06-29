@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: dl.c,v 1.79.2.1 2002/12/05 21:09:18 helly Exp $ */
+/* $Id: dl.c,v 1.79.2.3 2003/01/29 15:40:24 edink Exp $ */
 
 #include "php.h"
 #include "dl.h"
@@ -61,7 +61,9 @@ PHP_FUNCTION(dl)
 	pval **file;
 
 #ifdef ZTS
-	if ((strncmp(sapi_module.name, "cgi", 3)!=0) && (strcmp(sapi_module.name, "cli")!=0)) {
+	if ((strncmp(sapi_module.name, "cgi", 3)!=0) && 
+		(strcmp(sapi_module.name, "cli")!=0) &&
+		(strncmp(sapi_module.name, "embed", 5)!=0)) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Not supported in multithreaded Web servers - use extension statements in your php.ini");
 		RETURN_FALSE;
 	}

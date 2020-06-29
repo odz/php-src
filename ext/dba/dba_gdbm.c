@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dba_gdbm.c,v 1.16.2.1 2002/12/20 20:25:19 helly Exp $ */
+/* $Id: dba_gdbm.c,v 1.16.2.4 2003/02/01 19:01:12 helly Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -27,7 +27,9 @@
 #if DBA_GDBM
 #include "php_gdbm.h"
 
-#include <gdbm.h>
+#ifdef GDBM_INCLUDE_FILE
+#include GDBM_INCLUDE_FILE
+#endif
 
 #define GDBM_DATA dba_gdbm_data *dba = info->dbf
 #define GDBM_GKEY datum gkey; gkey.dptr = (char *) key; gkey.dsize = keylen
@@ -180,6 +182,12 @@ DBA_SYNC_FUNC(gdbm)
 	gdbm_sync(dba->dbf);
 	return SUCCESS;
 }
+
+DBA_INFO_FUNC(gdbm)
+{
+	return estrdup(gdbm_version);
+}
+
 #endif
 
 /*

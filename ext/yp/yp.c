@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    |          Fredrik Ohrn                                                |
    +----------------------------------------------------------------------+
  */
-/* $Id: yp.c,v 1.31 2001/12/11 15:30:56 sebastian Exp $ */
+/* $Id: yp.c,v 1.31.8.3 2003/02/28 06:51:16 hholzgra Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -291,8 +291,16 @@ static int php_foreach_cat (int instatus, char *inkey, int inkeylen, char *inval
 
 	if (!err)
 	{
-		if (inkeylen)
-			add_assoc_stringl_ex((zval *) indata,inkey,inkeylen,inval,invallen,1);
+		if (inkeylen) {
+			char *key = emalloc(inkeylen+1);
+			if(key) {
+				strlcpy(key, inkey, inkeylen+1);
+				add_assoc_stringl_ex((zval *) indata, key, inkeylen+1, inval, invallen, 1);
+				efree(key);
+			} else {
+				php_error(E_WARNING, "Can't allocate %d bytes for key buffer in yp_cat()");
+			}
+		}
 
 		return 0;
 	}

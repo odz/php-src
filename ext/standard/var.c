@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -57,7 +57,7 @@ static int php_array_element_dump(zval **zv, int num_args, va_list args, zend_ha
 	return 0;
 }
 
-void php_var_dump(zval **struc, int level TSRMLS_DC)
+PHPAPI void php_var_dump(zval **struc, int level TSRMLS_DC)
 {
 	HashTable *myht = NULL;
 	zend_object *object = NULL;
@@ -165,7 +165,7 @@ static int zval_array_element_dump(zval **zv, int num_args, va_list args, zend_h
 	return 0;
 }
 
-void php_debug_zval_dump(zval **struc, int level TSRMLS_DC)
+PHPAPI void php_debug_zval_dump(zval **struc, int level TSRMLS_DC)
 {
 	HashTable *myht = NULL;
 
@@ -278,7 +278,7 @@ static int php_object_element_export(zval **zv, int num_args, va_list args, zend
 	return 0;
 }
 
-void php_var_export(zval **struc, int level TSRMLS_DC)
+PHPAPI void php_var_export(zval **struc, int level TSRMLS_DC)
 {
 	HashTable *myht;
 	char*     tmp_str;
@@ -511,11 +511,12 @@ static void php_var_serialize_intern(smart_str *buf, zval **struc, HashTable *va
 			return;
 
 		case IS_DOUBLE: {
-				char s[256];
+				char *s;
 				ulong slen;
 
-				slen = sprintf(s, "d:%.*G;", (int) EG(precision), Z_DVAL_PP(struc));
+				slen = spprintf(&s, 0, "d:%.*G;", PG(serialize_precision), Z_DVAL_PP(struc));
 				smart_str_appendl(buf, s, slen);
+				efree(s);
 				return;
 			}
 
@@ -678,6 +679,15 @@ PHP_FUNCTION(unserialize)
 }
 
 /* }}} */
+
+#if MEMORY_LIMIT
+/* {{{ proto int memory_get_usage()
+    Returns the allocated by PHP memory */
+PHP_FUNCTION(memory_get_usage) {
+	RETURN_LONG(AG(allocated_memory));
+}
+/* }}} */
+#endif
 
 /*
  * Local variables:

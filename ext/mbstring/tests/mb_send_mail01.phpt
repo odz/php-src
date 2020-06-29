@@ -28,11 +28,11 @@ Mime-Version: 1.0
 Content-Type: text/plain; charset=%s
 Content-Transfer-Encoding: %s
 
-test
+%s
 To: example@example.com
 Subject: test neutral
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: BASE64
 
-test
+dGVzdA==

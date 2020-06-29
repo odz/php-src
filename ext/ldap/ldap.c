@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -22,7 +22,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: ldap.c,v 1.130 2002/11/05 14:18:20 edink Exp $ */
+/* $Id: ldap.c,v 1.130.2.4 2003/04/30 21:54:02 iliaa Exp $ */
 #define IS_EXT_MODULE
 
 #ifdef HAVE_CONFIG_H
@@ -286,7 +286,7 @@ PHP_MINFO_FUNCTION(ldap)
 
 	php_info_print_table_start();
 	php_info_print_table_row(2, "LDAP Support", "enabled" );
-	php_info_print_table_row(2, "RCS Version", "$Id: ldap.c,v 1.130 2002/11/05 14:18:20 edink Exp $" );
+	php_info_print_table_row(2, "RCS Version", "$Id: ldap.c,v 1.130.2.4 2003/04/30 21:54:02 iliaa Exp $" );
 
 	if (LDAPG(max_links) == -1) {
 		snprintf(tmp, 31, "%ld/unlimited", LDAPG(num_links));
@@ -345,11 +345,11 @@ PHP_FUNCTION(ldap_connect)
 {
 	char *host = NULL;
 	int hostlen;
-	int port = 389; /* Default port */
+	long port = 389; /* Default port */
 #ifdef HAVE_ORALDAP
 	char *wallet, *walletpasswd;
 	int walletlen, walletpasswdlen;
-	int authmode;
+	long authmode;
 	int ssl=0;
 #endif
 	ldap_linkdata *ld;
@@ -564,7 +564,7 @@ static void php_ldap_do_search(INTERNAL_FUNCTION_PARAMETERS, int scope)
 			}
 
 			num_attribs = zend_hash_num_elements(Z_ARRVAL_PP(attrs));
-			if ((ldap_attrs = emalloc((num_attribs+1) * sizeof(char *))) == NULL) {
+			if ((ldap_attrs = safe_emalloc((num_attribs+1), sizeof(char *), 0)) == NULL) {
 				php_error(E_WARNING, "%s(): Could not allocate memory", get_active_function_name(TSRMLS_C));
 				RETURN_FALSE;
 			}
@@ -644,8 +644,8 @@ static void php_ldap_do_search(INTERNAL_FUNCTION_PARAMETERS, int scope)
 			ldap_filter = Z_STRVAL_PP(filter);
 		}
 
-		lds = emalloc(nlinks * sizeof(ldap_linkdata));
-		rcs = emalloc(nlinks * sizeof(*rcs));
+		lds = safe_emalloc(nlinks, sizeof(ldap_linkdata), 0);
+		rcs = safe_emalloc(nlinks, sizeof(*rcs), 0);
 		
 		zend_hash_internal_pointer_reset(Z_ARRVAL_PP(link));
 		for (i=0; i<nlinks; i++) {
@@ -1285,8 +1285,8 @@ static void php_ldap_do_modify(INTERNAL_FUNCTION_PARAMETERS, int oper)
 	ldap_dn = Z_STRVAL_PP(dn);
 
 	num_attribs = zend_hash_num_elements(Z_ARRVAL_PP(entry));
-	ldap_mods = emalloc((num_attribs+1) * sizeof(LDAPMod *));
-	num_berval = emalloc(num_attribs * sizeof(int));
+	ldap_mods = safe_emalloc((num_attribs+1), sizeof(LDAPMod *), 0);
+	num_berval = safe_emalloc(num_attribs, sizeof(int), 0);
 	zend_hash_internal_pointer_reset(Z_ARRVAL_PP(entry));
 
 	/* added by gerrit thomson to fix ldap_add using ldap_mod_add */
@@ -1303,7 +1303,7 @@ static void php_ldap_do_modify(INTERNAL_FUNCTION_PARAMETERS, int oper)
 		if (zend_hash_get_current_key(Z_ARRVAL_PP(entry), &attribute, &index, 0) == HASH_KEY_IS_STRING) {
 			ldap_mods[i]->mod_type = estrdup(attribute);
 		} else {
-			php_error(E_ERROR, "%s(): Unknown attribute in the data", get_active_function_name(TSRMLS_C));
+			php_error(E_WARNING, "%s(): Unknown attribute in the data", get_active_function_name(TSRMLS_C));
 			/* Free allocated memory */
 			while (i >= 0) {
 				efree(ldap_mods[i--]);
@@ -1322,7 +1322,7 @@ static void php_ldap_do_modify(INTERNAL_FUNCTION_PARAMETERS, int oper)
 		}
 		
 		num_berval[i] = num_values;
-		ldap_mods[i]->mod_bvalues = emalloc((num_values + 1) * sizeof(struct berval *));
+		ldap_mods[i]->mod_bvalues = safe_emalloc((num_values + 1), sizeof(struct berval *), 0);
 
 /* allow for arrays with one element, no allowance for arrays with none but probably not required, gerrit thomson. */
 		if ((num_values == 1) && (Z_TYPE_PP(value) != IS_ARRAY)) {
@@ -1714,7 +1714,7 @@ PHP_FUNCTION(ldap_set_option)
 				php_error(E_WARNING, "%s(): Expected non-empty array value for this option", get_active_function_name(TSRMLS_C));
                                 RETURN_FALSE;
                         }
-			ctrls = emalloc((1 + ncontrols) * sizeof(*ctrls));
+			ctrls = safe_emalloc((1 + ncontrols), sizeof(*ctrls), 0);
 			*ctrls = NULL;
 			ctrlp = ctrls;
 			zend_hash_internal_pointer_reset(Z_ARRVAL_PP(newval));
@@ -2119,7 +2119,7 @@ static void php_ldap_do_translate(INTERNAL_FUNCTION_PARAMETERS, int way)
 		RETVAL_STRINGL(ldap_buf, ldap_len, 1);
 		free(ldap_buf);
 	} else {
-		php_error(E_ERROR, "%s(): Conversion from iso-8859-1 to t61 failed: %s", get_active_function_name(TSRMLS_C), ldap_err2string(result));
+		php_error(E_WARNING, "%s(): Conversion from iso-8859-1 to t61 failed: %s", get_active_function_name(TSRMLS_C), ldap_err2string(result));
 		RETVAL_FALSE;
 	}
 

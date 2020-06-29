@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: formatted_print.c,v 1.59 2002/10/26 22:18:40 iliaa Exp $ */
+/* $Id: formatted_print.c,v 1.59.2.4 2003/04/23 02:37:29 iliaa Exp $ */
 
 #include <math.h>				/* modf() */
 #include "php.h"
@@ -158,12 +158,11 @@ php_sprintf_appendstring(char **buffer, int *pos, int *size, char *add,
 						   int alignment, int len, int sign, int expprec)
 {
 	register int npad;
+	int req_size;
+	int copy_len;
 
-	if (max_width && min_width) {
-		expprec = max_width = 0;	
-	}
-
-	npad = min_width - MIN(len, (expprec ? max_width : len));
+	copy_len = (expprec ? MIN(max_width, len) : len);
+	npad = min_width - copy_len;
 
 	if (npad < 0) {
 		npad = 0;
@@ -171,11 +170,11 @@ php_sprintf_appendstring(char **buffer, int *pos, int *size, char *add,
 	
 	PRINTF_DEBUG(("sprintf: appendstring(%x, %d, %d, \"%s\", %d, '%c', %d)\n",
 				  *buffer, *pos, *size, add, min_width, padding, alignment));
-	if ((max_width == 0) && (! expprec)) {
-		max_width = MAX(min_width, len);
-	}
-	if ((*pos + max_width) >= *size) {
-		while ((*pos + max_width) >= *size) {
+
+	req_size = *pos + MAX(min_width, copy_len) + 1;
+
+	if (req_size > *size) {
+		while (req_size > *size) {
 			*size <<= 1;
 		}
 		PRINTF_DEBUG(("sprintf ereallocing buffer to %d bytes\n", *size));
@@ -192,8 +191,8 @@ php_sprintf_appendstring(char **buffer, int *pos, int *size, char *add,
 		}
 	}
 	PRINTF_DEBUG(("sprintf: appending \"%s\"\n", add));
-	memcpy(&(*buffer)[*pos], add, MIN(max_width, len)+1);
-	*pos += MIN(max_width, len);
+	memcpy(&(*buffer)[*pos], add, copy_len + 1);
+	*pos += copy_len;
 	if (alignment == ALIGN_LEFT) {
 		while (npad--) {
 			(*buffer)[(*pos)++] = padding;
@@ -359,8 +358,12 @@ php_sprintf_appenddouble(char **buffer, int *pos,
 		numbuf[i++] = fmt;
 		exp_p = php_convert_to_decimal(decpt, 0, &dec2, &sign, 0);
 		numbuf[i++] = sign ? '-' : '+';
-		while (*exp_p) {
-			numbuf[i++] = *(exp_p++);
+		if (*exp_p) { 
+			while (*exp_p) {
+				numbuf[i++] = *(exp_p++);
+			}
+		} else {
+			numbuf[i++] = '0';
 		}
 	} else {
 		numbuf[i++] = cvt[j++];
@@ -471,7 +474,7 @@ php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 		SEPARATE_ZVAL(array);
 		convert_to_array_ex(array);
 		argc = 1 + zend_hash_num_elements(Z_ARRVAL_PP(array));
-		args = (zval ***)emalloc(argc * sizeof(zval *));
+		args = (zval ***)safe_emalloc(argc, sizeof(zval *), 0);
 		args[0] = z_format;
 		for (zend_hash_internal_pointer_reset(Z_ARRVAL_PP(array));
 			 zend_hash_get_current_data(Z_ARRVAL_PP(array), (void **)&args[i++]) == SUCCESS;
@@ -481,7 +484,7 @@ php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 			WRONG_PARAM_COUNT_WITH_RETVAL(NULL);
 		}
 
-		args = (zval ***)emalloc(argc * sizeof(zval *));
+		args = (zval ***)safe_emalloc(argc, sizeof(zval *), 0);
 
 		if (zend_get_parameters_array_ex(argc, args) == FAILURE) {
 			efree(args);

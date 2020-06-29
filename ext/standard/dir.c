@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dir.c,v 1.109.2.2 2002/12/24 15:04:10 msopacua Exp $ */
+/* $Id: dir.c,v 1.109.2.5 2003/05/05 12:17:02 thies Exp $ */
 
 /* {{{ includes/startup/misc */
 
@@ -219,11 +219,11 @@ PHP_FUNCTION(closedir)
 
 	FETCH_DIRP();
 
-	zend_list_delete(dirp->rsrc_id);
-
 	if (dirp->rsrc_id == DIRG(default_dir)) {
 		php_set_default_dir(-1 TSRMLS_CC);
 	}
+
+	zend_list_delete(dirp->rsrc_id);
 }
 
 /* }}} */
@@ -378,7 +378,7 @@ PHP_FUNCTION(glob)
 			cwd[0] = '\0';
 		}
 		cwd_skip = strlen(cwd)+1;
-		snprintf(work_pattern, MAXPATHLEN, "%s/%s", cwd, pattern);
+		snprintf(work_pattern, MAXPATHLEN, "%s%c%s", cwd, DEFAULT_SLASH, pattern);
 		pattern = work_pattern;
 	} 
 #endif

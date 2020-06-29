@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,7 +15,7 @@
    | Author: Chris Schneider <cschneid@relog.ch>                          |
    +----------------------------------------------------------------------+
  */
-/* $Id: pack.c,v 1.40.2.2 2002/12/05 22:46:40 iliaa Exp $ */
+/* $Id: pack.c,v 1.40.2.4 2003/04/22 01:38:36 iliaa Exp $ */
 
 #include "php.h"
 
@@ -122,7 +122,7 @@ PHP_FUNCTION(pack)
 		WRONG_PARAM_COUNT;
 	}
 
-	argv = emalloc(argc * sizeof(zval **));
+	argv = safe_emalloc(sizeof(zval **), argc, 0);
 
 	if (zend_get_parameters_array_ex(argc, argv) == FAILURE) {
 		efree(argv);
@@ -134,8 +134,8 @@ PHP_FUNCTION(pack)
 	formatlen = Z_STRLEN_PP(argv[0]);
 
 	/* We have a maximum of <formatlen> format codes to deal with */
-	formatcodes = emalloc(formatlen * sizeof(*formatcodes));
-	formatargs = emalloc(formatlen * sizeof(*formatargs));
+	formatcodes = safe_emalloc(formatlen, sizeof(*formatcodes), 0);
+	formatargs = safe_emalloc(formatlen, sizeof(*formatargs), 0);
 	currentarg = 1;
 
 	/* Preprocess format into formatcodes and formatargs */

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    |          Jani Taskinen <sniper@php.net>                              |
    +----------------------------------------------------------------------+
  */
-/* $Id: rfc1867.c,v 1.122.2.6 2002/12/10 15:59:17 iliaa Exp $ */
+/* $Id: rfc1867.c,v 1.122.2.10 2003/05/23 21:37:16 pollita Exp $ */
 
 /*
  *  This product includes software developed by the Apache Group
@@ -104,7 +104,7 @@ static void normalize_protected_variable(char *varname TSRMLS_DC)
 
 	/* done? */
 	while (index) {
-		
+
 		while (*index == ' ' || *index == '\r' || *index == '\n' || *index=='\t') {
 			index++;
 		}
@@ -774,12 +774,12 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 				if (strchr(pair, '=')) {
 					key = php_ap_getword(&pair, '=');
 					
-					if (!strcmp(key, "name")) {
+					if (!strcasecmp(key, "name")) {
 						if (param) {
 							efree(param);
 						}
 						param = php_ap_getword_conf(&pair TSRMLS_CC);
-					} else if (!strcmp(key, "filename")) {
+					} else if (!strcasecmp(key, "filename")) {
 						if (filename) {
 							efree(filename);
 						}
@@ -802,7 +802,7 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 				}
 
 				safe_php_register_variable(param, value, array_ptr, 0 TSRMLS_CC);
-				if (!strcmp(param, "MAX_FILE_SIZE")) {
+				if (!strcasecmp(param, "MAX_FILE_SIZE")) {
 					max_file_size = atol(value);
 				}
 
@@ -857,7 +857,7 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 
 			while (!cancel_upload && (blen = multipart_buffer_read(mbuff, buff, sizeof(buff) TSRMLS_CC)))
 			{
-				if (total_bytes > PG(upload_max_filesize)) {
+				if (PG(upload_max_filesize) > 0 && total_bytes > PG(upload_max_filesize)) {
 					sapi_module.sapi_error(E_WARNING, "upload_max_filesize of %ld bytes exceeded - file [%s=%s] not saved", PG(upload_max_filesize), param, filename);
 					cancel_upload = UPLOAD_ERROR_A;
 				} else if (max_file_size && (total_bytes > max_file_size)) {
@@ -897,8 +897,11 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 			 * ends in [.*]
 			 * start_arr is set to point to 1st [
 			 */
-			is_arr_upload =	(start_arr = strchr(param,'[')) &&
-							(param[strlen(param)-1] == ']');
+			is_arr_upload =	(start_arr = strchr(param,'[')) && (param[strlen(param)-1] == ']');
+			/* handle unterminated [ */
+			if (!is_arr_upload && start_arr) {
+				*start_arr = '_';
+			}
 
 			if (is_arr_upload) {
 				array_len = strlen(start_arr);

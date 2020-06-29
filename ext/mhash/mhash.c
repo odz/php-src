@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -59,7 +59,7 @@ ZEND_GET_MODULE(mhash)
 /* SALTED S2K uses a fixed salt */
 #define SALT_SIZE 8
 
-static PHP_MINIT_FUNCTION(mhash)
+PHP_MINIT_FUNCTION(mhash)
 {
 	int i, n, l;
 	char *name;
@@ -107,7 +107,7 @@ PHP_FUNCTION(mhash_count)
    Gets the block size of hash */
 PHP_FUNCTION(mhash_get_block_size)
 {
-	int hash;
+	long hash;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &hash) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -123,7 +123,7 @@ PHP_FUNCTION(mhash_get_block_size)
 PHP_FUNCTION(mhash_get_hash_name)
 {
 	char *name;
-	int hash;
+	long hash;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &hash) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -147,7 +147,7 @@ PHP_FUNCTION(mhash)
 	MHASH td;
 	int bsize;
 	unsigned char *hash_data;
-	int hash;
+	long hash;
 	int data_len, key_len=0;
 	char *data, *key=NULL;
 	
@@ -196,12 +196,16 @@ PHP_FUNCTION(mhash_keygen_s2k)
 {
 	KEYGEN keystruct;
 	char salt[SALT_SIZE], *ret;
-	int hash, bytes;
+	long hash, bytes;
 	char *password, *in_salt;
 	int password_len, salt_len;
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "lssl", &hash, &password, &password_len, &in_salt, &salt_len, &bytes) == FAILURE) {
 		WRONG_PARAM_COUNT;
+	}
+	if (bytes <= 0){
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "the byte parameter must be greater then 0");
+		RETURN_FALSE;
 	}
 	
 	salt_len = MIN(salt_len, SALT_SIZE);

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -13,11 +13,11 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Uwe Steinmann <Uwe.Steinmann@fernuni-hagen.de>              |
-   |          Hartmut Holzgraefe <hartmut@six.de>                         |
+   |          Hartmut Holzgraefe <hholzgra@php.net>                       |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: fdf.c,v 1.66.2.1 2002/12/11 20:08:02 iliaa Exp $ */
+/* $Id: fdf.c,v 1.66.2.9 2003/05/28 09:42:48 hholzgra Exp $ */
 
 /* FdfTk lib 2.0 is a Complete C/C++ FDF Toolkit available from
    http://beta1.adobe.com/ada/acrosdk/forms.html. */
@@ -125,12 +125,17 @@ static sapi_post_entry php_fdf_post_entry =	{
 	fdf_post_handler
 };
 
+static void php_fdf_init_globals(zend_fdf_globals *fdf_globals)
+{
+	memset(fdf_globals, 0, sizeof(*fdf_globals));
+}
+
 /* {{{ PHP_MINIT_FUNCTION
  */
 PHP_MINIT_FUNCTION(fdf)
 {
-	FDFErc err;
-	
+	ZEND_INIT_MODULE_GLOBALS(fdf, php_fdf_init_globals, NULL);
+
 	le_fdf = zend_register_list_destructors_ex(phpi_FDFClose, NULL, "fdf", module_number);
 
  	/* add handler for Acrobat FDF form post requests */
@@ -172,15 +177,15 @@ PHP_MINIT_FUNCTION(fdf)
 	
 #ifdef PHP_WIN32
 	return SUCCESS;
+#else
+	return (FDFInitialize() == FDFErcOK) ? SUCCESS : FAILURE;
 #endif
-	if((err = FDFInitialize()) == FDFErcOK) return SUCCESS;
-	return FAILURE;
 }
 /* }}} */
 
 /* {{{ RINIT */
-PHP_RINIT_FUNCTION(fdf) {
-	FDF_G(error) = FDFErcOK;
+PHP_RINIT_FUNCTION(fdf)
+{
 	return SUCCESS;
 }
 /* }}} */
@@ -201,20 +206,18 @@ PHP_MINFO_FUNCTION(fdf)
  */
 PHP_MSHUTDOWN_FUNCTION(fdf)
 {
-	FDFErc err;
-
 	/* remove handler for Acrobat FDF form post requests */
 	sapi_unregister_post_entry(&php_fdf_post_entry); 
 
 #ifdef PHP_WIN32
 	return SUCCESS;
+#else
+	return (FDFFinalize() == FDFErcOK) ? SUCCESS : FAILURE;
 #endif
-	if((err = FDFFinalize()) == FDFErcOK) return SUCCESS;
-	return FAILURE;
 }
 /* }}} */
 
-/* {{{ proto int fdf_open(string filename)
+/* {{{ proto resource fdf_open(string filename)
    Opens a new FDF document */
 PHP_FUNCTION(fdf_open) 
 {
@@ -228,6 +231,10 @@ PHP_FUNCTION(fdf_open)
 
 	convert_to_string_ex(file);
 
+	if (php_check_open_basedir(Z_STRVAL_PP(file) TSRMLS_CC) || (PG(safe_mode) && !php_checkuid(Z_STRVAL_PP(file), "wb+", CHECKUID_CHECK_MODE_PARAM))) {
+		RETURN_FALSE;
+	}
+
 	err = FDFOpen(Z_STRVAL_PP(file), 0, &fdf);
 
 	if(err != FDFErcOK || !fdf) {
@@ -239,7 +246,7 @@ PHP_FUNCTION(fdf_open)
 } 
 /* }}} */
 
-/* {{{ proto int fdf_open_string(string fdf_data)
+/* {{{ proto resource fdf_open_string(string fdf_data)
    Opens a new FDF document from string */
 PHP_FUNCTION(fdf_open_string) 
 {
@@ -276,7 +283,7 @@ PHP_FUNCTION(fdf_open_string)
 } 
 /* }}} */
 
-/* {{{ proto int fdf_create(void)
+/* {{{ proto resource fdf_create(void)
    Creates a new FDF document */
 PHP_FUNCTION(fdf_create) 
 {
@@ -358,10 +365,7 @@ PHP_FUNCTION(fdf_get_value)
 		} 
 #if HAVE_FDFTK_5
 	} else if((err == FDFErcValueIsArray) && (which == -1)) {
-		if (array_init(return_value) == FAILURE) {
-			efree(buffer);
-			FDF_FAILURE(FDFErcInternalError);
-		}
+		array_init(return_value);
 		which = 0;
 		do {
 			err = FDFGetNthValue(fdf, fieldname, which, buffer, size-2, &nr); 
@@ -518,6 +522,11 @@ PHP_FUNCTION(fdf_set_ap)
 	convert_to_string_ex(fieldname);
 	convert_to_long_ex(face);
 	convert_to_string_ex(filename);
+
+	if (php_check_open_basedir(Z_STRVAL_PP(filename) TSRMLS_CC) || (PG(safe_mode) && !php_checkuid(Z_STRVAL_PP(filename), "wb+", CHECKUID_CHECK_MODE_PARAM))) {
+		RETURN_FALSE;
+	}
+
 	convert_to_long_ex(pagenr);
 
 	switch(Z_LVAL_PP(face)) {
@@ -554,7 +563,8 @@ PHP_FUNCTION(fdf_set_ap)
 PHP_FUNCTION(fdf_get_ap) {
 	zval *r_fdf;
 	char *fieldname, *filename;
-	int fieldname_len, filename_len, face;
+	int fieldname_len, filename_len;
+	long face;
 	FDFDoc fdf;
 	FDFErc err;
 	FDFAppFace facenr;
@@ -567,6 +577,10 @@ PHP_FUNCTION(fdf_get_ap) {
 	}
 
 	ZEND_FETCH_RESOURCE(fdf, FDFDoc *, &r_fdf, -1, "fdf", le_fdf);
+
+	if (php_check_open_basedir(filename TSRMLS_CC) || (PG(safe_mode) && !php_checkuid(filename, "wb+", CHECKUID_CHECK_MODE_PARAM))) {
+		RETURN_FALSE;
+	}
 
 	switch(face) {
 		case 1:
@@ -777,6 +791,9 @@ PHP_FUNCTION(fdf_save)
 	ZEND_FETCH_RESOURCE(fdf, FDFDoc *, &r_fdf, -1, "fdf", le_fdf);
 
 	if(filename) {
+		if (php_check_open_basedir(filename TSRMLS_CC) || (PG(safe_mode) && !php_checkuid(filename, "wb+", CHECKUID_CHECK_MODE_PARAM))) {
+			RETURN_FALSE;
+		}
 		err = FDFSave(fdf, filename);	
 	} else {
 		FILE *fp;
@@ -891,6 +908,10 @@ PHP_FUNCTION(fdf_add_template)
 	convert_to_string_ex(template);
 	convert_to_long_ex(rename);
 
+	if (php_check_open_basedir(Z_STRVAL_PP(filename) TSRMLS_CC) || (PG(safe_mode) && !php_checkuid(Z_STRVAL_PP(filename), "wb+", CHECKUID_CHECK_MODE_PARAM))) {
+		RETURN_FALSE;
+	}
+
 	filespec.FS = NULL;
 	filespec.F = Z_STRVAL_PP(filename);
 	filespec.Mac = NULL;
@@ -900,7 +921,7 @@ PHP_FUNCTION(fdf_add_template)
 	filespec.ID[1] = NULL;
 	filespec.bVolatile = false;
 
-	err = FDFAddTemplate(fdf, Z_LVAL_PP(newpage), &filespec, Z_STRVAL_PP(template), Z_LVAL_PP(rename));
+	err = FDFAddTemplate(fdf, (unsigned short)(Z_LVAL_PP(newpage)), &filespec, Z_STRVAL_PP(template), (unsigned short)(Z_LVAL_PP(rename)));
 	if(err != FDFErcOK) {
 		FDF_FAILURE(err);
 	}
@@ -941,7 +962,8 @@ PHP_FUNCTION(fdf_set_flags)
 PHP_FUNCTION(fdf_get_flags) {
  	zval *r_fdf;
 	char *fieldname;
-	int fieldname_len, whichflags;
+	int fieldname_len;
+	long whichflags;
 	FDFDoc fdf;
 	FDFErc err;
 	ASUns32 flags;
@@ -992,12 +1014,13 @@ PHP_FUNCTION(fdf_set_opt)
 }
 /* }}} */
 
-/* {{{ proto mixed fdf_get_option(resource fdfdof, string fieldname [, int element])
+/* {{{ proto mixed fdf_get_opt(resource fdfdof, string fieldname [, int element])
    Gets a value from the opt array of a field */
 PHP_FUNCTION(fdf_get_opt) {
  	zval *r_fdf;
 	char *fieldname;
-	int fieldname_len, element = -1;
+	int fieldname_len;
+	long element = -1;
 	FDFDoc fdf;
 	FDFErc err;
 
@@ -1037,9 +1060,7 @@ PHP_FUNCTION(fdf_get_opt) {
 		if(err != FDFErcOK) {
 			FDF_FAILURE(err);
 		}
-		if (array_init(return_value) == FAILURE) {
-			RETURN_FALSE;
-		}
+		array_init(return_value);
 		add_next_index_stringl(return_value, buf1, strlen(buf1), 1);
 		add_next_index_stringl(return_value, buf2, strlen(buf2), 1);
 		efree(buf1);
@@ -1101,7 +1122,7 @@ PHP_FUNCTION(fdf_set_javascript_action)
 }
 /* }}} */
 
-/* {{{ proto bool fdf_set_encoding(int fdf_document, string encoding)
+/* {{{ proto bool fdf_set_encoding(resource fdf_document, string encoding)
    Sets FDF encoding (either "Shift-JIS" or "Unicode") */  
 PHP_FUNCTION(fdf_set_encoding) 
 {
@@ -1196,14 +1217,14 @@ SAPI_POST_HANDLER_FUNC(fdf_post_handler)
 }
 /* }}} */
 
-/* {{{ int fdf_errno(void) 
+/* {{{ proto int fdf_errno(void) 
    Gets error code for last operation */
 PHP_FUNCTION(fdf_errno) {
 	RETURN_LONG((long)FDF_G(error));
 }
 /* }}} */
 
-/* {{{ string fdf_error([int errno]) 
+/* {{{ proto string fdf_error([int errno]) 
    Gets error description for error code */
 PHP_FUNCTION(fdf_error) {
 	FDFErc err;
@@ -1470,9 +1491,7 @@ PHP_FUNCTION(fdf_get_attachment) {
 		FDF_FAILURE(err);
 	}
 
-	if (array_init(return_value) == FAILURE) {
-		RETURN_FALSE;
-	}
+	array_init(return_value);
 	add_assoc_string(return_value, "path", pathbuf, 1);
     add_assoc_string(return_value, "type", mimebuf, 1);
 	stat(pathbuf, &statBuf);
@@ -1482,53 +1501,54 @@ PHP_FUNCTION(fdf_get_attachment) {
 #endif 
 
 /* {{{ enum_values_callback */
-  static ASBool enum_values_callback(char *name, char *value, void *userdata) {
-	  zval *retval_ptr, *z_name, *z_value, **args[3];
-	  long retval = 0;
-	  int numargs = 2;
-	  TSRMLS_FETCH();
+static ASBool enum_values_callback(char *name, char *value, void *userdata)
+{
+	zval *retval_ptr, *z_name, *z_value, **args[3];
+	long retval = 0;
+	int numargs = 2;
+	TSRMLS_FETCH();
 
-	  MAKE_STD_ZVAL(z_name);
-	  ZVAL_STRING(z_name, name, 1);
-	  args[0] = &z_name;
+	MAKE_STD_ZVAL(z_name);
+	ZVAL_STRING(z_name, name, 1);
+	args[0] = &z_name;
 
-	  if(*value) { // simple value 
-		  MAKE_STD_ZVAL(z_value);
-		  ZVAL_STRING(z_value, value, 1);
-		  args[1] = &z_value;
-	  } else { // empty value *might* be an array
-		  // todo do it like fdf_get_value (or re-implement yourself?)
-	  }
-	  
-	  if(userdata) {
-		  args[2] = (zval **)userdata;
-		  numargs++;
-	  }
+	if (*value) { /* simple value */
+		MAKE_STD_ZVAL(z_value);
+		ZVAL_STRING(z_value, value, 1);
+		args[1] = &z_value;
+	} else { /* empty value *might* be an array */
+		/* TODO: do it like fdf_get_value (or re-implement yourself?) */
+	}
+	
+	if (userdata) {
+		args[2] = (zval **) userdata;
+		numargs++;
+	}
 
-	  if (call_user_function_ex(EG(function_table), 
+	if (call_user_function_ex(EG(function_table), 
 								NULL, 
 								FDF_G(enum_callback), 
 								&retval_ptr, 
 								numargs, args, 
-								0, NULL TSRMLS_CC)==SUCCESS
-		  && retval_ptr) {
-		  
-		  convert_to_long_ex(&retval_ptr);
-		  retval = Z_LVAL_P(retval_ptr);
-		  zval_ptr_dtor(&retval_ptr);
-	  } else {
+								0, NULL TSRMLS_CC) == SUCCESS
+		&& retval_ptr) {
+		
+		convert_to_long_ex(&retval_ptr);
+		retval = Z_LVAL_P(retval_ptr);
+		zval_ptr_dtor(&retval_ptr);
+	} else {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "callback failed");
-	  }
+	}
 
-	  zval_ptr_dtor(&z_name);
-	  zval_ptr_dtor(&z_value);
+	zval_ptr_dtor(&z_name);
+	zval_ptr_dtor(&z_value);
 
-	  return retval;
-  }
+	return (ASBool)retval;
+}
 /* }}} */
 
-/* {{{ proto bool fdf_enum_values(resource fdfdoc, mixed callback [, mixed userdata])
- */
+/* {{{ proto bool fdf_enum_values(resource fdfdoc, callback function [, mixed userdata])
+   Call a user defined function for each document value */
 PHP_FUNCTION(fdf_enum_values) {
 	zval *r_fdf;
 	zval *callback;
@@ -1576,8 +1596,8 @@ PHP_FUNCTION(fdf_enum_values) {
 }
 /* }}} */
 
-/* {{{ proto fdf_header() 
- Set FDF specific HTTP headers */
+/* {{{ proto void fdf_header(void) 
+   Set FDF specific HTTP headers */
 PHP_FUNCTION(fdf_header) {
 	sapi_header_line ctr = {0};
 	

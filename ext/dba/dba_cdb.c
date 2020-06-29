@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dba_cdb.c,v 1.23.2.1 2002/12/20 20:25:19 helly Exp $ */
+/* $Id: dba_cdb.c,v 1.23.2.6 2003/04/16 19:14:29 helly Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -35,12 +35,13 @@
 #include <fcntl.h>
 
 #if DBA_CDB_BUILTIN
-#include "libcdb/cdb.h"
-#include "libcdb/cdb_make.h"
-#include "libcdb/uint32.h"
+# include "libcdb/cdb.h"
+# include "libcdb/cdb_make.h"
+# include "libcdb/uint32.h"
 #else
-#include <cdb.h>
-#include <uint32.h>
+# ifdef CDB_INCLUDE_FILE
+#  include CDB_INCLUDE_FILE
+# endif
 #endif
 
 #define CDB_INFO \
@@ -85,10 +86,10 @@ DBA_OPEN_FUNC(cdb)
 			break;
 #if DBA_CDB_BUILTIN
 		case DBA_TRUNC:
-		case DBA_CREAT:
 			make = 1;
 			file = info->fp;
 			break;
+		case DBA_CREAT:
 		case DBA_WRITER:
 			*error = "Update operations are not supported";
 			return FAILURE; /* not supported */
@@ -162,7 +163,7 @@ DBA_FETCH_FUNC(cdb)
 			}
 		}
 		len = cdb_datalen(&cdb->c);
-		new_entry = emalloc(len+1);
+		new_entry = safe_emalloc(len, 1, 1);
 		
 		if (php_cdb_read(&cdb->c, new_entry, len, cdb_datapos(&cdb->c)) == -1) {
 			efree(new_entry);
@@ -267,7 +268,7 @@ DBA_FIRSTKEY_FUNC(cdb)
 	uint32_unpack(buf, &klen);
 	uint32_unpack(buf + 4, &dlen);
 
-	key = emalloc(klen + 1);
+	key = safe_emalloc(klen, 1, 1);
 	if (cdb_file_read(cdb->file, key, klen) < klen) {
 		efree(key);
 		key = NULL;
@@ -299,7 +300,7 @@ DBA_NEXTKEY_FUNC(cdb)
 	uint32_unpack(buf, &klen);
 	uint32_unpack(buf + 4, &dlen);
 	
-	key = emalloc(klen + 1);
+	key = safe_emalloc(klen, 1, 1);
 	if (cdb_file_read(cdb->file, key, klen) < klen) {
 		efree(key);
 		key = NULL;
@@ -322,6 +323,19 @@ DBA_SYNC_FUNC(cdb)
 {
 	/* this is read-only */
 	return SUCCESS;
+}
+
+DBA_INFO_FUNC(cdb)
+{
+#if DBA_CDB_BUILTIN
+	if (!strcmp(hnd->name, "cdb")) {
+		return estrdup(cdb_version());
+	} else {
+		return estrdup(cdb_make_version());
+	}
+#else
+	return estrdup("External");
+#endif
 }
 
 #endif

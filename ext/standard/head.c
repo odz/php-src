@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,7 +15,7 @@
    | Author: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                        |
    +----------------------------------------------------------------------+
  */
-/* $Id: head.c,v 1.66 2002/11/07 00:23:58 iliaa Exp $ */
+/* $Id: head.c,v 1.66.2.2 2003/03/07 13:42:20 ddhill Exp $ */
 
 #include <stdio.h>
 
@@ -142,7 +142,7 @@ PHPAPI int php_setcookie(char *name, int name_len, char *value, int value_len, t
 PHP_FUNCTION(setcookie)
 {
 	char *name, *value = NULL, *path = NULL, *domain = NULL;
-	time_t expires = 0;
+	long expires = 0;
 	zend_bool secure = 0;
 	int name_len, value_len, path_len, domain_len;
 

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: filestat.c,v 1.112.2.1 2002/12/05 22:46:40 iliaa Exp $ */
+/* $Id: filestat.c,v 1.112.2.6 2003/04/23 02:37:29 iliaa Exp $ */
 
 #include "php.h"
 #include "safe_mode.h"
@@ -564,7 +564,11 @@ static void php_stat(const char *filename, php_stat_len filename_length, int typ
 	char *stat_sb_names[13]={"dev", "ino", "mode", "nlink", "uid", "gid", "rdev",
 			      "size", "atime", "mtime", "ctime", "blksize", "blocks"};
 
-	if (PG(safe_mode) &&(!php_checkuid(filename, NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
+	if (!filename_length) {
+		RETURN_FALSE;
+	}
+
+	if (PG(safe_mode) &&(!php_checkuid_ex(filename, NULL, CHECKUID_CHECK_FILE_AND_DIR, IS_EXISTS_CHECK(type) ? CHECKUID_NO_ERRORS : 0))) {
 		RETURN_FALSE;
 	}
 
@@ -607,9 +611,10 @@ static void php_stat(const char *filename, php_stat_len filename_length, int typ
 			}
 			efree(BG(CurrentStatFile));
 			BG(CurrentStatFile) = NULL;
-			if (!IS_LINK_OPERATION(type)) { /* Don't require success for link operation */
+#if HAVE_SYMLINK
+			if (!IS_LINK_OPERATION(type))  /* Don't require success for link operation */
+#endif
 				RETURN_FALSE;
-			}
 		}
 	}
 
@@ -642,7 +647,7 @@ static void php_stat(const char *filename, php_stat_len filename_length, int typ
 
 			groups = getgroups(0, NULL);
 			if(groups) {
-				gids=(gid_t *)emalloc(groups*sizeof(gid_t));
+				gids=(gid_t *)safe_emalloc(groups, sizeof(gid_t), 0);
 				n=getgroups(groups, gids);
 				for(i=0;i<n;i++){
 					if(BG(sb).st_gid==gids[i]) {

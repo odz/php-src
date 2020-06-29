@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: openssl.c,v 1.52.2.5 2002/12/12 18:36:38 iliaa Exp $ */
+/* $Id: openssl.c,v 1.52.2.13 2003/05/05 16:29:57 wez Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -134,6 +134,8 @@ ZEND_GET_MODULE(openssl)
 static int le_key;
 static int le_x509;
 static int le_csr;
+
+static int ssl_stream_data_index;
 
 /* {{{ resource destructors */
 static void php_pkey_free(zend_rsrc_list_entry *rsrc TSRMLS_DC)
@@ -503,11 +505,9 @@ static int php_openssl_load_rand_file(const char * file, int *egdsocket, int *se
 	return SUCCESS;
 }
 
-static int php_openssl_write_rand_file(const char * file, int egdsocket, int seeded)
+static int php_openssl_write_rand_file(const char * file, int egdsocket, int seeded TSRMLS_DC)
 {
 	char buffer[MAXPATHLEN];
-	
-	TSRMLS_FETCH();
 	
 	if (egdsocket || !seeded) {
 		/* if we did not manage to read the seed file, we should not write
@@ -539,9 +539,14 @@ PHP_MINIT_FUNCTION(openssl)
 	OpenSSL_add_all_algorithms();
 
 	ERR_load_ERR_strings();
+	ERR_load_SSL_strings();
 	ERR_load_crypto_strings();
 	ERR_load_EVP_strings();
 
+	/* register a resource id number with openSSL so that we can map SSL -> stream structures in
+	 * openSSL callbacks */
+	ssl_stream_data_index = SSL_get_ex_new_index(0, "PHP stream index", NULL, NULL, NULL);
+	
 	/* purposes for cert purpose checking */
 	REGISTER_LONG_CONSTANT("X509_PURPOSE_SSL_CLIENT", X509_PURPOSE_SSL_CLIENT, CONST_CS|CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("X509_PURPOSE_SSL_SERVER", X509_PURPOSE_SSL_SERVER, CONST_CS|CONST_PERSISTENT);
@@ -712,7 +717,7 @@ PHP_FUNCTION(openssl_x509_export_to_file)
 	BIO * bio_out;
 	long certresource;
 	char * filename;
-	long filename_len;
+	int filename_len;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs|b", &zcert, &filename, &filename_len, &notext) == FAILURE)
 		return;
@@ -1000,7 +1005,7 @@ PHP_FUNCTION(openssl_x509_checkpurpose)
 	STACK_OF(X509) * untrustedchain = NULL;
 	long purpose;
 	char * untrusted = NULL;
-	long untrusted_len;
+	int untrusted_len;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zl|a!s", &zcert, &purpose, &zcainfo, &untrusted, &untrusted_len)
 			== FAILURE)
@@ -1339,7 +1344,7 @@ PHP_FUNCTION(openssl_csr_export_to_file)
 	X509_REQ * csr;
 	zval * zcsr = NULL;
 	zend_bool notext = 1;
-	char * filename = NULL; long filename_len;
+	char * filename = NULL; int filename_len;
 	BIO * bio_out;
 	long csr_resource;
 
@@ -1728,27 +1733,23 @@ static EVP_PKEY * php_openssl_evp_from_zval(zval ** val, int public_key, char * 
 		}
 		else	{
 			/* we want the private key */
+			BIO *in;
+
 			if (filename) {
-				BIO *in;
 				if (php_openssl_safe_mode_chk(filename TSRMLS_CC)) {
 					return NULL;
 				}
 				in = BIO_new_file(filename, "r");
-				if (in == NULL)
-					return NULL;
-				key = PEM_read_bio_PrivateKey(in, NULL,NULL, passphrase);
-				BIO_free(in);
+			} else {
+				in = BIO_new_mem_buf(Z_STRVAL_PP(val), Z_STRLEN_PP(val));
 			}
-			else	{
-				BIO *	b = BIO_new_mem_buf(Z_STRVAL_PP(val), Z_STRLEN_PP(val));
-				if (b == NULL)
-					return NULL;
 
-				key = (EVP_PKEY *) PEM_ASN1_read_bio((char *(*)())d2i_PrivateKey,
-					      PEM_STRING_EVP_PKEY, b,
-					      NULL, NULL, passphrase);
-				BIO_free(b);
+			if (in == NULL) {
+				return NULL;
 			}
+
+			key = PEM_read_bio_PrivateKey(in, NULL,NULL, passphrase);
+			BIO_free(in);
 		}
 	}
 
@@ -1794,7 +1795,7 @@ static EVP_PKEY * php_openssl_generate_private_key(struct php_x509_request * req
 		}
 	}
 
-	php_openssl_write_rand_file(randfile, egdsocket, seeded);
+	php_openssl_write_rand_file(randfile, egdsocket, seeded TSRMLS_CC);
 	
 	if (return_val == NULL) {
 		EVP_PKEY_free(req->priv_key);
@@ -1882,8 +1883,8 @@ PHP_FUNCTION(openssl_pkey_export_to_file)
 {
 	struct php_x509_request req;
 	zval * zpkey, * args = NULL;
-	char * passphrase = NULL; long passphrase_len = 0;
-	char * filename = NULL; long filename_len = 0;
+	char * passphrase = NULL; int passphrase_len = 0;
+	char * filename = NULL; int filename_len = 0;
 	long key_resource = -1;
 	EVP_PKEY * key;
 	BIO * bio_out = NULL;
@@ -1938,7 +1939,7 @@ PHP_FUNCTION(openssl_pkey_export)
 {
 	struct php_x509_request req;
 	zval * zpkey, * args = NULL, *out;
-	char * passphrase = NULL; long passphrase_len = 0;
+	char * passphrase = NULL; int passphrase_len = 0;
 	long key_resource = -1;
 	EVP_PKEY * key;
 	BIO * bio_out = NULL;
@@ -2030,7 +2031,7 @@ PHP_FUNCTION(openssl_pkey_get_private)
 	zval *cert;
 	EVP_PKEY *pkey;
 	char * passphrase = "";
-	long passphrase_len;
+	int passphrase_len;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z|s", &cert, &passphrase, &passphrase_len) == FAILURE)
 		return;
@@ -2060,9 +2061,9 @@ PHP_FUNCTION(openssl_pkcs7_verify)
 	PKCS7 * p7 = NULL;
 	BIO * in = NULL, * datain = NULL;
 	long flags = 0;
-	char * filename; long filename_len;
-	char * extracerts = NULL; long extracerts_len;
-	char * signersfilename = NULL; long signersfilename_len;
+	char * filename; int filename_len;
+	char * extracerts = NULL; int extracerts_len;
+	char * signersfilename = NULL; int signersfilename_len;
 	
 	RETVAL_LONG(-1);
 
@@ -2159,8 +2160,8 @@ PHP_FUNCTION(openssl_pkcs7_encrypt)
 	uint strindexlen;
 	ulong intindex;
 	char * strindex;
-	char * infilename = NULL;	long infilename_len;
-	char * outfilename = NULL;	long outfilename_len;
+	char * infilename = NULL;	int infilename_len;
+	char * outfilename = NULL;	int outfilename_len;
 	
 	RETVAL_FALSE;
 
@@ -2285,9 +2286,9 @@ PHP_FUNCTION(openssl_pkcs7_sign)
 	uint strindexlen;
 	HashPosition hpos;
 	char * strindex;
-	char * infilename;	long infilename_len;
-	char * outfilename;	long outfilename_len;
-	char * extracertsfilename = NULL; long extracertsfilename_len;
+	char * infilename;	int infilename_len;
+	char * outfilename;	int outfilename_len;
+	char * extracertsfilename = NULL; int extracertsfilename_len;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sszza!|ls",
 				&infilename, &infilename_len, &outfilename, &outfilename_len,
@@ -2385,8 +2386,8 @@ PHP_FUNCTION(openssl_pkcs7_decrypt)
 	long certresval, keyresval;
 	BIO * in = NULL, * out = NULL, * datain = NULL;
 	PKCS7 * p7 = NULL;
-	char * infilename;	long infilename_len;
-	char * outfilename;	long outfilename_len;
+	char * infilename;	int infilename_len;
+	char * outfilename;	int outfilename_len;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ssz|z", &infilename, &infilename_len,
 				&outfilename, &outfilename_len, &recipcert, &recipkey) == FAILURE)
@@ -2452,7 +2453,8 @@ PHP_FUNCTION(openssl_private_encrypt)
 	int successful = 0;
 	long keyresource = -1;
 	char * data;
-	long data_len, padding = RSA_PKCS1_PADDING;
+	int data_len;
+	long padding = RSA_PKCS1_PADDING;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "szz|l", &data, &data_len, &crypted, &key, &padding) == FAILURE)
 		return;
@@ -2509,7 +2511,7 @@ PHP_FUNCTION(openssl_private_decrypt)
 	long padding = RSA_PKCS1_PADDING;
 	long keyresource = -1;
 	char * data;
-	long data_len;
+	int data_len;
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "szz|l", &data, &data_len, &crypted, &key, &padding) == FAILURE)
 		return;
@@ -2572,7 +2574,7 @@ PHP_FUNCTION(openssl_public_encrypt)
 	long keyresource = -1;
 	long padding = RSA_PKCS1_PADDING;
 	char * data;
-	long data_len;
+	int data_len;
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "szz|l", &data, &data_len, &crypted, &key, &padding) == FAILURE)
 		return;
@@ -2629,7 +2631,7 @@ PHP_FUNCTION(openssl_public_decrypt)
 	long keyresource = -1;
 	long padding = RSA_PKCS1_PADDING;
 	char * data;
-	long data_len;
+	int data_len;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "szz|l", &data, &data_len, &crypted, &key, &padding) == FAILURE)
 		return;
@@ -2714,7 +2716,7 @@ PHP_FUNCTION(openssl_sign)
 	int siglen;
 	unsigned char *sigbuf;
 	long keyresource = -1;
-	char * data;	long data_len;
+	char * data;	int data_len;
 	EVP_MD_CTX md_ctx;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "szz", &data, &data_len, &signature, &key) == FAILURE)
@@ -2754,8 +2756,8 @@ PHP_FUNCTION(openssl_verify)
 	int err;
 	EVP_MD_CTX     md_ctx;
 	long keyresource = -1;
-	char * data;	long data_len;
-	char * signature;	long signature_len;
+	char * data;	int data_len;
+	char * signature;	int signature_len;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ssz", &data, &data_len,
 				&signature, &signature_len, &key) == FAILURE)
@@ -2789,7 +2791,7 @@ PHP_FUNCTION(openssl_seal)
 	long * key_resources;	/* so we know what to cleanup */
 	int i, len1, len2, *eksl, nkeys;
 	unsigned char *buf = NULL, **eks;
-	char * data;	long data_len;
+	char * data; int data_len;
 	EVP_CIPHER_CTX ctx;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "szza/",
@@ -2804,10 +2806,10 @@ PHP_FUNCTION(openssl_seal)
 		RETURN_FALSE;
 	}
 
-	pkeys = emalloc(nkeys * sizeof(*pkeys));
-	eksl = emalloc(nkeys * sizeof(*eksl));
-	eks = emalloc(nkeys * sizeof(*eks));
-	key_resources = emalloc(nkeys * sizeof(long));
+	pkeys = safe_emalloc(nkeys, sizeof(*pkeys), 0);
+	eksl = safe_emalloc(nkeys, sizeof(*eksl), 0);
+	eks = safe_emalloc(nkeys, sizeof(*eks), 0);
+	key_resources = safe_emalloc(nkeys, sizeof(long), 0);
 
 	/* get the public keys we are using to seal this data */
 	zend_hash_internal_pointer_reset_ex(pubkeysht, &pos);
@@ -2917,8 +2919,8 @@ PHP_FUNCTION(openssl_open)
 	unsigned char *buf;
 	long keyresource = -1;
 	EVP_CIPHER_CTX ctx;
-	char * data;	long data_len;
-	char * ekey;	long ekey_len;
+	char * data;	int data_len;
+	char * ekey;	int ekey_len;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "szsz", &data, &data_len,
 				&opendata, &ekey, &ekey_len, &privkey) == FAILURE)
@@ -2962,6 +2964,226 @@ PHP_FUNCTION(openssl_open)
 	RETURN_TRUE;
 }
 /* }}} */
+
+/* SSL verification functions */
+
+#define GET_VER_OPT(name)				(stream->context && SUCCESS == php_stream_context_get_option(stream->context, "ssl", name, &val))
+#define GET_VER_OPT_STRING(name, str)	if (GET_VER_OPT(name)) { convert_to_string_ex(val); str = Z_STRVAL_PP(val); }
+
+static int verify_callback(int preverify_ok, X509_STORE_CTX *ctx)
+{
+	php_stream *stream;
+	SSL *ssl;
+	X509 *err_cert;
+	int err, depth, ret;
+	zval **val;
+	TSRMLS_FETCH();
+
+	ret = preverify_ok;
+	
+	/* determine the status for the current cert */
+	err_cert = X509_STORE_CTX_get_current_cert(ctx);
+	err = X509_STORE_CTX_get_error(ctx);
+	depth = X509_STORE_CTX_get_error_depth(ctx);
+
+	/* conjure the stream & context to use */
+	ssl = X509_STORE_CTX_get_ex_data(ctx, SSL_get_ex_data_X509_STORE_CTX_idx());
+	stream = (php_stream*)SSL_get_ex_data(ssl, ssl_stream_data_index);
+
+	/* if allow_self_signed is set, make sure that verification succeeds */
+	if (err == X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT && GET_VER_OPT("allow_self_signed") && zval_is_true(*val)) {
+		ret = 1;
+	}
+	
+	/* check the depth */
+	if (GET_VER_OPT("verify_depth")) {
+		convert_to_long_ex(val);
+
+		if (depth > Z_LVAL_PP(val)) {
+			ret = 0;
+			X509_STORE_CTX_set_error(ctx, X509_V_ERR_CERT_CHAIN_TOO_LONG);
+		}
+	}
+	
+	return ret;
+	
+}
+
+int php_openssl_apply_verification_policy(SSL *ssl, X509 *peer, php_stream *stream TSRMLS_DC)
+{
+	zval **val = NULL;
+	char *cnmatch = NULL;
+	X509_NAME *name;
+	char buf[1024];
+	int err;
+	
+	/* verification is turned off */
+	if (!(GET_VER_OPT("verify_peer") && zval_is_true(*val))) {
+		return SUCCESS;
+	}
+
+	if (peer == NULL) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Could not get peer certificate");
+		return FAILURE;
+	}
+
+	err = SSL_get_verify_result(ssl);
+	switch (err) {
+		case X509_V_OK:
+			/* fine */
+			break;
+		case X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT:
+			if (GET_VER_OPT("allow_self_signed") && zval_is_true(*val)) {
+				/* allowed */
+				break;
+			}
+			/* not allowed, so fall through */
+		default:
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Could not verify peer: code:%d %s", err, X509_verify_cert_error_string(err));
+			return FAILURE;
+	}
+
+	/* if the cert passed the usual checks, apply our own local policies now */
+	
+	name = X509_get_subject_name(peer);
+
+	/* Does the common name match ? (used primarily for https://) */
+	GET_VER_OPT_STRING("CN_match", cnmatch);
+	if (cnmatch) {
+		int match = 0;
+		
+		X509_NAME_get_text_by_NID(name, NID_commonName, buf, sizeof(buf));
+
+		match = strcmp(cnmatch, buf) == 0;
+
+		if (!match && strlen(buf) > 3 && buf[0] == '*' && buf[1] == '.') {
+			/* Try wildcard */
+
+			if (strchr(buf+2, '.')) {
+				char *tmp = strstr(cnmatch, buf+1);
+
+				match = tmp && strcmp(tmp, buf+2) && tmp == strchr(cnmatch, '.');
+			}
+		}
+
+		if (!match) {
+			/* didn't match */
+			php_error_docref(NULL TSRMLS_CC, E_WARNING,
+					"Peer certificate CN=`%s' did not match expected CN=`%s'",
+					buf, cnmatch);
+
+			return FAILURE;
+		}
+	}
+
+	return SUCCESS;
+}
+
+static int passwd_callback(char *buf, int num, int verify, void *data)
+{
+	php_stream *stream = (php_stream *)data;
+	zval **val = NULL;
+	char *passphrase = NULL;
+	/* TODO: could expand this to make a callback into PHP user-space */
+
+	GET_VER_OPT_STRING("passphrase", passphrase);
+
+	if (passphrase) {
+		if (Z_STRLEN_PP(val) < num - 1) {
+			memcpy(buf, Z_STRVAL_PP(val), Z_STRLEN_PP(val)+1);
+			return Z_STRLEN_PP(val);
+		}
+	}
+	return 0;
+}
+
+SSL *php_SSL_new_from_context(SSL_CTX *ctx, php_stream *stream TSRMLS_DC)
+{
+	zval **val = NULL;
+	char *cafile = NULL;
+	char *capath = NULL;
+	char *certfile = NULL;
+	int ok = 1;
+	
+	
+	/* look at context options in the stream and set appropriate verification flags */
+	if (GET_VER_OPT("verify_peer") && zval_is_true(*val)) {
+		
+		/* turn on verification callback */
+		SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, verify_callback);
+
+		/* CA stuff */
+		GET_VER_OPT_STRING("cafile", cafile);
+		GET_VER_OPT_STRING("capath", capath);
+
+		if (cafile || capath) {
+			if (!SSL_CTX_load_verify_locations(ctx, cafile, capath)) {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to set verify locations `%s' `%s'\n", cafile, capath);
+				return NULL;
+			}
+		}
+
+		if (GET_VER_OPT("verify_depth")) {
+			convert_to_long_ex(val);
+			SSL_CTX_set_verify_depth(ctx, Z_LVAL_PP(val));
+		}
+
+	} else {
+		SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
+	}
+
+	/* callback for the passphrase (for localcert) */
+	if (GET_VER_OPT("passphrase")) {
+		SSL_CTX_set_default_passwd_cb_userdata(ctx, stream);
+		SSL_CTX_set_default_passwd_cb(ctx, passwd_callback);
+	}
+	
+	GET_VER_OPT_STRING("local_cert", certfile);
+	if (certfile) {
+		X509 *cert = NULL;
+		EVP_PKEY *key = NULL;
+		SSL *tmpssl;
+
+		/* a certificate to use for authentication */
+		if (SSL_CTX_use_certificate_chain_file(ctx, certfile) != 1) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to set local cert chain file `%s'; Check that your cafile/capath settings include details of your certificate and its issuer", certfile);
+			return NULL;
+		}
+
+		if (SSL_CTX_use_PrivateKey_file(ctx, certfile, SSL_FILETYPE_PEM) != 1) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to set private key file `%s'", certfile);
+			return NULL;
+		}
+
+		tmpssl = SSL_new(ctx);
+		cert = SSL_get_certificate(tmpssl);
+
+		if (cert) {
+			key = X509_get_pubkey(cert);
+			EVP_PKEY_copy_parameters(key, SSL_get_privatekey(tmpssl));
+			EVP_PKEY_free(key);
+		}
+		SSL_free(tmpssl);
+
+		if (!SSL_CTX_check_private_key(ctx)) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Private key does not match certificate!");
+		}
+	} 
+
+	if (ok) {
+		SSL *ssl = SSL_new(ctx);
+
+		if (ssl) {
+			/* map SSL => stream */
+			SSL_set_ex_data(ssl, ssl_stream_data_index, stream);
+		}
+		return ssl;
+	}
+	
+	return NULL;
+}
+
+
 
 /*
  * Local variables:

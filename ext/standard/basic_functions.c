@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: basic_functions.c,v 1.543.2.4 2002/12/20 16:37:44 helly Exp $ */
+/* $Id: basic_functions.c,v 1.543.2.17 2003/05/21 09:34:12 zeev Exp $ */
 
 #include "php.h"
 #include "php_streams.h"
@@ -545,6 +545,9 @@ function_entry basic_functions[] = {
 	PHP_FE(call_user_method_array,	second_arg_force_ref)
 	PHP_FE(serialize,														NULL)															
 	PHP_FE(unserialize,														NULL)
+#if MEMORY_LIMIT
+	PHP_FE(memory_get_usage,													NULL)
+#endif
 
 	PHP_FE(var_dump,														NULL)
 	PHP_FE(var_export,														NULL)
@@ -663,6 +666,7 @@ function_entry basic_functions[] = {
 
 	PHP_FE(stream_get_meta_data,											NULL)
 	PHP_FE(stream_register_wrapper,											NULL)
+	PHP_FALIAS(stream_wrapper_register, stream_register_wrapper,			NULL)
 
 #if HAVE_SYS_TIME_H || defined(PHP_WIN32)
 	PHP_FE(stream_set_timeout,												NULL)
@@ -862,7 +866,7 @@ function_entry basic_functions[] = {
 	PHP_FE(aggregate_methods_by_list,		first_arg_force_ref)
 	PHP_FE(aggregate_properties,			first_arg_force_ref)
 	PHP_FE(aggregate_properties_by_list,	first_arg_force_ref)
-#if HAVE_PCRE || HAVE_BUNDLED_PCRE
+#if (HAVE_PCRE || HAVE_BUNDLED_PCRE) && !defined(COMPILE_DL_PCRE)
 	PHP_FE(aggregate_methods_by_regexp,		first_arg_force_ref)
 	PHP_FE(aggregate_properties_by_regexp,	first_arg_force_ref)
 #endif
@@ -1098,10 +1102,6 @@ PHP_MSHUTDOWN_FUNCTION(basic)
 
 PHP_RINIT_FUNCTION(basic)
 {
-#ifdef PHP_WIN32
-	CoInitialize(NULL);
-#endif
-
 	memset(BG(strtok_table), 0, 256);
 	BG(strtok_string) = NULL;
 	BG(strtok_zval) = NULL;
@@ -1182,10 +1182,6 @@ PHP_RSHUTDOWN_FUNCTION(basic)
 	if (BG(mmap_file)) {
 		munmap(BG(mmap_file), BG(mmap_len));
 	}
-#endif
-
-#ifdef PHP_WIN32
-	CoUninitialize();
 #endif
 
 	return SUCCESS;
@@ -1439,7 +1435,7 @@ PHP_FUNCTION(getopt)
 		 * Attempt to allocate enough memory to hold all of the arguments
 		 * and a trailing NULL 
 		 */
-		if ((argv = (char **) emalloc((argc + 1) * sizeof(char *))) == NULL) {
+		if ((argv = (char **) safe_emalloc(sizeof(char *), (argc + 1), 0)) == NULL) {
 			RETURN_FALSE;
 		}
 
@@ -1807,7 +1803,7 @@ PHP_FUNCTION(call_user_func)
 		WRONG_PARAM_COUNT;
 	}
 
-	params = emalloc(sizeof(zval **) * argc);
+	params = safe_emalloc(sizeof(zval **), argc, 0);
 
 	if (zend_get_parameters_array_ex(argc, params) == FAILURE) {
 		efree(params);
@@ -1881,7 +1877,7 @@ PHP_FUNCTION(call_user_func_array)
 	func_params_ht = Z_ARRVAL_PP(params);
 
 	count = zend_hash_num_elements(func_params_ht);
-	func_params = emalloc(sizeof(zval **) * count);
+	func_params = safe_emalloc(sizeof(zval **), count, 0);
 
 	for (zend_hash_internal_pointer_reset(func_params_ht);
 		 zend_hash_get_current_data(func_params_ht, (void **) &func_params[current]) == SUCCESS;
@@ -1911,12 +1907,12 @@ PHP_FUNCTION(call_user_method)
 	zval *retval_ptr;
 	int arg_count = ZEND_NUM_ARGS();
 
-	php_error_docref(NULL TSRMLS_CC, E_NOTICE, _CUM_DEPREC);
+	php_error_docref(NULL TSRMLS_CC, E_NOTICE, "%s", _CUM_DEPREC);
 
 	if (arg_count < 2) {
 		WRONG_PARAM_COUNT;
 	}
-	params = (zval ***) emalloc(sizeof(zval **) * arg_count);
+	params = (zval ***) safe_emalloc(sizeof(zval **), arg_count, 0);
 
 	if (zend_get_parameters_array_ex(arg_count, params) == FAILURE) {
 		efree(params);
@@ -1948,7 +1944,7 @@ PHP_FUNCTION(call_user_method_array)
 	HashTable *params_ar;
 	int num_elems, element = 0;
 
-	php_error_docref(NULL TSRMLS_CC, E_NOTICE, _CUM_DEPREC);
+	php_error_docref(NULL TSRMLS_CC, E_NOTICE, "%s", _CUM_DEPREC);
 
 	if (ZEND_NUM_ARGS() != 3 || zend_get_parameters_ex(3, &method_name, &obj, &params) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -1966,7 +1962,7 @@ PHP_FUNCTION(call_user_method_array)
 
 	params_ar = HASH_OF(*params);
 	num_elems = zend_hash_num_elements(params_ar);
-	method_args = (zval ***) emalloc(sizeof(zval **) *num_elems);
+	method_args = (zval ***) safe_emalloc(sizeof(zval **), num_elems, 0);
 
 	for (zend_hash_internal_pointer_reset(params_ar);
 		 zend_hash_get_current_data(params_ar, (void **) &(method_args[element])) == SUCCESS;
@@ -2112,11 +2108,17 @@ PHP_FUNCTION(register_shutdown_function)
 		WRONG_PARAM_COUNT;
 	}
 
-	shutdown_function_entry.arguments = (pval **) emalloc(sizeof(pval *) *shutdown_function_entry.arg_count);
+	shutdown_function_entry.arguments = (pval **) safe_emalloc(sizeof(pval *), shutdown_function_entry.arg_count, 0);
 
 	if (zend_get_parameters_array(ht, shutdown_function_entry.arg_count, shutdown_function_entry.arguments) == FAILURE) {
 		RETURN_FALSE;
 	}
+	
+	/* Prevent entering of anything but arrays/strings */
+	if (Z_TYPE_P(shutdown_function_entry.arguments[0]) != IS_ARRAY) {
+		convert_to_string(shutdown_function_entry.arguments[0]);
+	}
+	
 	if (!BG(user_shutdown_function_names)) {
 		ALLOC_HASHTABLE(BG(user_shutdown_function_names));
 		zend_hash_init(BG(user_shutdown_function_names), 0, NULL, (void (*)(void *)) user_shutdown_function_dtor, 0);
@@ -2375,7 +2377,7 @@ PHP_FUNCTION(ini_set)
 }
 /* }}} */
 
-/* {{{ proto string ini_restore(string varname)
+/* {{{ proto void ini_restore(string varname)
    Restore the value of a configuration option specified by varname */
 PHP_FUNCTION(ini_restore)
 {
@@ -2438,7 +2440,7 @@ PHP_FUNCTION(get_include_path)
 
 /* }}} */
 
-/* {{{ proto string restore_include_path()
+/* {{{ proto void restore_include_path()
    Restore the value of the include_path configuration option */
 
 PHP_FUNCTION(restore_include_path)
@@ -2642,7 +2644,7 @@ PHP_FUNCTION(register_tick_function)
 		WRONG_PARAM_COUNT;
 	}
 
-	tick_fe.arguments = (zval **) emalloc(sizeof(zval *) * tick_fe.arg_count);
+	tick_fe.arguments = (zval **) safe_emalloc(sizeof(zval *), tick_fe.arg_count, 0);
 
 	if (zend_get_parameters_array(ht, tick_fe.arg_count, tick_fe.arguments) == FAILURE) {
 		RETURN_FALSE;
@@ -2676,9 +2678,11 @@ PHP_FUNCTION(unregister_tick_function)
 	zval **function;
 	user_tick_function_entry tick_fe;
 
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(ZEND_NUM_ARGS(), &function)) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &function)) {
 		WRONG_PARAM_COUNT;
 	}
+
+	if(!BG(user_tick_functions)) return;
 
 	if (Z_TYPE_PP(function) != IS_ARRAY) {
 		convert_to_string_ex(function);

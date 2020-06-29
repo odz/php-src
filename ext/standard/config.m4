@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.47 2002/10/30 15:11:11 hholzgra Exp $ -*- sh -*-
+dnl $Id: config.m4,v 1.47.2.2 2003/02/14 01:27:42 sniper Exp $ -*- sh -*-
 
 divert(3)dnl
 
@@ -58,6 +58,13 @@ dnl Check for crypt() capabilities
 dnl
 AC_DEFUN(AC_CRYPT_CAP,[
 
+  if test "$ac_cv_func_crypt" = "no"; then
+  AC_CHECK_LIB(crypt, crypt, [
+    LIBS="-lcrypt $LIBS -lcrypt"
+    AC_DEFINE(HAVE_CRYPT, 1, [ ])
+  ])
+  fi
+  
   AC_CACHE_CHECK(for standard DES crypt, ac_cv_crypt_des,[
   AC_TRY_RUN([
 #if HAVE_CRYPT_H
@@ -185,10 +192,6 @@ main() {
   AC_DEFINE_UNQUOTED(PHP_BLOWFISH_CRYPT, $ac_result, [Whether the system supports BlowFish salt])
 ])
 
-dnl AC_CHECK_LIB(pam, pam_start, [
-dnl   EXTRA_LIBS="$EXTRA_LIBS -lpam"
-dnl   AC_DEFINE(HAVE_LIBPAM,1,[ ]) ], []) 
-
 AC_CHECK_FUNCS(getcwd getwd asinh acosh atanh log1p hypot)
 
 AC_CRYPT_CAP
@@ -233,7 +236,7 @@ dnl AC_CHECK_FUNCS(getopt_long getopt_long_only)
 
 AC_CHECK_FUNCS(glob strfmon)
 
-if test "$PHP_SAPI" = "cgi"; then
+if test "$PHP_SAPI" = "cgi" -o "$PHP_SAPI" = "cli" -o "$PHP_SAPI" = "embed"; then
   AC_DEFINE(ENABLE_CHROOT_FUNC, 1, [Whether to enable chroot() function])
 fi
 

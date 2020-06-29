@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -19,7 +19,7 @@
  */
 
 
-/* $Id: datetime.c,v 1.96.2.2 2002/12/19 17:07:24 iliaa Exp $ */
+/* $Id: datetime.c,v 1.96.2.8 2003/05/04 11:22:00 moriyoshi Exp $ */
 
 
 #include "php.h"
@@ -123,7 +123,15 @@ void php_mktime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 	*/
 	switch(arg_count) {
 	case 7: /* daylight saving time flag */
+#ifdef PHP_WIN32
+		if (daylight > 0) {
+			ta->tm_isdst = is_dst = Z_LVAL_PP(arguments[6]);
+		} else {
+			ta->tm_isdst = is_dst = 0;
+		}
+#else
 		ta->tm_isdst = is_dst = Z_LVAL_PP(arguments[6]);
+#endif
 		/* fall-through */
 	case 6: /* year */
 		/* special case: 
@@ -286,6 +294,12 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 		}
 		convert_to_long_ex(timestamp);
 		the_time = Z_LVAL_PP(timestamp);
+#ifdef PHP_WIN32
+		if (the_time < 0) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Windows does not support dates prior to midnight (00:00:00), January 1, 1970");
+			RETURN_FALSE;
+		}
+#endif
 		break;
 	default:
 		WRONG_PARAM_COUNT;
@@ -305,7 +319,11 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 #else
 		tzone = timezone;
 #endif
-		tname[0] = tzname[0];
+		if (tzname[0] != NULL) {
+			tname[0] = tzname[0];
+		} else {
+			tname[0] = "???";
+		}
 #endif
 	}
 
@@ -329,7 +347,11 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 #if HAVE_TM_ZONE
 				size += strlen(ta->tm_zone);
 #elif HAVE_TZNAME
-				size += strlen(tname[0]);
+				if (ta->tm_isdst > 0 ) {
+					size += strlen(tname[1]);
+				} else {
+					size += strlen(tname[0]);
+				}
 #endif
 				break;
 			case 'Z':		/* timezone offset in seconds */
@@ -522,7 +544,7 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 #if HAVE_TM_ZONE
 				strcat(Z_STRVAL_P(return_value), ta->tm_zone);
 #elif HAVE_TZNAME
-				strcat(Z_STRVAL_P(return_value), tname[0]);
+				strcat(Z_STRVAL_P(return_value), ta->tm_isdst ? tname[1] : tname[0]);
 #endif
 				break;
 			case 'B':	/* Swatch Beat a.k.a. Internet Time */

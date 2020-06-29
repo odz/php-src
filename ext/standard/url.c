@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,7 +15,7 @@
    | Author: Jim Winstead <jimw@php.net>                                  |
    +----------------------------------------------------------------------+
  */
-/* $Id: url.c,v 1.58.2.2 2002/12/05 21:09:19 helly Exp $ */
+/* $Id: url.c,v 1.58.2.7 2003/04/28 16:18:34 sas Exp $ */
 
 #include <stdlib.h>
 #include <string.h>
@@ -124,6 +124,9 @@ PHPAPI php_url *php_url_parse(char *str)
 		
 			if (*(e+2) == '/') {
 				s = e + 3;
+				if (!strncasecmp("file", ret->scheme, sizeof("file"))) {
+					goto nohost;
+				}
 			} else {
 				s = e + 1;
 				if (!strncasecmp("file", ret->scheme, sizeof("file"))) {
@@ -157,12 +160,16 @@ PHPAPI php_url *php_url_parse(char *str)
 		goto nohost;
 	}
 	
-	if (!(e = strchr(s, '/'))) {
-		e = ue;
-	} else if (e && e == s) {
-		e = ue;
-	}
-
+	e = ue;
+	
+	if (!(p = strchr(s, '/'))) {
+		if ((p = strchr(s, '?'))) {
+			e = p;
+		}
+	} else {
+		e = p;
+	}	
+		
 	/* check for login and password */
 	if ((p = memchr(s, '@', (e-s)))) {
 		if ((pp = memchr(s, ':', (p-s)))) {

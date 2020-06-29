@@ -1,11 +1,11 @@
 /* $Source: /repository/php4/ext/mnogosearch/php_mnogo.h,v $ */
-/* $Id: php_mnogo.h,v 1.19 2002/08/03 08:53:26 gluke Exp $ */
+/* $Id: php_mnogo.h,v 1.19.4.2 2003/04/19 05:10:27 sas Exp $ */
 
 /* 
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -27,6 +27,8 @@
 
 #if HAVE_MNOGOSEARCH
 
+#undef HAVE_PGSQL
+#undef HAVE_MYSQL
 #include <udm_config.h>
 #include <udmsearch.h>
 

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_yaz.c,v 1.57.2.1 2002/11/14 14:06:40 iliaa Exp $ */
+/* $Id: php_yaz.c,v 1.57.2.4 2003/05/27 09:50:45 dickmeiss Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -944,44 +944,46 @@ PHP_FUNCTION(yaz_record)
 			if (!strcmp (type, "array"))
 			{
 				Z_External *ext = (Z_External *) ZOOM_record_get (r, "ext", 0);
-				oident *ent = oid_getentbyoid(ext->direct_reference);
-
-				if (ext->which == Z_External_grs1 && ent->value == VAL_GRS1)
+				if (ext)
 				{
-					retval_grs1 (return_value, ext->u.grs1);
-				}
-				else if (ext->which == Z_External_octet)
-				{
-					char *buf = (char *) (ext->u.octet_aligned->buf);
-					ODR odr = odr_createmem (ODR_DECODE);
-					Z_GenericRecord *rec = 0;
-
-					switch (ent->value)
+					oident *ent = oid_getentbyoid(ext->direct_reference);
+					if (ext->which == Z_External_grs1 && ent->value == VAL_GRS1)
 					{
-					case VAL_SOIF:
-					case VAL_HTML:
-						break;
-					case VAL_TEXT_XML:
-					case VAL_APPLICATION_XML:
-						/* text2grs1 (&buf, &len, t->odr_in, 0, 0); */
-						break;
-					default:
-						rec = marc_to_grs1 (buf, odr);
+						retval_grs1 (return_value, ext->u.grs1);
 					}
-					if (rec)
-						retval_grs1 (return_value, rec);
-					odr_destroy (odr);
+					else if (ext->which == Z_External_octet)
+					{
+						char *buf = (char *) (ext->u.octet_aligned->buf);
+						ODR odr = odr_createmem (ODR_DECODE);
+						Z_GenericRecord *rec = 0;
+						
+						switch (ent->value)
+						{
+						case VAL_SOIF:
+						case VAL_HTML:
+							break;
+						case VAL_TEXT_XML:
+						case VAL_APPLICATION_XML:
+							/* text2grs1 (&buf, &len, t->odr_in, 0, 0); */
+							break;
+						default:
+							rec = marc_to_grs1 (buf, odr);
+						}
+						if (rec)
+							retval_grs1 (return_value, rec);
+						odr_destroy (odr);
+					}
 				}
 			}
-            else
+			else
 			{
-                int rlen;
+				int rlen;
 				const char *info = ZOOM_record_get (r, type, &rlen);
 
-                return_value->value.str.len = (rlen > 0) ? rlen : 0;
-                return_value->value.str.val =
-                    estrndup(info, return_value->value.str.len);
-                return_value->type = IS_STRING;
+				return_value->value.str.len = (rlen > 0) ? rlen : 0;
+				return_value->value.str.val =
+					estrndup(info, return_value->value.str.len);
+				return_value->type = IS_STRING;
 			}
 		}
 	}
@@ -1475,16 +1477,17 @@ PHP_MINIT_FUNCTION(yaz)
 #ifdef ZTS
 	yaz_mutex = tsrm_mutex_alloc();
 #endif
-    yaz_log_init_file ("/dev/null");
 	ZEND_INIT_MODULE_GLOBALS(yaz, php_yaz_init_globals, NULL);
 
-    REGISTER_INI_ENTRIES();
+	REGISTER_INI_ENTRIES();
 
-    if (YAZSG(log_file))
-    {
-        yaz_log_init_file(YAZSG(log_file));
-        yaz_log_init_level (LOG_ALL);
-    }
+	if (YAZSG(log_file))
+	{
+		yaz_log_init_file(YAZSG(log_file));
+		yaz_log_init_level(LOG_ALL);
+	}
+	else
+		yaz_log_init_level(0);
 	le_link = zend_register_list_destructors_ex (yaz_close_link, 0,
 												"YAZ link", module_number);
 	order_associations = 1;
@@ -1509,6 +1512,7 @@ PHP_MSHUTDOWN_FUNCTION(yaz)
 #ifdef ZTS
 	tsrm_mutex_free (yaz_mutex);
 #endif
+	yaz_log_init_file(0);
 	return SUCCESS;
 }
 

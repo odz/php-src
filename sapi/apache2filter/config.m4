@@ -1,10 +1,10 @@
 dnl
-dnl $Id: config.m4,v 1.25 2002/09/23 17:40:04 dreid Exp $
+dnl $Id: config.m4,v 1.25.2.5 2003/04/28 19:42:30 sas Exp $
 dnl
 
 AC_MSG_CHECKING(for Apache 2.0 module support via DSO through APXS)
-AC_ARG_WITH(apxs2,
-[  --with-apxs2[=FILE]     EXPERIMENTAL: Build shared Apache 2.0 module. FILE is the optional
+AC_ARG_WITH(apxs2filter,
+[  --with-apxs2filter[=FILE]   EXPERIMENTAL: Build shared Apache 2.0 module. FILE is the optional
                           pathname to the Apache apxs tool; defaults to "apxs".],[
   if test "$withval" = "yes"; then
     APXS=apxs
@@ -23,7 +23,7 @@ AC_ARG_WITH(apxs2,
     AC_MSG_RESULT([Sorry, I cannot run apxs.  Possible reasons follow:]) 
     AC_MSG_RESULT()
     AC_MSG_RESULT([1. Perl is not installed])
-    AC_MSG_RESULT([2. apxs was not found. Try to pass the path using --with-apxs2=/path/to/apxs])
+    AC_MSG_RESULT([2. apxs was not found. Try to pass the path using --with-apxs2filter=/path/to/apxs])
     AC_MSG_RESULT([3. Apache was not built using --enable-so (the apxs usage page is displayed)])
     AC_MSG_RESULT()
     AC_MSG_RESULT([The output of $APXS follows:])
@@ -52,18 +52,21 @@ AC_ARG_WITH(apxs2,
 
   APXS_LIBEXECDIR='$(INSTALL_ROOT)'`$APXS -q LIBEXECDIR`
   if test -z `$APXS -q SYSCONFDIR`; then
-    optarg=-a
+    INSTALL_IT="\$(mkinstalldirs) '$APXS_LIBEXECDIR' && \
+                 $APXS -S LIBEXECDIR='$APXS_LIBEXECDIR' \
+                       -i -n php4"
   else
-    optarg=
+    APXS_SYSCONFDIR='$(INSTALL_ROOT)'`$APXS -q SYSCONFDIR`
+    INSTALL_IT="\$(mkinstalldirs) '$APXS_LIBEXECDIR' && \
+                \$(mkinstalldirs) '$APXS_SYSCONFDIR' && \
+                 $APXS -S LIBEXECDIR='$APXS_LIBEXECDIR' \
+                       -S SYSCONFDIR='$APXS_SYSCONFDIR' \
+                       -i -a -n php4"
   fi
-
-  INSTALL_IT='$(mkinstalldirs) '"$APXS_LIBEXECDIR && \
-$APXS -S LIBEXECDIR='$APXS_LIBEXECDIR' -i ${optarg}-n php4"
 
   case $host_alias in
   *aix*)
-    APXS_SBINDIR=`$APXS -q SBINDIR`
-    EXTRA_LDFLAGS="$EXTRA_LDFLAGS -Wl,-bI:$APXS_SBINDIR/httpd.exp"
+    EXTRA_LDFLAGS="$EXTRA_LDFLAGS -Wl,-brtl -Wl,-bI:$APXS_LIBEXECDIR/httpd.exp"
     PHP_SELECT_SAPI(apache2filter, shared, sapi_apache2.c apache_config.c php_functions.c)
     INSTALL_IT="$INSTALL_IT $SAPI_LIBTOOL" 
     ;;

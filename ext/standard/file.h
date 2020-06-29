@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: file.h,v 1.70.2.1 2002/11/30 18:39:31 helly Exp $ */
+/* $Id: file.h,v 1.70.2.3 2003/04/26 21:34:48 wez Exp $ */
 
 /* Synced with php 3.0 revision 1.30 1999-06-16 [ssb] */
 
@@ -126,6 +126,7 @@ extern int file_globals_id;
 extern php_file_globals file_globals;
 #endif
 
+PHPAPI int php_le_stream_context(void);
 
 #endif /* FILE_H */
 

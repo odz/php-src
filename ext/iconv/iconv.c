@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: iconv.c,v 1.65.2.1 2002/11/14 23:08:54 moriyoshi Exp $ */
+/* $Id: iconv.c,v 1.65.2.4 2003/03/04 17:20:27 moriyoshi Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -230,6 +230,18 @@ php_iconv_err_t php_iconv_string(const char *in_p, size_t in_len,
 		efree(out_buffer);
 		return PHP_ICONV_ERR_UNKNOWN;
 	}
+
+	if (out_left < 8) {
+		out_buffer = (char *) erealloc(out_buffer, out_size + 8);
+	}
+
+	/* flush the shift-out sequences */ 
+	result = icv(cd, NULL, NULL, &out_p, &out_left);
+
+	if (result == (size_t)(-1)) {
+		efree(out_buffer);
+		return PHP_ICONV_ERR_UNKNOWN;
+	}
 	
 	*out_len = out_size - out_left;
 	out_buffer[*out_len] = '\0';
@@ -288,6 +300,34 @@ php_iconv_err_t php_iconv_string(const char *in_p, size_t in_len,
 		}
 		break;
 	}
+
+	if (result != (size_t)(-1)) {
+		/* flush the shift-out sequences */ 
+		for (;;) {
+		   	result = icv(cd, NULL, NULL, (char **) &out_p, &out_left);
+			out_size = bsz - out_left;
+
+			if (result != (size_t)(-1)) {
+				break;
+			}
+
+			if (errno == E2BIG) {
+				bsz += 16;
+				tmp_buf = (char *) erealloc(out_buf, bsz);
+
+				if (tmp_buf == NULL) {
+					break;
+				}
+				
+				out_p = out_buf = tmp_buf;
+				out_p += out_size;
+				out_left = bsz - out_size;
+			} else {
+				break;
+			}
+		}
+	}
+
 	icv_close(cd);
 
 	if (result == (size_t)(-1)) {
@@ -299,6 +339,7 @@ php_iconv_err_t php_iconv_string(const char *in_p, size_t in_len,
 			case EILSEQ:
 				retval = PHP_ICONV_ERR_ILLEGAL_SEQ;
 				break;
+
 			case E2BIG:
 				/* should not happen */
 				retval = PHP_ICONV_ERR_TOO_BIG;
@@ -387,7 +428,8 @@ PHP_FUNCTION(ob_iconv_handler)
 	char *out_buffer, *content_type, *mimetype = NULL, *s;
 	zval *zv_string;
 	unsigned int out_len;
-	int status, mimetype_alloced  = 0;
+	int mimetype_alloced  = 0;
+	long status;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zl", &zv_string, &status) == FAILURE)
 		return;

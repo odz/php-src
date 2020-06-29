@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_zlib.h,v 1.32 2002/08/09 22:29:58 helly Exp $ */
+/* $Id: php_zlib.h,v 1.32.4.5 2003/03/10 13:35:21 ddhill Exp $ */
 
 #ifndef PHP_ZLIB_H
 #define PHP_ZLIB_H
@@ -31,8 +31,8 @@ ZEND_BEGIN_MODULE_GLOBALS(zlib)
 	uLong crc;
 	int ob_gzhandler_status;
 	int ob_gzip_coding;
-	int output_compression;
-	int output_compression_level;
+	long output_compression;
+	long output_compression_level;
 	char *output_handler;
 ZEND_END_MODULE_GLOBALS(zlib)
 
@@ -52,8 +52,10 @@ PHP_FUNCTION(gzdeflate);
 PHP_FUNCTION(gzinflate);
 PHP_FUNCTION(gzencode);
 PHP_FUNCTION(ob_gzhandler);
+PHP_FUNCTION(zlib_get_coding_type);
 
 int php_enable_output_compression(int buffer_size TSRMLS_DC);
+int php_ob_gzhandler_check(TSRMLS_D);
 
 php_stream *php_stream_gzopen(php_stream_wrapper *wrapper, char *path, char *mode, int options, char **opened_path, php_stream_context *context STREAMS_DC TSRMLS_DC);
 extern php_stream_ops php_stream_gzio_ops;

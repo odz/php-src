@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2002 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -87,7 +87,7 @@ BEGIN_EXTERN_C()
 #define INIT_CLASS_ENTRY(class_container, class_name, functions)	\
 	{																\
 		class_container.name = strdup(class_name);					\
-		class_container.name_length = sizeof(class_name)-1;			\
+		class_container.name_length = sizeof(class_name) - 1;		\
 		class_container.builtin_functions = functions;				\
 		class_container.handle_function_call = NULL;				\
 		class_container.handle_property_get = NULL;					\
@@ -97,7 +97,7 @@ BEGIN_EXTERN_C()
 #define INIT_OVERLOADED_CLASS_ENTRY(class_container, class_name, functions, handle_fcall, handle_propget, handle_propset) \
 	{															\
 		class_container.name = strdup(class_name);				\
-		class_container.name_length = sizeof(class_name)-1;		\
+		class_container.name_length = sizeof(class_name) - 1;	\
 		class_container.builtin_functions = functions;			\
 		class_container.handle_function_call = handle_fcall;	\
 		class_container.handle_property_get = handle_propget;	\
@@ -137,6 +137,7 @@ ZEND_API zend_class_entry *zend_register_internal_class_ex(zend_class_entry *cla
 
 ZEND_API zend_module_entry *zend_get_module(int module_number);
 ZEND_API int zend_disable_function(char *function_name, uint function_name_length TSRMLS_DC);
+ZEND_API int zend_disable_class(char *class_name, uint class_name_length TSRMLS_DC);
 
 ZEND_API void zend_wrong_param_count(TSRMLS_D);
 ZEND_API zend_bool zend_is_callable(zval *callable, zend_bool syntax_only, char **callable_name);

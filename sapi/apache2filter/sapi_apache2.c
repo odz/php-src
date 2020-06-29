@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sapi_apache2.c,v 1.91.2.2 2002/12/21 21:52:41 moriyoshi Exp $ */
+/* $Id: sapi_apache2.c,v 1.91.2.15 2003/05/23 02:42:22 iliaa Exp $ */
 
 #include <fcntl.h>
 
@@ -46,6 +46,13 @@
 #include "ap_mpm.h"
 
 #include "php_apache.h"
+
+/* UnixWare defines shutdown to _shutdown, which causes problems later
+ * on when using a structure member named shutdown. Since this source
+ * file does not use the system call shutdown, it is safe to #undef it.
+ */
+#undef shutdown
+
  
 /* A way to specify the location of the php.ini dir in an apache directive */
 char *apache2_php_ini_path_override = NULL;
@@ -198,13 +205,20 @@ php_apache_sapi_register_variables(zval *track_vars_array TSRMLS_DC)
 	php_struct *ctx = SG(server_context);
 	const apr_array_header_t *arr = apr_table_elts(ctx->r->subprocess_env);
 	char *key, *val;
+ 	zval **path_translated_zv;
 	
 	APR_ARRAY_FOREACH_OPEN(arr, key, val)
 		if (!val) val = empty_string;
 		php_register_variable(key, val, track_vars_array TSRMLS_CC);
 	APR_ARRAY_FOREACH_CLOSE()
-		
+
 	php_register_variable("PHP_SELF", ctx->r->uri, track_vars_array TSRMLS_CC);
+
+	/* If PATH_TRANSLATED doesn't exist, copy it from SCRIPT_FILENAME */
+ 	if (!zend_hash_exists(Z_ARRVAL_P(track_vars_array), "PATH_TRANSLATED", sizeof("PATH_TRANSLATED"))
+ 		&& zend_hash_find(Z_ARRVAL_P(track_vars_array), "SCRIPT_FILENAME", sizeof("SCRIPT_FILENAME"), (void **) &path_translated_zv) == SUCCESS) {
+ 		php_register_variable("PATH_TRANSLATED", Z_STRVAL_PP(path_translated_zv), track_vars_array TSRMLS_CC);
+ 	}
 }
 
 static void
@@ -261,6 +275,17 @@ static void php_apache_sapi_log_message(char *msg)
 	}
 }
 
+static int
+php_apache_disable_caching(ap_filter_t *f)
+{
+	/* Identify PHP scripts as non-cacheable, thus preventing 
+	 * Apache from sending a 304 status when the browser sends
+	 * If-Modified-Since header.
+	 */
+	f->r->no_local_copy = 1;
+	
+	return OK;
+}
 
 extern zend_module_entry php_apache_module;
 
@@ -351,13 +376,14 @@ static void php_apache_request_ctor(ap_filter_t *f, php_struct *ctx TSRMLS_DC)
 	const char *auth;
 	
 	PG(during_request_startup) = 0;
-	SG(sapi_headers).http_response_code = 200;
+	SG(sapi_headers).http_response_code = !f->r->status ? HTTP_OK : f->r->status;
 	SG(request_info).content_type = apr_table_get(f->r->headers_in, "Content-Type");
 #undef safe_strdup
 #define safe_strdup(x) ((x)?strdup((x)):NULL)	
 	SG(request_info).query_string = safe_strdup(f->r->args);
 	SG(request_info).request_method = f->r->method;
 	SG(request_info).request_uri = safe_strdup(f->r->uri);
+	SG(request_info).path_translated = safe_strdup(f->r->filename);
 	f->r->no_local_copy = 1;
 	content_type = sapi_get_default_content_type(TSRMLS_C);
 	f->r->content_type = apr_pstrdup(f->r->pool, content_type);
@@ -369,7 +395,7 @@ static void php_apache_request_ctor(ap_filter_t *f, php_struct *ctx TSRMLS_DC)
 	apr_table_unset(f->r->headers_out, "Expires");
 	apr_table_unset(f->r->headers_out, "ETag");
 	apr_table_unset(f->r->headers_in, "Connection");
-	if (!PG(safe_mode)) {
+	if (!PG(safe_mode) || (PG(safe_mode) && !ap_auth_type(f->r))) {
 		auth = apr_table_get(f->r->headers_in, "Authorization");
 		php_handle_auth_data(auth TSRMLS_CC);
 	} else {
@@ -473,7 +499,9 @@ static int php_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 			
 			php_apache_request_dtor(f TSRMLS_CC);
 			
-			ctx->request_processed = 1;
+			if (!f->r->main) {
+				ctx->request_processed = 1;
+			}
 
 			/* Delete the FILE bucket from the brigade. */
 			apr_bucket_delete(b);
@@ -630,8 +658,8 @@ static void php_register_hook(apr_pool_t *p)
 	ap_hook_post_config(php_apache_server_startup, NULL, NULL, APR_HOOK_MIDDLE);
 	ap_hook_insert_filter(php_insert_filter, NULL, NULL, APR_HOOK_MIDDLE);
 	ap_hook_post_read_request(php_post_read_request, NULL, NULL, APR_HOOK_MIDDLE);
-	ap_register_output_filter("PHP", php_output_filter, NULL, AP_FTYPE_RESOURCE);
-	ap_register_input_filter("PHP", php_input_filter, NULL, AP_FTYPE_RESOURCE);
+	ap_register_output_filter("PHP", php_output_filter, php_apache_disable_caching, AP_FTYPE_RESOURCE);
+	ap_register_input_filter("PHP", php_input_filter, php_apache_disable_caching, AP_FTYPE_RESOURCE);
 }
 
 AP_MODULE_DECLARE_DATA module php4_module = {

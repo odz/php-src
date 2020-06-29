@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: db.c,v 1.81.2.1 2002/12/05 19:50:40 helly Exp $ */
+/* $Id: db.c,v 1.81.2.3 2003/03/06 20:58:14 sesser Exp $ */
 #define IS_EXT_MODULE
 
 #ifdef HAVE_CONFIG_H
@@ -260,7 +260,7 @@ PHP_MINFO_FUNCTION(db)
 {
 	/* this isn't pretty ... should break out the info a bit more (cmv) */
 	php_info_print_box_start(0);
-	php_printf(php_get_info_db());
+	php_printf("%s", php_get_info_db());
 	php_info_print_box_end();
 }
 /* }}} */

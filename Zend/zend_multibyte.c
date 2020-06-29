@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2002 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/*	$Id: zend_multibyte.c,v 1.4 2002/10/20 02:57:39 fujimoto Exp $ */
+/*	$Id: zend_multibyte.c,v 1.4.2.1 2002/12/31 16:23:04 sebastian Exp $ */
 
 #include "zend.h"
 #include "zend_compile.h"

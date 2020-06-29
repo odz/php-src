@@ -36,6 +36,27 @@
  * - do not test PEAR components if base class and/or component class cannot be instanciated
  */
 
+
+/* Sanity check to ensure that pcre extension needed by this script is avaliable.
+ * In the event it is not, print a nice error message indicating that this script will
+ * not run without it.
+ */
+
+if (!extension_loaded("pcre")) {
+	echo <<<NO_PCRE_ERROR
+
++-----------------------------------------------------------+
+|                       ! ERROR !                           |
+| The test-suite requires that you have pcre extension      |
+| enabled. To enable this extension either compile your PHP |
+| with --with-pcre-regex or if you've compiled pcre as a    |
+| shared module load it via php.ini.                        |
++-----------------------------------------------------------+
+
+NO_PCRE_ERROR;
+exit;
+}
+
 // change into the PHP source directory.
 
 if (getenv('TEST_PHP_SRCDIR')) {
@@ -44,9 +65,11 @@ if (getenv('TEST_PHP_SRCDIR')) {
 
 $cwd = getcwd();
 set_time_limit(0);
-while(ob_get_level()) {
-	ob_end_clean();
-}
+
+// delete as much output buffers as possible
+while(@ob_end_clean());
+if (ob_get_level()) echo "Not all buffers were deleted.\n";
+
 error_reporting(E_ALL);
 ini_set('magic_quotes_runtime',0); // this would break tests by modifying EXPECT sections
 
@@ -71,7 +94,12 @@ SAFE_MODE_WARNING;
 
 if (getenv('TEST_PHP_EXECUTABLE')) {
 	$php = getenv('TEST_PHP_EXECUTABLE');
-} else {
+	if ($php=='auto') {
+		$php = $cwd.'/sapi/cli/php';
+		putenv("TEST_PHP_EXECUTABLE=$php");
+	}
+}
+if (!file_exists($php)) {
 	error("environment variable TEST_PHP_EXECUTABLE must be set to specify PHP executable!");
 }
 
@@ -111,6 +139,7 @@ INI actual  : " . realpath(get_cfg_var("cfg_file_path")) . "
 More .INIs  : " . (function_exists(\'php_ini_scanned_files\') ? str_replace("\n","", php_ini_scanned_files()) : "** not determined **"); ?>';
 save_text($info_file, $php_info);
 $ini_overwrites = array(
+		'mbstring.script_encoding=pass',
 		'output_handler=',
 		'zlib.output_compression=Off',
 		'open_basedir=',
@@ -136,6 +165,7 @@ settings2array($ini_overwrites,$info_params);
 settings2params($info_params);
 $php_info = `$php $info_params $info_file`;
 @unlink($info_file);
+define('TESTED_PHP_VERSION', `$php -r 'echo PHP_VERSION;'`);
 
 // Write test context information.
 
@@ -163,10 +193,11 @@ if (isset($argc) && $argc > 1) {
 		$testfile = realpath($argv[$i]);
 		if (is_dir($testfile)) {
 			find_files($testfile);
-		} else if(preg_match("/\.phpt$/", $testfile)) {
+		} else if (preg_match("/\.phpt$/", $testfile)) {
 			$test_files[] = $testfile;
 		}
 	}
+	$test_files = array_unique($test_files);
 
 	// Run selected tests.
 	if (count($test_files)) {
@@ -175,7 +206,7 @@ if (isset($argc) && $argc > 1) {
 		foreach($test_files AS $name) {
 			$test_results[$name] = run_test($php,$name);
 		}
-		if(getenv('REPORT_EXIT_STATUS') == 1 and ereg('FAILED( |$)', implode(' ', $test_results))) {
+		if (getenv('REPORT_EXIT_STATUS') == 1 and ereg('FAILED( |$)', implode(' ', $test_results))) {
 			exit(1);
 		}
 		exit(0);
@@ -244,6 +275,7 @@ function test_sort($a, $b) {
 	}
 }
 
+$test_files = array_unique($test_files);
 usort($test_files, "test_sort");
 
 $start_time = time();
@@ -268,7 +300,7 @@ if (0 == count($test_results)) {
 $n_total = count($test_results);
 $n_total += $ignored_by_ext;
 
-$sum_results = array('PASSED'=>0, 'SKIPPED'=>0, 'FAILED'=>0);
+$sum_results = array('PASSED'=>0, 'WARNED'=>0, 'SKIPPED'=>0, 'FAILED'=>0);
 foreach ($test_results as $v) {
 	$sum_results[$v]++;
 }
@@ -291,6 +323,7 @@ Exts tested     : " . sprintf("%4d",$exts_tested) . "
 ---------------------------------------------------------------------
 Number of tests : " . sprintf("%4d",$n_total) . "
 Tests skipped   : " . sprintf("%4d (%2.1f%%)",$sum_results['SKIPPED'],$percent_results['SKIPPED']) . "
+Tests warned    : " . sprintf("%4d (%2.1f%%)",$sum_results['WARNED'],$percent_results['WARNED']) . "
 Tests failed    : " . sprintf("%4d (%2.1f%%)",$sum_results['FAILED'],$percent_results['FAILED']) . "
 Tests passed    : " . sprintf("%4d (%2.1f%%)",$sum_results['PASSED'],$percent_results['PASSED']) . "
 ---------------------------------------------------------------------
@@ -307,7 +340,7 @@ FAILED TEST SUMMARY
 ---------------------------------------------------------------------
 ";
 	foreach ($GLOBALS['__PHP_FAILED_TESTS__'] as $failed_test_data) {
-		$failed_test_summary .=  $failed_test_data['test_name'] . "\n";
+		$failed_test_summary .=  $failed_test_data['test_name'] . $failed_test_data['info'] . "\n";
 	}
 	$failed_test_summary .=  "=====================================================================\n";
 }
@@ -322,8 +355,10 @@ define('QA_SUBMISSION_PAGE', 'http://qa.php.net/buildtest-process.php');
 /* We got failed Tests, offer the user to send and e-mail to QA team, unless NO_INTERACTION is set */
 if (!getenv('NO_INTERACTION')) {
 	$fp = fopen("php://stdin", "r+");
-	echo "\nPlease allow this report to be send to the PHP QA\nteam. This will give us a better understanding in how\n";
-	echo "PHP's test cases are doing.\n";
+	echo "\nPlease allow this report to be sent to the PHP QA\nteam. This will give us a better understanding in how\n";
+	echo "PHP's test cases are doing.  Note that the report will include\ndetailed configuration data about your system\n";
+	echo "so if you are worried about exposing sensitive data,\nsave this to a file first and remove any sensitive data\n";
+	echo "and then send this file to php-qa@lists.php.net.\n";
 	echo "(choose \"s\" to just save the results to a file)? [Yns]: ";
 	flush();
 	$user_input = fgets($fp, 10);
@@ -354,7 +389,7 @@ if (!getenv('NO_INTERACTION')) {
 
 		if ($sum_results['FAILED']) {
 			foreach ($GLOBALS['__PHP_FAILED_TESTS__'] as $test_info) {
-				$failed_tests_data .= $sep . $test_info['name'];
+				$failed_tests_data .= $sep . $test_info['name'] . $test_info['info'];
 				$failed_tests_data .= $sep . file_get_contents(realpath($test_info['output']));
 				$failed_tests_data .= $sep . file_get_contents(realpath($test_info['diff']));
 				$failed_tests_data .= $sep . "\n\n";
@@ -366,7 +401,7 @@ if (!getenv('NO_INTERACTION')) {
 		
 		$failed_tests_data .= "\n" . $sep . 'BUILD ENVIRONMENT' . $sep;
 		$failed_tests_data .= "OS:\n". PHP_OS. "\n\n";
-		$automake = $autoconf = $libtool = $compiler = 'N/A';
+		$ldd = $automake = $autoconf = $libtool = $compiler = 'N/A';
 
 		if (substr(PHP_OS, 0, 3) != "WIN") {
 			$automake = shell_exec('automake --version');
@@ -378,17 +413,19 @@ if (!getenv('NO_INTERACTION')) {
 			$cc_status=0;
 			foreach($flags AS $flag) {
 				system(getenv('CC')." $flag >/dev/null 2>&1", $cc_status);
-				if($cc_status == 0) {
+				if ($cc_status == 0) {
 					$compiler = shell_exec(getenv('CC')." $flag 2>&1");
 					break;
 				}
 			}
+			$ldd = shell_exec("ldd $php");
 		}
 		$failed_tests_data .= "Automake:\n$automake\n";
 		$failed_tests_data .= "Autoconf:\n$autoconf\n";
 		$failed_tests_data .= "Libtool:\n$libtool\n";
 		$failed_tests_data .= "Compiler:\n$compiler\n";
 		$failed_tests_data .= "Bison:\n". @shell_exec('bison --version'). "\n";
+		$failed_tests_data .= "Libraries:\n$ldd\n";
 		$failed_tests_data .= "\n";
 		
 		if (isset($user_email)) {
@@ -406,8 +443,10 @@ if (!getenv('NO_INTERACTION')) {
 			fwrite($fp, $failed_tests_data);
 			fclose($fp);
 		
-			if (!$just_save_results)
+			if (!$just_save_results) {
 			    echo "\nThe test script was unable to automatically send the report to PHP's QA Team\n";
+			}
+
 			echo "Please send ".$output_file." to ".PHP_QA_EMAIL." manually, thank you.\n";
 		} else {
 			fwrite($fp, "\nThank you for helping to make PHP better.\n");
@@ -416,7 +455,7 @@ if (!getenv('NO_INTERACTION')) {
 	}
 }
  
-if(getenv('REPORT_EXIT_STATUS') == 1 and $sum_results['FAILED']) {
+if (getenv('REPORT_EXIT_STATUS') == 1 and $sum_results['FAILED']) {
 	exit(1);
 }
 
@@ -437,8 +476,10 @@ function mail_qa_team($data, $compression, $status = FALSE)
 		return FALSE;
 	}
 
+	$php_version = urlencode(TESTED_PHP_VERSION);
+
 	echo "\nPosting to {$url_bits['host']} {$url_bits['path']}\n";
-	fwrite($fs, "POST ".$url_bits['path']."?status=$status HTTP/1.1\r\n");
+	fwrite($fs, "POST ".$url_bits['path']."?status=$status&version=$php_version HTTP/1.1\r\n");
 	fwrite($fs, "Host: ".$url_bits['host']."\r\n");
 	fwrite($fs, "User-Agent: QA Browser 0.1\r\n");
 	fwrite($fs, "Content-Type: application/x-www-form-urlencoded\r\n");
@@ -554,6 +595,8 @@ TEST $file
 	putenv("CONTENT_LENGTH=");
 
 	// Check if test should be skipped.
+	$info = '';
+	$warn = false;
 	if (array_key_exists('SKIPIF', $section_text)) {
 		if (trim($section_text['SKIPIF'])) {
 			save_text($tmp_skipif, $section_text['SKIPIF']);
@@ -572,7 +615,16 @@ TEST $file
 			if (eregi("^info", trim($output))) {
 				$reason = (ereg("^info[[:space:]]*(.+)\$", trim($output))) ? ereg_replace("^info[[:space:]]*(.+)\$", "\\1", trim($output)) : FALSE;
 				if ($reason) {
-					$tested .= " (info: $reason)";
+					$info = " (info: $reason)";
+					$tested .= $info;
+				}
+			}
+			if (eregi("^warn", trim($output))) {
+				$reason = (ereg("^warn[[:space:]]*(.+)\$", trim($output))) ? ereg_replace("^warn[[:space:]]*(.+)\$", "\\1", trim($output)) : FALSE;
+				if ($reason) {
+					$warn = true; /* only if there is a reason */
+					$info = " (warn: $reason)";
+					$tested .= $info;
 				}
 			}
 		}
@@ -660,7 +712,7 @@ COMMAND $cmd
 			$wanted_re = str_replace("%i", "[+\-]?[0-9]+", $wanted_re);
 			$wanted_re = str_replace("%d", "[0-9]+", $wanted_re);
 			$wanted_re = str_replace("%x", "[0-9a-fA-F]+", $wanted_re);
-			$wanted_re = str_replace("%f", "[+\-]?\.?[0-9]+\.?[0-9]*", $wanted_re);
+			$wanted_re = str_replace("%f", "[+\-]?\.?[0-9]+\.?[0-9]*(E-?[0-9]+)?", $wanted_re);
 			$wanted_re = str_replace("%c", ".", $wanted_re);
 			// %f allows two points "-.0.0" but that is the best *simple* expression
 		}
@@ -688,13 +740,18 @@ COMMAND $cmd
 	}
 
 	// Test failed so we need to report details.
-	echo "FAIL $tested\n";
+	if ($warn) {
+		echo "WARN $tested\n";
+	} else {
+		echo "FAIL $tested\n";
+	}
 
 	$GLOBALS['__PHP_FAILED_TESTS__'][] = array(
 						'name' => $file,
 						'test_name' => $tested,
 						'output' => ereg_replace('\.phpt$','.log', $file),
-						'diff'   => ereg_replace('\.phpt$','.diff', $file)
+						'diff'   => ereg_replace('\.phpt$','.diff', $file),
+						'info'   => $info
 						);
 
 	// write .exp
@@ -736,7 +793,7 @@ $output
 		error_report($file,$logname,$tested);
 	}
 
-	return 'FAILED';
+	return $warn ? 'WARNED' : 'FAILED';
 }
 
 function generate_diff($wanted,$output)

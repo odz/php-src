@@ -3,7 +3,7 @@
 // +----------------------------------------------------------------------+
 // | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2002 The PHP Group                                |
+// | Copyright (c) 1997-2003 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -13,11 +13,11 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Author: Stig Bakken <ssb@fast.no>                                    |
+// | Author: Stig Bakken <ssb@php.net>                                    |
 // |                                                                      |
 // +----------------------------------------------------------------------+
 //
-// $Id: Remote.php,v 1.22.2.3 2002/12/13 02:14:25 ssb Exp $
+// $Id: Remote.php,v 1.22.2.6 2003/04/11 23:48:38 ssb Exp $
 
 require_once 'PEAR/Command/Common.php';
 require_once 'PEAR/Common.php';
@@ -61,7 +61,7 @@ latest stable release of each package.',
             'shortcut' => 'sp',
             'options' => array(),
             'doc' => '
-Lists all packages which match the search paramteres (first param
+Lists all packages which match the search parameters (first param
 is package name, second package info)',
             ),
         'list-all' => array(
@@ -87,6 +87,16 @@ latest stable release of each package.',
 Download a package tarball.  The file will be named as suggested by the
 server, for example if you download the DB package and the latest stable
 version of DB is 1.2, the downloaded file will be DB-1.2.tgz.',
+            ),
+        'clear-cache' => array(
+            'summary' => 'Clear XML-RPC Cache',
+            'function' => 'doClearCache',
+            'shortcut' => 'cc',
+            'options' => array(),
+            'doc' => '
+Clear the XML-RPC cache.  See also the cache_ttl configuration
+parameter.
+',
             ),
         );
 
@@ -352,6 +362,43 @@ version of DB is 1.2, the downloaded file will be DB-1.2.tgz.',
             $this->ui->outputData($data, $command);
         }
         return true;
+    }
+
+    // }}}
+    // {{{ doClearCache()
+
+    function doClearCache($command, $options, $params)
+    {
+        $cache_dir = $this->config->get('cache_dir');
+        $verbose = $this->config->get('verbose');
+        $output = '';
+        if (!($dp = @opendir($cache_dir))) {
+            return $this->raiseError("opendir($cache_dir) failed: $php_errormsg");
+        }
+        if ($verbose >= 1) {
+            $output .= "reading directory $cache_dir\n";
+        }
+        $num = 0;
+        while ($ent = readdir($dp)) {
+            if (preg_match('/^xmlrpc_cache_[a-z0-9]{32}$/', $ent)) {
+                $path = $cache_dir . DIRECTORY_SEPARATOR . $ent;
+                $ok = @unlink($path);
+                if ($ok) {
+                    if ($verbose >= 2) {
+                        $output .= "deleted $path\n";
+                    }
+                    $num++;
+                } elseif ($verbose >= 1) {
+                    $output .= "failed to delete $path\n";
+                }
+            }
+        }
+        closedir($dp);
+        if ($verbose >= 1) {
+            $output .= "$num cache entries cleared\n";
+        }
+        $this->ui->outputData(rtrim($output), $command);
+        return $num;
     }
 
     // }}}

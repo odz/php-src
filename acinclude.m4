@@ -1,4 +1,4 @@
-dnl $Id: acinclude.m4,v 1.218.2.2 2002/11/17 19:28:57 wez Exp $
+dnl $Id: acinclude.m4,v 1.218.2.18 2003/05/19 01:33:29 sas Exp $
 dnl
 dnl This file contains local autoconf functions.
 
@@ -28,7 +28,7 @@ AC_DEFUN([PHP_DEFINE],[
 dnl PHP_INIT_BUILD_SYSTEM
 dnl
 AC_DEFUN([PHP_INIT_BUILD_SYSTEM],[
-mkdir include >/dev/null 2>&1
+test -d include || mkdir include
 > Makefile.objects
 > Makefile.fragments
 dnl We need to play tricks here to avoid matching the egrep line itself
@@ -211,13 +211,13 @@ AC_DEFUN([PHP_SETUP_OPENSSL],[
   AC_MSG_CHECKING([for OpenSSL version])
   AC_EGREP_CPP(yes,[
 #include <openssl/opensslv.h>
-#if OPENSSL_VERSION_NUMBER >= 0x0090500fL
+#if OPENSSL_VERSION_NUMBER >= 0x0090600fL
   yes
 #endif
   ],[
-    AC_MSG_RESULT([>= 0.9.5])
+    AC_MSG_RESULT([>= 0.9.6])
   ],[
-    AC_MSG_ERROR([OpenSSL version 0.9.5 or greater required.])
+    AC_MSG_ERROR([OpenSSL version 0.9.6 or greater required.])
   ])
   CPPFLAGS=$old_CPPFLAGS
 
@@ -531,7 +531,7 @@ PHP_ALWAYS_SHARED([$1])
 ])
 
 AC_DEFUN([PHP_ARG_ANALYZE],[
-ifelse([$3],yes,[PHP_ARG_ANALYZE_EX([$1])])
+ifelse([$3],yes,[PHP_ARG_ANALYZE_EX([$1])],[ext_output=ifelse([$]$1,,no,[$]$1)])
 ifelse([$2],,,[AC_MSG_RESULT([$ext_output])])
 ])
 
@@ -590,7 +590,8 @@ AC_DEFUN([PHP_MODULE_PTR],[
 ])
  
 AC_DEFUN([PHP_CONFIG_NICE],[
-  rm -f $1
+  test -f $1 && mv $1 $1.old
+  rm -f $1.old
   cat >$1<<EOF
 #! /bin/sh
 #
@@ -667,21 +668,6 @@ AC_DEFUN([PHP_SUBST_OLD],[
   AC_SUBST($1)
 ])
 
-AC_DEFUN([PHP_MKDIR_P_CHECK],[
-  AC_CACHE_CHECK(for working mkdir -p, ac_cv_mkdir_p,[
-    test -d conftestdir && rm -rf conftestdir
-    mkdir -p conftestdir/somedir >/dev/null 2>&1
-dnl `mkdir -p' must be quiet about creating existing directories
-    mkdir -p conftestdir/somedir >/dev/null 2>&1
-    if test "$?" = "0" && test -d conftestdir/somedir; then
-      ac_cv_mkdir_p=yes
-    else
-      ac_cv_mkdir_p=no
-    fi
-    rm -rf conftestdir
-  ])
-])
-
 AC_DEFUN([PHP_TM_GMTOFF],[
 AC_CACHE_CHECK([for tm_gmtoff in struct tm], ac_cv_struct_tm_gmtoff,
 [AC_TRY_COMPILE([#include <sys/types.h>
@@ -701,7 +687,8 @@ AC_DEFUN([PHP_CONFIGURE_PART],[
 ])
 
 AC_DEFUN([PHP_PROG_SENDMAIL],[
-AC_PATH_PROG(PROG_SENDMAIL, sendmail,[], $PATH:/usr/bin:/usr/sbin:/usr/etc:/etc:/usr/ucblib:/usr/lib)
+PHP_ALT_PATH=/usr/bin:/usr/sbin:/usr/etc:/etc:/usr/ucblib:/usr/lib
+AC_PATH_PROG(PROG_SENDMAIL, sendmail,[], $PATH:$PHP_ALT_PATH)
 if test -n "$PROG_SENDMAIL"; then
   AC_DEFINE(HAVE_SENDMAIL,1,[whether you have sendmail])
 fi
@@ -1107,7 +1094,11 @@ dnl
 dnl Set libtool variable
 dnl
 AC_DEFUN([PHP_SET_LIBTOOL_VARIABLE],[
-  LIBTOOL='$(SHELL) libtool $1'
+  if test -z "$LIBTOOL"; then
+    LIBTOOL='$(SHELL) $(top_builddir)/libtool $1'
+  else
+    LIBTOOL="$LIBTOOL $1"
+  fi
 ])
 
 dnl
@@ -1256,7 +1247,7 @@ AC_DEFUN([PHP_SELECT_SAPI],[
 
 dnl deprecated
 AC_DEFUN([PHP_EXTENSION],[
-  sources=`awk -f $abs_srcdir/scan_makefile_in.awk < []PHP_EXT_SRCDIR($1)[]/Makefile.in`
+  sources=`$AWK -f $abs_srcdir/scan_makefile_in.awk < []PHP_EXT_SRCDIR($1)[]/Makefile.in`
 
   PHP_NEW_EXTENSION($1, $sources, $2, $3)
 
@@ -1270,10 +1261,7 @@ AC_DEFUN([PHP_ADD_BUILD_DIR],[
 ])
 
 AC_DEFUN([PHP_GEN_BUILD_DIRS],[
-  PHP_MKDIR_P_CHECK
-  if test "$ac_cv_mkdir_p" = "yes"; then
-    mkdir -p $BUILD_DIR
-  fi
+  $php_shtool mkdir -p $BUILD_DIR
 ])
 
 dnl
@@ -1462,6 +1450,70 @@ int main(void) {
   fi
 ])
 
+dnl Some systems, notably Solaris, cause getcwd() or realpath to fail if a
+dnl component of the path has execute but not read permissions
+AC_DEFUN([PHP_BROKEN_GETCWD],[
+  AC_MSG_CHECKING([for broken getcwd])
+  os=`uname -sr 2>/dev/null`
+  case $os in
+    SunOS*)
+	  AC_DEFINE(HAVE_BROKEN_GETCWD,1, [Define if system has broken getcwd])
+	  AC_MSG_RESULT([yes]);;
+	*)
+	  AC_MSG_RESULT([no]);;
+  esac
+])
+
+AC_DEFUN([PHP_BROKEN_GLIBC_FOPEN_APPEND],[
+  AC_MSG_CHECKING([for broken libc stdio])
+  AC_CACHE_VAL(have_broken_glibc_fopen_append,[
+  AC_TRY_RUN([
+#include <stdio.h>
+int main(int argc, char *argv[])
+{
+  FILE *fp;
+  long position;
+  char *filename = "/tmp/phpglibccheck";
+  
+  fp = fopen(filename, "w");
+  if (fp == NULL) {
+	  perror("fopen");
+	  exit(2);
+  }
+  fputs("foobar", fp);
+  fclose(fp);
+
+  fp = fopen(filename, "a+");
+  position = ftell(fp);
+  fclose(fp);
+  unlink(filename);
+  if (position == 0)
+	return 1;
+  return 0;
+}
+],
+[have_broken_glibc_fopen_append=no],
+[have_broken_glibc_fopen_append=yes ],
+AC_TRY_COMPILE([
+#include <features.h>
+],[
+#if !__GLIBC_PREREQ(2,2)
+choke me
+#endif
+],
+[have_broken_glibc_fopen_append=yes],
+[have_broken_glibc_fopen_append=no ])
+)])
+
+  if test "$have_broken_glibc_fopen_append" = "yes"; then
+	AC_MSG_RESULT(yes)
+	AC_DEFINE(HAVE_BROKEN_GLIBC_FOPEN_APPEND,1, [Define if your glibc borks on fopen with mode a+])
+  else
+	AC_MSG_RESULT(no)
+  fi
+])
+
+
 AC_DEFUN([PHP_FOPENCOOKIE],[
 	AC_CHECK_FUNC(fopencookie, [ have_glibc_fopencookie=yes ])
 
@@ -1554,6 +1606,7 @@ AC_DEFUN([PHP_CHECK_LIBRARY], [
     $3
   ],[
     LDFLAGS=$save_old_LDFLAGS
+    unset ac_cv_func_$1
     $4
   ])dnl
 ])
@@ -1738,75 +1791,3 @@ IFS="- /.
   APACHE_VERSION=`expr [$]4 \* 1000000 + [$]5 \* 1000 + [$]6`
 ])
 
-dnl PHP_PROG_SED
-dnl ------------
-dnl Check for a fully-functional sed program, that truncates
-dnl as few characters as possible.  Prefer GNU sed if found.
-dnl
-dnl Based on LT_AC_PROG_SED (libtool CVS)
-dnl 
-AC_DEFUN([PHP_PROG_SED],
-[AC_MSG_CHECKING([for working sed])
-AC_CACHE_VAL(ac_cv_path_sed,
-[
-
-# Create a temporary directory, and hook for its removal unless debugging.
-$debug ||
-{
-  trap 'exit_status=$?; rm -rf $tmp && exit $exit_status' 0
-  trap '{ (exit 1); exit 1; }' 1 2 13 15
-}
-
-# Create a (secure) tmp directory for tmp files.
-: ${TMPDIR=/tmp}
-{
-  tmp=`(umask 077 && mktemp -d -q "$TMPDIR/sedXXXXXX") 2>/dev/null` &&
-  test -n "$tmp" && test -d "$tmp"
-}  ||
-{
-  tmp=$TMPDIR/sed$$-$RANDOM
-  (umask 077 && mkdir $tmp)
-} ||
-{
-   echo "$me: cannot create a temporary directory in $TMPDIR" >&2
-   { (exit 1); exit 1; }
-}
-  _max=0
-  _count=0
-
-  # Use the sed found in PATH, skip the rest
-  _sed=sed
-
-  # Check for GNU sed and select it if it is found.
-  if "${_sed}" --version 2>&1 < /dev/null | egrep '(GNU)' > /dev/null; then
-    ac_cv_path_sed=${_sed}
-  else
-    cat /dev/null > "$tmp/sed.in"
-    _count=0
-    echo -n "0123456789" >"$tmp/sed.in"
-    while true; do
-      cat "$tmp/sed.in" "$tmp/sed.in" >"$tmp/sed.tmp"
-      mv "$tmp/sed.tmp" "$tmp/sed.in"
-      cp "$tmp/sed.in" "$tmp/sed.nl"
-      echo >>"$tmp/sed.nl"
-      ${_sed} -e 's/a$//' < "$tmp/sed.nl" >"$tmp/sed.out" || break
-      cmp -s "$tmp/sed.out" "$tmp/sed.nl" || break
-      # 10000 chars as input seems more than enough
-      test $_count -gt 10 && break
-      _count=`expr $_count + 1`
-      if test $_count -gt $_max; then
-        _max=$_count
-        ac_cv_path_sed=${_sed}
-      fi
-    done
-  fi
-  rm -rf "$tmp"
-])
-if test -z "$ac_cv_path_sed"; then
-  AC_MSG_ERROR([Could not find working sed on this system. Please install GNU sed.])
-else
-  SED=$ac_cv_path_sed
-  PHP_SUBST(SED)
-  AC_MSG_RESULT([$SED])
-fi
-])

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: cdb_make.h,v 1.1.2.1 2002/11/19 01:07:09 edink Exp $ */
+/* $Id: cdb_make.h,v 1.1.2.3 2003/01/31 20:10:11 helly Exp $ */
 
 /* incorporated from D.J.Bernstein's cdb-0.75 (http://cr.yp.to/cdb.html)*/
 
@@ -59,5 +59,6 @@ int cdb_make_addbegin(struct cdb_make *, unsigned int, unsigned int TSRMLS_DC);
 int cdb_make_addend(struct cdb_make *, unsigned int, unsigned int, uint32 TSRMLS_DC);
 int cdb_make_add(struct cdb_make *, char *, unsigned int, char *, unsigned int TSRMLS_DC);
 int cdb_make_finish(struct cdb_make * TSRMLS_DC);
+char *cdb_make_version();
 
 #endif

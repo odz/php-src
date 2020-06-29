@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dba_ndbm.c,v 1.14 2002/11/06 17:59:03 sas Exp $ */
+/* $Id: dba_ndbm.c,v 1.14.2.3 2003/02/01 19:01:13 helly Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -153,6 +153,12 @@ DBA_SYNC_FUNC(ndbm)
 {
 	return SUCCESS;
 }
+
+DBA_INFO_FUNC(ndbm)
+{
+	return estrdup("NDBM");
+}
+
 #endif
 
 /*

@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.46.4.1 2002/11/29 13:32:49 chregu Exp $
+dnl $Id: config.m4,v 1.46.4.3 2003/04/04 17:43:13 sniper Exp $
 dnl
 AC_DEFUN(JAVA_FIND_JAR, [
  AC_MSG_CHECKING([Java Jar location])
@@ -97,7 +97,7 @@ AC_DEFUN(JAVA_CHECK_LIB, [
    dnl We have to find everything
    dnl
    for i in `find $PHP_JAVA/include -type d`; do
-     test -f $i/jni.h      && JAVA_INCLUDE=-I$i
+     test -f $i/jni.h      && JAVA_INCLUDE="$JAVA_INCLUDE -I$i"
      test -f $i/jni_md.h   && JAVA_INCLUDE="$JAVA_INCLUDE -I$i"
    done
 
@@ -173,11 +173,17 @@ if test "$PHP_JAVA" != "no"; then
       fi
     fi
 
-    INSTALL_IT="$INSTALL_IT; \$(srcdir)/build/shtool mkdir -p -f -m 0755 \$(INSTALL_ROOT)\$(libdir)"
-    INSTALL_IT="$INSTALL_IT; \$(INSTALL) -m 0755 \$(srcdir)/ext/java/php_java.jar \$(INSTALL_ROOT)\$(libdir)"
+    if test -n "$INSTALL_IT"; then
+      INSTALL_IT="$INSTALL_IT ;"
+    fi
+
+    INSTALL_IT="$INSTALL_IT \$(srcdir)/build/shtool mkdir -p -f -m 0755 \$(INSTALL_ROOT)\$(libdir)"
+    INSTALL_IT="$INSTALL_IT ; \$(INSTALL) -m 0755 \$(srcdir)/ext/java/php_java.jar \$(INSTALL_ROOT)\$(libdir)"
   fi
 
   PHP_SUBST(JAVA_CLASSPATH)
+  PHP_SUBST(JAVA_INCLUDE)
+  PHP_SUBST(JAVA_CFLAGS)
 
   PHP_ADD_MAKEFILE_FRAGMENT
 fi

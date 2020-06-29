@@ -2,7 +2,7 @@
 /********************************************/
 /* gd interface to freetype library         */
 /*                                          */
-/* John Ellson   ellson@lucent.com          */
+/* John Ellson   ellson@graphviz.org        */
 /********************************************/
 
 #include <stdio.h>
@@ -16,27 +16,41 @@
 #include <unistd.h>
 #else
 #include <io.h>
+#define R_OK 04			/* Needed in Windows */
 #endif
 
 #ifdef WIN32
-extern int access(const char *pathname, int mode);
+#define access _access
 #ifndef R_OK
 #define R_OK 2
 #endif
 #endif
 
 /* number of antialised colors for indexed bitmaps */
+/* overwrite Windows GDI define in case of windows build */
+#ifdef NUMCOLORS
+#undef NUMCOLORS
+#endif
 #define NUMCOLORS 8
 
 char *
 gdImageStringTTF (gdImage * im, int *brect, int fg, char *fontlist,
 		  double ptsize, double angle, int x, int y, char *string)
 {
+  /* 2.0.6: valid return */ 
   return gdImageStringFT (im, brect, fg, fontlist, ptsize,
 		   angle, x, y, string);
 }
 
 #ifndef HAVE_LIBFREETYPE
+char *
+gdImageStringFTEx (gdImage * im, int *brect, int fg, char *fontlist,
+		 double ptsize, double angle, int x, int y, char *string,
+		 gdFTStringExtraPtr strex)
+{
+  return "libgd was not built with FreeType font support\n";
+}
+
 char *
 gdImageStringFT (gdImage * im, int *brect, int fg, char *fontlist,
 		 double ptsize, double angle, int x, int y, char *string)
@@ -70,7 +84,7 @@ gdImageStringFT (gdImage * im, int *brect, int fg, char *fontlist,
 
 /*
  * DEFAULT_FONTPATH and PATHSEPARATOR are host type dependent and
- * are normally set by configure in gvconfig.h.  These are just
+ * are normally set by configure in config.h.  These are just
  * some last resort values that might match some Un*x system
  * if building this version of gd separate from graphviz.
  */
@@ -86,8 +100,13 @@ gdImageStringFT (gdImage * im, int *brect, int fg, char *fontlist,
 #define TRUE !FALSE
 #endif
 
+#ifndef MAX
 #define MAX(a,b) ((a)>(b)?(a):(b))
+#endif
+
+#ifndef MIN
 #define MIN(a,b) ((a)<(b)?(a):(b))
+#endif
 
 typedef struct
 {
@@ -330,153 +349,161 @@ fontTest (void *element, void *key)
   return (strcmp (a->fontlist, b->fontlist) == 0);
 }
 
-static void *
-fontFetch (char **error, void *key)
+static void *fontFetch (char **error, void *key)
 {
-  font_t *a;
-  fontkey_t *b = (fontkey_t *) key;
-  int n;
-  int font_found = 0;
-  unsigned short platform, encoding;
-  char *fontsearchpath, *fontlist;
-  char *fullname = NULL;
-  char *name, *path, *dir;
-  char *strtok_ptr;
-  FT_Error err;
-  FT_CharMap found = 0;
-  FT_CharMap charmap;
+	font_t *a;
+	fontkey_t *b = (fontkey_t *) key;
+	int n;
+	int font_found = 0;
+	unsigned short platform, encoding;
+	char *fontsearchpath, *fontlist;
+	char *fullname = NULL;
+	char *name, *path=NULL, *dir;
+	char *strtok_ptr;
+	FT_Error err;
+	FT_CharMap found = 0;
+	FT_CharMap charmap;
 
-  a = (font_t *) gdMalloc (sizeof (font_t));
-  a->fontlist = strdup (b->fontlist);
-  a->library = b->library;
+	a = (font_t *) gdPMalloc(sizeof(font_t));
+	a->fontlist = gdPEstrdup(b->fontlist);
+	a->library = b->library;
 
-  /*
-   * Search the pathlist for any of a list of font names.
-   */
-  fontsearchpath = getenv ("GDFONTPATH");
-  if (!fontsearchpath)
-    fontsearchpath = DEFAULT_FONTPATH;
-  fontlist = strdup (a->fontlist);
+	/*
+	 * Search the pathlist for any of a list of font names.
+	 */
+	fontsearchpath = getenv ("GDFONTPATH");
+	if (!fontsearchpath) {
+		fontsearchpath = DEFAULT_FONTPATH;
+	}	
+	fontlist = gdEstrdup(a->fontlist);
 
-  /*
-   * Must use gd_strtok_r else pointer corrupted by strtok in nested loop.
-   */
-  for (name = gd_strtok_r (fontlist, LISTSEPARATOR, &strtok_ptr); name;
-       name = gd_strtok_r (0, LISTSEPARATOR, &strtok_ptr))
-    {
-
-      /* make a fresh copy each time - strtok corrupts it. */
-      path = strdup (fontsearchpath);
-      /*
-       * Allocate an oversized buffer that is guaranteed to be
-       * big enough for all paths to be tested.
-       */
-      fullname = gdRealloc (fullname,
-			    strlen (fontsearchpath) + strlen (name) + 6);
-      /* if name is an absolute filename then test directly */
-      if (*name == '/' || (name[0] != 0 && name[1] == ':' && (name[2] == '/' || name[2] == '\\')))
-	{
-	  sprintf (fullname, "%s", name);
-	  if (access (fullname, R_OK) == 0)
-	    {
-	      font_found++;
-	      break;
-	    }
+	/*
+	 * Must use gd_strtok_r else pointer corrupted by strtok in nested loop.
+	 */
+	for (name = gd_strtok_r (fontlist, LISTSEPARATOR, &strtok_ptr); name; name = gd_strtok_r (0, LISTSEPARATOR, &strtok_ptr)) {
+		/* make a fresh copy each time - strtok corrupts it. */
+		path = gdEstrdup (fontsearchpath);
+	
+		/*
+		* Allocate an oversized buffer that is guaranteed to be
+		* big enough for all paths to be tested.
+		*/
+		fullname = gdRealloc (fullname, strlen (fontsearchpath) + strlen (name) + 6);
+	
+		/* if name is an absolute filename then test directly */ 
+		if (*name == '/' || (name[0] != 0 && name[1] == ':' && (name[2] == '/' || name[2] == '\\'))) {
+			sprintf(fullname, "%s", name);
+			if (access(fullname, R_OK) == 0) {
+				font_found++;
+				break;
+			}
+		}
+		for (dir = strtok (path, PATHSEPARATOR); dir; dir = strtok (0, PATHSEPARATOR)) {
+			sprintf(fullname, "%s/%s", dir, name);
+			if (access (fullname, R_OK) == 0) {
+				font_found++;
+				break;
+			}
+			sprintf(fullname, "%s/%s.ttf", dir, name);
+			if (access (fullname, R_OK) == 0) {
+				font_found++;
+				break;
+			}
+			sprintf(fullname, "%s/%s.pfa", dir, name);
+			if (access(fullname, R_OK) == 0) {
+				font_found++;
+				break;
+			}
+			sprintf (fullname, "%s/%s.pfb", dir, name);
+			if (access(fullname, R_OK) == 0) {
+				font_found++;
+				break;
+			}
+		}
+		gdFree(path);
+		path = NULL;
+		if (font_found) {
+			break;
+		}	
 	}
-      for (dir = strtok (path, PATHSEPARATOR); dir;
-	   dir = strtok (0, PATHSEPARATOR))
-	{
-	  sprintf (fullname, "%s/%s.ttf", dir, name);
-	  if (access (fullname, R_OK) == 0)
-	    {
-	      font_found++;
-	      break;
-	    }
-          sprintf (fullname, "%s/%s.pfa", dir, name);
-          if (access (fullname, R_OK) == 0)
-            {
-	      font_found++;
-	      break;
+  
+	if (path) {
+		gdFree(path);
 	}
-	  sprintf (fullname, "%s/%s.pfb", dir, name);
-	  if (access (fullname, R_OK) == 0)
-	    {
-	      font_found++;
-	break;
-    }
+  
+	gdFree(fontlist);
+  
+	if (!font_found) {
+		gdPFree(a->fontlist);
+		gdPFree(a);
+		if (fullname) {
+			gdFree(fullname);
+		}
+		*error = "Could not find/open font";
+		return NULL;
 	}
-  gdFree (path);
-      if (font_found)
-	break;
-  }
-  gdFree (fontlist);
-  if (!font_found)
-    {
-      *error = "Could not find/open font";
-      return NULL;
-    }
 
-  err = FT_New_Face (*b->library, fullname, 0, &a->face);
-  if (err)
-    {
-      *error = "Could not read font";
-      return NULL;
-    }
-  gdFree (fullname);
+	err = FT_New_Face (*b->library, fullname, 0, &a->face);
+	if (err) {
+		gdPFree(a->fontlist);
+		gdPFree(a);
+		if (fullname) {
+			gdFree(fullname);
+		}
+		*error = "Could not read font";
+		return NULL;
+	}
+	gdFree(fullname);
 
-/* FIXME - This mapping stuff is imcomplete - where is the spec? */
+	/* FIXME - This mapping stuff is imcomplete - where is the spec? */
 
-  a->have_char_map_unicode = 0;
-  a->have_char_map_big5 = 0;
-  a->have_char_map_sjis = 0;
-  a->have_char_map_apple_roman = 0;
-  for (n = 0; n < a->face->num_charmaps; n++)
-    {
-      charmap = a->face->charmaps[n];
-      platform = charmap->platform_id;
-      encoding = charmap->encoding_id;
-      if ((platform == 3 && encoding == 1)	/* Windows Unicode */
-	  || (platform == 3 && encoding == 0)	/* Windows Symbol */
-	  || (platform == 2 && encoding == 1)	/* ISO Unicode */
-	  || (platform == 0))
-	{			/* Apple Unicode */
-	  a->have_char_map_unicode = 1;
-	  found = charmap;
+	a->have_char_map_unicode = 0;
+	a->have_char_map_big5 = 0;
+	a->have_char_map_sjis = 0;
+	a->have_char_map_apple_roman = 0;
+	for (n = 0; n < a->face->num_charmaps; n++) {
+		charmap = a->face->charmaps[n];
+		platform = charmap->platform_id;
+		encoding = charmap->encoding_id;
+		if ((platform == 3 && encoding == 1)		/* Windows Unicode */
+			|| (platform == 3 && encoding == 0)	/* Windows Symbol */
+			|| (platform == 2 && encoding == 1)	/* ISO Unicode */
+			|| (platform == 0))
+		{						/* Apple Unicode */
+			a->have_char_map_unicode = 1;
+			found = charmap;
+		} else if (platform == 3 && encoding == 4) {	/* Windows Big5 */
+			a->have_char_map_big5 = 1;
+			found = charmap;
+		} else if (platform == 3 && encoding == 2) {	/* Windows Sjis */
+			a->have_char_map_sjis = 1;
+			found = charmap;
+		} else if ((platform == 1 && encoding == 0)	/* Apple Roman */
+			|| (platform == 2 && encoding == 0))
+		{						/* ISO ASCII */
+			a->have_char_map_apple_roman = 1;
+			found = charmap;
+		}
 	}
-      else if (platform == 3 && encoding == 4)
-	{			/* Windows Big5 */
-	  a->have_char_map_big5 = 1;
-	  found = charmap;
+	if (!found) {
+		gdPFree(a->fontlist);
+		gdPFree(a);
+		*error = "Unable to find a CharMap that I can handle";
+		return NULL;
 	}
-      else if (platform == 3 && encoding == 2)
-	{			/* Windows Sjis */
-	  a->have_char_map_sjis = 1;
-	  found = charmap;
-	}
-      else if ((platform == 1 && encoding == 0)		/* Apple Roman */
-	       || (platform == 2 && encoding == 0))
-	{			/* ISO ASCII */
-	  a->have_char_map_apple_roman = 1;
-	  found = charmap;
-	}
-    }
-  if (!found)
-    {
-      *error = "Unable to find a CharMap that I can handle";
-      return NULL;
-    }
 
-  return (void *) a;
+	/* 2.0.5: we should actually return this */
+	a->face->charmap = found;
+	return (void *) a;
 }
 
-static void
-fontRelease (void *element)
+static void fontRelease (void *element)
 {
-  font_t *a = (font_t *) element;
+	font_t *a = (font_t *) element;
 
-  FT_Done_Face (a->face);
-  gdFree (a->fontlist);
-  gdFree ((char *) element);
+	FT_Done_Face (a->face);
+	gdPFree(a->fontlist);
+	gdPFree((char *) element);
 }
 
 /********************************************************************/
@@ -564,7 +591,7 @@ gdft_draw_bitmap (gdCache_head_t *tc_cache, gdImage * im, int fg, FT_Bitmap bitm
 {
   unsigned char *pixel = NULL;
   int *tpixel = NULL;
-  int x, y, row, col, pc;
+  int x, y, row, col, pc, pcr;
 
   tweencolor_t *tc_elem;
   tweencolorkey_t tc_key;
@@ -578,6 +605,7 @@ gdft_draw_bitmap (gdCache_head_t *tc_cache, gdImage * im, int fg, FT_Bitmap bitm
     for (row = 0; row < bitmap.rows; row++)
       {
         pc = row * bitmap.pitch;
+        pcr = pc;
         y = pen_y + row;
         /* clip if out of bounds */
         if (y >= im->sy || y < 0)
@@ -596,17 +624,20 @@ gdft_draw_bitmap (gdCache_head_t *tc_cache, gdImage * im, int fg, FT_Bitmap bitm
             }
           else if (bitmap.pixel_mode == ft_pixel_mode_mono)
             {
-              level = ((bitmap.buffer[pc / 8]
-			       << (pc % 8)) & 128) ? gdAlphaOpaque :
-                gdAlphaTransparent;
+              /* 2.0.5: mode_mono fix from Giuliano Pochini */
+              level = ((bitmap.buffer[(col>>3)+pcr]) & (1<<(~col&0x07)))
+		? gdAlphaTransparent :
+                gdAlphaOpaque;
             }  
           else 
 	    {
 	      return "Unsupported ft_pixel_mode";
 	    }
-          if (fg >= 0) {
+          if ((fg >= 0) && (im->trueColor)) {
             /* Consider alpha in the foreground color itself to be an
-              upper bound on how opaque things get */
+              upper bound on how opaque things get, when truecolor is
+              available. Without truecolor this results in far too many
+              color indexes. */ 
             level = level * (gdAlphaMax - gdTrueColorGetAlpha(fg)) / gdAlphaMax;
           }
           level = gdAlphaMax - level;  
@@ -634,7 +665,9 @@ gdft_draw_bitmap (gdCache_head_t *tc_cache, gdImage * im, int fg, FT_Bitmap bitm
     /* Non-truecolor case, restored to its more or less original form */ 
   for (row = 0; row < bitmap.rows; row++)
     {
+      int pcr;
       pc = row * bitmap.pitch;
+      pcr = pc;
       if(bitmap.pixel_mode==ft_pixel_mode_mono)
              pc *= 8;    /* pc is measured in bits for monochrome images */
 
@@ -661,6 +694,9 @@ gdft_draw_bitmap (gdCache_head_t *tc_cache, gdImage * im, int fg, FT_Bitmap bitm
 	    {
 	      tc_key.pixel = ((bitmap.buffer[pc / 8]
 			       << (pc % 8)) & 128) ? NUMCOLORS : 0;
+              /* 2.0.5: mode_mono fix from Giuliano Pochini */
+              tc_key.pixel = ((bitmap.buffer[(col>>3)+pcr]) & (1<<(~col&0x07)))
+		? NUMCOLORS : 0;
 	    }
 	  else
 	    {
@@ -708,7 +744,7 @@ extern int any2eucjp (char *, char *, unsigned int);
 
 /* Persistent font cache until explicitly cleared */
 /*     Fonts can be used across multiple images */
-static gdCache_head_t *fontCache;
+static gdCache_head_t *fontCache = NULL;
 static FT_Library library;
 
 void
@@ -717,336 +753,341 @@ gdFreeFontCache()
   if (fontCache)
     {
       gdCacheDelete(fontCache);
+	  fontCache=NULL;
       FT_Done_FreeType(library);
     }
 }
 
 /********************************************************************/
 /* gdImageStringFT -  render a utf8 string onto a gd image          */
+
 char *
 gdImageStringFT (gdImage * im, int *brect, int fg, char *fontlist,
-                 double ptsize, double angle, int x, int y, char *string)
+		 double ptsize, double angle, int x, int y, char *string)
 {
-    return gdImageStringFTEx(im, brect, fg, fontlist, ptsize, angle, x, y, string, NULL);
+	return gdImageStringFTEx(im, brect, fg, fontlist,
+		ptsize, angle, x, y, string, 0);
 }
 
 char *
-gdImageStringFTEx (gdImage * im, int *brect, int fg, char *fontlist,
-		 double ptsize, double angle, int x, int y, char *string,
-		 gdFTStringExtra * strex)
+gdImageStringFTEx (gdImage * im, int *brect, int fg, char *fontlist, double ptsize, double angle, int x, int y, char *string, gdFTStringExtraPtr strex)
 {
-  FT_BBox bbox, glyph_bbox;
-  FT_Matrix matrix;
-  FT_Vector pen, delta, penf;
-  FT_Face face;
-  FT_Glyph image;
-  FT_GlyphSlot slot;
-  FT_Error err;
-  FT_Bool use_kerning;
-  FT_UInt glyph_index, previous;
-  double sin_a = sin (angle);
-  double cos_a = cos (angle);
-  int len, i = 0, ch;
-  int x1 = 0, y1 = 0;
-  font_t *font;
-  fontkey_t fontkey;
-  char *next;
-  char *tmpstr = 0;
-  int render = (im && (im->trueColor || (fg <= 255 && fg >= -255)));
-  FT_BitmapGlyph bm;
-  int render_mode = FT_LOAD_RENDER | FT_LOAD_FORCE_AUTOHINT;
+	FT_BBox bbox, glyph_bbox;
+	FT_Matrix matrix;
+	FT_Vector pen, delta, penf;
+	FT_Face face;
+	FT_Glyph image;
+	FT_GlyphSlot slot;
+	FT_Bool use_kerning;
+	FT_UInt glyph_index, previous;
+	double sin_a = sin (angle);
+	double cos_a = cos (angle);
+	int len, i = 0, ch;
+	int x1 = 0, y1 = 0;
+	font_t *font;
+	fontkey_t fontkey;
+	char *next;
+	char *tmpstr = NULL;
+	int render = (im && (im->trueColor || (fg <= 255 && fg >= -255)));
+	FT_BitmapGlyph bm;
+	int render_mode = FT_LOAD_RENDER | FT_LOAD_FORCE_AUTOHINT;
+	int m, mfound;
+	/* Now tuneable thanks to Wez Furlong */
+	double linespace = LINESPACE;
+	/* 2.0.6: put this declaration with the other declarations! */
+	/*
+	*   make a new tweenColorCache on every call
+	*   because caching colormappings between calls
+	*   is not safe. If the im-pointer points to a
+	*   brand new image, the cache gives out bogus
+	*   colorindexes.          -- 27.06.2001 <krisku@arrak.fi>
+	*/
+	gdCache_head_t  *tc_cache;
 
-  /* fine tuning */
-  double linespace = LINESPACE;
-
-  /*
-   *   make a new tweenColorCache on every call
-   *   because caching colormappings between calls
-   *   is not safe. If the im-pointer points to a
-   *   brand new image, the cache gives out bogus
-   *   colorindexes.          -- 27.06.2001 <krisku@arrak.fi>
-   */
-  gdCache_head_t  *tc_cache;
-
-  tc_cache = gdCacheCreate( TWEENCOLORCACHESIZE,
-               tweenColorTest, tweenColorFetch, tweenColorRelease );
-
-/***** initialize font library and font cache on first call ******/
-
-  if (!fontCache)
-    {
-      if (FT_Init_FreeType (&library))
-	{
-	  gdCacheDelete( tc_cache );
-	  return "Failure to initialize font library";
+	if (strex && ((strex->flags & gdFTEX_LINESPACE) == gdFTEX_LINESPACE)) {
+		linespace = strex->linespacing;
 	}
-      fontCache = gdCacheCreate (FONTCACHESIZE,
-				 fontTest, fontFetch, fontRelease);
-    }
-/*****/
+	tc_cache = gdCacheCreate(TWEENCOLORCACHESIZE, tweenColorTest, tweenColorFetch, tweenColorRelease);
 
-  /* get the font (via font cache) */
-  fontkey.fontlist = fontlist;
-  fontkey.library = &library;
-  font = (font_t *) gdCacheGet (fontCache, &fontkey);
-  if (!font)
-    {
-      gdCacheDelete( tc_cache );
-      return fontCache->error;
-    }
-  face = font->face;		/* shortcut */
-  slot = face->glyph;		/* shortcut */
+	/***** initialize font library and font cache on first call ******/
 
-  if (FT_Set_Char_Size (face, 0, (FT_F26Dot6) (ptsize * 64),
-			GD_RESOLUTION, GD_RESOLUTION))
-    {
-      gdCacheDelete( tc_cache );
-      return "Could not set character size";
-    }
+	if (!fontCache) {
+		if (FT_Init_FreeType (&library)) {
+			gdCacheDelete( tc_cache );
+			return "Failure to initialize font library";
+		}
+		fontCache = gdCacheCreate(FONTCACHESIZE, fontTest, fontFetch, fontRelease);
+	}
+	/*****/
 
-    /* pull in supplied extended settings */
-    if (strex)      {
-        if ((strex->flags & gdFTEX_LINESPACE) == gdFTEX_LINESPACE)
-        linespace = strex->linespacing;
-    }
+	/* get the font (via font cache) */
+	fontkey.fontlist = fontlist;
+	fontkey.library = &library;
+	font = (font_t *) gdCacheGet (fontCache, &fontkey);
+	if (!font) {
+		gdCacheDelete(tc_cache);
+		return fontCache->error;
+	}
+	face = font->face;		/* shortcut */
+	slot = face->glyph;		/* shortcut */
 
-  matrix.xx = (FT_Fixed) (cos_a * (1 << 16));
-  matrix.yx = (FT_Fixed) (sin_a * (1 << 16));
-  matrix.xy = -matrix.yx;
-  matrix.yy = matrix.xx;
+	if (FT_Set_Char_Size (face, 0, (FT_F26Dot6) (ptsize * 64), GD_RESOLUTION, GD_RESOLUTION)) {
+		gdCacheDelete(tc_cache);
+		return "Could not set character size";
+	}
 
-  penf.x = penf.y = 0;		/* running position of non-rotated string */
-  pen.x = pen.y = 0;		/* running position of rotated string */
-  bbox.xMin = bbox.xMax = bbox.yMin = bbox.yMax = 0;
+	matrix.xx = (FT_Fixed) (cos_a * (1 << 16));
+	matrix.yx = (FT_Fixed) (sin_a * (1 << 16));
+	matrix.xy = -matrix.yx;
+	matrix.yy = matrix.xx;
 
-  use_kerning = FT_HAS_KERNING (face);
-  previous = 0;
-  if (fg < 0)
-    {
-      render_mode |= FT_LOAD_MONOCHROME;
-    }
+	penf.x = penf.y = 0;		/* running position of non-rotated string */
+	pen.x = pen.y = 0;		/* running position of rotated string */
+	bbox.xMin = bbox.xMax = bbox.yMin = bbox.yMax = 0;
+
+	use_kerning = FT_HAS_KERNING (face);
+	previous = 0;
+	if (fg < 0) {
+		render_mode |= FT_LOAD_MONOCHROME;
+	}
+	/* 2.0.12: allow explicit specification of the preferred map;
+	 * but we still fall back if it is not available.
+	 */
+	m = gdFTEX_Unicode;
+	if (strex && (strex->flags & gdFTEX_CHARMAP)) {
+		m = strex->charmap;
+	}
+	/* Try all three types of maps, but start with the specified one */
+	mfound = 0;
+	for (i = 0; i < 3; i++) {
+		switch (m) {
+			case gdFTEX_Unicode:
+				if (font->have_char_map_unicode) {
+					mfound = 1;
+				}
+				break;
+			case gdFTEX_Shift_JIS:
+				if (font->have_char_map_sjis) {
+					mfound = 1;
+				}
+				break;
+			case gdFTEX_Big5:
+				/* This was the 'else' case, we can't really 'detect' it */
+				mfound = 1;
+				break;
+		}
+		if (mfound) {
+			break;
+		}
+		m++;
+		m %= 3;
+	}
+	if (!mfound) {
+		/* No character set found! */
+		return "No character set found";
+	}
 
 #ifndef JISX0208
-  if (font->have_char_map_sjis)
-    {
+	if (!font->have_char_map_sjis) {
+		next = string;
+	} else
 #endif
-      if ((tmpstr = (char *) gdMalloc (BUFSIZ)))
-	{
-	  any2eucjp (tmpstr, string, BUFSIZ);
-	  next = tmpstr;
-	}
-      else
-	{
-	  next = string;
-	}
-#ifndef JISX0208
-    }
-  else
-    {
-      next = string;
-    }
-#endif
-  while (*next)
-    {
-      ch = *next;
+		tmpstr = (char *) gdMalloc(BUFSIZ);
 
-      /* carriage returns */
-      if (ch == '\r')
-	{
-	  penf.x = 0;
-	  x1 = (int)((penf.x * cos_a - penf.y * sin_a + 32.0) / 64.0);
-	  y1 = (int)((penf.x * sin_a + penf.y * cos_a + 32.0) / 64.0);
-	  pen.x = pen.y = 0;
-	  previous = 0;		/* clear kerning flag */
-	  next++;
-	  continue;
-	}
-      /* newlines */
-      if (ch == '\n')
-	{
-	  penf.y = penf.y - (int)(face->size->metrics.height * LINESPACE);
-	  penf.y = (penf.y - 32) & -64;		/* round to next pixel row */
-	  x1 = (int)((penf.x * cos_a - penf.y * sin_a + 32.0) / 64.0);
-	  y1 = (int)((penf.x * sin_a + penf.y * cos_a + 32.0) / 64.0);
-	  pen.x = pen.y = 0;
-	  previous = 0;		/* clear kerning flag */
-	  next++;
-	  continue;
-	}
+	while (*next) {
+		ch = *next;
 
-      if (font->have_char_map_unicode)
-	{
-	  /* use UTF-8 mapping from ASCII */
-	  len = gdTcl_UtfToUniChar (next, &ch);
-	  next += len;
-	}
-      else if (font->have_char_map_sjis)
-	{
-	  unsigned char c;
-	  int jiscode;
+		/* carriage returns */
+		if (ch == '\r') {
+			penf.x = 0;
+			x1 = (int)(penf.x * cos_a - penf.y * sin_a + 32) / 64;
+			y1 = (int)(penf.x * sin_a + penf.y * cos_a + 32) / 64;
+			pen.x = pen.y = 0;
+			previous = 0;		/* clear kerning flag */
+			next++;
+			continue;
+		}
+		/* newlines */
+		if (ch == '\n') {
+			  penf.y -= (long)(face->size->metrics.height * linespace);
+			  penf.y = (penf.y - 32) & -64;		/* round to next pixel row */
+			  x1 = (int)(penf.x * cos_a - penf.y * sin_a + 32) / 64;
+			  y1 = (int)(penf.x * sin_a + penf.y * cos_a + 32) / 64;
+			  pen.x = pen.y = 0;
+			  previous = 0;		/* clear kerning flag */
+			  next++;
+			  continue;
+		}
+		switch (m) {
+			case gdFTEX_Unicode:
+				if (font->have_char_map_unicode) {
+					/* use UTF-8 mapping from ASCII */
+					len = gdTcl_UtfToUniChar(next, &ch);
+					next += len;
+				}
+				break;
+			case gdFTEX_Shift_JIS: 
+				if (font->have_char_map_sjis) {
+					unsigned char c;
+					int jiscode;
+					c = *next;
+					if (0xA1 <= c && c <= 0xFE) {
+						next++;
+						jiscode = 0x100 * (c & 0x7F) + ((*next) & 0x7F);
 
-	  c = *next;
-	  if (0xA1 <= c && c <= 0xFE)
-	    {
-	      next++;
-	      jiscode = 0x100 * (c & 0x7F) + ((*next) & 0x7F);
+						ch = (jiscode >> 8) & 0xFF;
+						jiscode &= 0xFF;
 
-	      ch = (jiscode >> 8) & 0xFF;
-	      jiscode &= 0xFF;
+						if (ch & 1) {
+							jiscode += 0x40 - 0x21;
+						} else {
+							jiscode += 0x9E - 0x21;
+						}
 
-	      if (ch & 1)
-		jiscode += 0x40 - 0x21;
-	      else
-		jiscode += 0x9E - 0x21;
+						if (jiscode >= 0x7F) {
+							jiscode++;
+						}
+						ch = (ch - 0x21) / 2 + 0x81;
+						if (ch >= 0xA0) {
+							ch += 0x40;
+						}
 
-	      if (jiscode >= 0x7F)
-		jiscode++;
-	      ch = (ch - 0x21) / 2 + 0x81;
-	      if (ch >= 0xA0)
-		ch += 0x40;
+						ch = (ch << 8) + jiscode;
+					} else {
+						ch = c & 0xFF;	/* don't extend sign */
+					}
+					next++;
+				}
+				break;
+			case gdFTEX_Big5: {
+				/*
+				 * Big 5 mapping:
+				 * use "JIS-8 half-width katakana" coding from 8-bit characters. Ref:
+				 * ftp://ftp.ora.com/pub/examples/nutshell/ujip/doc/japan.inf-032092.sjs
+				 */
+				ch = (*next) & 0xFF;	/* don't extend sign */
+				next++;
+				if (ch >= 161	/* first code of JIS-8 pair */
+					&& *next) { /* don't advance past '\0' */
+					/* TBB: Fix from Kwok Wah On: & 255 needed */
+					ch = (ch * 256) + ((*next) & 255);
+					next++;
+				}
+			}
+			break;
+		}
 
-	      ch = (ch << 8) + jiscode;
-	    }
-	  else
-	    {
-	      ch = c & 0xFF;	/* don't extend sign */
-	    }
-	  next++;
-	}
-      else
-	{
-	  /*
-	   * Big 5 mapping:
-	   * use "JIS-8 half-width katakana" coding from 8-bit characters. Ref:
-	   * ftp://ftp.ora.com/pub/examples/nutshell/ujip/doc/japan.inf-032092.sjs
-	   */
-	  ch = (*next) & 0xFF;	/* don't extend sign */
-	  next++;
-	  if (ch >= 161		/* first code of JIS-8 pair */
-	      && *next)
-	    {			/* don't advance past '\0' */
-	      /* TBB: Fix from Kwok Wah On: & 255 needed */
-	      ch = (ch * 256) + ((*next) & 255);
-	      next++;
-	    }
-	}
+		/* set rotation transform */
+		FT_Set_Transform(face, &matrix, NULL);
+		/* Convert character code to glyph index */
+		glyph_index = FT_Get_Char_Index(face, ch);
 
-      /* set rotation transform */
-      FT_Set_Transform(face, &matrix, NULL);
+		/* retrieve kerning distance and move pen position */
+		if (use_kerning && previous && glyph_index) {
+			FT_Get_Kerning(face, previous, glyph_index, ft_kerning_default, &delta);
+			pen.x += delta.x;
+			penf.x += delta.x;
+		}
 
-      /* Convert character code to glyph index */
-      glyph_index = FT_Get_Char_Index (face, ch);
+		/* load glyph image into the slot (erase previous one) */
+		if (FT_Load_Glyph(face, glyph_index, render_mode)) {
+			if (tmpstr) {
+				gdFree(tmpstr);
+			}
+			gdCacheDelete(tc_cache);
+			return "Problem loading glyph";
+		}
 
-      /* retrieve kerning distance and move pen position */
-      if (use_kerning && previous && glyph_index)
-	{
-	  FT_Get_Kerning (face, previous, glyph_index,
-			  ft_kerning_default, &delta);
-	  pen.x += delta.x;
-	}
+		/* transform glyph image */
+		FT_Get_Glyph(slot, &image);
+		if (brect) { /* only if need brect */
+			FT_Glyph_Get_CBox(image, ft_glyph_bbox_gridfit, &glyph_bbox);
+			glyph_bbox.xMin += penf.x;
+			glyph_bbox.yMin += penf.y;
+			glyph_bbox.xMax += penf.x;
+			glyph_bbox.yMax += penf.y;
+			if (ch == ' ') { /* special case for trailing space */
+				glyph_bbox.xMax += slot->metrics.horiAdvance;
+			}
+			if (!i) { /* if first character, init BB corner values */
+				bbox.xMin = glyph_bbox.xMin;
+				bbox.yMin = glyph_bbox.yMin;
+				bbox.xMax = glyph_bbox.xMax;
+				bbox.yMax = glyph_bbox.yMax;
+			} else {
+				if (bbox.xMin > glyph_bbox.xMin) {
+					bbox.xMin = glyph_bbox.xMin;
+				}
+				if (bbox.yMin > glyph_bbox.yMin) {
+					bbox.yMin = glyph_bbox.yMin;
+				}
+				if (bbox.xMax < glyph_bbox.xMax) {
+					bbox.xMax = glyph_bbox.xMax;
+				}
+				if (bbox.yMax < glyph_bbox.yMax) {
+					bbox.yMax = glyph_bbox.yMax;
+				}
+			}
+			i++;
+		}
 
-      /* load glyph image into the slot (erase previous one) */
-      err = FT_Load_Glyph (face, glyph_index, render_mode);
-      if (err)
-	{
-	  gdCacheDelete( tc_cache );
-	return "Problem loading glyph";
-	}
+		if (render) {
+			if (image->format != ft_glyph_format_bitmap && FT_Glyph_To_Bitmap(&image, ft_render_mode_normal, 0, 1)) {
+				if (tmpstr) {
+					gdFree(tmpstr);
+				}
+				gdCacheDelete(tc_cache);
+				return "Problem rendering glyph";
+			}
 
-      /* transform glyph image */
-      FT_Get_Glyph (slot, &image);
-      if (brect)
-	{			/* only if need brect */
-	  FT_Glyph_Get_CBox (image, ft_glyph_bbox_gridfit, &glyph_bbox);
-	  glyph_bbox.xMin += penf.x;
-	  glyph_bbox.yMin += penf.y;
-	  glyph_bbox.xMax += penf.x;
-	  glyph_bbox.yMax += penf.y;
-	  if (ch == ' ')   /* special case for trailing space */
-             glyph_bbox.xMax += slot->metrics.horiAdvance;
-          if (!i)
-	     {                   /* if first character, init BB corner values */
-	        bbox.xMin = glyph_bbox.xMin;
-		bbox.yMin = glyph_bbox.yMin;
-		bbox.xMax = glyph_bbox.xMax;
-		bbox.yMax = glyph_bbox.yMax;
-	     }
-	   else
-	     {
-	  if (bbox.xMin > glyph_bbox.xMin)
-	    bbox.xMin = glyph_bbox.xMin;
-	  if (bbox.yMin > glyph_bbox.yMin)
-	    bbox.yMin = glyph_bbox.yMin;
-	  if (bbox.xMax < glyph_bbox.xMax)
-	    bbox.xMax = glyph_bbox.xMax;
-	  if (bbox.yMax < glyph_bbox.yMax)
-	    bbox.yMax = glyph_bbox.yMax;
-	     }
-	  i++;
-	}
+			/* now, draw to our target surface */
+			bm = (FT_BitmapGlyph) image;
+			gdft_draw_bitmap(tc_cache, im, fg, bm->bitmap, x + x1 + ((pen.x + 31) >> 6) + bm->left, y - y1 + ((pen.y + 31) >> 6) - bm->top);
+		}
 
-      if (render)
-	{
-	  if (image->format != ft_glyph_format_bitmap)
-	    {
-	      err = FT_Glyph_To_Bitmap (&image, ft_render_mode_normal, 0, 1);
-	      if (err)
-		{
-		  gdCacheDelete( tc_cache );
-		return "Problem rendering glyph";
-	    }
-	    }
+		/* record current glyph index for kerning */
+		previous = glyph_index;
 
-	  /* now, draw to our target surface */
-	  bm = (FT_BitmapGlyph) image;
-	  gdft_draw_bitmap (tc_cache, im, fg, bm->bitmap,
-			    x + x1 + ((pen.x + 31) >> 6) + bm->left,
-			    y - y1 + ((pen.y + 31) >> 6) - bm->top);
+		/* increment pen position */
+		pen.x += image->advance.x >> 10;
+		pen.y -= image->advance.y >> 10;
+
+		penf.x += slot->metrics.horiAdvance;
+
+		FT_Done_Glyph(image);
 	}
 
-      /* record current glyph index for kerning */
-      previous = glyph_index;
+	if (brect) { /* only if need brect */
+		/* For perfect rounding, must get sin(a + pi/4) and sin(a - pi/4). */
+		double d1 = sin (angle + 0.78539816339744830962);
+		double d2 = sin (angle - 0.78539816339744830962);
 
-      /* increment pen position */
-      pen.x += image->advance.x >> 10;
-      pen.y -= image->advance.y >> 10;
+		/* rotate bounding rectangle */
+		brect[0] = (int) (bbox.xMin * cos_a - bbox.yMin * sin_a);
+		brect[1] = (int) (bbox.xMin * sin_a + bbox.yMin * cos_a);
+		brect[2] = (int) (bbox.xMax * cos_a - bbox.yMin * sin_a);
+		brect[3] = (int) (bbox.xMax * sin_a + bbox.yMin * cos_a);
+		brect[4] = (int) (bbox.xMax * cos_a - bbox.yMax * sin_a);
+		brect[5] = (int) (bbox.xMax * sin_a + bbox.yMax * cos_a);
+		brect[6] = (int) (bbox.xMin * cos_a - bbox.yMax * sin_a);
+		brect[7] = (int) (bbox.xMin * sin_a + bbox.yMax * cos_a);
 
-      penf.x += slot->metrics.horiAdvance;
+		/* scale, round and offset brect */
+		brect[0] = x + gdroundupdown(brect[0], d2 > 0);
+		brect[1] = y - gdroundupdown(brect[1], d1 < 0);
+		brect[2] = x + gdroundupdown(brect[2], d1 > 0);
+		brect[3] = y - gdroundupdown(brect[3], d2 > 0);
+		brect[4] = x + gdroundupdown(brect[4], d2 < 0);
+		brect[5] = y - gdroundupdown(brect[5], d1 > 0);
+		brect[6] = x + gdroundupdown(brect[6], d1 < 0);
+		brect[7] = y - gdroundupdown(brect[7], d2 < 0);
+	}
 
-      FT_Done_Glyph (image);
-    }
-
-  if (brect)
-    {				/* only if need brect */
-      /* For perfect rounding, must get sin(a + pi/4) and sin(a - pi/4). */
-      double d1 = sin (angle + 0.78539816339744830962);
-      double d2 = sin (angle - 0.78539816339744830962);
-
-      /* rotate bounding rectangle */
-      brect[0] = (int) (bbox.xMin * cos_a - bbox.yMin * sin_a);
-      brect[1] = (int) (bbox.xMin * sin_a + bbox.yMin * cos_a);
-      brect[2] = (int) (bbox.xMax * cos_a - bbox.yMin * sin_a);
-      brect[3] = (int) (bbox.xMax * sin_a + bbox.yMin * cos_a);
-      brect[4] = (int) (bbox.xMax * cos_a - bbox.yMax * sin_a);
-      brect[5] = (int) (bbox.xMax * sin_a + bbox.yMax * cos_a);
-      brect[6] = (int) (bbox.xMin * cos_a - bbox.yMax * sin_a);
-      brect[7] = (int) (bbox.xMin * sin_a + bbox.yMax * cos_a);
-
-      /* scale, round and offset brect */
-      brect[0] = x + gdroundupdown (brect[0], d2 > 0);
-      brect[1] = y - gdroundupdown (brect[1], d1 < 0);
-      brect[2] = x + gdroundupdown (brect[2], d1 > 0);
-      brect[3] = y - gdroundupdown (brect[3], d2 > 0);
-      brect[4] = x + gdroundupdown (brect[4], d2 < 0);
-      brect[5] = y - gdroundupdown (brect[5], d1 > 0);
-      brect[6] = x + gdroundupdown (brect[6], d1 < 0);
-      brect[7] = y - gdroundupdown (brect[7], d2 < 0);
-    }
-
-  if (tmpstr)
-    gdFree (tmpstr);
-  gdCacheDelete( tc_cache );
-  return (char *) NULL;
+	if (tmpstr) {
+		gdFree(tmpstr);
+	}
+	gdCacheDelete(tc_cache);
+	return (char *) NULL;
 }
 
 #endif /* HAVE_LIBFREETYPE */

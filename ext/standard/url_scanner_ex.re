@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 4                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2002 The PHP Group                                |
+  | Copyright (c) 1997-2003 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 2.02 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -20,6 +20,9 @@
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
+#ifdef HAVE_LIMITS_H
+#include <limits.h>
 #endif
 
 #include <stdio.h>
@@ -233,7 +236,7 @@ static inline void handle_tag(STD_PARA)
 	ctx->tag.len = 0;
 	smart_str_appendl(&ctx->tag, start, YYCURSOR - start);
 	for (i = 0; i < ctx->tag.len; i++)
-		ctx->tag.c[i] = tolower(ctx->tag.c[i]);
+		ctx->tag.c[i] = tolower((int)(unsigned char)ctx->tag.c[i]);
 	if (zend_hash_find(ctx->tags, ctx->tag.c, ctx->tag.len, (void **) &ctx->lookup_data) == SUCCESS)
 		ok = 1;
 	STATE = ok ? STATE_NEXT_ARG : STATE_PLAIN;
@@ -322,7 +325,7 @@ state_val:
 /*!re2c
   ["] (any\[">])* ["]	{ handle_val(STD_ARGS, 1, '"'); goto state_next_arg_begin; }
   ['] (any\['>])* [']	{ handle_val(STD_ARGS, 1, '\''); goto state_next_arg_begin; }
-  (any\[ \n>])+		{ handle_val(STD_ARGS, 0, '\0'); goto state_next_arg_begin; }
+  (any\[ \t\n>])+	{ handle_val(STD_ARGS, 0, '\0'); goto state_next_arg_begin; }
   any					{ passthru(STD_ARGS); goto state_next_arg_begin; }
 */
 
@@ -411,8 +414,15 @@ int php_url_scanner_ex_deactivate(TSRMLS_D)
 
 static void php_url_scanner_output_handler(char *output, uint output_len, char **handled_output, uint *handled_output_len, int mode TSRMLS_DC)
 {
+	size_t len;
+
     if (BG(url_adapt_state_ex).url_app.len != 0) {
-        *handled_output = url_adapt_ext(output, output_len, handled_output_len, (zend_bool) (mode&PHP_OUTPUT_HANDLER_END ? 1 : 0) TSRMLS_CC);
+        *handled_output = url_adapt_ext(output, output_len, &len, (zend_bool) (mode&PHP_OUTPUT_HANDLER_END ? 1 : 0) TSRMLS_CC);
+		if (sizeof(uint) < sizeof(size_t)) {
+			if (len > UINT_MAX)
+				len = UINT_MAX;
+		}
+		*handled_output_len = len;
     } else {
         *handled_output = NULL;
     }

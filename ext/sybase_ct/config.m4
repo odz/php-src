@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.11 2002/03/12 16:36:30 sas Exp $
+dnl $Id: config.m4,v 1.11.4.2 2003/03/17 15:56:31 sniper Exp $
 dnl
 
 PHP_ARG_WITH(sybase-ct, for Sybase-CT support,
@@ -7,6 +7,11 @@ PHP_ARG_WITH(sybase-ct, for Sybase-CT support,
                           directory. Defaults to /home/sybase.])
 
 if test "$PHP_SYBASE_CT" != "no"; then
+
+  if test "$PHP_SYBASE" != "no"; then
+    AC_MSG_ERROR([You can not use both --with-sybase and --with-sybase-ct in same build!])
+  fi
+
   AC_DEFINE(HAVE_SYBASE_CT,1,[ ])
   PHP_NEW_EXTENSION(sybase_ct, php_sybase_ct.c, $ext_shared)
   PHP_SUBST(SYBASE_CT_SHARED_LIBADD)

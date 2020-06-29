@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mbstring.c,v 1.142.2.5 2002/11/24 19:21:58 moriyoshi Exp $ */
+/* $Id: mbstring.c,v 1.142.2.17 2003/05/16 19:28:17 moriyoshi Exp $ */
 
 /*
  * PHP4 Multibyte String module "mbstring"
@@ -166,7 +166,7 @@ static sapi_post_entry php_post_entries[] = {
 static const struct mb_overload_def mb_ovld[] = {
 	{MB_OVERLOAD_MAIL, "mail", "mb_send_mail", "mb_orig_mail"},
 	{MB_OVERLOAD_STRING, "strlen", "mb_strlen", "mb_orig_strlen"},
-	{MB_OVERLOAD_STRING, "strpos", "mb_strpos", "mb_orig_strrpos"},
+	{MB_OVERLOAD_STRING, "strpos", "mb_strpos", "mb_orig_strpos"},
 	{MB_OVERLOAD_STRING, "strrpos", "mb_strrpos", "mb_orig_strrpos"},
 	{MB_OVERLOAD_STRING, "substr", "mb_substr", "mb_orig_substr"},
 	{MB_OVERLOAD_STRING, "strtolower", "mb_strtolower", "mb_orig_strtolower"},
@@ -639,6 +639,9 @@ static PHP_INI_MH(OnUpdate_mbstring_internal_encoding)
 			p++;
 		}
 #endif
+#ifdef ZEND_MULTIBYTE
+		zend_multibyte_set_internal_encoding(new_value, new_value_length TSRMLS_CC);
+#endif /* ZEND_MULTIBYTE */
 	} else {
 		if (new_value != NULL && new_value_length > 0) {
 			return FAILURE;
@@ -695,15 +698,7 @@ static PHP_INI_MH(OnUpdate_mbstring_encoding_translation)
 	   return FAILURE;
 	}
 
-	if (!strncasecmp(new_value, "off", sizeof("off"))) {
-		new_value = "0";
-		new_value_length = sizeof("0");
-	} else if (!strncasecmp(new_value, "on", sizeof("on"))) {
-		new_value = "1";
-		new_value_length = sizeof("1");
-	}
-
-	OnUpdateInt(entry, new_value, new_value_length, mh_arg1, mh_arg2, mh_arg3, stage TSRMLS_CC);
+	OnUpdateBool(entry, new_value, new_value_length, mh_arg1, mh_arg2, mh_arg3, stage TSRMLS_CC);
 
 	if (MBSTRG(encoding_translation)){
 		sapi_unregister_post_entry(php_post_entries);
@@ -894,7 +889,7 @@ PHP_RINIT_FUNCTION(mbstring)
 		list = (int*)php_mbstr_default_identify_list;
 		n = php_mbstr_default_identify_list_size;
 	}
-	entry = (int *)emalloc(n*sizeof(int));
+	entry = (int *)safe_emalloc(n, sizeof(int), 0);
 	if (entry != NULL) {
 		MBSTRG(current_detect_order_list) = entry;
 		MBSTRG(current_detect_order_list_size) = n;
@@ -934,7 +929,9 @@ PHP_RINIT_FUNCTION(mbstring)
 #if HAVE_MBREGEX
 	MBSTRG(regex_default_options) = MBRE_OPTION_POSIXLINE;
 #endif
-
+#if defined(ZEND_MULTIBYTE) && defined(HAVE_MBSTRING)
+	php_mb_set_zend_encoding(TSRMLS_C);
+#endif /* ZEND_MULTIBYTE && HAVE_MBSTRING */
 	return SUCCESS;
 }
 /* }}} */
@@ -1018,12 +1015,19 @@ PHP_MINFO_FUNCTION(mbstring)
 #if defined(HAVE_MBSTR_KR)
 	php_info_print_table_row(2, "Korean support", "enabled");	
 #endif
+#if defined(HAVE_MBSTR_RU)
+	php_info_print_table_row(2, "Russian support", "enabled");	
+#endif
 	if (MBSTRG(encoding_translation)) {
 		php_info_print_table_row(2, "HTTP input encoding translation", "enabled");	
 	}
 #if defined(HAVE_MBREGEX)
 	php_info_print_table_row(2, "Multibyte (japanese) regex support", "enabled");	
 #endif
+	php_info_print_table_end();
+
+	php_info_print_table_start();
+	php_info_print_table_colspan_header(2, "mbstring extension makes use of \"streamable kanji code filter and converter\", which is distributed under the GNU Lesser General Public License version 2.1.");
 	php_info_print_table_end();
 
 	DISPLAY_INI_ENTRIES();
@@ -1095,7 +1099,7 @@ PHP_FUNCTION(mb_internal_encoding)
 }
 /* }}} */
 
-/* {{{ proto false|string mb_http_input([string type])
+/* {{{ proto mixed mb_http_input([string type])
    Returns the input encoding */
 PHP_FUNCTION(mb_http_input)
 {
@@ -1838,7 +1842,7 @@ PHP_FUNCTION(mb_parse_str)
 PHP_FUNCTION(mb_output_handler)
 {
 	char *arg_string;
-	size_t arg_string_len;
+	int arg_string_len;
 	long arg_status;
 	mbfl_string string, result;
 	const char *charset;
@@ -2591,7 +2595,7 @@ PHP_FUNCTION(mb_convert_encoding)
 				zend_hash_move_forward(target_hash);
 				i--;
 			}
-			if ( !strlen(_from_encodings)) {
+			if (_from_encodings != NULL && !strlen(_from_encodings)) {
 				efree(_from_encodings);
 				_from_encodings = NULL;
 			}
@@ -2626,7 +2630,7 @@ PHP_FUNCTION(mb_convert_encoding)
 PHP_FUNCTION(mb_convert_case)
 {
 	char *str, *from_encoding = (char*)mbfl_no2preferred_mime_name(MBSTRG(current_internal_encoding));
-	long str_len, from_encoding_len;
+	int str_len, from_encoding_len;
 	long case_mode = 0;
 	char *newstr;
 	size_t ret_len;
@@ -2636,7 +2640,7 @@ PHP_FUNCTION(mb_convert_case)
 				&case_mode, &from_encoding, &from_encoding_len) == FAILURE)
 		RETURN_FALSE;
 
-	newstr = php_unicode_convert_case(case_mode, str, str_len, &ret_len, from_encoding TSRMLS_CC);
+	newstr = php_unicode_convert_case(case_mode, str, (size_t) str_len, &ret_len, from_encoding TSRMLS_CC);
 
 	if (newstr) {
 		RETVAL_STRINGL(newstr, ret_len, 0);
@@ -2650,7 +2654,7 @@ PHP_FUNCTION(mb_convert_case)
 PHP_FUNCTION(mb_strtoupper)
 {
 	char *str, *from_encoding = (char*)mbfl_no2preferred_mime_name(MBSTRG(current_internal_encoding));
-	long str_len, from_encoding_len;
+	int str_len, from_encoding_len;
 	char *newstr;
 	size_t ret_len;
 
@@ -2658,7 +2662,7 @@ PHP_FUNCTION(mb_strtoupper)
 				&from_encoding, &from_encoding_len) == FAILURE) {
 		RETURN_FALSE;
 	}
-	newstr = php_unicode_convert_case(PHP_UNICODE_CASE_UPPER, str, str_len, &ret_len, from_encoding TSRMLS_CC);
+	newstr = php_unicode_convert_case(PHP_UNICODE_CASE_UPPER, str, (size_t) str_len, &ret_len, from_encoding TSRMLS_CC);
 
 	if (newstr) {
 		RETURN_STRINGL(newstr, ret_len, 0);
@@ -2673,7 +2677,7 @@ PHP_FUNCTION(mb_strtoupper)
 PHP_FUNCTION(mb_strtolower)
 {
 	char *str, *from_encoding = (char*)mbfl_no2preferred_mime_name(MBSTRG(current_internal_encoding));
-	long str_len, from_encoding_len;
+	int str_len, from_encoding_len;
 	char *newstr;
 	size_t ret_len;
 
@@ -2681,7 +2685,7 @@ PHP_FUNCTION(mb_strtolower)
 				&from_encoding, &from_encoding_len) == FAILURE) {
 		RETURN_FALSE;
 	}
-	newstr = php_unicode_convert_case(PHP_UNICODE_CASE_LOWER, str, str_len, &ret_len, from_encoding TSRMLS_CC);
+	newstr = php_unicode_convert_case(PHP_UNICODE_CASE_LOWER, str, (size_t) str_len, &ret_len, from_encoding TSRMLS_CC);
 
 	if (newstr) {
 		RETURN_STRINGL(newstr, ret_len, 0);
@@ -3031,7 +3035,7 @@ PHP_FUNCTION(mb_convert_variables)
 		/* auto detect */
 		from_encoding = mbfl_no_encoding_invalid;
 		stack_max = PHP_MBSTR_STACK_BLOCK_SIZE;
-		stack = (pval ***)emalloc(stack_max*sizeof(pval **));
+		stack = (pval ***)safe_emalloc(stack_max, sizeof(pval **), 0);
 		if (stack != NULL) {
 			stack_level = 0;
 			identd = mbfl_encoding_detector_new(elist, elistsz TSRMLS_CC);
@@ -3119,7 +3123,7 @@ detect_end:
 	/* convert */
 	if (convd != NULL) {
 		stack_max = PHP_MBSTR_STACK_BLOCK_SIZE;
-		stack = (pval ***)emalloc(stack_max*sizeof(pval **));
+		stack = (pval ***)safe_emalloc(stack_max, sizeof(pval **), 0);
 		if (stack != NULL) {
 			stack_level = 0;
 			n = 2;
@@ -3242,7 +3246,7 @@ php_mbstr_numericentity_exec(INTERNAL_FUNCTION_PARAMETERS, int type)
 		zend_hash_internal_pointer_reset(target_hash);
 		i = zend_hash_num_elements(target_hash);
 		if (i > 0) {
-			convmap = (int *)emalloc(i*sizeof(int));
+			convmap = (int *)safe_emalloc(i, sizeof(int), 0);
 			if (convmap != NULL) {
 				mapelm = convmap;
 				mapsize = 0;
@@ -3375,11 +3379,21 @@ PHP_FUNCTION(mb_send_mail)
 		    || orig_str.no_encoding == mbfl_no_encoding_pass) {
 			orig_str.no_encoding = mbfl_identify_encoding_no(&orig_str, MBSTRG(current_detect_order_list), MBSTRG(current_detect_order_list_size) TSRMLS_CC);
 		}
-		pstr = mbfl_convert_encoding(&orig_str, &conv_str, tran_cs TSRMLS_CC);
+
+		pstr = NULL;
+		{
+			mbfl_string tmpstr;
+
+			if (mbfl_convert_encoding(&orig_str, &tmpstr, tran_cs TSRMLS_CC) != NULL) {
+				tmpstr.no_encoding=mbfl_no_encoding_8bit;
+				pstr = mbfl_convert_encoding(&tmpstr, &conv_str, body_enc TSRMLS_CC);
+				efree(tmpstr.val);
+			}
+		}
 		if (pstr != NULL) {
 			message_buf = message = (char *)pstr->val;
 		} else {
-			message = Z_STRVAL_PP(argv[2]);
+			message = estrndup(Z_STRVAL_PP(argv[2]), Z_STRLEN_PP(argv[2]));
 		}
 	} else {
 		/* this is not really an error, so it is allowed. */

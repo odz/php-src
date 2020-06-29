@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ircg_scanner.re,v 1.18 2002/02/28 08:26:18 sebastian Exp $ */
+/* $Id: ircg_scanner.re,v 1.18.8.1 2003/01/28 14:33:03 sas Exp $ */
 
 #include <ext/standard/php_smart_str.h>
 #include <stdio.h>

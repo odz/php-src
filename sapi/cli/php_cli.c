@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -46,6 +46,10 @@
 #if HAVE_SETLOCALE
 #include <locale.h>
 #endif
+#if HAVE_FCNTL_H
+#include <fcntl.h>
+#endif
+
 #include "zend.h"
 #include "zend_extensions.h"
 #include "php_ini.h"
@@ -74,6 +78,10 @@
 
 
 #include "php_getopt.h"
+
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
 
 #define PHP_MODE_STANDARD    1
 #define PHP_MODE_HIGHLIGHT   2
@@ -209,10 +217,7 @@ static void sapi_cli_register_variables(zval *track_vars_array TSRMLS_DC)
 
 static void sapi_cli_log_message(char *message)
 {
-	if (php_header()) {
-		fprintf(stderr, "%s", message);
-		fprintf(stderr, "\n");
-	}
+	fprintf(stderr, "%s\n", message);
 }
 
 static int sapi_cli_deactivate(TSRMLS_D)
@@ -230,12 +235,19 @@ static char* sapi_cli_read_cookies(TSRMLS_D)
 	return NULL;
 }
 
+static int sapi_cli_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
+{
+	/* We do nothing here, this function is needed to prevent that the fallback
+	 * header handling is called. */
+	return SAPI_HEADER_SENT_SUCCESSFULLY;
+}
+
 static void sapi_cli_send_header(sapi_header_struct *sapi_header, void *server_context TSRMLS_DC)
 {
 	if (sapi_header) {
 		PHPWRITE_H(sapi_header->header, sapi_header->header_len);
+		PHPWRITE_H("\r\n", 2);
 	}
-	PHPWRITE_H("\r\n", 2);
 }
 
 
@@ -247,6 +259,31 @@ static int php_cli_startup(sapi_module_struct *sapi_module)
 	return SUCCESS;
 }
 
+
+/* {{{ sapi_cli_ini_defaults */
+
+/* overwriteable ini defaults must be set in sapi_cli_ini_defaults() */
+#define INI_DEFAULT(name,value)\
+	ZVAL_STRING(tmp, value, 0);\
+	zend_hash_update(configuration_hash, name, sizeof(name), tmp, sizeof(zval), (void**)&entry);\
+	Z_STRVAL_P(entry) = zend_strndup(Z_STRVAL_P(entry), Z_STRLEN_P(entry))
+
+/* hard coded ini settings must be set in main() */
+#define INI_HARDCODED(name,value)\
+		zend_alter_ini_entry(name, sizeof(name), value, strlen(value), PHP_INI_SYSTEM, PHP_INI_STAGE_ACTIVATE);
+
+static void sapi_cli_ini_defaults(HashTable *configuration_hash)
+{
+	zval *tmp, *entry;
+	
+	MAKE_STD_ZVAL(tmp);
+
+	INI_DEFAULT("report_zend_debug", "0");
+	INI_DEFAULT("display_errors", "1");
+
+	FREE_ZVAL(tmp);
+}
+/* }}} */
 
 /* {{{ sapi_module_struct cli_sapi_module
  */
@@ -268,7 +305,7 @@ static sapi_module_struct cli_sapi_module = {
 	php_error,						/* error handler */
 
 	NULL,							/* header handler */
-	NULL,							/* send headers handler */
+	sapi_cli_send_headers,			/* send headers handler */
 	sapi_cli_send_header,			/* send header handler */
 
 	NULL,				            /* read POST data */
@@ -414,7 +451,7 @@ int main(int argc, char *argv[])
 	char *arg_free=NULL, **arg_excp=&arg_free;
 	char *script_file=NULL;
 	zend_llist global_vars;
-	int interactive=0;
+	int interactive=0, is_hashbang=0;
 	int module_started = 0;
 	char *exec_direct=NULL;
 	char *param_error=NULL;
@@ -444,6 +481,8 @@ int main(int argc, char *argv[])
 	tsrm_startup(1, 1, 0, NULL);
 #endif
 
+	cli_sapi_module.ini_defaults = sapi_cli_ini_defaults;
+	cli_sapi_module.phpinfo_as_text = 1;
 	sapi_startup(&cli_sapi_module);
 
 #ifdef PHP_WIN32
@@ -510,18 +549,22 @@ int main(int argc, char *argv[])
 
         /* Set some CLI defaults */
 		SG(options) |= SAPI_OPTION_NO_CHDIR;
-		zend_alter_ini_entry("register_argc_argv", 19, "1", 1, PHP_INI_SYSTEM, PHP_INI_STAGE_ACTIVATE);
-		zend_alter_ini_entry("html_errors", 12, "0", 1, PHP_INI_SYSTEM, PHP_INI_STAGE_ACTIVATE);
-		zend_alter_ini_entry("implicit_flush", 15, "1", 1, PHP_INI_SYSTEM, PHP_INI_STAGE_ACTIVATE);
-		zend_alter_ini_entry("max_execution_time", 19, "0", 1, PHP_INI_SYSTEM, PHP_INI_STAGE_ACTIVATE);
+		/* here is the place for hard coded defaults which cannot be overwritten in the ini file */
+		INI_HARDCODED("register_argc_argv", "1");
+		INI_HARDCODED("html_errors", "0");
+		INI_HARDCODED("implicit_flush", "1");
+		INI_HARDCODED("max_execution_time", "0");
 
 		zend_uv.html_errors = 0; /* tell the engine we're in non-html mode */
+		CG(in_compilation) = 0; /* not initialized but needed for several options */
+		EG(uninitialized_zval_ptr) = NULL;
 
 		if (cli_sapi_module.php_ini_path_override && cli_sapi_module.php_ini_ignore) {
 			SG(headers_sent) = 1;
 			SG(request_info).no_headers = 1;
 			PUTS("You cannot use both -n and -c switch. Use -h for help.\n");
-			exit(1);
+			exit_status=1;
+			goto out_err;
 		}
 	
 		while ((c = ap_php_getopt(argc, argv, OPTSTRING)) != -1) {
@@ -568,8 +611,9 @@ int main(int argc, char *argv[])
 				SG(headers_sent) = 1;
 				php_cli_usage(argv[0]);
 				php_end_ob_buffers(1 TSRMLS_CC);
-				exit(1);
-				break;
+				exit_status=1;
+				zend_ini_deactivate(TSRMLS_C);
+				goto out_err;
 
 			case 'i': /* php info & quit */
 				if (php_request_startup(TSRMLS_C)==FAILURE) {
@@ -581,8 +625,8 @@ int main(int argc, char *argv[])
 				}
 				php_print_info(0xFFFFFFFF TSRMLS_CC);
 				php_end_ob_buffers(1 TSRMLS_CC);
-				exit(1);
-				break;
+				exit_status=1;
+				goto out;
 
 			case 'l': /* syntax check mode */
 				if (behavior != PHP_MODE_STANDARD) {
@@ -602,8 +646,9 @@ int main(int argc, char *argv[])
 				print_extensions(TSRMLS_C);
 				php_printf("\n");
 				php_end_ob_buffers(1 TSRMLS_CC);
-				exit(1);
-			break;
+				exit_status=1;
+				zend_ini_deactivate(TSRMLS_C);
+				goto out_err;
 
 #if 0 /* not yet operational, see also below ... */
 			case '': /* generate indented source mode*/
@@ -645,10 +690,10 @@ int main(int argc, char *argv[])
 					SG(headers_sent) = 1;
 					SG(request_info).no_headers = 1;
 				}
-				php_printf("PHP %s (%s) (built: %s %s)\nCopyright (c) 1997-2002 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__, __TIME__, get_zend_version());
+				php_printf("PHP %s (%s) (built: %s %s)\nCopyright (c) 1997-2003 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__, __TIME__, get_zend_version());
 				php_end_ob_buffers(1 TSRMLS_CC);
-				exit(1);
-				break;
+				exit_status=1;
+				goto out;
 
 			case 'w':
 				if (behavior == PHP_MODE_CLI_DIRECT) {
@@ -671,7 +716,8 @@ int main(int argc, char *argv[])
 			SG(headers_sent) = 1;
 			SG(request_info).no_headers = 1;
 			PUTS(param_error);
-			exit(1);
+			exit_status=1;
+			goto out_err;
 		}
 
 		CG(interactive) = interactive;
@@ -695,9 +741,16 @@ int main(int argc, char *argv[])
 			c = fgetc(file_handle.handle.fp);
 			if (c == '#') {
 				while (c != 10 && c != 13) {
-					c = fgetc(file_handle.handle.fp);	/* skip to end of line */
+					c = fgetc(file_handle.handle.fp);       /* skip to end of line */
 				}
-				CG(zend_lineno) = -2;
+				/* handle situations where line is terminated by \r\n */
+				if (c == 13) {
+					if (fgetc(file_handle.handle.fp) != 10) {
+						long pos = ftell(file_handle.handle.fp);
+						fseek(file_handle.handle.fp, pos - 1, SEEK_SET);
+					}
+				}
+				is_hashbang = 1;
 			} else {
 				rewind(file_handle.handle.fp);
 			}
@@ -728,6 +781,12 @@ int main(int argc, char *argv[])
 			PUTS("Could not startup.\n");
 			goto err;
 		}
+
+		/* Correct line numbers when #!php is used. This is reset in php_request_startup(). */
+		if (is_hashbang) {
+			CG(zend_lineno) = -2;
+		}
+
 		*arg_excp = arg_free; /* reconstuct argv */
 		if (no_headers) {
 			SG(headers_sent) = 1;
@@ -738,6 +797,7 @@ int main(int argc, char *argv[])
 		zend_llist_apply(&global_vars, (llist_apply_func_t) php_register_command_line_global_vars TSRMLS_CC);
 		zend_llist_destroy(&global_vars);
 
+		PG(during_request_startup) = 0;
 		switch (behavior) {
 		case PHP_MODE_STANDARD:
 			if (strcmp(file_handle.filename, "-")) {
@@ -747,7 +807,6 @@ int main(int argc, char *argv[])
 			exit_status = EG(exit_status);
 			break;
 		case PHP_MODE_LINT:
-			PG(during_request_startup) = 0;
 			exit_status = php_lint_script(&file_handle TSRMLS_CC);
 			if (exit_status==SUCCESS) {
 				zend_printf("No syntax errors detected in %s\n", file_handle.filename);

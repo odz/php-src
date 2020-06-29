@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -447,7 +447,7 @@ static void sapi_isapi_register_zeus_variables(LPEXTENSION_CONTROL_BLOCK lpECB, 
 	}
 	variable_len = ISAPI_SERVER_VAR_BUF_SIZE;
 	if ( lpECB->GetServerVariable(lpECB->ConnID, "AUTH_TYPE", static_variable_buf, &variable_len) && static_variable_buf[0] )  {
-		php_register_variable( "PHP_AUTH_TYPE", static_variable_buf, track_vars_array TSRMLS_CC );
+		php_register_variable( "AUTH_TYPE", static_variable_buf, track_vars_array TSRMLS_CC );
 	}
 	
 	/* And now, for the SSL variables (if applicable) */
@@ -517,7 +517,9 @@ static void sapi_isapi_register_server_variables(zval *track_vars_array TSRMLS_D
 	sapi_isapi_register_server_variables2(isapi_server_variable_names, lpECB, track_vars_array, NULL TSRMLS_CC);
 
 	if (isapi_special_server_variables[SPECIAL_VAR_HTTPS]
-		&& atoi(isapi_special_server_variables[SPECIAL_VAR_HTTPS])) {
+		&& (atoi(isapi_special_server_variables[SPECIAL_VAR_HTTPS])
+		|| !strcasecmp(isapi_special_server_variables[SPECIAL_VAR_HTTPS], "on"))
+	) {
 		/* Register SSL ISAPI variables */
 		sapi_isapi_register_server_variables2(isapi_secure_server_variable_names, lpECB, track_vars_array, NULL TSRMLS_CC);
 	}
@@ -742,16 +744,22 @@ DWORD WINAPI HttpExtensionProc(LPEXTENSION_CONTROL_BLOCK lpECB)
 					 * variable won't be present, so fall back to old behaviour.
 					 */
 					efree( file_handle.filename );
-					file_handle.filename = SG(request_info.path_translated);
+					file_handle.filename = SG(request_info).path_translated;
 					file_handle.free_filename = 0;
 				}
 			}
 #else
-			file_handle.filename = SG(request_info.path_translated);
+			file_handle.filename = SG(request_info).path_translated;
 			file_handle.free_filename = 0;
 #endif
 			file_handle.type = ZEND_HANDLE_FILENAME;
 			file_handle.opened_path = NULL;
+			/* some server configurations allow '..' to slip through in the
+			   translated path.   We'll just refuse to handle such a path. */
+			if (strstr(SG(request_info).path_translated,"..")) {
+				SG(sapi_headers).http_response_code = 404;
+				SG(request_info).path_translated = NULL;
+			}
 
 			php_request_startup(TSRMLS_C);
 			php_execute_script(&file_handle TSRMLS_CC);

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: browscap.c,v 1.60.2.2 2002/11/18 03:24:33 sniper Exp $ */
+/* $Id: browscap.c,v 1.60.2.11 2003/05/27 17:24:09 sniper Exp $ */
 
 #include "php.h"
 #include "php_regex.h"
@@ -157,8 +157,10 @@ PHP_MINIT_FUNCTION(browscap)
 		}
 
 		fh.handle.fp = VCWD_FOPEN(browscap, "r");
+		fh.opened_path = NULL;
+		fh.free_filename = 0;
 		if (!fh.handle.fp) {
-			php_error_docref(NULL TSRMLS_CC, E_CORE_WARNING, "Cannot open '%s' for reading", browscap);
+			zend_error(E_CORE_WARNING, "Cannot open '%s' for reading", browscap);
 			return FAILURE;
 		}
 		fh.filename = browscap;
@@ -194,10 +196,6 @@ static int browser_reg_compare(zval **browser, int num_args, va_list args, zend_
 		return 0;
 	}
 	if(zend_hash_find(Z_OBJPROP_PP(browser), "browser_name_pattern", sizeof("browser_name_pattern"), (void **) &browser_name) == FAILURE) {
-		return 0;
-	}
-
-	if (!strchr(Z_STRVAL_PP(browser_name),'*')) {
 		return 0;
 	}
 	if (regcomp(&r, Z_STRVAL_PP(browser_name), REG_NOSUB)!=0) {

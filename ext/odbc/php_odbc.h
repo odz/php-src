@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_odbc.h,v 1.48 2002/08/11 23:39:03 kalowsky Exp $ */
+/* $Id: php_odbc.h,v 1.48.4.4 2003/05/02 00:40:35 sniper Exp $ */
 
 #ifndef PHP_ODBC_H
 #define PHP_ODBC_H
@@ -32,6 +32,10 @@
 
 extern zend_module_entry odbc_module_entry;
 #define odbc_module_ptr &odbc_module_entry
+
+#if defined(HAVE_DBMAKER) || defined(PHP_WIN32) || defined(HAVE_IBMDB2) || defined(HAVE_UNIXODBC)
+# define PHP_ODBC_HAVE_FETCH_HASH 1
+#endif
 
 /* user functions */
 PHP_MINIT_FUNCTION(odbc);
@@ -50,11 +54,13 @@ PHP_FUNCTION(odbc_commit);
 PHP_FUNCTION(odbc_connect);
 PHP_FUNCTION(odbc_pconnect);
 PHP_FUNCTION(odbc_cursor);
+#ifdef HAVE_SQLDATASOURCES
 PHP_FUNCTION(odbc_data_source);
+#endif
 PHP_FUNCTION(odbc_do);
 PHP_FUNCTION(odbc_exec);
 PHP_FUNCTION(odbc_execute);
-#ifdef HAVE_DBMAKER
+#ifdef PHP_ODBC_HAVE_FETCH_HASH
 PHP_FUNCTION(odbc_fetch_array);
 PHP_FUNCTION(odbc_fetch_object);
 #endif

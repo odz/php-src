@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: fsock.c,v 1.106 2002/10/24 13:14:42 sas Exp $ */
+/* $Id: fsock.c,v 1.106.2.7 2003/05/20 00:21:57 wez Exp $ */
 
 /* converted to PHP Streams and moved much code to main/network.c [wez] */
 
@@ -136,29 +136,37 @@ static void php_fsockopen_stream(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 {
 	char *host;
 	int host_len;
-	int port = -1;
-	zval *zerrno = NULL, *zerrstr = NULL;
+	long port = -1;
+	zval *zerrno = NULL, *zerrstr = NULL, *zcontext = NULL;
 	double timeout = FG(default_socket_timeout);
 	unsigned long conv;
 	struct timeval tv;
 	char *hashkey = NULL;
 	php_stream *stream = NULL;
+	php_stream_context *context = NULL;
 	int err;
 
 	RETVAL_FALSE;
 	
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|lzzd", &host, &host_len, &port, &zerrno, &zerrstr, &timeout) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|lzzdr", &host, &host_len, &port, &zerrno, &zerrstr, &timeout, &zcontext) == FAILURE) {
 		RETURN_FALSE;
 	}
-
+	if (zcontext) {
+		ZEND_FETCH_RESOURCE(context, php_stream_context*, &zcontext, -1, "stream-context", php_le_stream_context());
+	}
 
 	if (persistent) {
 		spprintf(&hashkey, 0, "pfsockopen__%s:%d", host, port);
 
 		switch(php_stream_from_persistent_id(hashkey, &stream TSRMLS_CC)) {
 			case PHP_STREAM_PERSISTENT_SUCCESS:
-				/* TODO: could check if the socket is still alive here */
-				php_stream_to_zval(stream, return_value);
+				if (_php_network_is_stream_alive(stream)) {
+					php_stream_to_zval(stream, return_value);
+				} else {
+					/* it died; we need to replace it */
+					php_stream_close(stream);
+					break;
+				}
 				
 				/* fall through */
 			case PHP_STREAM_PERSISTENT_FAILURE:
@@ -178,7 +186,7 @@ static void php_fsockopen_stream(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 	}
 	if (zerrstr) {
 		zval_dtor(zerrstr);
-		ZVAL_STRING(zerrno, "", 1);
+		ZVAL_STRING(zerrstr, "", 1);
 	}
 
 	if (port > 0)	{ /* connect to a host */
@@ -222,6 +230,8 @@ static void php_fsockopen_stream(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 
 		if (stream == NULL) {
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "unable to connect to %s:%d", host, port);
+		} else if (context) {
+			php_stream_context_set(stream, context);
 		}
 		
 #if HAVE_OPENSSL_EXT
@@ -238,8 +248,11 @@ static void php_fsockopen_stream(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 					/* unknown ?? */
 					break;
 			}
-			if (ssl_ret == FAILURE)
+			if (ssl_ret == FAILURE) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed to activate SSL mode %d", ssl_flags);
+				php_stream_close(stream);
+				stream = NULL;
+			}
 		}
 #endif
 		
@@ -261,24 +274,28 @@ static void php_fsockopen_stream(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			char *buf = php_socket_strerror(err, NULL, 0);
 
 			/* no need to dup; we would only need to efree buf anyway */
+			zval_dtor(zerrstr);
 			ZVAL_STRING(zerrstr, buf, 0);
 		}
 		RETURN_FALSE;
 	}
-		
+	
+	if (zcontext) {
+		zend_list_addref(Z_RESVAL_P(zcontext));
+	}
 	php_stream_to_zval(stream, return_value);
 }
 
 /* }}} */
 
-/* {{{ proto int fsockopen(string hostname, int port [, int errno [, string errstr [, float timeout]]])
+/* {{{ proto int fsockopen(string hostname, int port [, int errno [, string errstr [, float timeout [, resource context]]]])
    Open Internet or Unix domain socket connection */
 PHP_FUNCTION(fsockopen)
 {
 	php_fsockopen_stream(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0);
 }
 /* }}} */
-/* {{{ proto int pfsockopen(string hostname, int port [, int errno [, string errstr [, float timeout]]])
+/* {{{ proto int pfsockopen(string hostname, int port [, int errno [, string errstr [, float timeout [, resource context]]]])
    Open persistent Internet or Unix domain socket connection */
 PHP_FUNCTION(pfsockopen)
 {

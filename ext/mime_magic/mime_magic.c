@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 4                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2002 The PHP Group                                |
+  | Copyright (c) 1997-2003 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 2.02 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -15,7 +15,7 @@
   | Author: Hartmut Holzgraefe  <hholzgra@php.net>                       |
   +----------------------------------------------------------------------+
 
-  $Id: mime_magic.c,v 1.13.2.6 2002/12/24 23:30:51 sesser Exp $ 
+  $Id: mime_magic.c,v 1.13.2.9 2003/02/09 19:10:32 sniper Exp $ 
 
   This module contains a lot of stuff taken from Apache mod_mime_magic,
   so the license section is a little bit longer than usual:
@@ -194,7 +194,7 @@ static long from_oct(int, char *);
 static int fsmagic(char *fn TSRMLS_DC);
 
 
-#if HAVE_ZLIB
+#if HAVE_ZLIB && !defined(COMPILE_DL_ZLIB)
 static int zmagic(unsigned char *, int);
 #endif
 
@@ -354,6 +354,7 @@ static int apprentice(void)
 
     char *fname;
     magic_server_config_rec *conf = &mime_global;
+    TSRMLS_FETCH();
 
     fname = conf->magicfile; /* todo cwd? */
     f = fopen(fname, "rb");
@@ -1019,7 +1020,7 @@ static void tryit(unsigned char *buf, int nb, int checkzmagic)
     /*
      * Try compression stuff
      */
-#if HAVE_ZLIB
+#if HAVE_ZLIB && !defined(COMPILE_DL_ZLIB)
 	if (checkzmagic == 1) {  
 		if (zmagic(buf, nb) == 1)
 			return;
@@ -1568,7 +1569,7 @@ static int mcheck(union VALUETYPE *p, struct magic *m)
     return matched;
 }
 
-#if HAVE_ZLIB 
+#if HAVE_ZLIB && !defined(COMPILE_DL_ZLIB)
 /*
  * compress routines: zmagic() - returns 0 if not recognized, uncompresses
  * and prints information if recognized uncompress(s, method, old, n, newch)

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -340,7 +340,7 @@ static void tux_request_ctor(TSRMLS_D)
 	SG(request_info).request_method = CGI_REQUEST_METHOD(TG(req));
 	SG(sapi_headers).http_response_code = 200;
 	SG(request_info).content_type = TG(req)->content_type;
-	SG(request_info).content_length = 0; // TG(req)->contentlength;
+	SG(request_info).content_length = 0; /* TG(req)->contentlength; */
 
 #if 0
 	php_handle_auth_data(TG(hc)->authorization TSRMLS_CC);

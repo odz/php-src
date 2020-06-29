@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ircg.c,v 1.137 2002/10/17 10:40:17 sas Exp $ */
+/* $Id: ircg.c,v 1.137.2.6 2003/05/15 12:30:11 sas Exp $ */
 
 /* {{{ includes */
 
@@ -68,6 +68,10 @@ static int irconn_id;
 
 static unsigned long irc_connects, irc_set_currents, irc_quit_handlers, 
 		exec_fmt_msgs, exec_token_compiler;
+
+static int highest_fd;
+
+#define SEEN_FD(fd) do { if ((fd) > highest_fd) highest_fd = (fd); } while (0)
 
 /* }}} */
 
@@ -244,7 +248,7 @@ static char *fmt_msgs_default[] = {
 	"%f quits (%m)<br />",
 	"Welcome to channel %c:",
 	" %f",
-	" in this very fine channel %c",
+	" are in the channel %c<br />",
 	"%f: user(%t) host(%c) real name(%m)<br />",
 	"%f: server(%c) server info(%m)<br />",
 	"%f has been idle for %m seconds<br />",
@@ -1128,31 +1132,60 @@ static void end_of_banlist_handler(irconn_t *ircc, smart_str *channel, void *con
 	msg_send(conn, &m);
 }
 
-static void user_add(irconn_t *ircc, smart_str *channel, smart_str *users,
-		int nr, void *dummy)
+static void user_add_single(php_irconn_t *conn, smart_str *channel, smart_str *users)
 {
-	php_irconn_t *conn = dummy;
+	smart_str m = {0};
+	FORMAT_MSG(conn, FMT_MSG_JOIN, channel, NULL, &users[0],
+			NULL, &m, conn->conn.username, conn->conn.username_len);
+	FORMAT_MSG(conn, FMT_MSG_JOIN_LIST_END, channel, NULL, NULL,
+		NULL, &m, conn->conn.username, conn->conn.username_len);
+	msg_send(conn, &m);
+}
+
+static void user_add_multiple(php_irconn_t *conn, smart_str *channel, smart_str *users, int nr)
+{
 	int i;
 	smart_str m = {0};
 
-	if (nr > 1) {
-		FORMAT_MSG(conn, FMT_MSG_MASS_JOIN_BEGIN, channel, NULL, NULL,
-				NULL, &m, conn->conn.username, conn->conn.username_len);
-		for (i = 0; i < nr; i++) {
-			FORMAT_MSG(conn, FMT_MSG_MASS_JOIN_ELEMENT, channel, NULL,
-					&users[i], NULL, &m, conn->conn.username, conn->conn.username_len);
-		}
-	
-		FORMAT_MSG(conn, FMT_MSG_MASS_JOIN_END, channel, NULL, NULL,
-				NULL, &m, conn->conn.username, conn->conn.username_len);
-	} else {
-		FORMAT_MSG(conn, FMT_MSG_JOIN, channel, NULL, &users[0],
-				NULL, &m, conn->conn.username, conn->conn.username_len);
-		FORMAT_MSG(conn, FMT_MSG_JOIN_LIST_END, channel, NULL, NULL,
+	FORMAT_MSG(conn, FMT_MSG_MASS_JOIN_BEGIN, channel, NULL, NULL,
 			NULL, &m, conn->conn.username, conn->conn.username_len);
+	for (i = 0; i < nr; i++) {
+		FORMAT_MSG(conn, FMT_MSG_MASS_JOIN_ELEMENT, channel, NULL,
+				&users[i], NULL, &m, conn->conn.username, conn->conn.username_len);
 	}
+
+	FORMAT_MSG(conn, FMT_MSG_MASS_JOIN_END, channel, NULL, NULL,
+			NULL, &m, conn->conn.username, conn->conn.username_len);
+
+
 	msg_send(conn, &m);
 }
+
+#if IRCG_API_VERSION >= 20021109
+
+static void user_add_ex(irconn_t *ircc, smart_str *channel, smart_str *users,
+		int nr, int namelist, void *dummy)
+{
+	if (namelist) {
+		user_add_multiple(dummy, channel, users, nr);
+	} else {
+		user_add_single(dummy, channel, users);
+	}
+}
+
+#else
+
+static void user_add(irconn_t *ircc, smart_str *channel, smart_str *users,
+		int nr, void *dummy)
+{
+	if (nr > 1) {
+		user_add_multiple(dummy, channel, users, nr);
+	} else {
+		user_add_single(dummy, channel, users);
+	}
+}
+
+#endif
 
 static void new_topic(irconn_t *ircc, smart_str *channel, smart_str *who, smart_str *topic, void *dummy)
 {
@@ -1328,6 +1361,7 @@ PHP_FUNCTION(ircg_set_file)
 		close(conn->file_fd);
 	
 	conn->file_fd = open(Z_STRVAL_PP(p2), O_WRONLY | O_CREAT | O_TRUNC | O_APPEND, 0644);
+	SEEN_FD(conn->file_fd);
 	if (conn->file_fd == -1) {
 		RETURN_FALSE;
 	}
@@ -1386,8 +1420,10 @@ PHP_FUNCTION(ircg_set_current)
 	thttpd_register_on_close(http_closed_connection);
 	thttpd_set_dont_close();
 	conn->fd = thttpd_get_fd();
+	SEEN_FD(conn->fd);
 	if (fcntl(conn->fd, F_GETFL) == -1) {
 		zend_hash_index_del(&h_irconn, Z_LVAL_PP(p1));
+		php_error(E_WARNING, "current fd is not valid");
 		RETURN_FALSE;
 	}
 	zend_hash_index_update(&h_fd2irconn, conn->fd, &Z_LVAL_PP(p1), sizeof(int), NULL);
@@ -1818,7 +1854,6 @@ static void register_hooks(irconn_t *conn, void *dummy)
 	IFMSG(FMT_MSG_NICK, IRCG_NICK, nick_handler);
 
 	IFMSG(FMT_MSG_SELF_PART, IRCG_PART, part_handler);
-	IFMSG(FMT_MSG_MASS_JOIN_ELEMENT, IRCG_USER_ADD, user_add);
 	IFMSG(FMT_MSG_LEAVE, IRCG_USER_LEAVE, user_leave);
 	IFMSG(FMT_MSG_KICK, IRCG_USER_KICK, user_kick);
 	IFMSG(FMT_MSG_QUIT, IRCG_USER_QUIT, user_quit);
@@ -1849,6 +1884,12 @@ static void register_hooks(irconn_t *conn, void *dummy)
 	/* RPL_LIST/RPL_LISTEND */
 	irc_register_hook(conn, IRCG_LIST, list_handler);
 	irc_register_hook(conn, IRCG_LISTEND, listend_handler);
+#endif
+
+#if IRCG_API_VERSION >= 20021109
+	IFMSG(FMT_MSG_MASS_JOIN_ELEMENT, IRCG_USER_ADD_EX, user_add_ex);
+#else	
+	IFMSG(FMT_MSG_MASS_JOIN_ELEMENT, IRCG_USER_ADD, user_add);
 #endif
 	
 }
@@ -1954,6 +1995,7 @@ PHP_FUNCTION(ircg_pconnect)
 		}
 	}
 
+	conn->bailout_on_trivial = bailout_on_trivial;
 #ifdef IRCG_PENDING_URL
 	conn->od_port = 0;
 #endif
@@ -2317,6 +2359,12 @@ PHP_MINFO_FUNCTION(ircg)
 
 	php_info_print_table_start();
 	php_info_print_table_header(2, "ircg support", "enabled");
+	
+	sprintf(buf, "%lu", getdtablesize());
+	php_info_print_table_row(2, "Maximum number of open fds", buf);
+	sprintf(buf, "%lu", highest_fd);
+	php_info_print_table_row(2, "Highest encountered fd", buf);
+
 	sprintf(buf, "%lu", cache_hits);
 	php_info_print_table_row(2, "scanner result cache hits", buf);
 	sprintf(buf, "%lu", cache_misses);

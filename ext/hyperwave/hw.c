@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: hw.c,v 1.111 2002/10/24 13:14:36 sas Exp $ */
+/* $Id: hw.c,v 1.111.2.3 2003/03/04 19:00:02 sniper Exp $ */
 
 #include <stdlib.h>
 #include <errno.h>
@@ -199,7 +199,7 @@ static PHP_INI_MH(OnHyperwavePort)
 }
 
 PHP_INI_BEGIN()
-	STD_PHP_INI_ENTRY("hyerwave.allow_persistent", "0", PHP_INI_SYSTEM, OnUpdateInt, allow_persistent, zend_hw_globals, hw_globals)
+	STD_PHP_INI_ENTRY("hyperwave.allow_persistent", "0", PHP_INI_SYSTEM, OnUpdateInt, allow_persistent, zend_hw_globals, hw_globals)
 	PHP_INI_ENTRY("hyperwave.default_port",	"418", PHP_INI_ALL,	OnHyperwavePort)
 PHP_INI_END()
 
@@ -2882,8 +2882,7 @@ PHP_FUNCTION(hw_new_document_from_file)
 	convert_to_string_ex(arg1);
 	convert_to_string_ex(arg2);
 
-	stream = php_stream_open_wrapper(Z_STRVAL_PP(arg2), "r", use_include_path|ENFORCE_SAFE_MODE|REPORT_ERRORS,
-			NULL TSRMLS_CC);
+	stream = php_stream_open_wrapper(Z_STRVAL_PP(arg2), "r", use_include_path|ENFORCE_SAFE_MODE|REPORT_ERRORS, NULL);
 
 	if (stream == NULL)	{
 		RETURN_FALSE;

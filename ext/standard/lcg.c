@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: lcg.c,v 1.33 2002/09/06 07:27:27 hyanantha Exp $ */
+/* $Id: lcg.c,v 1.33.2.3 2003/03/31 05:39:45 sas Exp $ */
 
 #include "php.h"
 #include "php_lcg.h"
@@ -57,10 +57,16 @@ static php_lcg_globals lcg_globals;
 
 #define MODMULT(a, b, c, m, s) q = s/a;s=b*(s-a*q)-c*q;if(s<0)s+=m
 
+static void lcg_seed(TSRMLS_D);
+
 PHPAPI double php_combined_lcg(TSRMLS_D)
 {
 	php_int32 q;
 	php_int32 z;
+	
+	if (!LCG(seeded)) {
+		lcg_seed(TSRMLS_C);
+	}
 
 	MODMULT(53668, 40014, 12211, 2147483563L, LCG(s1));
 	MODMULT(52774, 40692, 3791, 2147483399L, LCG(s2));

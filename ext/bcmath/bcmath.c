@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: bcmath.c,v 1.39.4.2 2002/12/05 22:13:58 helly Exp $ */
+/* $Id: bcmath.c,v 1.39.4.7 2003/04/02 23:50:41 rasmus Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -96,7 +96,7 @@ PHP_RINIT_FUNCTION(bcmath)
 	if (cfg_get_long("bcmath.scale", &bc_precision)==FAILURE) {
 		bc_precision=0;
 	}
-	
+	if(bc_precision<0) bc_precision=0;
 	bc_init_numbers(TSRMLS_C);
 	
 	return SUCCESS;
@@ -109,6 +109,21 @@ PHP_MINFO_FUNCTION(bcmath)
 	php_info_print_table_row(2, "BCMath support", "enabled");
 	php_info_print_table_end();
 }
+
+/* {{{ php_str2num
+   Convert to bc_num detecting scale */
+static void php_str2num(bc_num *num, char *str TSRMLS_DC) 
+{
+	char *p;
+
+	if (!(p = strchr(str, '.'))) {
+		bc_str2num(num, str, 0 TSRMLS_CC);
+		return;
+	}
+
+	bc_str2num(num, str, strlen(p+1) TSRMLS_CC);
+}
+/* }}} */
 
 /* {{{ proto string bcadd(string left_operand, string right_operand [, int scale])
    Returns the sum of two arbitrary precision numbers */
@@ -129,7 +144,7 @@ PHP_FUNCTION(bcadd)
 		        	WRONG_PARAM_COUNT;
     			}
 				convert_to_long_ex(scale_param);
-				scale = (int) Z_LVAL_PP(scale_param);
+				scale = (int) (Z_LVAL_PP(scale_param)<0) ? 0:Z_LVAL_PP(scale_param);
 				break;
 		default:
 				WRONG_PARAM_COUNT;
@@ -140,9 +155,11 @@ PHP_FUNCTION(bcadd)
 	bc_init_num(&first TSRMLS_CC);
 	bc_init_num(&second TSRMLS_CC);
 	bc_init_num(&result TSRMLS_CC);
-	bc_str2num(&first, Z_STRVAL_PP(left), scale TSRMLS_CC);
-	bc_str2num(&second, Z_STRVAL_PP(right), scale TSRMLS_CC);
+	php_str2num(&first, Z_STRVAL_PP(left) TSRMLS_CC);
+	php_str2num(&second, Z_STRVAL_PP(right) TSRMLS_CC);
 	bc_add (first, second, &result, scale);
+	if (result->n_scale > scale)
+		result->n_scale = scale;
 	Z_STRVAL_P(return_value) = bc_num2str(result);
 	Z_STRLEN_P(return_value) = strlen(Z_STRVAL_P(return_value));
 	Z_TYPE_P(return_value) = IS_STRING;
@@ -172,7 +189,7 @@ PHP_FUNCTION(bcsub)
 		        	WRONG_PARAM_COUNT;
     			}
 				convert_to_long_ex(scale_param);
-				scale = (int) Z_LVAL_PP(scale_param);
+				scale = (int) (Z_LVAL_PP(scale_param)<0) ? 0:Z_LVAL_PP(scale_param);
 				break;
 		default:
 				WRONG_PARAM_COUNT;
@@ -183,9 +200,11 @@ PHP_FUNCTION(bcsub)
 	bc_init_num(&first TSRMLS_CC);
 	bc_init_num(&second TSRMLS_CC);
 	bc_init_num(&result TSRMLS_CC);
-	bc_str2num(&first, Z_STRVAL_PP(left), scale TSRMLS_CC);
-	bc_str2num(&second, Z_STRVAL_PP(right), scale TSRMLS_CC);
+	php_str2num(&first, Z_STRVAL_PP(left) TSRMLS_CC);
+	php_str2num(&second, Z_STRVAL_PP(right) TSRMLS_CC);
 	bc_sub (first, second, &result, scale);
+	if (result->n_scale > scale)
+		result->n_scale = scale;
 	Z_STRVAL_P(return_value) = bc_num2str(result);
 	Z_STRLEN_P(return_value) = strlen(Z_STRVAL_P(return_value));
 	Z_TYPE_P(return_value) = IS_STRING;
@@ -215,7 +234,7 @@ PHP_FUNCTION(bcmul)
 		        	WRONG_PARAM_COUNT;
     			}
 				convert_to_long_ex(scale_param);
-				scale = (int) Z_LVAL_PP(scale_param);
+				scale = (int) (Z_LVAL_PP(scale_param)<0) ? 0:Z_LVAL_PP(scale_param);
 				break;
 		default:
 				WRONG_PARAM_COUNT;
@@ -226,9 +245,11 @@ PHP_FUNCTION(bcmul)
 	bc_init_num(&first TSRMLS_CC);
 	bc_init_num(&second TSRMLS_CC);
 	bc_init_num(&result TSRMLS_CC);
-	bc_str2num(&first, Z_STRVAL_PP(left), scale TSRMLS_CC);
-	bc_str2num(&second, Z_STRVAL_PP(right), scale TSRMLS_CC);
+	php_str2num(&first, Z_STRVAL_PP(left) TSRMLS_CC);
+	php_str2num(&second, Z_STRVAL_PP(right) TSRMLS_CC);
 	bc_multiply (first, second, &result, scale TSRMLS_CC);
+	if (result->n_scale > scale)
+		result->n_scale = scale;
 	Z_STRVAL_P(return_value) = bc_num2str(result);
 	Z_STRLEN_P(return_value) = strlen(Z_STRVAL_P(return_value));
 	Z_TYPE_P(return_value) = IS_STRING;
@@ -258,7 +279,7 @@ PHP_FUNCTION(bcdiv)
 		        	WRONG_PARAM_COUNT;
     			}
 				convert_to_long_ex(scale_param);
-				scale = (int) Z_LVAL_PP(scale_param);
+				scale = (int) (Z_LVAL_PP(scale_param)<0) ? 0:Z_LVAL_PP(scale_param);
 				break;
 		default:
 				WRONG_PARAM_COUNT;
@@ -269,10 +290,12 @@ PHP_FUNCTION(bcdiv)
 	bc_init_num(&first TSRMLS_CC);
 	bc_init_num(&second TSRMLS_CC);
 	bc_init_num(&result TSRMLS_CC);
-	bc_str2num(&first, Z_STRVAL_PP(left), scale TSRMLS_CC);
-	bc_str2num(&second, Z_STRVAL_PP(right), scale TSRMLS_CC);
+	php_str2num(&first, Z_STRVAL_PP(left) TSRMLS_CC);
+	php_str2num(&second, Z_STRVAL_PP(right) TSRMLS_CC);
 	switch (bc_divide (first, second, &result, scale TSRMLS_CC)) {
 		case 0: /* OK */
+			if (result->n_scale > scale)
+				result->n_scale = scale;
 			Z_STRVAL_P(return_value) = bc_num2str(result);
 			Z_STRLEN_P(return_value) = strlen(Z_STRVAL_P(return_value));
 			Z_TYPE_P(return_value) = IS_STRING;
@@ -348,7 +371,7 @@ PHP_FUNCTION(bcpow)
 		        	WRONG_PARAM_COUNT;
     			}
 				convert_to_long_ex(scale_param);
-				scale = (int) Z_LVAL_PP(scale_param);
+				scale = (int) (Z_LVAL_PP(scale_param)<0) ? 0:Z_LVAL_PP(scale_param);
 				break;
 		default:
 				WRONG_PARAM_COUNT;
@@ -359,9 +382,11 @@ PHP_FUNCTION(bcpow)
 	bc_init_num(&first TSRMLS_CC);
 	bc_init_num(&second TSRMLS_CC);
 	bc_init_num(&result TSRMLS_CC);
-	bc_str2num(&first, Z_STRVAL_PP(left), scale TSRMLS_CC);
-	bc_str2num(&second, Z_STRVAL_PP(right), scale TSRMLS_CC);
+	php_str2num(&first, Z_STRVAL_PP(left) TSRMLS_CC);
+	php_str2num(&second, Z_STRVAL_PP(right) TSRMLS_CC);
 	bc_raise (first, second, &result, scale TSRMLS_CC);
+	if (result->n_scale > scale)
+		result->n_scale = scale;
 	Z_STRVAL_P(return_value) = bc_num2str(result);
 	Z_STRLEN_P(return_value) = strlen(Z_STRVAL_P(return_value));
 	Z_TYPE_P(return_value) = IS_STRING;
@@ -391,7 +416,7 @@ PHP_FUNCTION(bcsqrt)
 		        	WRONG_PARAM_COUNT;
     			}
 				convert_to_long_ex(scale_param);
-				scale = (int) Z_LVAL_PP(scale_param);
+				scale = (int) (Z_LVAL_PP(scale_param)<0) ? 0:Z_LVAL_PP(scale_param);
 				break;
 		default:
 				WRONG_PARAM_COUNT;
@@ -399,8 +424,10 @@ PHP_FUNCTION(bcsqrt)
 	}
 	convert_to_string_ex(left);
 	bc_init_num(&result TSRMLS_CC);
-	bc_str2num(&result, Z_STRVAL_PP(left), scale TSRMLS_CC);
+	php_str2num(&result, Z_STRVAL_PP(left) TSRMLS_CC);
 	if (bc_sqrt (&result, scale TSRMLS_CC) != 0) {
+		if (result->n_scale > scale)
+			result->n_scale = scale;
 		Z_STRVAL_P(return_value) = bc_num2str(result);
 		Z_STRLEN_P(return_value) = strlen(Z_STRVAL_P(return_value));
 		Z_TYPE_P(return_value) = IS_STRING;
@@ -431,7 +458,7 @@ PHP_FUNCTION(bccomp)
 		        	WRONG_PARAM_COUNT;
     			}
 				convert_to_long_ex(scale_param);
-				scale = (int) Z_LVAL_PP(scale_param);
+				scale = (int) (Z_LVAL_PP(scale_param)<0) ? 0:Z_LVAL_PP(scale_param);
 				break;
 		default:
 				WRONG_PARAM_COUNT;
@@ -465,7 +492,8 @@ PHP_FUNCTION(bcscale)
 	}
 	
 	convert_to_long_ex(new_scale);
-	bc_precision = Z_LVAL_PP(new_scale);
+	bc_precision = (Z_LVAL_PP(new_scale)<0) ? 0 : Z_LVAL_PP(new_scale);
+
 	RETURN_TRUE;
 }
 /* }}} */

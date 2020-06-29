@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.55 2002/11/12 17:31:39 sniper Exp $
+dnl $Id: config.m4,v 1.55.2.4 2003/05/02 00:40:35 sniper Exp $
 dnl
 
 dnl
@@ -188,16 +188,16 @@ AC_ARG_WITH(ibm-db2,
   PHP_WITH_SHARED
   if test "$withval" != "no"; then
     if test "$withval" = "yes"; then
-        ODBC_INCDIR=/home/db2inst1/sqllib/include
-        ODBC_LIBDIR=/home/db2inst1/sqllib/lib
+      ODBC_INCDIR=/home/db2inst1/sqllib/include
+      ODBC_LIBDIR=/home/db2inst1/sqllib/lib
     else
-        ODBC_INCDIR=$withval/include
-        ODBC_LIBDIR=$withval/lib
+      ODBC_INCDIR=$withval/include
+      ODBC_LIBDIR=$withval/lib
     fi
     ODBC_INCLUDE=-I$ODBC_INCDIR
     ODBC_LFLAGS=-L$ODBC_LIBDIR
     ODBC_TYPE=db2
-    ODBC_LIBS="-ldb2"
+    ODBC_LIBS=-ldb2
     AC_DEFINE(HAVE_IBMDB2,1,[ ])
 
     AC_MSG_RESULT(yes)
@@ -536,12 +536,13 @@ fi
 
 if test -n "$ODBC_TYPE"; then
   if test "$ODBC_TYPE" != "dbmaker"; then
-    if test "$shared" != "yes"; then
-      EXTRA_LDFLAGS="$EXTRA_LDFLAGS $ODBC_LFLAGS"
-      EXTRA_LIBS="$EXTRA_LIBS $ODBC_LIBS"
-    fi
+    ext_shared=$shared
+    PHP_EVAL_LIBLINE([$ODBC_LFLAGS $ODBC_LIBS], ODBC_SHARED_LIBADD)
+    AC_DEFINE(HAVE_SQLDATASOURCES,1,[ ])
   fi
+
   AC_DEFINE(HAVE_UODBC,1,[ ])
+  PHP_SUBST(ODBC_SHARED_LIBADD)
   PHP_SUBST(ODBC_INCDIR)
   PHP_SUBST(ODBC_LIBDIR)
   PHP_SUBST_OLD(ODBC_INCLUDE)
@@ -549,5 +550,5 @@ if test -n "$ODBC_TYPE"; then
   PHP_SUBST_OLD(ODBC_LFLAGS)
   PHP_SUBST_OLD(ODBC_TYPE)
 
-  PHP_NEW_EXTENSION(odbc, php_odbc.c, $shared,, $ODBC_INCLUDE)
+  PHP_NEW_EXTENSION(odbc, php_odbc.c, $ext_shared,, $ODBC_INCLUDE)
 fi

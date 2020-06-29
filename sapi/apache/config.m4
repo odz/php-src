@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.62 2002/07/25 18:37:16 sniper Exp $
+dnl $Id: config.m4,v 1.62.4.7 2003/03/30 18:36:46 sas Exp $
 dnl
 
 AC_MSG_CHECKING(for Apache 1.x module support via DSO through APXS)
@@ -34,6 +34,7 @@ AC_ARG_WITH(apxs,
   APXS_INCLUDEDIR=`$APXS -q INCLUDEDIR`
   APXS_CFLAGS=`$APXS -q CFLAGS`
   APXS_HTTPD=`$APXS -q SBINDIR`/`$APXS -q TARGET`
+  APACHE_INCLUDE=-I$APXS_INCLUDEDIR
 
   # Test that we're trying to configure with apache 1.x
   PHP_AP_EXTRACT_VERSION($APXS_HTTPD)
@@ -43,25 +44,29 @@ AC_ARG_WITH(apxs,
 
   for flag in $APXS_CFLAGS; do
     case $flag in
-    -D*) CPPFLAGS="$CPPFLAGS $flag";;
+    -D*) APACHE_CPPFLAGS="$APACHE_CPPFLAGS $flag";;
     esac
   done
+
   case $host_alias in
   *aix*)
     APXS_LIBEXECDIR=`$APXS -q LIBEXECDIR`
-    EXTRA_LDFLAGS="$EXTRA_LDFLAGS -Wl,-bI:$APXS_LIBEXECDIR/httpd.exp"
-    PHP_SELECT_SAPI(apache, shared, sapi_apache.c mod_php4.c php_apache.c, -I$APXS_INCLUDEDIR)
+    EXTRA_LDFLAGS="$EXTRA_LDFLAGS -Wl,-brtl -Wl,-bI:$APXS_LIBEXECDIR/httpd.exp"
+    PHP_AIX_LDFLAGS="-Wl,-brtl"
+    build_type=shared
     ;;
   *darwin*)
     MH_BUNDLE_FLAGS="-dynamic -twolevel_namespace -bundle -bundle_loader $APXS_HTTPD"
     PHP_SUBST(MH_BUNDLE_FLAGS)
     SAPI_SHARED=libs/libphp4.so
-    PHP_SELECT_SAPI(apache, bundle, sapi_apache.c mod_php4.c php_apache.c, -I$APXS_INCLUDEDIR)
+    build_type=bundle
     ;;
   *)
-    PHP_SELECT_SAPI(apache, shared, sapi_apache.c mod_php4.c php_apache.c, -I$APXS_INCLUDEDIR)
+    build_type=shared
     ;;
   esac
+
+  PHP_SELECT_SAPI(apache, $build_type, sapi_apache.c mod_php4.c php_apache.c, $APACHE_CPPFLAGS -I$APXS_INCLUDEDIR)
 
   # Test whether apxs support -S option
   $APXS -q -S CFLAGS="$APXS_CFLAGS" CFLAGS >/dev/null 2>&1
@@ -69,7 +74,19 @@ AC_ARG_WITH(apxs,
   if test "$?" != "0"; then
     APACHE_INSTALL="$APXS -i -a -n php4 $SAPI_SHARED" # Old apxs does not have -S option
   else 
-    APACHE_INSTALL="\$(mkinstalldirs) \"\$(INSTALL_ROOT)`$APXS -q LIBEXECDIR`\" && $APXS -S LIBEXECDIR=\"\$(INSTALL_ROOT)`$APXS -q LIBEXECDIR`\" -i -a -n php4 $SAPI_SHARED"
+    APXS_LIBEXECDIR='$(INSTALL_ROOT)'`$APXS -q LIBEXECDIR`
+    if test -z `$APXS -q SYSCONFDIR`; then
+      APACHE_INSTALL="\$(mkinstalldirs) '$APXS_LIBEXECDIR' && \
+                       $APXS -S LIBEXECDIR='$APXS_LIBEXECDIR' \
+                             -i -n php4 $SAPI_SHARED"
+    else
+      APXS_SYSCONFDIR='$(INSTALL_ROOT)'`$APXS -q SYSCONFDIR`
+      APACHE_INSTALL="\$(mkinstalldirs) '$APXS_LIBEXECDIR' && \
+                      \$(mkinstalldirs) '$APXS_SYSCONFDIR' && \
+                       $APXS -S LIBEXECDIR='$APXS_LIBEXECDIR' \
+                             -S SYSCONFDIR='$APXS_SYSCONFDIR' \
+                             -i -a -n php4 $SAPI_SHARED"
+    fi
   fi
 
   if test -z "`$APXS -q LD_SHLIB`" || test "`$APXS -q LIBEXECDIR`" = "modules"; then
@@ -78,23 +95,26 @@ AC_ARG_WITH(apxs,
   STRONGHOLD=
   AC_DEFINE(HAVE_AP_CONFIG_H,1,[ ])
   AC_DEFINE(HAVE_AP_COMPAT_H,1,[ ])
+  AC_DEFINE(HAVE_APACHE,1,[ ])
   AC_MSG_RESULT(yes)
 ],[
   AC_MSG_RESULT(no)
 ])
-
-APACHE_INSTALL_FILES="\$(srcdir)/sapi/apache/mod_php4.* sapi/apache/libphp4.module"
 
 if test "$PHP_SAPI" != "apache"; then
 AC_MSG_CHECKING(for Apache 1.x module support)
 AC_ARG_WITH(apache,
 [  --with-apache[=DIR]     Build Apache 1.x module. DIR is the top-level Apache
                           build directory, defaults to /usr/local/apache.],[
+
+  APACHE_INSTALL_FILES="\$(srcdir)/sapi/apache/mod_php4.* sapi/apache/libphp4.module"
+
   if test "$withval" = "yes"; then
     # Apache's default directory
     withval=/usr/local/apache
   fi
   if test "$withval" != "no"; then
+    AC_DEFINE(HAVE_APACHE,1,[ ])
     APACHE_MODULE=yes
     PHP_EXPAND_PATH($withval, withval)
     # For Apache 1.2.x
@@ -212,6 +232,21 @@ PHP_SUBST(APXS_LDFLAGS)
 PHP_SUBST(APACHE_INSTALL)
 PHP_SUBST(STRONGHOLD)
 
+AC_CACHE_CHECK([for member fd in BUFF *],ac_cv_php_fd_in_buff,[
+  save=$CPPFLAGS
+  if test -n "$APXS_INCLUDEDIR"; then
+    CPPFLAGS="$CPPFLAGS -I$APXS_INCLUDEDIR"
+  else
+    CPPFLAGS="$CPPFLAGS $APACHE_INCLUDE"
+  fi
+  AC_TRY_COMPILE([#include <httpd.h>],[conn_rec *c; int fd = c->client->fd;],[
+    ac_cv_php_fd_in_buff=yes],[ac_cv_php_fd_in_buff=no],[ac_cv_php_fd_in_buff=no])
+  CPPFLAGS=$save
+])
+if test "$ac_cv_php_fd_in_buff" = "yes"; then
+  AC_DEFINE(PHP_APACHE_HAVE_CLIENT_FD,1,[ ])
+fi
+  
 AC_MSG_CHECKING(for mod_charset compatibility option)
 AC_ARG_WITH(mod_charset,
 [  --with-mod_charset      Enable transfer tables for mod_charset (Rus Apache).],

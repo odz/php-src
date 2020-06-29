@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_incomplete_class.h,v 1.9 2002/07/24 09:55:11 yohgaki Exp $ */
+/* $Id: php_incomplete_class.h,v 1.9.4.3 2003/01/05 13:02:02 edink Exp $ */
 
 #ifndef PHP_INCOMPLETE_CLASS_H
 #define PHP_INCOMPLETE_CLASS_H
@@ -29,7 +29,7 @@
 #define PHP_SET_CLASS_ATTRIBUTES(struc) 								\
 	/* OBJECTS_FIXME: Fix for new object model */						\
 	if (Z_OBJCE_P(struc) == BG(incomplete_class)) {						\
-		class_name = php_lookup_class_name(struc, &name_len, 1);		\
+		class_name = php_lookup_class_name(struc, &name_len, 1 TSRMLS_CC);		\
 		free_class_name = 1;											\
 	} else {															\
 		class_name = Z_OBJCE_P(struc)->name;							\
@@ -53,8 +53,8 @@ extern "C" {
 	
 zend_class_entry *php_create_incomplete_class(TSRMLS_D);
 
-char *php_lookup_class_name(zval *object, size_t *nlen, zend_bool del);
-void  php_store_class_name(zval *object, const char *name, size_t len);
+char *php_lookup_class_name(zval *object, size_t *nlen, zend_bool del TSRMLS_DC);
+void  php_store_class_name(zval *object, const char *name, size_t len TSRMLS_DC);
 
 #ifdef __cplusplus
 };

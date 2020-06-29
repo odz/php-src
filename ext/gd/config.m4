@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.120.2.6 2002/12/14 09:32:49 sniper Exp $
+dnl $Id: config.m4,v 1.120.2.14 2003/04/21 19:07:50 moriyoshi Exp $
 dnl
 
 dnl
@@ -39,6 +39,9 @@ PHP_ARG_WITH(t1lib, for T1lib support,
 
 PHP_ARG_ENABLE(gd-native-ttf, whether to enable truetype string function in GD,
 [  --enable-gd-native-ttf    GD: Enable TrueType string function.], no, no)
+
+PHP_ARG_ENABLE(gd-jis-conv, whether to enable JIS-mapped Japanese font support in GD,
+[  --enable-gd-jis-conv      GD: Enable JIS-mapped Japanese font suppert.], no, no)
 
 dnl  
 dnl Checks for the configure options 
@@ -83,7 +86,11 @@ AC_DEFUN(PHP_GD_PNG,[
     if test "$PHP_ZLIB_DIR" = "no"; then
       AC_MSG_ERROR([PNG support requires ZLIB. Use --with-zlib-dir=<DIR>])
     fi
-    
+
+    if test ! -f $GD_PNG_DIR/include/png.h; then
+      AC_MSG_ERROR([png.h not found.])
+    fi
+
     PHP_CHECK_LIBRARY(png,png_write_image,
     [
       PHP_ADD_INCLUDE($GD_PNG_DIR/include)
@@ -179,6 +186,7 @@ AC_DEFUN(PHP_GD_FREETYPE2,[
     
     if test -n "$FREETYPE2_DIR" ; then
       PHP_ADD_LIBRARY_WITH_PATH(freetype, $FREETYPE2_DIR/lib, GD_SHARED_LIBADD)
+      PHP_ADD_INCLUDE($FREETYPE2_DIR/include)
       PHP_ADD_INCLUDE($FREETYPE2_INC_DIR)
       AC_DEFINE(USE_GD_IMGSTRTTF, 1, [ ])
       AC_DEFINE(HAVE_LIBFREETYPE,1,[ ])
@@ -220,6 +228,12 @@ AC_DEFUN(PHP_GD_TTSTR,[
   fi
 ])
 
+AC_DEFUN(PHP_GD_JISX0208,[
+  if test "$PHP_GD_JIS_CONV" = "yes"; then
+    USE_GD_JIS_CONV=1
+  fi
+])
+
 AC_DEFUN(PHP_GD_CHECK_VERSION,[
   PHP_CHECK_LIBRARY(gd, gdImageString16,        [AC_DEFINE(HAVE_LIBGD13,             1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
   PHP_CHECK_LIBRARY(gd, gdImagePaletteCopy,     [AC_DEFINE(HAVE_LIBGD15,             1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
@@ -240,6 +254,7 @@ AC_DEFUN(PHP_GD_CHECK_VERSION,[
   PHP_CHECK_LIBRARY(gd, gdImageColorClosestHWB, [AC_DEFINE(HAVE_COLORCLOSESTHWB,     1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
   PHP_CHECK_LIBRARY(gd, gdImageColorResolve,    [AC_DEFINE(HAVE_GDIMAGECOLORRESOLVE, 1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
   PHP_CHECK_LIBRARY(gd, gdImageGifCtx,          [AC_DEFINE(HAVE_GD_GIF_CTX,          1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
+  PHP_CHECK_LIBRARY(gd, gdCacheCreate,          [AC_DEFINE(HAVE_GD_CACHE_CREATE,     1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
 ])
 
 dnl
@@ -252,7 +267,8 @@ if test "$PHP_GD" = "yes"; then
                  libgd/gd_io_file.c libgd/gd_ss.c libgd/gd_io_ss.c libgd/gd_png.c libgd/gd_jpeg.c \
                  libgd/gdxpm.c libgd/gdfontt.c libgd/gdfonts.c libgd/gdfontmb.c libgd/gdfontl.c \
                  libgd/gdfontg.c libgd/gdtables.c libgd/gdft.c libgd/gdcache.c libgd/gdkanji.c \
-                 libgd/wbmp.c libgd/gd_wbmp.c libgd/gdhelpers.c libgd/gd_topal.c libgd/gd_gif_in.c"
+                 libgd/wbmp.c libgd/gd_wbmp.c libgd/gdhelpers.c libgd/gd_topal.c libgd/gd_gif_in.c \
+                 libgd/xbm.c"
 
 dnl check for fabsf and floorf which are available since C99
   AC_CHECK_FUNCS(fabsf floorf)
@@ -262,6 +278,7 @@ dnl PNG is required by GD library
       
 dnl Various checks for GD features
   PHP_GD_TTSTR
+  PHP_GD_JISX0208
   PHP_GD_JPEG
   PHP_GD_PNG
   PHP_GD_XPM
@@ -282,6 +299,7 @@ dnl These are always available with bundled library
   AC_DEFINE(HAVE_GD_WBMP,             1, [ ])
   AC_DEFINE(HAVE_GD_GD2,              1, [ ])
   AC_DEFINE(HAVE_GD_PNG,              1, [ ])
+  AC_DEFINE(HAVE_GD_XBM,              1, [ ])
   AC_DEFINE(HAVE_GD_BUNDLED,          1, [ ])
   AC_DEFINE(HAVE_GD_GIF_READ,          1, [ ])
 
@@ -309,6 +327,11 @@ dnl enable the support in bundled GD library
 
   if test -n "$TTF_DIR"; then
     GDLIB_CFLAGS="$GDLIB_CFLAGS -DHAVE_LIBTTF"
+  fi
+
+  if test -n "$USE_GD_JIS_CONV"; then
+    AC_DEFINE(USE_GD_JISX0208, 1, [ ])
+    GDLIB_CFLAGS="$GDLIB_CFLAGS -DJISX0208"
   fi
 
 else

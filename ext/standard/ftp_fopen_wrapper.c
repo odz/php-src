@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    |          Hartmut Holzgraefe <hholzgra@php.net>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: ftp_fopen_wrapper.c,v 1.38.2.2 2002/11/25 22:58:26 sesser Exp $ */
+/* $Id: ftp_fopen_wrapper.c,v 1.38.2.4 2003/02/25 04:20:44 iliaa Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -415,7 +415,7 @@ php_stream * php_stream_url_wrap_ftp(php_stream_wrapper *wrapper, char *path, ch
 	}
 
 	result = GET_FTP_RESULT(stream);
-	if (result != 150) {
+	if (result != 150 && result != 125) {
 		/* Could not retrieve or send the file 
 		 * this data will only be sent to us after connection on the data port was initiated.
 		 */

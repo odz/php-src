@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: curl.c,v 1.124.2.2 2002/12/21 20:34:36 iliaa Exp $ */
+/* $Id: curl.c,v 1.124.2.10 2003/05/19 14:19:33 sniper Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -191,7 +191,10 @@ PHP_MINIT_FUNCTION(curl)
 	REGISTER_CURL_CONSTANT(CURLOPT_SSLENGINE);
 	REGISTER_CURL_CONSTANT(CURLOPT_SSLENGINE_DEFAULT);
 	REGISTER_CURL_CONSTANT(CURLOPT_CRLF);
-	
+#ifdef CURLOPT_ENCODING
+	REGISTER_CURL_CONSTANT(CURLOPT_ENCODING);
+#endif
+		
 	/* Constants effecting the way CURLOPT_CLOSEPOLICY works */
 	REGISTER_CURL_CONSTANT(CURLCLOSEPOLICY_LEAST_RECENTLY_USED);
 	REGISTER_CURL_CONSTANT(CURLCLOSEPOLICY_LEAST_TRAFFIC);
@@ -335,7 +338,7 @@ static size_t curl_write(char *data, size_t size, size_t nmemb, void *ctx)
 
 	switch (t->method) {
 	case PHP_CURL_STDOUT:
-		PUTS(data);
+		PHPWRITE(data, length);
 		break;
 	case PHP_CURL_FILE:
 		return fwrite(data, size, nmemb, t->fp);
@@ -391,7 +394,9 @@ static size_t curl_read(char *data, size_t size, size_t nmemb, void *ctx)
 
 	switch (t->method) {
 	case PHP_CURL_DIRECT:
-		length = fread(data, size, nmemb, t->fp);
+		if (t->fp) {
+			length = fread(data, size, nmemb, t->fp);
+		}
 		break;
 	case PHP_CURL_USER: {
 		zval *argv[3];
@@ -453,7 +458,7 @@ static size_t curl_write_header(char *data, size_t size, size_t nmemb, void *ctx
 			if (ch->handlers->write->method == PHP_CURL_RETURN)
 				smart_str_appendl(&ch->handlers->write->buf, data, (int) length);
 			else
-				PUTS(data);
+				PHPWRITE(data, length);
 			break;
 		case PHP_CURL_FILE:
 			return fwrite(data, size, nmemb, t->fp);
@@ -627,6 +632,8 @@ PHP_FUNCTION(curl_init)
 	ch->handlers->read->method  = PHP_CURL_DIRECT;
 	ch->handlers->write_header->method = PHP_CURL_IGNORE;
 
+	ch->uses = 0;
+
 	curl_easy_setopt(ch->cp, CURLOPT_NOPROGRESS,        1);
 	curl_easy_setopt(ch->cp, CURLOPT_VERBOSE,           0);
 	curl_easy_setopt(ch->cp, CURLOPT_ERRORBUFFER,       ch->err.str);
@@ -737,6 +744,9 @@ PHP_FUNCTION(curl_setopt)
 		case CURLOPT_SSLKEYTYPE: 
 		case CURLOPT_SSLKEYPASSWD: 
 		case CURLOPT_SSLENGINE: 
+#ifdef CURLOPT_ENCODING
+		case CURLOPT_ENCODING: 
+#endif
 		case CURLOPT_SSLENGINE_DEFAULT: {
 			char *copystr = NULL;
 	
@@ -1036,46 +1046,68 @@ PHP_FUNCTION(curl_getinfo)
 
 		array_init(return_value);
 
-		curl_easy_getinfo(ch->cp, CURLINFO_EFFECTIVE_URL, &s_code);
-		CAAS("url", s_code);
-		curl_easy_getinfo(ch->cp, CURLINFO_CONTENT_TYPE, &s_code);
-		CAAS("content_type", s_code);
-		curl_easy_getinfo(ch->cp, CURLINFO_HTTP_CODE, &l_code);
-		CAAL("http_code", l_code);
-		curl_easy_getinfo(ch->cp, CURLINFO_HEADER_SIZE, &l_code);
-		CAAL("header_size", l_code);
-		curl_easy_getinfo(ch->cp, CURLINFO_REQUEST_SIZE, &l_code);
-		CAAL("request_size", l_code);
-		curl_easy_getinfo(ch->cp, CURLINFO_FILETIME, &l_code);
-		CAAL("filetime", l_code);
-		curl_easy_getinfo(ch->cp, CURLINFO_SSL_VERIFYRESULT, &l_code);
-		CAAL("ssl_verify_result", l_code);
-		curl_easy_getinfo(ch->cp, CURLINFO_REDIRECT_COUNT, &l_code);
-		CAAL("redirect_count", l_code);
-		curl_easy_getinfo(ch->cp, CURLINFO_TOTAL_TIME, &d_code);
-		CAAD("total_time", d_code);
-		curl_easy_getinfo(ch->cp, CURLINFO_NAMELOOKUP_TIME, &d_code);
-		CAAD("namelookup_time", d_code);
-		curl_easy_getinfo(ch->cp, CURLINFO_CONNECT_TIME, &d_code);
-		CAAD("connect_time", d_code);
-		curl_easy_getinfo(ch->cp, CURLINFO_PRETRANSFER_TIME, &d_code);
-		CAAD("pretransfer_time", d_code);
-		curl_easy_getinfo(ch->cp, CURLINFO_SIZE_UPLOAD, &d_code);
-		CAAD("size_upload", d_code);
-		curl_easy_getinfo(ch->cp, CURLINFO_SIZE_DOWNLOAD, &d_code);
-		CAAD("size_download", d_code);
-		curl_easy_getinfo(ch->cp, CURLINFO_SPEED_DOWNLOAD, &d_code);
-		CAAD("speed_download", d_code);
-		curl_easy_getinfo(ch->cp, CURLINFO_SPEED_UPLOAD, &d_code);
-		CAAD("speed_upload", d_code);
-		curl_easy_getinfo(ch->cp, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &d_code);
-		CAAD("download_content_length", d_code);
-		curl_easy_getinfo(ch->cp, CURLINFO_CONTENT_LENGTH_UPLOAD, &d_code);
-		CAAD("upload_content_length", d_code);
-		curl_easy_getinfo(ch->cp, CURLINFO_STARTTRANSFER_TIME, &d_code);
-		CAAD("starttransfer_time", d_code);
-		curl_easy_getinfo(ch->cp, CURLINFO_REDIRECT_TIME, &d_code);
-		CAAD("redirect_time", d_code);
+		if (curl_easy_getinfo(ch->cp, CURLINFO_EFFECTIVE_URL, &s_code) == CURLE_OK) {
+			CAAS("url", s_code);
+		}
+		if (curl_easy_getinfo(ch->cp, CURLINFO_CONTENT_TYPE, &s_code) == CURLE_OK) {
+			if (s_code != NULL) {
+				CAAS("content_type", s_code);
+			}
+		}
+		if (curl_easy_getinfo(ch->cp, CURLINFO_HTTP_CODE, &l_code) == CURLE_OK) {
+			CAAL("http_code", l_code);
+		}
+		if (curl_easy_getinfo(ch->cp, CURLINFO_HEADER_SIZE, &l_code) == CURLE_OK) {
+			CAAL("header_size", l_code);
+		}
+		if (curl_easy_getinfo(ch->cp, CURLINFO_REQUEST_SIZE, &l_code) == CURLE_OK) {
+			CAAL("request_size", l_code);
+		}
+		if (curl_easy_getinfo(ch->cp, CURLINFO_FILETIME, &l_code) == CURLE_OK) {
+			CAAL("filetime", l_code);
+		}
+		if (curl_easy_getinfo(ch->cp, CURLINFO_SSL_VERIFYRESULT, &l_code) == CURLE_OK) {
+			CAAL("ssl_verify_result", l_code);
+		}
+		if (curl_easy_getinfo(ch->cp, CURLINFO_REDIRECT_COUNT, &l_code) == CURLE_OK) {
+			CAAL("redirect_count", l_code);
+		}
+		if (curl_easy_getinfo(ch->cp, CURLINFO_TOTAL_TIME, &d_code) == CURLE_OK) {
+			CAAD("total_time", d_code);
+		}
+		if (curl_easy_getinfo(ch->cp, CURLINFO_NAMELOOKUP_TIME, &d_code) == CURLE_OK) {
+			CAAD("namelookup_time", d_code);
+		}
+		if (curl_easy_getinfo(ch->cp, CURLINFO_CONNECT_TIME, &d_code) == CURLE_OK) {
+			CAAD("connect_time", d_code);
+		}
+		if (curl_easy_getinfo(ch->cp, CURLINFO_PRETRANSFER_TIME, &d_code) == CURLE_OK) {
+			CAAD("pretransfer_time", d_code);
+		}
+		if (curl_easy_getinfo(ch->cp, CURLINFO_SIZE_UPLOAD, &d_code) == CURLE_OK) {
+			CAAD("size_upload", d_code);
+		}
+		if (curl_easy_getinfo(ch->cp, CURLINFO_SIZE_DOWNLOAD, &d_code) == CURLE_OK) {
+			CAAD("size_download", d_code);
+		}
+		if (curl_easy_getinfo(ch->cp, CURLINFO_SPEED_DOWNLOAD, &d_code) == CURLE_OK) {
+			CAAD("speed_download", d_code);
+		}
+		if (curl_easy_getinfo(ch->cp, CURLINFO_SPEED_UPLOAD, &d_code) == CURLE_OK) {
+			CAAD("speed_upload", d_code);
+		}
+		if (curl_easy_getinfo(ch->cp, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &d_code) == CURLE_OK) {
+			CAAD("download_content_length", d_code);
+		}
+		if (curl_easy_getinfo(ch->cp, CURLINFO_CONTENT_LENGTH_UPLOAD, &d_code) == CURLE_OK) {
+			CAAD("upload_content_length", d_code);
+		}
+		if (curl_easy_getinfo(ch->cp, CURLINFO_STARTTRANSFER_TIME, &d_code) == CURLE_OK) {
+			CAAD("starttransfer_time", d_code);
+		}
+		if (curl_easy_getinfo(ch->cp, CURLINFO_REDIRECT_TIME, &d_code) == CURLE_OK) {
+			CAAD("redirect_time", d_code);
+		}
 	} else {
 		option = Z_LVAL_PP(zoption);
 		switch (option) {

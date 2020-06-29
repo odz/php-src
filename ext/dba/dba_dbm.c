@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dba_dbm.c,v 1.22.2.1 2002/12/20 20:25:19 helly Exp $ */
+/* $Id: dba_dbm.c,v 1.22.2.4 2003/02/01 19:01:12 helly Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -27,7 +27,12 @@
 #if DBA_DBM
 #include "php_dbm.h"
 
-#include <dbm.h>
+#ifdef DBM_INCLUDE_FILE
+#include DBM_INCLUDE_FILE
+#endif
+#if DBA_GDBM
+#include "php_gdbm.h"
+#endif
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -108,6 +113,14 @@ DBA_UPDATE_FUNC(dbm)
 	datum gval;
 
 	DBM_GKEY;
+
+	if (mode == 1) { /* insert */
+		gval = fetch(gkey);
+		if(gval.dptr) {
+			return FAILURE;
+		}
+	}
+
 	gval.dptr = (char *) val;
 	gval.dsize = vallen;
 	
@@ -175,6 +188,17 @@ DBA_OPTIMIZE_FUNC(dbm)
 DBA_SYNC_FUNC(dbm)
 {
 	return SUCCESS;
+}
+
+DBA_INFO_FUNC(dbm)
+{
+#if DBA_GDBM
+	if (!strcmp(DBM_VERSION, "GDBM"))
+	{
+		return dba_info_gdbm(hnd, info TSRMLS_CC);
+	}
+#endif
+	return estrdup(DBM_VERSION);
 }
 
 #endif

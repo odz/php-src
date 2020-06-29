@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_open_temporary_file.c,v 1.18.2.3 2002/11/18 12:41:04 wez Exp $ */
+/* $Id: php_open_temporary_file.c,v 1.18.2.8 2003/04/25 18:11:42 sniper Exp $ */
 
 #include "php.h"
 
@@ -102,27 +102,31 @@
  * SUCH DAMAGE.
  */
 
-static FILE *php_do_open_temporary_file(const char *path, const char *pfx, char **opened_path_p TSRMLS_DC)
+static int php_do_open_temporary_file(const char *path, const char *pfx, char **opened_path_p TSRMLS_DC)
 {
 	char *trailing_slash;
-	FILE *fp;
 	char *opened_path;
-#ifndef PHP_WIN32
-	int fd;
+	int fd = -1;
+#ifndef HAVE_MKSTEMP
+	int open_flags = O_CREAT | O_TRUNC | O_RDWR
+#ifdef PHP_WIN32
+		| _O_BINARY
+#endif
+		;
 #endif
 #ifdef NETWARE
     char *file_path = NULL;
 #endif
 
 	if (!path) {
-		return NULL;
+		return -1;
 	}
 
 	if (!(opened_path = emalloc(MAXPATHLEN))) {
-		return NULL;
+		return -1;
 	}
 
-	if (path[strlen(path)-1] == '/') {
+	if (IS_SLASH(path[strlen(path)-1])) {
 		trailing_slash = "";
 	} else {
 		trailing_slash = "/";
@@ -132,38 +136,30 @@ static FILE *php_do_open_temporary_file(const char *path, const char *pfx, char 
 
 #ifdef PHP_WIN32
 	if (GetTempFileName(path, pfx, 0, opened_path)) {
-		fp = VCWD_FOPEN(opened_path, "r+b");
-	} else {
-		fp = NULL;
+		/* Some versions of windows set the temp file to be read-only,
+		 * which means that opening it will fail... */
+		VCWD_CHMOD(opened_path, 0600);
+		fd = VCWD_OPEN_MODE(opened_path, open_flags, 0600);
 	}
 #elif defined(NETWARE)
 	/* Using standard mktemp() implementation for NetWare */
 	file_path = mktemp(opened_path);
 	if (file_path) {
-		fp = VCWD_FOPEN(file_path, "r+b");
-	} else {
-		fp = NULL;
+		fd = VCWD_OPEN(file_path, open_flags);
 	}
 #elif defined(HAVE_MKSTEMP)
 	fd = mkstemp(opened_path);
-	if (fd==-1) {
-		fp = NULL;
-	} else {
-		fp = fdopen(fd, "r+b");
-	}
 #else
 	if (mktemp(opened_path)) {
-		fp = VCWD_FOPEN(opened_path, "r+b");
-	} else {
-		fp = NULL;
+		fd = VCWD_OPEN(opened_path, open_flags);
 	}
 #endif
-	if (!fp || !opened_path_p) {
+	if (fd == -1 || !opened_path_p) {
 		efree(opened_path);
 	} else {
 		*opened_path_p = opened_path;
 	}
-	return fp;
+	return fd;
 }
 /* }}} */
 
@@ -222,9 +218,9 @@ const char* get_temporary_directory()
  * This function should do its best to return a file pointer to a newly created
  * unique file, on every platform.
  */
-PHPAPI FILE *php_open_temporary_file(const char *dir, const char *pfx, char **opened_path_p TSRMLS_DC)
+PHPAPI int php_open_temporary_fd(const char *dir, const char *pfx, char **opened_path_p TSRMLS_DC)
 {
-	FILE* fp = 0;
+	int fd;
 
 	if (!pfx) {
 		pfx = "tmp.";
@@ -234,18 +230,29 @@ PHPAPI FILE *php_open_temporary_file(const char *dir, const char *pfx, char **op
 	}
 
 	/* Try the directory given as parameter. */
-	fp = php_do_open_temporary_file(dir, pfx, opened_path_p TSRMLS_CC);
-	if (fp) {
-		return fp;
+	fd = php_do_open_temporary_file(dir, pfx, opened_path_p TSRMLS_CC);
+	if (fd == -1) {
+		/* Use default temporary directory. */
+		fd = php_do_open_temporary_file(get_temporary_directory(), pfx, opened_path_p TSRMLS_CC);
 	}
+	return fd;
+}
 
-	/* Use default temporary directory. */
-	fp = php_do_open_temporary_file(get_temporary_directory(), pfx, opened_path_p TSRMLS_CC);
-	if (fp) {
-		return fp;
+PHPAPI FILE *php_open_temporary_file(const char *dir, const char *pfx, char **opened_path_p TSRMLS_DC)
+{
+	FILE *fp;
+	int fd = php_open_temporary_fd(dir, pfx, opened_path_p TSRMLS_CC);
+
+	if (fd == -1) {
+		return NULL;
 	}
-
-	return 0;
+	
+	fp = fdopen(fd, "r+b");
+	if (fp == NULL) {
+		close(fd);
+	}
+	
+	return fp;
 }
 /* }}} */
 

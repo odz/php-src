@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_functions.c,v 1.31 2002/11/02 16:04:27 imajes Exp $ */
+/* $Id: php_functions.c,v 1.31.2.2 2003/03/25 01:38:49 sniper Exp $ */
 
 #include "php.h"
 #include "SAPI.h"
@@ -304,7 +304,7 @@ static function_entry apache_functions[] = {
 
 zend_module_entry php_apache_module = {
 	STANDARD_MODULE_HEADER,
-	"Apache 2.0",
+	"apache2filter",
 	apache_functions,
 	NULL,
 	NULL,

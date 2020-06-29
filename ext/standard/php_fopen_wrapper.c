@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    |          Hartmut Holzgraefe <hholzgra@php.net>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_fopen_wrapper.c,v 1.29.2.1 2002/11/21 10:53:18 hholzgra Exp $ */
+/* $Id: php_fopen_wrapper.c,v 1.29.2.4 2003/05/13 23:51:57 sas Exp $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -123,8 +123,8 @@ php_stream_ops php_stream_input_ops = {
 
 php_stream * php_stream_url_wrap_php(php_stream_wrapper *wrapper, char *path, char *mode, int options, char **opened_path, php_stream_context *context STREAMS_DC TSRMLS_DC)
 {
-	FILE * fp = NULL;
-	php_stream * stream = NULL;
+	int fd = -1;
+	php_stream *stream = NULL;
 
 	if (!strncasecmp(path, "php://", 6))
 		path += 6;
@@ -138,17 +138,19 @@ php_stream * php_stream_url_wrap_php(php_stream_wrapper *wrapper, char *path, ch
 	}  
 	
 	if (!strcasecmp(path, "stdin")) {
-		fp = fdopen(dup(STDIN_FILENO), mode);
+		fd = STDIN_FILENO;
 	} else if (!strcasecmp(path, "stdout")) {
-		fp = fdopen(dup(STDOUT_FILENO), mode);
+		fd = STDOUT_FILENO;
 	} else if (!strcasecmp(path, "stderr")) {
-		fp = fdopen(dup(STDERR_FILENO), mode);
+		fd = STDERR_FILENO;
 	}
 
-	if (fp)	{
-		stream = php_stream_fopen_from_file(fp, mode);
-		if (stream == NULL)
-			fclose(fp);
+	if (fd != -1) {
+		int nfd = dup(fd);
+
+		stream = php_stream_fopen_from_fd(nfd, mode, NULL);
+
+		if (!stream) close(nfd);
 	}
 	return stream;
 }

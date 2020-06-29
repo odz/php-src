@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -62,12 +62,12 @@ Example:
 #ifndef SNPRINTF_H
 #define SNPRINTF_H
 
-#if !defined(HAVE_SNPRINTF) || defined(BROKEN_SNPRINTF)
+#if !defined(HAVE_SNPRINTF) || PHP_BROKEN_SNPRINTF
 extern int ap_php_snprintf(char *, size_t, const char *, ...);
 #define snprintf ap_php_snprintf
 #endif
 
-#if !defined(HAVE_VSNPRINTF) || defined(BROKEN_VSNPRINTF)
+#if !defined(HAVE_VSNPRINTF) || PHP_BROKEN_VSNPRINTF
 extern int ap_php_vsnprintf(char *, size_t, const char *, va_list ap);
 #define vsnprintf ap_php_vsnprintf
 #endif

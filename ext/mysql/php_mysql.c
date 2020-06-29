@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
  
-/* $Id: php_mysql.c,v 1.174.2.4 2002/12/26 13:47:59 georg Exp $ */
+/* $Id: php_mysql.c,v 1.174.2.12 2003/05/16 19:07:57 derick Exp $ */
 
 /* TODO:
  *
@@ -663,11 +663,6 @@ static void php_mysql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			/* ensure that the link did not die */
 #if MYSQL_VERSION_ID > 32230 /* Use mysql_ping to ensure link is alive (and to reconnect if needed) */
 			if (mysql_ping(le->ptr)) {
-					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Link to server lost, unable to reconnect");
-					zend_hash_del(&EG(persistent_list), hashed_details, hashed_details_length+1);
-					efree(hashed_details);
-					MYSQL_DO_CONNECT_RETURN_FALSE();
-			}
 #else	/* Use mysql_stat() to check if server is alive */
 			handler=signal(SIGPIPE, SIG_IGN);
 #if defined(HAVE_MYSQL_ERRNO) && defined(CR_SERVER_GONE_ERROR)
@@ -677,6 +672,7 @@ static void php_mysql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			if (!strcasecmp(mysql_stat(le->ptr), "mysql server has gone away")) { /* the link died */
 #endif
 				signal(SIGPIPE, handler);
+#endif /* end mysql_ping */
 #if MYSQL_VERSION_ID > 32199 /* this lets us set the port number */
 				if (mysql_real_connect(le->ptr, host, user, passwd, NULL, port, socket, client_flags)==NULL) {
 #else
@@ -688,8 +684,9 @@ static void php_mysql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 					MYSQL_DO_CONNECT_RETURN_FALSE();
 				}
 			}
+#if MYSQL_VERSION_ID < 32231
 			signal(SIGPIPE, handler);
-#endif /* end Use mysql_ping ... */
+#endif
 
 			mysql = (php_mysql_conn *) le->ptr;
 		}
@@ -987,7 +984,7 @@ PHP_FUNCTION(mysql_get_server_info)
    Returns a string containing information about the most recent query */
 PHP_FUNCTION(mysql_info)
 {
-	zval **mysql_link;
+	zval *mysql_link;
 	int id = -1;
 	char *str;
 	php_mysql_conn *mysql;
@@ -1001,7 +998,7 @@ PHP_FUNCTION(mysql_info)
 		CHECK_LINK(id);
 	}
 
-	ZEND_FETCH_RESOURCE2(mysql, php_mysql_conn *, mysql_link, id, "MySQL-Link", le_link, le_plink);
+	ZEND_FETCH_RESOURCE2(mysql, php_mysql_conn *, &mysql_link, id, "MySQL-Link", le_link, le_plink);
 
 	if ((str = (char *)mysql_info(&mysql->conn))) {
 		RETURN_STRING(str,1);
@@ -1173,7 +1170,6 @@ static void php_mysql_do_query_general(zval **query, zval **mysql_link, int link
 {
 	php_mysql_conn *mysql;
 	MYSQL_RES *mysql_result;
-	char tmp[128];
 	
 	ZEND_FETCH_RESOURCE2(mysql, php_mysql_conn *, mysql_link, link_id, "MySQL-Link", le_link, le_plink);
 	
@@ -1192,7 +1188,7 @@ static void php_mysql_do_query_general(zval **query, zval **mysql_link, int link
 		mysql_result = (MYSQL_RES *) zend_list_find(mysql->active_result_id, &type);
 		if (mysql_result && type==le_result) {
 			if (!mysql_eof(mysql_result)) {
-				php_error_docref(NULL TSRMLS_CC, E_NOTICE, "%s(): Function called without first fetching all rows from a previous unbuffered query");
+				php_error_docref(NULL TSRMLS_CC, E_NOTICE, "Function called without first fetching all rows from a previous unbuffered query");
 				while (mysql_fetch_row(mysql_result));
 			}
 			zend_list_delete(mysql->active_result_id);
@@ -1219,12 +1215,9 @@ static void php_mysql_do_query_general(zval **query, zval **mysql_link, int link
     			mysql_result = mysql_use_result(&mysql->conn);
 				while ((row = mysql_fetch_row(mysql_result))) {
 					if (!strcmp("ALL", row[1])) {
-						sprintf((char *)&tmp, "Your query requires a full tablescan (table %s, %s rows affected). Use EXPLAIN to optimize your query.", row[0], row[6]);
-						php_error_docref("http://www.mysql.com/doc" TSRMLS_CC, E_WARNING, tmp);
-					}
-					else if (!strcmp("INDEX", row[1])) {
-						sprintf((char *)&tmp, "Your query requires a full indexscan (table %s, %s rows affected). Use EXPLAIN to optimize your query.", row[0], row[6]);
-						php_error_docref("http://www.mysql.com/doc" TSRMLS_CC, E_WARNING, tmp);
+						php_error_docref("http://www.mysql.com/doc" TSRMLS_CC, E_WARNING, "Your query requires a full tablescan (table %s, %s rows affected). Use EXPLAIN to optimize your query.", row[0], row[6]);
+					} else if (!strcmp("INDEX", row[1])) {
+						php_error_docref("http://www.mysql.com/doc" TSRMLS_CC, E_WARNING, "Your query requires a full indexscan (table %s, %s rows affected). Use EXPLAIN to optimize your query.", row[0], row[6]);
 					}
 				}
 				mysql_free_result(mysql_result);
@@ -1304,7 +1297,7 @@ static void php_mysql_do_query(INTERNAL_FUNCTION_PARAMETERS, int use_store)
 }
 /* }}} */
 
-/* {{{ proto resource mysql_query(string query [, int link_identifier] [, int result_mode])
+/* {{{ proto resource mysql_query(string query [, int link_identifier])
    Sends an SQL query to MySQL */
 PHP_FUNCTION(mysql_query)
 {
@@ -1313,7 +1306,7 @@ PHP_FUNCTION(mysql_query)
 /* }}} */
 
 
-/* {{{ proto resource mysql_unbuffered_query(string query [, int link_identifier] [, int result_mode])
+/* {{{ proto resource mysql_unbuffered_query(string query [, int link_identifier])
    Sends an SQL query to MySQL, without fetching and buffering the result rows */
 PHP_FUNCTION(mysql_unbuffered_query)
 {
@@ -1634,7 +1627,7 @@ PHP_FUNCTION(mysql_escape_string)
 	 * be worth it
 	 */
 
-	Z_STRVAL_P(return_value) = (char *) emalloc(Z_STRLEN_PP(str)*2+1);
+	Z_STRVAL_P(return_value) = (char *) safe_emalloc(Z_STRLEN_PP(str), 2, 1);
 	Z_STRLEN_P(return_value) = mysql_escape_string(Z_STRVAL_P(return_value), Z_STRVAL_PP(str), Z_STRLEN_PP(str));
 	Z_TYPE_P(return_value) = IS_STRING;
 
@@ -1882,6 +1875,10 @@ static void php_mysql_fetch_hash(INTERNAL_FUNCTION_PARAMETERS, int result_type, 
 		default:
 			WRONG_PARAM_COUNT;
 			break;
+	}
+
+	if ((result_type & MYSQL_BOTH) == 0) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "The result type should be either MYSQL_NUM, MYSQL_ASSOC or MYSQL_BOTH.");
 	}
 	
 	ZEND_FETCH_RESOURCE(mysql_result, MYSQL_RES *, result, -1, "MySQL result", le_result);

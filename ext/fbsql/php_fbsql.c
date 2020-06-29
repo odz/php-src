@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_fbsql.c,v 1.86.2.1 2002/12/03 19:39:54 fmk Exp $ */
+/* $Id: php_fbsql.c,v 1.86.2.4 2003/03/06 20:58:15 sesser Exp $ */
 
 /* TODO:
  *
@@ -735,7 +735,7 @@ static int php_fbsql_select_db(char *databaseName, PHPFBLink *link TSRMLS_DC)
 		if (c == NULL)
 		{
 			if (FB_SQL_G(generateWarnings))
-				php_error_docref(NULL TSRMLS_CC, E_WARNING, fbcdcClassErrorMessage());
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", fbcdcClassErrorMessage());
 			return 0;
 		}
 		md = fbcdcCreateSession(c, "PHP", link->userName, link->userPassword, link->userName);
@@ -746,7 +746,7 @@ static int php_fbsql_select_db(char *databaseName, PHPFBLink *link TSRMLS_DC)
 			if (FB_SQL_G(generateWarnings))
 			{
 				if (emg)
-					php_error_docref(NULL TSRMLS_CC, E_WARNING, emg);
+					php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", emg);
 				else
 					php_error_docref(NULL TSRMLS_CC, E_WARNING, "No message");
 			}
@@ -2275,7 +2275,7 @@ void phpfbColumnAsString(PHPFBResult* result, int column, void* data , int* leng
 			phpfbestrdup(b, length, value);
 		}
 		break;
-
+#ifdef FB_TinyInteger
 		case FB_TinyInteger:
 		{ 
 			short int   v = *((short int*)data);
@@ -2284,7 +2284,8 @@ void phpfbColumnAsString(PHPFBResult* result, int column, void* data , int* leng
 			phpfbestrdup(b, length, value);
 		}
 		break;
-
+#endif
+#ifdef FB_LongInteger
 		case FB_LongInteger:
 		{ 
 			FBLongInteger v = *((FBLongInteger*)data);
@@ -2297,7 +2298,7 @@ void phpfbColumnAsString(PHPFBResult* result, int column, void* data , int* leng
 			phpfbestrdup(b, length, value);
 		}
 		break;
-
+#endif
 		case FB_SmallInteger:
 		{
 			short v = *((short*)data);

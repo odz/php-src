@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_interbase.h,v 1.28 2002/09/12 11:18:47 derick Exp $ */
+/* $Id: php_interbase.h,v 1.28.2.2 2003/05/14 08:26:34 daniela Exp $ */
 
 #ifndef PHP_INTERBASE_H
 #define PHP_INTERBASE_H
@@ -30,9 +30,16 @@ extern zend_module_entry ibase_module_entry;
 
 #ifdef PHP_WIN32
 #define PHP_IBASE_API __declspec(dllexport)
+#ifndef ISC_INT64_FORMAT
+ #define ISC_INT64_FORMAT "I64"
+#endif
 #else
 #define PHP_IBASE_API
+#ifndef ISC_INT64_FORMAT
+ #define ISC_INT64_FORMAT "ll"
 #endif
+#endif
+
 
 PHP_MINIT_FUNCTION(ibase);
 PHP_RINIT_FUNCTION(ibase);

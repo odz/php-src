@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: cdb_make.c,v 1.2.2.1 2002/11/19 01:07:09 edink Exp $ */
+/* $Id: cdb_make.c,v 1.2.2.4 2003/04/16 19:14:29 helly Exp $ */
 
 /* incorporated from D.J.Bernstein's cdb-0.75 (http://cr.yp.to/cdb.html)*/
 
@@ -79,8 +79,7 @@ int cdb_make_addend(struct cdb_make *c, unsigned int keylen, unsigned int datale
 
 	head = c->head;
 	if (!head || (head->num >= CDB_HPLIST)) {
-		head = (struct cdb_hplist *)
-			emalloc(sizeof(struct cdb_hplist));
+		head = (struct cdb_hplist *) emalloc(sizeof(struct cdb_hplist));
 		if (!head)
 			return -1;
 		head->num = 0;
@@ -172,8 +171,7 @@ int cdb_make_finish(struct cdb_make *c TSRMLS_DC)
 		return -1;
 	}
 
-	c->split = (struct cdb_hp *)
-		emalloc(memsize * sizeof(struct cdb_hp));
+	c->split = (struct cdb_hp *) safe_emalloc(memsize, sizeof(struct cdb_hp), 0);
 	if (!c->split)
 		return -1;
 
@@ -238,3 +236,9 @@ int cdb_make_finish(struct cdb_make *c TSRMLS_DC)
 	return php_stream_flush(c->fp);
 }
 /* }}} */
+
+/* {{{ cdb_make_version */
+char *cdb_make_version() 
+{
+	return "0.75, $Revision: 1.2.2.4 $";
+}

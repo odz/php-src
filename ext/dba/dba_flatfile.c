@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dba_flatfile.c,v 1.8.2.1 2002/12/20 20:25:19 helly Exp $ */
+/* $Id: dba_flatfile.c,v 1.8.2.3 2003/01/31 20:10:11 helly Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -161,6 +161,11 @@ DBA_SYNC_FUNC(flatfile)
 {
 	/* dummy */
 	return SUCCESS;
+}
+
+DBA_INFO_FUNC(flatfile)
+{
+	return estrdup(flatfile_version());
 }
 
 #endif

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2002 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -371,10 +371,20 @@ static inline void zend_assign_to_variable(znode *result, znode *op1, znode *op2
 						}
 
 						T->EA.data.str_offset.str->value.str.val[T->EA.data.str_offset.offset] = final_value->value.str.val[0];
-						if (op2
-							&& op2->op_type == IS_VAR
-							&& value==&Ts[op2->u.var].tmp_var) {
-							STR_FREE(value->value.str.val);
+
+						if (op2) {
+							if (op2->op_type == IS_VAR) {
+								if (value == &Ts[op2->u.var].tmp_var) {
+									STR_FREE(value->value.str.val);
+								}
+							} else {
+								if (final_value == &Ts[op2->u.var].tmp_var) {
+									/* we can safely free final_value here
+									 * because separation is done only
+									 * in case op2->op_type == IS_VAR */ 
+									STR_FREE(final_value->value.str.val);
+								}
+							}
 						}
 						if (final_value == &tmp) {
 							zval_dtor(final_value);
@@ -2018,6 +2028,7 @@ send_by_ref:
 								zend_hash_index_update(array_ptr->value.ht, (long) offset->value.dval, &expr_ptr, sizeof(zval *), NULL);
 								break;
 							case IS_LONG:
+							case IS_BOOL:
 								zend_hash_index_update(array_ptr->value.ht, offset->value.lval, &expr_ptr, sizeof(zval *), NULL);
 								break;
 							case IS_STRING:

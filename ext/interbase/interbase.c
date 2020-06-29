@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: interbase.c,v 1.91 2002/10/02 23:05:06 daniela Exp $ */
+/* $Id: interbase.c,v 1.91.2.6 2003/05/14 08:26:34 daniela Exp $ */
 
 
 /* TODO: Arrays, roles?
@@ -384,21 +384,14 @@ static void _php_ibase_close_plink(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 /* {{{ _php_ibase_free_result() */
 static void _php_ibase_free_result(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
-	char tr_items[] = {isc_info_tra_id };
-	char tmp[32]; /* should be enough as on the Api doc */
-
 	ibase_result *ib_result = (ibase_result *)rsrc->ptr;
 
-	IBDEBUG("Freeing result...");
+	IBDEBUG("Freeing result by dtor...");
 	if (ib_result){
 		_php_ibase_free_xsqlda(ib_result->out_sqlda);
-		isc_transaction_info(IB_STATUS, &ib_result->trans,sizeof(tr_items), tr_items, sizeof(tmp), tmp );
-		/* we have a transaction still open and we really want to drop the statement ? */
-		if ( !(IB_STATUS[0] && IB_STATUS[1])  && ib_result->drop_stmt && ib_result->stmt ) {
-			IBDEBUG("Dropping statement handle (free_result)...");
-			if (isc_dsql_free_statement(IB_STATUS, &ib_result->stmt, DSQL_drop)) {
-				_php_ibase_error(TSRMLS_C);
-			}
+		if (ib_result->drop_stmt && ib_result->stmt) {
+			IBDEBUG("Dropping statement handle (free_result dtor)...");
+			isc_dsql_free_statement(IB_STATUS, &ib_result->stmt, DSQL_drop);
 		} else {
 			/* Shouldn't be here unless query was select and had parameter
 			   placeholders, in which case ibase_execute handles this???
@@ -422,8 +415,6 @@ static void _php_ibase_free_result(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 /* {{{ _php_ibase_free_query() */
 static void _php_ibase_free_query(ibase_query *ib_query)
 {
-	char tr_items[] = {isc_info_tra_id };
-	char tmp[32] ; /* ...should be enough as on the Api doc */
 	TSRMLS_FETCH();
 
 	IBDEBUG("Freeing query...");
@@ -434,9 +425,7 @@ static void _php_ibase_free_query(ibase_query *ib_query)
 		if (ib_query->out_sqlda) {
 			efree(ib_query->out_sqlda);
 		}
-		isc_transaction_info(IB_STATUS, &ib_query->trans,sizeof(tr_items), tr_items, sizeof(tmp), tmp );
-		/* we have the trans still open and a statement to drop? */
-		if ( !(IB_STATUS[0] && IB_STATUS[1])  &&  ib_query->stmt) {
+		if (ib_query->stmt) {
 			IBDEBUG("Dropping statement handle (free_query)...");
 			if (isc_dsql_free_statement(IB_STATUS, &ib_query->stmt, DSQL_drop)){
 				_php_ibase_error(TSRMLS_C);
@@ -453,12 +442,33 @@ static void _php_ibase_free_query(ibase_query *ib_query)
 }
 /* }}} */
 
+/* {{{ php_ibase_free_query_rsrc() */
 static void php_ibase_free_query_rsrc(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
-	ibase_query *query = (ibase_query *)rsrc->ptr;
+	ibase_query *ib_query = (ibase_query *)rsrc->ptr;
 
-	_php_ibase_free_query(query);
+	IBDEBUG("Freeing query by dtor...");
+	if (ib_query) {
+		if (ib_query->in_sqlda) {
+			efree(ib_query->in_sqlda);
+		}
+		if (ib_query->out_sqlda) {
+			efree(ib_query->out_sqlda);
+		}
+		if (ib_query->stmt) {
+			IBDEBUG("Dropping statement handle (free_query dtor)...");
+			isc_dsql_free_statement(IB_STATUS, &ib_query->stmt, DSQL_drop);
+		}
+		if (ib_query->in_array) {
+			efree(ib_query->in_array);
+		}
+		if (ib_query->out_array) {
+			efree(ib_query->out_array);
+		}
+		efree(ib_query);
+	}
 }
+/* }}} */
 
 /* {{{ _php_ibase_free_blob()	*/
 static void _php_ibase_free_blob(zend_rsrc_list_entry *rsrc TSRMLS_DC)
@@ -609,7 +619,7 @@ PHP_MINFO_FUNCTION(ibase)
 
 	php_info_print_table_start();
 	php_info_print_table_row(2, "Interbase Support", "enabled");    
-	php_info_print_table_row(2, "Revision", "$Revision: 1.91 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.91.2.6 $");
 #ifdef COMPILE_DL_INTERBASE
 	php_info_print_table_row(2, "Dynamic Module", "yes");
 #endif
@@ -1578,6 +1588,11 @@ static int _php_ibase_def_trans(ibase_db_link * ib_link, int trans_n)
 {
 	TSRMLS_FETCH();
 	
+	if (ib_link == NULL) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid database link");
+		return FAILURE;
+	}
+
 	if (trans_n == 0 && ib_link->trans[0] == NULL) { 
 		if (isc_start_transaction(IB_STATUS, &ib_link->trans[0], 1, &ib_link->link, 0, NULL)) {
 			_php_ibase_error(TSRMLS_C);
@@ -1613,6 +1628,11 @@ static void _php_ibase_trans_end(INTERNAL_FUNCTION_PARAMETERS, int commit)
 		default:
 			WRONG_PARAM_COUNT;
 			break;
+	}
+
+	if (ib_link == NULL) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid database link");
+		RETURN_FALSE;
 	}
 
 	if (ib_link->trans[trans_n] == NULL) {
@@ -1810,8 +1830,8 @@ static int _php_ibase_var_pval(pval *val, void *data, int type, int len, int sca
 				sprintf(dt, "%%0.%df", -scale);
 				val->value.str.len = sprintf (string_data, dt, number/f );
 			} else {
-				val->value.str.len = sprintf (string_data, "%Ld",
-					(ISC_INT64) (*((ISC_INT64 *)data)));
+			  val->value.str.len =sprintf (string_data, "%.0" ISC_INT64_FORMAT "d",
+			    	             					(ISC_INT64) *(ISC_INT64 *) data);
 			}
 
 			val->value.str.val = estrdup(string_data);
@@ -2960,14 +2980,14 @@ static void _php_ibase_user(INTERNAL_FUNCTION_PARAMETERS, int operation)
 	switch (operation) {
 	case isc_action_svc_add_user:
 	case isc_action_svc_modify_user:
-		// 5 to 8 parameters for ADD or MODIFY operation
+		/* 5 to 8 parameters for ADD or MODIFY operation */
 		if(ZEND_NUM_ARGS() < 5 || ZEND_NUM_ARGS() > 8) {
 			WRONG_PARAM_COUNT;
 		}
 		break;
 	
 	case isc_action_svc_delete_user:
-		// 4 parameters for DELETE operation
+		/* 4 parameters for DELETE operation */
 		if (ZEND_NUM_ARGS() != 4) {
 			WRONG_PARAM_COUNT;
 		}
@@ -2993,7 +3013,7 @@ static void _php_ibase_user(INTERNAL_FUNCTION_PARAMETERS, int operation)
 	}
 
 	if (operation != isc_action_svc_delete_user) {
-		// Parameter not available for DELETE operation
+		/* Parameter not available for DELETE operation */
 		convert_to_string_ex(args[4]);
 		user_password = (*args[4])->value.str.val;
 	}
@@ -3021,7 +3041,7 @@ static void _php_ibase_user(INTERNAL_FUNCTION_PARAMETERS, int operation)
 	zend_printf("lname    : %s<br>", last_name);
 */
 
-	// Build buffer for isc_service_attach()
+	/* Build buffer for isc_service_attach() */
 	*spb++ = isc_spb_version;
 	*spb++ = isc_spb_current_version;
 	*spb++ = isc_spb_user_name;
@@ -3034,7 +3054,7 @@ static void _php_ibase_user(INTERNAL_FUNCTION_PARAMETERS, int operation)
 	spb += strlen(dba_password);
 	spb_length = spb - spb_buffer;
 
-	// Attach to the Service Manager
+	/* Attach to the Service Manager */
 	sprintf(service_name, "%s:service_mgr", ib_server);
 	if (isc_service_attach(IB_STATUS, 0, service_name,
 		&service_handle, spb_length, spb_buffer)) {
@@ -3045,43 +3065,43 @@ static void _php_ibase_user(INTERNAL_FUNCTION_PARAMETERS, int operation)
 	else {
 		char request[128], *x, *p = request;
 
-		// Identify cluster (here, isc_action_svc_*_user)
+		/* Identify cluster (here, isc_action_svc_*_user) */
 		*p++ = operation;
 
-		// Argument for username
+		/* Argument for username */
 		*p++ = isc_spb_sec_username;
 		ADD_SPB_LENGTH(p, strlen(user_name));
 		for (x = user_name ; *x; ) *p++ = *x++;
 
-		// Argument for password
+		/* Argument for password */
 		if (user_password) {
 			*p++ = isc_spb_sec_password;
 			ADD_SPB_LENGTH(p, strlen(user_password));
 			for (x = user_password ; *x; ) *p++ = *x++;
 		}
 
-		// Argument for first name
+		/* Argument for first name */
 		if (first_name) {
 			*p++ = isc_spb_sec_firstname;
 			ADD_SPB_LENGTH(p, strlen(first_name));
 			for (x = first_name ; *x; ) *p++ = *x++;
 		}
 
-		// Argument for middle name
+		/* Argument for middle name */
 		if (middle_name) {
 			*p++ = isc_spb_sec_middlename;
 			ADD_SPB_LENGTH(p, strlen(middle_name));
 			for (x = middle_name ; *x; ) *p++ = *x++;
 		}
 
-		// Argument for last name
+		/* Argument for last name */
 		if (last_name) {
 			*p++ = isc_spb_sec_lastname;
 			ADD_SPB_LENGTH(p, strlen(last_name));
 			for (x = last_name ; *x; ) *p++ = *x++;
 		}
 
-		// Let's go update: start Service Manager
+		/* Let's go update: start Service Manager */
 		if (isc_service_start(IB_STATUS, &service_handle,
 			NULL, (unsigned short) (p - request), request)) {
 
@@ -3090,7 +3110,7 @@ static void _php_ibase_user(INTERNAL_FUNCTION_PARAMETERS, int operation)
 			RETURN_FALSE;
 		}
 		else {
-			// Detach from Service Manager
+			/* Detach from Service Manager */
 			isc_service_detach(IB_STATUS, &service_handle);
 		}
 	}

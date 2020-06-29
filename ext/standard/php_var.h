@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_var.h,v 1.21 2002/08/04 23:45:37 shane Exp $ */
+/* $Id: php_var.h,v 1.21.4.3 2003/04/28 18:47:57 derick Exp $ */
 
 #ifndef PHP_VAR_H
 #define PHP_VAR_H
@@ -28,10 +28,13 @@ PHP_FUNCTION(var_export);
 PHP_FUNCTION(debug_zval_dump);
 PHP_FUNCTION(serialize);
 PHP_FUNCTION(unserialize);
+#if MEMORY_LIMIT
+PHP_FUNCTION(memory_get_usage);
+#endif
 
-void php_var_dump(zval **struc, int level TSRMLS_DC);
-void php_var_export(zval **struc, int level TSRMLS_DC);
-void php_debug_zval_dump(zval **struc, int level TSRMLS_DC);
+PHPAPI void php_var_dump(zval **struc, int level TSRMLS_DC);
+PHPAPI void php_var_export(zval **struc, int level TSRMLS_DC);
+PHPAPI void php_debug_zval_dump(zval **struc, int level TSRMLS_DC);
 
 /* typdef HashTable php_serialize_data_t; */
 #define php_serialize_data_t HashTable

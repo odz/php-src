@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.14 2002/03/18 15:00:57 sas Exp $
+dnl $Id: config.m4,v 1.14.4.2 2003/01/21 05:09:33 sniper Exp $
 dnl
 
 PHP_ARG_WITH(ircg, for IRCG support,
@@ -17,8 +17,10 @@ fi
 ])
 
 if test "$PHP_IRCG" != "no"; then
-  $IRCG_CONFIG --ldflags
-  if test "$?" != "0"; then
+
+  IRCG_PREFIX=`$IRCG_CONFIG --prefix`
+  
+  if test -z "$IRCG_PREFIX"; then
     AC_MSG_ERROR([I cannot run the ircg-config script which should have been installed by IRCG. Please ensure that the script is in your PATH or point --with-ircg-config to the path of the script.])
   fi
   

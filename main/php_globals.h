@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -57,7 +57,7 @@ struct _php_core_globals {
 	zend_bool allow_call_time_pass_reference;
 	zend_bool implicit_flush;
 
-	int output_buffering;
+	long output_buffering;
 
 	char *safe_mode_include_dir;
 	zend_bool safe_mode_gid;
@@ -140,6 +140,7 @@ struct _php_core_globals {
 
 	zend_bool always_populate_raw_post_data;
 	
+	long serialize_precision;
 };
 
 

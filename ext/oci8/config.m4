@@ -1,6 +1,22 @@
 dnl
-dnl $Id: config.m4,v 1.37 2002/09/09 19:03:51 kalowsky Exp $
+dnl $Id: config.m4,v 1.37.2.6 2003/04/30 10:20:14 sniper Exp $
 dnl
+
+AC_DEFUN(PHP_OCI_IF_DEFINED,[
+  old_CPPFLAGS=$CPPFLAGS
+  CPPFLAGS=$3
+  AC_EGREP_CPP(yes,[
+#include <oci.h>
+#if defined($1)
+    yes
+#endif
+  ],[
+    CPPFLAGS=$old_CPPFLAGS
+    $2
+  ],[
+    CPPFLAGS=$old_CPPFLAGS
+  ])
+])
 
 AC_DEFUN(AC_OCI8_VERSION,[
   AC_MSG_CHECKING([Oracle version])
@@ -40,15 +56,19 @@ if test "$PHP_OCI8" != "no"; then
 
   if test -d "$OCI8_DIR/rdbms/public"; then
     PHP_ADD_INCLUDE($OCI8_DIR/rdbms/public)
+    OCI8_INCLUDES="$OCI8_INCLUDES -I$OCI8_DIR/rdbms/public"
   fi
   if test -d "$OCI8_DIR/rdbms/demo"; then
     PHP_ADD_INCLUDE($OCI8_DIR/rdbms/demo)
+    OCI8_INCLUDES="$OCI8_INCLUDES -I$OCI8_DIR/rdbms/demo"
   fi
   if test -d "$OCI8_DIR/network/public"; then
     PHP_ADD_INCLUDE($OCI8_DIR/network/public)
+    OCI8_INCLUDES="$OCI8_INCLUDES -I$OCI8_DIR/network/public"
   fi
   if test -d "$OCI8_DIR/plsql/public"; then
     PHP_ADD_INCLUDE($OCI8_DIR/plsql/public)
+    OCI8_INCLUDES="$OCI8_INCLUDES -I$OCI8_DIR/plsql/public"
   fi
 
   if test -f "$OCI8_DIR/lib/sysliblist"; then
@@ -66,20 +86,59 @@ if test "$PHP_OCI8" != "no"; then
       PHP_ADD_LIBRARY_WITH_PATH(clntsh, $OCI8_DIR/lib, OCI8_SHARED_LIBADD)
       ;;
 
-    8.1|9.0)
+    8.1)
       PHP_ADD_LIBRARY(clntsh, 1, OCI8_SHARED_LIBADD)
-      if test -f $OCI8_DIR/lib/libocijdbc8.so ; then
-        PHP_ADD_LIBRARY(ocijdbc8, 1, OCI8_SHARED_LIBADD)
-      fi
       PHP_ADD_LIBPATH($OCI8_DIR/lib, OCI8_SHARED_LIBADD)
-      AC_DEFINE(HAVE_OCI8_TEMP_LOB,1,[ ])
+
+      dnl 
+      dnl OCI_ATTR_STATEMENT is not available in all 8.1.x versions
+      dnl 
+      PHP_OCI_IF_DEFINED(OCI_ATTR_STATEMENT, [AC_DEFINE(HAVE_OCI8_ATTR_STATEMENT,1,[ ])], $OCI8_INCLUDES)
+      ;;
+
+    9.0)
+      PHP_ADD_LIBRARY(clntsh, 1, OCI8_SHARED_LIBADD)
+      PHP_ADD_LIBPATH($OCI8_DIR/lib, OCI8_SHARED_LIBADD)
       AC_DEFINE(HAVE_OCI8_ATTR_STATEMENT,1,[ ])
+      AC_DEFINE(HAVE_OCI8_SHARED_MODE,1,[ ])
+
+      dnl These functions are only available in version >= 9.2
+      PHP_CHECK_LIBRARY(clntsh, OCIEnvNlsCreate,
+      [
+        PHP_CHECK_LIBRARY(clntsh, OCINlsCharSetNameToId,
+        [
+          AC_DEFINE(HAVE_OCI_9_2,1,[ ])
+          OCI8_VERSION=9.2
+        ], [], [
+          -L$OCI8_DIR/lib $OCI8_SHARED_LIBADD
+        ])
+      ], [], [
+        -L$OCI8_DIR/lib $OCI8_SHARED_LIBADD
+      ])
       ;;
 
     *)
       AC_MSG_ERROR(Unsupported Oracle version!)
       ;;
   esac
+
+  dnl
+  dnl Check if we need to add -locijdbc8 
+  dnl
+  PHP_CHECK_LIBRARY(clntsh, OCILobIsTemporary,
+  [
+    AC_DEFINE(HAVE_OCI8_TEMP_LOB,1,[ ])
+  ], [
+    PHP_CHECK_LIBRARY(ocijdbc8, OCILobIsTemporary,
+    [
+      PHP_ADD_LIBRARY(ocijdbc8, 1, OCI8_SHARED_LIBADD)
+      AC_DEFINE(HAVE_OCI8_TEMP_LOB,1,[ ])
+    ], [], [
+      -L$OCI8_DIR/lib $OCI8_SHARED_LIBADD
+    ])
+  ], [
+    -L$OCI8_DIR/lib $OCI8_SHARED_LIBADD
+  ])
 
   PHP_NEW_EXTENSION(oci8, oci8.c, $ext_shared)
   AC_DEFINE(HAVE_OCI8,1,[ ])

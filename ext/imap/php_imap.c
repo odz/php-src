@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -26,7 +26,7 @@
    | PHP 4.0 updates:  Zeev Suraski <zeev@zend.com>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_imap.c,v 1.142.2.4 2002/12/07 06:05:52 fmk Exp $ */
+/* $Id: php_imap.c,v 1.142.2.13 2003/04/16 00:58:53 iliaa Exp $ */
 
 #define IMAP41
 
@@ -339,7 +339,11 @@ void mail_free_messagelist(MESSAGELIST **msglist, MESSAGELIST **tail)
 void mail_getquota(MAILSTREAM *stream, char *qroot, QUOTALIST *qlist)
 {
 	zval *t_map;
+	zval *return_value;
 	TSRMLS_FETCH();
+
+	return_value = *IMAPG(quota_return);
+	
 /* put parsing code here */
 	for(; qlist; qlist = qlist->next) {
 		MAKE_STD_ZVAL(t_map);
@@ -352,13 +356,13 @@ void mail_getquota(MAILSTREAM *stream, char *qroot, QUOTALIST *qlist)
 		if (strncmp(qlist->name, "STORAGE", 7) == 0)
 		{
 			/* this is to add backwards compatibility */
-			add_assoc_long_ex(IMAPG(quota_return), "usage", sizeof("usage"), qlist->usage);
-			add_assoc_long_ex(IMAPG(quota_return), "limit", sizeof("limit"), qlist->limit);
+			add_assoc_long_ex(return_value, "usage", sizeof("usage"), qlist->usage);
+			add_assoc_long_ex(return_value, "limit", sizeof("limit"), qlist->limit);
 		}
 
 		add_assoc_long_ex(t_map, "usage", sizeof("usage"), qlist->usage);
 		add_assoc_long_ex(t_map, "limit", sizeof("limit"), qlist->limit);
-		add_assoc_zval_ex(IMAPG(quota_return), qlist->name, strlen(qlist->name)+1, t_map);
+		add_assoc_zval_ex(return_value, qlist->name, strlen(qlist->name)+1, t_map);
 	}
 }
 /* }}} */
@@ -420,7 +424,11 @@ PHP_MINIT_FUNCTION(imap)
 #ifndef PHP_WIN32
 	auth_link(&auth_log);		/* link in the log authenticator */
 	auth_link(&auth_md5);       /* link in the cram-md5 authenticator */ 
-#ifdef  HAVE_IMAP_SSL
+#if HAVE_IMAP_KRB && defined(HAVE_IMAP_AUTH_GSS)
+	auth_link(&auth_gss);		/* link in the gss authenticator */
+#endif
+
+#ifdef HAVE_IMAP_SSL
 	ssl_onceonlyinit ();
 #endif
 #endif
@@ -858,22 +866,16 @@ PHP_FUNCTION(imap_get_quota)
 
 	convert_to_string_ex(qroot);
 
-	MAKE_STD_ZVAL(IMAPG(quota_return));
-	if (array_init(IMAPG(quota_return)) == FAILURE) {
-		php_error(E_WARNING, "%s(): Unable to allocate array memory", get_active_function_name(TSRMLS_C));
-		FREE_ZVAL(IMAPG(quota_return));
-		RETURN_FALSE;
-	}
+	array_init(return_value);
+ 	IMAPG(quota_return) = &return_value;
 
 	/* set the callback for the GET_QUOTA function */
 	mail_parameters(NIL, SET_QUOTA, (void *) mail_getquota);
 	if(!imap_getquota(imap_le_struct->imap_stream, Z_STRVAL_PP(qroot))) {
-		php_error(E_WARNING, "%s(): c-client imap_getquota failed", get_active_function_name(TSRMLS_C));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "c-client imap_getquota failed");
+		zval_dtor(return_value);
 		RETURN_FALSE;
 	}
-
-	*return_value = *IMAPG(quota_return);
-	FREE_ZVAL(IMAPG(quota_return));
 }
 /* }}} */
 
@@ -892,22 +894,16 @@ PHP_FUNCTION(imap_get_quotaroot)
 
 	convert_to_string_ex(mbox);
 
-	MAKE_STD_ZVAL(IMAPG(quota_return));
-	if (array_init(IMAPG(quota_return)) == FAILURE) {
-		php_error(E_WARNING, "%s(): Unable to allocate array memory", get_active_function_name(TSRMLS_C));
-		FREE_ZVAL(IMAPG(quota_return));
-		RETURN_FALSE;
-	}
+	array_init(return_value);
+	IMAPG(quota_return) = &return_value;
 
 	/* set the callback for the GET_QUOTAROOT function */
 	mail_parameters(NIL, SET_QUOTA, (void *) mail_getquota);
 	if(!imap_getquotaroot(imap_le_struct->imap_stream, Z_STRVAL_PP(mbox))) {
-		php_error(E_WARNING, "%s(): c-client imap_getquotaroot failed", get_active_function_name(TSRMLS_C));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "c-client imap_getquotaroot failed");
+		zval_dtor(return_value);
 		RETURN_FALSE;
 	}
-
-	*return_value = *IMAPG(quota_return);
-	FREE_ZVAL(IMAPG(quota_return));
 }
 /* }}} */
 
@@ -1997,8 +1993,8 @@ PHP_FUNCTION(imap_rfc822_parse_adrlist)
 }
 /* }}} */
 
-/* {{{ proto string imap_utf8(string string)
-   Convert a string to UTF-8 */
+/* {{{ proto string imap_utf8(string mime_encoded_text)
+   Convert a mime-encoded text to UTF-8 */
 PHP_FUNCTION(imap_utf8)
 {
 	zval **str;
@@ -2833,7 +2829,10 @@ PHP_FUNCTION(imap_mail_compose)
 	}
 
 	zend_hash_internal_pointer_reset(Z_ARRVAL_PP(body));
-	zend_hash_get_current_data(Z_ARRVAL_PP(body), (void **) &data);
+	if (zend_hash_get_current_data(Z_ARRVAL_PP(body), (void **) &data) != SUCCESS) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "body parameter cannot be empty");
+		RETURN_FALSE;
+	}
 	zend_hash_get_current_key(Z_ARRVAL_PP(body), &key, &ind, 0); /* FIXME: is this necessary?  we're not using key/ind */
 
 	if (Z_TYPE_PP(data) == IS_ARRAY) {
@@ -3577,6 +3576,34 @@ PHP_FUNCTION(imap_mime_header_decode)
 }
 /* }}} */
 
+/* {{{ _php_rfc822_len
+ * Calculate string length based on imap's rfc822_cat function.
+ */	
+static int _php_rfc822_len(char *str)
+{
+	int len;
+	char *p;
+
+	if (!str || !*str) {
+		return 0;
+	}
+
+	/* strings with special characters will need to be quoted, as a safety measure we
+	 * add 2 bytes for the quotes just in case.
+	 */
+	len = strlen(str) + 2;
+	p = str;
+	/* rfc822_cat() will escape all " and \ characters, therefor we need to increase
+	 * our buffer length to account for these characters.
+	 */
+	while ((p = strpbrk(p, "\\\""))) {
+		p++;
+		len++;
+	}
+
+	return len;
+}
+/* }}} */
 
 /* Support Functions */
 /* {{{ _php_imap_get_address_size
@@ -3589,10 +3616,10 @@ static int _php_imap_address_size (ADDRESS *addresslist)
 	tmp = addresslist;
 
 	if (tmp) do {
-		ret += (tmp->personal) ? strlen(tmp->personal) : 0;
-		ret += (tmp->adl)      ? strlen(tmp->adl)      : 0;
-		ret += (tmp->mailbox)  ? strlen(tmp->mailbox)  : 0;
-		ret += (tmp->host)     ? strlen(tmp->host)     : 0;
+		ret += _php_rfc822_len(tmp->personal);
+		ret += _php_rfc822_len(tmp->adl);
+		ret += _php_rfc822_len(tmp->mailbox);
+		ret += _php_rfc822_len(tmp->host);
 		num_ent++;
 	} while ((tmp = tmp->next));
 
@@ -3625,6 +3652,8 @@ static void _php_imap_parse_address (ADDRESS *addresslist, char **fulladdress, z
 		tmpstr[0] = '\0';
 		rfc822_write_address(tmpstr, addresstmp);
 		*fulladdress = tmpstr;
+	} else {
+		*fulladdress = NULL;
 	}
 	
 	addresstmp = addresslist;

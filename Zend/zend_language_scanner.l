@@ -44,10 +44,6 @@
 
 %{
 
-#ifdef ZEND_WIN32
-#include <io.h>
-#endif
-
 #include <errno.h>
 #include "zend.h"
 #include "zend_alloc.h"
@@ -136,6 +132,14 @@ void shutdown_scanner(TSRMLS_D)
 		efree(CG(heredoc));
 		CG(heredoc_len)=0;
 	}
+#ifdef ZEND_MULTIBYTE
+	if (SCNG(code)) {
+		efree(SCNG(code));
+	}
+	if (SCNG(current_code)) {
+		efree(SCNG(current_code));
+	}
+#endif /* ZEND_MULTIBYTE */
 }
 END_EXTERN_C()
 
@@ -360,9 +364,11 @@ ZEND_API zend_op_array *compile_file(zend_file_handle *file_handle, int type TSR
 #ifdef ZEND_MULTIBYTE
 		if (SCNG(code)) {
 			efree(SCNG(code));
+			SCNG(code) = NULL;
 		}
 		if (SCNG(current_code)) {
 			efree(SCNG(current_code));
+			SCNG(code) = NULL;
 		}
 #endif /* ZEND_MULTIBYTE */
 	}
@@ -508,9 +514,11 @@ zend_op_array *compile_string(zval *source_string, char *filename TSRMLS_DC)
 #ifdef ZEND_MULTIBYTE
 		if (SCNG(code)) {
 			efree(SCNG(code));
+			SCNG(code) = NULL;
 		}
 		if (SCNG(current_code)) {
 			efree(SCNG(current_code));
+			SCNG(code) = NULL;
 		}
 #endif /* ZEND_MULTIBYTE */
 		
@@ -551,9 +559,11 @@ int highlight_file(char *filename, zend_syntax_highlighter_ini *syntax_highlight
 #ifdef ZEND_MULTIBYTE
 	if (SCNG(code)) {
 		efree(SCNG(code));
+		SCNG(code) = NULL;
 	}
 	if (SCNG(current_code)) {
 		efree(SCNG(current_code));
+		SCNG(code) = NULL;
 	}
 #endif /* ZEND_MULTIBYTE */
 	zend_destroy_file_handle(&file_handle TSRMLS_CC);
@@ -576,9 +586,11 @@ int highlight_string(zval *str, zend_syntax_highlighter_ini *syntax_highlighter_
 #ifdef ZEND_MULTIBYTE
 	if (SCNG(code)) {
 		efree(SCNG(code));
+		SCNG(code) = NULL;
 	}
 	if (SCNG(current_code)) {
 		efree(SCNG(current_code));
+		SCNG(code) = NULL;
 	}
 #endif /* ZEND_MULTIBYTE */
 	zend_restore_lexical_state(&original_lex_state TSRMLS_CC);
@@ -706,8 +718,6 @@ DNUM	([0-9]*[\.][0-9]+)|([0-9]+[\.][0-9]*)
 EXPONENT_DNUM	(({LNUM}|{DNUM})[eE][+-]?{LNUM})
 HNUM	"0x"[0-9a-fA-F]+
 LABEL	[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*
-ENCAPSED_STRING ([a-zA-Z0-9_\x7f-\xff \t #'.:;,()|^&+/*=%!~<>?@]|"-"[a-zA-Z0-9_\x7f-\xff \t #'.:;,()|^&+/*=%!~<?@])+
-ENCAPSED_STRING_WITH_NEWLINE ([a-zA-Z0-9_\x7f-\xff \t\n\r #'.:;,()|^&+/*=%!~<>?@]|"-"[a-zA-Z0-9_\x7f-\xff \t\n\r #'.:;,()|^&+/*=%!~<?@])+
 WHITESPACE [ \n\r\t]+
 TABS_AND_SPACES [ \t]*
 TOKENS [;:,.\[\]()|^&+-/*=%!~$<>?@]
@@ -1163,8 +1173,12 @@ NEWLINE ("\r"|"\n"|"\r\n")
 }
 
 <ST_IN_SCRIPTING>"__FUNCTION__" {
-	char *func_name = CG(active_op_array)->function_name;
+	char *func_name = NULL;
 	
+	if (CG(active_op_array)) {
+		func_name = CG(active_op_array)->function_name;
+	}
+
 	if (!func_name) {
 		func_name = "";
 	}
@@ -1288,12 +1302,6 @@ NEWLINE ("\r"|"\n"|"\r\n")
 	return T_VARIABLE;
 }
 
-<ST_DOUBLE_QUOTES,ST_BACKQUOTE>{ENCAPSED_STRING_WITH_NEWLINE} {
-	HANDLE_NEWLINES(yytext, yyleng);
-	zend_copy_value(zendlval, yytext, yyleng);
-	zendlval->type = IS_STRING;
-	return T_STRING;
-}
 
 <ST_IN_SCRIPTING>{LABEL} {
  	zend_copy_value(zendlval, yytext, yyleng);
@@ -1302,7 +1310,7 @@ NEWLINE ("\r"|"\n"|"\r\n")
 }
 
 
-<ST_HEREDOC>{ENCAPSED_STRING} {
+<ST_DOUBLE_QUOTES,ST_BACKQUOTE,ST_HEREDOC>{LABEL} {
  	zend_copy_value(zendlval, yytext, yyleng);
 	zendlval->type = IS_STRING;
 	return T_STRING;

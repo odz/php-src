@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: exif.c,v 1.118.2.12 2002/12/23 08:43:13 sesser Exp $ */
+/* $Id: exif.c,v 1.118.2.19 2003/04/16 18:25:35 helly Exp $ */
 
 /*  ToDos
  *
@@ -95,7 +95,7 @@ function_entry exif_functions[] = {
 };
 /* }}} */
 
-#define EXIF_VERSION "1.4 $Id: exif.c,v 1.118.2.12 2002/12/23 08:43:13 sesser Exp $"
+#define EXIF_VERSION "1.4 $Id: exif.c,v 1.118.2.19 2003/04/16 18:25:35 helly Exp $"
 
 /* {{{ PHP_MINFO_FUNCTION
  */
@@ -1331,7 +1331,7 @@ static char *exif_get_sectionlist(int sectionlist TSRMLS_DC)
 	for(i=0; i<SECTION_COUNT; i++) {
 		len += strlen(exif_get_sectionname(i))+2;
 	}
-	sections = emalloc(len+1);
+	sections = safe_emalloc(len, 1, 1);
 	if (!sections) {
 		EXIF_ERRLOG_EALLOC
 		return NULL;
@@ -1540,6 +1540,10 @@ static void exif_iif_add_value(image_info_type *image_info, int section_index, c
 	image_info_data  *info_data;
 	image_info_data  *list;
 
+	if (length >= LONG_MAX) {
+		return;
+	}
+
 	list = erealloc(image_info->info_list[section_index].list, (image_info->info_list[section_index].count+1)*sizeof(image_info_data));
 	if (!list) {
 		EXIF_ERRLOG_EALLOC
@@ -1612,7 +1616,7 @@ static void exif_iif_add_value(image_info_type *image_info, int section_index, c
 				break;
 			} else
 			if (length>1) {
-				info_data->value.list = emalloc(length*sizeof(image_info_value));
+				info_data->value.list = safe_emalloc(length, sizeof(image_info_value), 1);
 				if (!info_data->value.list) {
 					EXIF_ERRLOG_EALLOC
 					return;
@@ -1787,7 +1791,7 @@ static void exif_iif_add_buffer(image_info_type *image_info, int section_index, 
 			EXIF_ERRLOG_EALLOC
 			return;
 		}
-		info_data->value.s = emalloc(length+1);
+		info_data->value.s = safe_emalloc(length, 1, 1);
 		if (!info_data->value.s) {
 			EXIF_ERRLOG_EALLOC
 			return;
@@ -2521,7 +2525,7 @@ static int exif_process_string_raw(char **result, char *value, size_t byte_count
 	 * force end of string.
 	 */
 	if (byte_count) {
-		(*result) = emalloc(byte_count+1);
+		(*result) = safe_emalloc(byte_count, 1, 1);
 		memcpy(*result, value, byte_count);
 		(*result)[byte_count] = '\0';
 		return byte_count+1;
@@ -2867,7 +2871,7 @@ static int exif_process_IFD_TAG(image_info_type *ImageInfo, char *dir_entry, cha
 						/* When there are any characters after the first NUL */
 						ImageInfo->CopyrightPhotographer  = estrdup(value_ptr);
 						ImageInfo->CopyrightEditor        = estrdup(value_ptr+length+1);
-						ImageInfo->Copyright              = emalloc(strlen(value_ptr)+strlen(value_ptr+length+1)+3);
+						ImageInfo->Copyright              = safe_emalloc(strlen(value_ptr)+3, 1, strlen(value_ptr+length+1));
 						if (!ImageInfo->Copyright) {
 							EXIF_ERRLOG_EALLOC
 						} else {
@@ -3821,7 +3825,7 @@ PHP_FUNCTION(exif_read_data)
 
 	if(ac >= 2) {
 		convert_to_string_ex(p_sections_needed);
-		sections_str = emalloc(strlen(Z_STRVAL_PP(p_sections_needed))+3);
+		sections_str = safe_emalloc(strlen(Z_STRVAL_PP(p_sections_needed)), 1, 3);
 		if (!sections_str) {
 			EXIF_ERRLOG_EALLOC
 			RETURN_FALSE;
@@ -4001,28 +4005,23 @@ PHP_FUNCTION(exif_read_data)
    Reads the embedded thumbnail */
 PHP_FUNCTION(exif_thumbnail)
 {
-	zval **p_name, **p_width, **p_height, **p_imagetype;
-	int ret, arg_c = ZEND_NUM_ARGS();
+	zval *p_width, *p_height, *p_imagetype;
+	char *p_name;
+	int p_name_len, ret, arg_c = ZEND_NUM_ARGS();
 	image_info_type ImageInfo;
 
 	memset(&ImageInfo, 0, sizeof(ImageInfo));
 
-	if ((arg_c!=1 && arg_c!=3 && arg_c!=4) || zend_get_parameters_ex(arg_c, &p_name, &p_width, &p_height, &p_imagetype) == FAILURE) {
+	if (arg_c!=1 && arg_c!=3 && arg_c!=4) {
 		WRONG_PARAM_COUNT;
 	}
 
-	convert_to_string_ex(p_name);
-	if (arg_c >= 3) {
-		zval_dtor(*p_width);
-		zval_dtor(*p_height);
-	}
-	if (arg_c >= 4) {
-		zval_dtor(*p_imagetype);
+	if (zend_parse_parameters(arg_c TSRMLS_CC, "s|z/z/z/", &p_name, &p_name_len, &p_width, &p_height, &p_imagetype) == FAILURE) {
+		return;
 	}
 
-	ret = exif_read_file(&ImageInfo, Z_STRVAL_PP(p_name), 1, 0 TSRMLS_CC);
+	ret = exif_read_file(&ImageInfo, p_name, 1, 0 TSRMLS_CC);
 	if (ret==FALSE) {
-		exif_discard_imageinfo(&ImageInfo);
 		RETURN_FALSE;
 	}
 
@@ -4043,11 +4042,14 @@ PHP_FUNCTION(exif_thumbnail)
 		if (!ImageInfo.Thumbnail.width || !ImageInfo.Thumbnail.height) {
 			exif_scan_thumbnail(&ImageInfo TSRMLS_CC);
 		}
-		ZVAL_LONG(*p_width,  ImageInfo.Thumbnail.width);
-		ZVAL_LONG(*p_height, ImageInfo.Thumbnail.height);
+		zval_dtor(p_width);
+		zval_dtor(p_height);
+		ZVAL_LONG(p_width,  ImageInfo.Thumbnail.width);
+		ZVAL_LONG(p_height, ImageInfo.Thumbnail.height);
 	}
 	if (arg_c >= 4)	{
-		ZVAL_LONG(*p_imagetype, ImageInfo.Thumbnail.filetype);
+		zval_dtor(p_imagetype);
+		ZVAL_LONG(p_imagetype, ImageInfo.Thumbnail.filetype);
 	}
 
 #ifdef EXIF_DEBUG
@@ -4057,7 +4059,7 @@ PHP_FUNCTION(exif_thumbnail)
 	exif_discard_imageinfo(&ImageInfo);
 
 #ifdef EXIF_DEBUG
-	php_error_docref1(NULL TSRMLS_CC, Z_STRVAL_PP(p_name), E_NOTICE, "done");
+	php_error_docref1(NULL TSRMLS_CC, p_name, E_NOTICE, "done");
 #endif
 }
 /* }}} */
@@ -4076,6 +4078,7 @@ PHP_FUNCTION(exif_imagetype)
 	if (zend_get_parameters_ex(1, &arg1) == FAILURE)
 		WRONG_PARAM_COUNT;
 
+	convert_to_string_ex(arg1);
 	stream = php_stream_open_wrapper(Z_STRVAL_PP(arg1), "rb", IGNORE_PATH|ENFORCE_SAFE_MODE|REPORT_ERRORS, NULL);
 
 	if (stream == NULL) {

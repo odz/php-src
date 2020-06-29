@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2002 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -41,9 +41,16 @@ int zend_load_extension(char *path)
 	}
 
 	extension_version_info = (zend_extension_version_info *) DL_FETCH_SYMBOL(handle, "extension_version_info");
+	if (!extension_version_info) {
+		extension_version_info = (zend_extension_version_info *) DL_FETCH_SYMBOL(handle, "_extension_version_info");
+	}
 	new_extension = (zend_extension *) DL_FETCH_SYMBOL(handle, "zend_extension_entry");
+	if (!new_extension) {
+		new_extension = (zend_extension *) DL_FETCH_SYMBOL(handle, "_zend_extension_entry");
+	}
 	if (!extension_version_info || !new_extension) {
 		fprintf(stderr, "%s doesn't appear to be a valid Zend extension\n", path);
+		DL_UNLOAD(handle);
 		return FAILURE;
 	}
 

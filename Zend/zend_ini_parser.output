@@ -7,35 +7,30 @@ Conflict in state 25 between rule 14 and token '&' resolved as reduce.
 Conflict in state 26 between rule 15 and token '|' resolved as reduce.
 Conflict in state 26 between rule 15 and token '&' resolved as reduce.
 
-
 Grammar
-
-  Number, Line, Rule
-    1 189 statement_list -> statement_list statement
-    2 191 statement_list -> /* empty */
-    3 194 statement -> TC_STRING '=' string_or_value
-    4 203 statement -> TC_STRING
-    5 204 statement -> SECTION
-    6 205 statement -> '\n'
-    7 209 string_or_value -> expr
-    8 211 string_or_value -> TC_ENCAPSULATED_STRING
-    9 212 string_or_value -> CFG_TRUE
-   10 213 string_or_value -> CFG_FALSE
-   11 214 string_or_value -> '\n'
-   12 215 string_or_value -> '\000'
-   13 218 expr -> constant_string
-   14 220 expr -> expr '|' expr
-   15 221 expr -> expr '&' expr
-   16 222 expr -> '~' expr
-   17 223 expr -> '!' expr
-   18 224 expr -> '(' expr ')'
-   19 227 constant_string -> TC_STRING
-
+rule 1    statement_list -> statement_list statement
+rule 2    statement_list ->		/* empty */
+rule 3    statement -> TC_STRING '=' string_or_value
+rule 4    statement -> TC_STRING
+rule 5    statement -> SECTION
+rule 6    statement -> '\n'
+rule 7    string_or_value -> expr
+rule 8    string_or_value -> TC_ENCAPSULATED_STRING
+rule 9    string_or_value -> CFG_TRUE
+rule 10   string_or_value -> CFG_FALSE
+rule 11   string_or_value -> '\n'
+rule 12   string_or_value -> '\000'
+rule 13   expr -> constant_string
+rule 14   expr -> expr '|' expr
+rule 15   expr -> expr '&' expr
+rule 16   expr -> '~' expr
+rule 17   expr -> '!' expr
+rule 18   expr -> '(' expr ')'
+rule 19   constant_string -> TC_STRING
 
 Terminals, with rules where they appear
 
 $ (-1)
-'\000' (0) 12
 '\n' (10) 6 11
 '!' (33) 17
 '&' (38) 15
@@ -50,7 +45,7 @@ TC_ENCAPSULATED_STRING (258) 8
 SECTION (259) 5
 CFG_TRUE (260) 9
 CFG_FALSE (261) 10
-
+'\000' (262) 12
 
 Nonterminals, with rules where they appear
 
@@ -362,5 +357,3 @@ state 27
 state 28
 
     $default	accept
-
-

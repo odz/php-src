@@ -40,5 +40,4 @@ int readdir_r(DIR *, struct dirent *, struct dirent **);
 int closedir(DIR *);
 int rewinddir(DIR *);
 
-
 #endif /* READDIR_H */

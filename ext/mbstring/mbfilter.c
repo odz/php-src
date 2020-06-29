@@ -80,7 +80,7 @@
  *
  */
 
-/* $Id: mbfilter.c,v 1.52 2002/11/13 11:57:59 moriyoshi Exp $ */
+/* $Id: mbfilter.c,v 1.52.2.3 2003/04/04 09:07:02 moriyoshi Exp $ */
 
 
 #ifdef HAVE_CONFIG_H
@@ -2954,7 +2954,7 @@ mbfl_memory_device_strcat(mbfl_memory_device *device, const char *psrc TSRMLS_DC
 	const unsigned char *p;
 
 	len = 0;
-	p = psrc;
+	p = (const unsigned char *)psrc;
 	while (*p) {
 		p++;
 		len++;
@@ -2971,7 +2971,7 @@ mbfl_memory_device_strcat(mbfl_memory_device *device, const char *psrc TSRMLS_DC
 		device->buffer = tmp;
 	}
 
-	p = psrc;
+	p = (const unsigned char *)psrc;
 	w = &device->buffer[device->pos];
 	device->pos += len;
 	while (len > 0) {
@@ -7440,8 +7440,10 @@ mbfl_convert_encoding(
 	if (filter1 == NULL) {
 		return NULL;
 	}
-	filter2->illegal_mode = MBFL_OUTPUTFILTER_ILLEGAL_MODE_CHAR;
-	filter2->illegal_substchar = 0x3f;		/* '?' */
+	if (filter2 != NULL) {
+		filter2->illegal_mode = MBFL_OUTPUTFILTER_ILLEGAL_MODE_CHAR;
+		filter2->illegal_substchar = 0x3f;		/* '?' */
+	}
 	mbfl_memory_device_init(&device, string->len, (string->len >> 2) + 8 TSRMLS_CC);
 
 	/* feed data */
@@ -7737,7 +7739,7 @@ retry:
 			for (;;) {
 				pc->found_pos++;
 				p = h;
-				m = pc->needle.buffer;
+				m = (int *)pc->needle.buffer;
 				n = pc->needle_pos - 1;
 				while (n > 0 && *p == *m) {
 					n--;
@@ -8136,6 +8138,13 @@ mbfl_strcut(
 	mbfl_string_init(result);
 	result->no_language = string->no_language;
 	result->no_encoding = string->no_encoding;
+
+	if (from > (int)string->len) {
+		result->len = 0;
+		result->val = mbfl_malloc(1);
+		result->val[0] = '\0';
+		return result; 
+	}
 
 	if ((encoding->flag & (MBFL_ENCTYPE_SBCS | MBFL_ENCTYPE_WCS2BE | MBFL_ENCTYPE_WCS2LE | MBFL_ENCTYPE_WCS4BE | MBFL_ENCTYPE_WCS4LE)) ||
 	   encoding->mblen_table != NULL) {

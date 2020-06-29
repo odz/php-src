@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_image.h,v 1.19 2002/06/24 19:36:26 helly Exp $ */
+/* $Id: php_image.h,v 1.19.4.3 2003/02/13 07:16:55 sniper Exp $ */
 
 #ifndef PHP_IMAGE_H
 #define PHP_IMAGE_H
@@ -46,6 +46,9 @@ typedef enum
   IMAGE_FILETYPE_JB2,
   IMAGE_FILETYPE_SWC,
   IMAGE_FILETYPE_IFF,
+  IMAGE_FILETYPE_WBMP,
+  /* IMAGE_FILETYPE_JPEG2000 is a userland alias for IMAGE_FILETYPE_JPC */
+  IMAGE_FILETYPE_XBM
 /* WHEN EXTENDING: PLEASE ALSO REGISTER IN image.c:PHP_MINIT_FUNCTION(imagetypes) */
 } image_filetype;
 /* }}} */

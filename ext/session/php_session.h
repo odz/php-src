@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -35,14 +35,14 @@
 char *php_session_create_id(PS_CREATE_SID_ARGS);
 
 typedef struct ps_module_struct {
-	const char *name;
-	int (*open)(PS_OPEN_ARGS);
-	int (*close)(PS_CLOSE_ARGS);
-	int (*read)(PS_READ_ARGS);
-	int (*write)(PS_WRITE_ARGS);
-	int (*destroy)(PS_DESTROY_ARGS);
-	int (*gc)(PS_GC_ARGS);
-	char *(*create_sid)(PS_CREATE_SID_ARGS);
+	const char *s_name;
+	int (*s_open)(PS_OPEN_ARGS);
+	int (*s_close)(PS_CLOSE_ARGS);
+	int (*s_read)(PS_READ_ARGS);
+	int (*s_write)(PS_WRITE_ARGS);
+	int (*s_destroy)(PS_DESTROY_ARGS);
+	int (*s_gc)(PS_GC_ARGS);
+	char *(*s_create_sid)(PS_CREATE_SID_ARGS);
 } ps_module;
 
 #define PS_GET_MOD_DATA() *mod_data
@@ -105,12 +105,12 @@ typedef struct _php_ps_globals {
 	void *mod_data;
 	php_session_status session_status;
 	long gc_probability;
-	long gc_dividend;
+	long gc_divisor;
 	long gc_maxlifetime;
 	int module_number;
 	long cache_expire;
-	long bug_compat; /* Whether to behave like PHP 4.2 and earlier */
-	long bug_compat_warn; /* Whether to warn about it */
+	zend_bool bug_compat; /* Whether to behave like PHP 4.2 and earlier */
+	zend_bool bug_compat_warn; /* Whether to warn about it */
 	const struct ps_serializer_struct *serializer;
 	zval *http_session_vars;
 	zend_bool auto_start;
@@ -118,6 +118,8 @@ typedef struct _php_ps_globals {
 	zend_bool use_only_cookies;
 	zend_bool use_trans_sid;	/* contains the INI value of whether to use trans-sid */
 	zend_bool apply_trans_sid;	/* whether or not to enable trans-sid for the current request */
+	int send_cookie;
+	int define_sid;
 } php_ps_globals;
 
 typedef php_ps_globals zend_ps_globals;
@@ -129,6 +131,7 @@ PHP_FUNCTION(session_name);
 PHP_FUNCTION(session_module_name);
 PHP_FUNCTION(session_save_path);
 PHP_FUNCTION(session_id);
+PHP_FUNCTION(session_regenerate_id);
 PHP_FUNCTION(session_decode);
 PHP_FUNCTION(session_register);
 PHP_FUNCTION(session_unregister);
@@ -208,8 +211,7 @@ PHPAPI void php_session_start(TSRMLS_D);
 	ulong num_key;												\
 	zval **struc;
 
-#define PS_ENCODE_LOOP(code)										\
-	{																\
+#define PS_ENCODE_LOOP(code) do {										\
 		HashTable *_ht = Z_ARRVAL_P(PS(http_session_vars)); \
 																	\
 		for (zend_hash_internal_pointer_reset(_ht);			\
@@ -220,9 +222,9 @@ PHPAPI void php_session_start(TSRMLS_D);
 				code;		 										\
 			} 														\
 		}															\
-	}
+	} while(0)
 
-ZEND_EXTERN_MODULE_GLOBALS(ps);
+ZEND_EXTERN_MODULE_GLOBALS(ps)
 
 void php_session_auto_start(void *data);
 void php_session_shutdown(void *data);

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -19,7 +19,7 @@
    | Stig Bakken <ssb@fast.no>                                            |
    +----------------------------------------------------------------------+
  */
-/* $Id: sapi_apache.c,v 1.40 2002/04/23 03:01:30 sniper Exp $ */
+/* $Id: sapi_apache.c,v 1.40.4.4 2003/05/21 09:34:13 zeev Exp $ */
 
 #include "php_apache_http.h"
 
@@ -27,6 +27,7 @@
  */
 int apache_php_module_main(request_rec *r, int display_source_mode TSRMLS_DC)
 {
+	int retval = OK;	
 	zend_file_handle file_handle;
 
 	if (php_request_startup(TSRMLS_C) == FAILURE) {
@@ -40,10 +41,8 @@ int apache_php_module_main(request_rec *r, int display_source_mode TSRMLS_DC)
 		zend_syntax_highlighter_ini syntax_highlighter_ini;
 
 		php_get_highlight_struct(&syntax_highlighter_ini);
-		if (highlight_file(SG(request_info).path_translated, &syntax_highlighter_ini TSRMLS_CC)){
-			return OK;
-		} else {
-			return NOT_FOUND;
+		if (highlight_file(SG(request_info).path_translated, &syntax_highlighter_ini TSRMLS_CC) != SUCCESS) {
+			retval = NOT_FOUND;
 		}
 	} else {
 		file_handle.type = ZEND_HANDLE_FILENAME;
@@ -61,7 +60,7 @@ int apache_php_module_main(request_rec *r, int display_source_mode TSRMLS_DC)
 		php_request_shutdown(NULL);
 	} zend_end_try();
 	
-	return (OK);
+	return retval;
 }
 /* }}} */
 

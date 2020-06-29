@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mod_files.c,v 1.83.2.1 2002/12/05 20:14:09 helly Exp $ */
+/* $Id: mod_files.c,v 1.83.2.5 2003/05/20 20:01:54 sas Exp $ */
 
 #include "php.h"
 
@@ -142,7 +142,7 @@ static void ps_files_open(ps_files *data, const char *key TSRMLS_DC)
 		ps_files_close(data);
 		
 		if (!ps_files_valid_key(key)) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "The session id contains illegal characters, valid characters are only a-z, A-Z and 0-9");
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "The session id contains invalid characters, valid characters are only a-z, A-Z and 0-9");
 			return;
 		}
 		if (!ps_files_path_create(buf, sizeof(buf), data, key))
@@ -231,7 +231,13 @@ PS_OPEN_FUNC(files)
 
 	data->fd = -1;
 	if ((p = strchr(save_path, ';'))) {
+		errno = 0;
 		data->dirdepth = (size_t) strtol(save_path, NULL, 10);
+		if (errno == ERANGE) {
+			efree(data);
+			PS_SET_MOD_DATA(0);
+			return FAILURE;
+		}
 		save_path = p + 1;
 	}
 	data->basedir_len = strlen(save_path);
@@ -244,6 +250,8 @@ PS_CLOSE_FUNC(files)
 {
 	PS_FILES_DATA;
 
+	if (!data) return FAILURE;
+	
 	ps_files_close(data);
 
 	if (data->lastkey) 
@@ -260,6 +268,8 @@ PS_READ_FUNC(files)
 	long n;
 	struct stat sbuf;
 	PS_FILES_DATA;
+	
+	if (!data) return FAILURE;
 
 	ps_files_open(data, key TSRMLS_CC);
 	if (data->fd < 0)
@@ -294,6 +304,8 @@ PS_WRITE_FUNC(files)
 {
 	long n;
 	PS_FILES_DATA;
+	
+	if (!data) return FAILURE;
 
 	ps_files_open(data, key TSRMLS_CC);
 	if (data->fd < 0)
@@ -329,6 +341,8 @@ PS_DESTROY_FUNC(files)
 {
 	char buf[MAXPATHLEN];
 	PS_FILES_DATA;
+	
+	if (!data) return FAILURE;
 
 	if (!ps_files_path_create(buf, sizeof(buf), data, key))
 		return FAILURE;
@@ -345,6 +359,8 @@ PS_DESTROY_FUNC(files)
 PS_GC_FUNC(files) 
 {
 	PS_FILES_DATA;
+	
+	if (!data) return FAILURE;
 	
 	/* we don't perform any cleanup, if dirdepth is larger than 0.
 	   we return SUCCESS, since all cleanup should be handled by

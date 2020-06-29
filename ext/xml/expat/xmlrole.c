@@ -6,7 +6,7 @@ See the file COPYING for copying permission.
 #include "php_compat.h"
 
 static char RCSId[]
-  = "$Header: /repository/php4/ext/xml/expat/xmlrole.c,v 1.3 2001/07/30 15:10:53 thies Exp $";
+  = "$Header: /repository/php4/ext/xml/expat/Attic/xmlrole.c,v 1.3 2001/07/30 15:10:53 thies Exp $";
 
 #ifdef COMPILED_FROM_DSP
 #  include "winconfig.h"

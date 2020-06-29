@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2002 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -688,39 +688,48 @@ ZEND_API int sub_function(zval *result, zval *op1, zval *op2 TSRMLS_DC)
 	return FAILURE;				/* unknown datatype */
 }
 
+#include "zend_multiply.h"
 
-ZEND_API int mul_function(zval *result, zval *op1, zval *op2 TSRMLS_DC)
+ZEND_API int mul_function(zval *return_value, zval *op1, zval *op2 TSRMLS_DC)
 {
 	zval op1_copy, op2_copy;
+	zend_uchar tx;
 	
-	zendi_convert_scalar_to_number(op1, op1_copy, result);
-	zendi_convert_scalar_to_number(op2, op2_copy, result);
+	zendi_convert_scalar_to_number(op1, op1_copy, return_value);
+	zendi_convert_scalar_to_number(op2, op2_copy, return_value);
 
-	if (op1->type == IS_LONG && op2->type == IS_LONG) {
-		double dval = (double) op1->value.lval * (double) op2->value.lval;
+#define ZEND_SHIFT_WIDTH 4
+	
+	tx = op1->type | (op2->type << ZEND_SHIFT_WIDTH);
+	
+	switch (tx) {
+	case (IS_LONG | (IS_LONG << ZEND_SHIFT_WIDTH)): {
+		int use_dval;
+			
+		ZEND_SIGNED_MULTIPLY_LONG(op1->value.lval, op2->value.lval, 
+					return_value->value.lval, return_value->value.dval, 
+					use_dval);
 
-		if ((dval > (double) LONG_MAX) || (dval < (double) LONG_MIN)) {
-			result->value.dval = dval;
-			result->type = IS_DOUBLE;
-		} else {
-			result->value.lval = op1->value.lval * op2->value.lval;
-			result->type = IS_LONG;
-		}
+		return_value->type = use_dval ? IS_DOUBLE : IS_LONG;
+		
 		return SUCCESS;
 	}
-	if ((op1->type == IS_DOUBLE && op2->type == IS_LONG)
-		|| (op1->type == IS_LONG && op2->type == IS_DOUBLE)) {
-		result->value.dval = (op1->type == IS_LONG ?
-						 (((double) op1->value.lval) * op2->value.dval) :
-						 (op1->value.dval * ((double) op2->value.lval)));
-		result->type = IS_DOUBLE;
+	
+	case (IS_DOUBLE | (IS_DOUBLE << ZEND_SHIFT_WIDTH)):
+		RETVAL_DOUBLE(op1->value.dval * op2->value.dval);
+		return SUCCESS;
+
+	case (IS_DOUBLE | (IS_LONG << ZEND_SHIFT_WIDTH)):
+		RETVAL_DOUBLE(op1->value.dval * (double) op2->value.lval);
+		return SUCCESS;
+
+	case (IS_LONG | (IS_DOUBLE << ZEND_SHIFT_WIDTH)):
+		RETVAL_DOUBLE(op2->value.dval * (double) op1->value.lval);
 		return SUCCESS;
 	}
-	if (op1->type == IS_DOUBLE && op2->type == IS_DOUBLE) {
-		result->type = IS_DOUBLE;
-		result->value.dval = op1->value.dval * op2->value.dval;
-		return SUCCESS;
-	}
+
+#undef ZEND_SHIFT_WIDTH
+	
 	zend_error(E_ERROR, "Unsupported operand types");
 	return FAILURE;				/* unknown datatype */
 }

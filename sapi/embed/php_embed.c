@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,7 +15,7 @@
    | Author: Edin Kadribasic <edink@php.net>                              |
    +----------------------------------------------------------------------+
 */
-/* $Id: php_embed.c,v 1.1 2002/09/29 16:22:48 sas Exp $ */
+/* $Id: php_embed.c,v 1.1.2.4 2003/01/29 15:42:43 edink Exp $ */
 
 #include "php_embed.h"
 
@@ -99,8 +99,8 @@ static int php_embed_startup(sapi_module_struct *sapi_module)
 	return SUCCESS;
 }
 
-static sapi_module_struct php_embed_module = {
-	"embedded",                    /* name */
+sapi_module_struct php_embed_module = {
+	"embed",                       /* name */
 	"PHP Embedded Library",        /* pretty name */
 	
 	php_embed_startup,              /* startup */
@@ -177,7 +177,7 @@ int php_embed_init(int argc, char **argv PTSRMLS_DC)
 
   sapi_startup(&php_embed_module);
 
-  if (php_module_startup(&php_embed_module, NULL, 0)==FAILURE) {
+  if (php_embed_module.startup(&php_embed_module)==FAILURE) {
 	  return FAILURE;
   }
  

@@ -1,5 +1,5 @@
 dnl
-dnl $Id: Zend.m4,v 1.35 2002/10/24 12:20:49 sas Exp $
+dnl $Id: Zend.m4,v 1.35.2.2 2003/05/06 12:02:47 sas Exp $
 dnl
 dnl This file contains Zend specific autoconf functions.
 dnl
@@ -26,7 +26,6 @@ AC_REQUIRE([AC_PROG_CC])
 AC_REQUIRE([AC_PROG_CC_C_O])
 AC_REQUIRE([AC_PROG_LEX])
 AC_REQUIRE([AC_HEADER_STDC])
-AC_REQUIRE([AC_PROG_LIBTOOL])
 
 LIBZEND_BISON_CHECK
 
@@ -182,7 +181,6 @@ test -n "$DEBUG_CFLAGS" && CFLAGS="$CFLAGS $DEBUG_CFLAGS"
 if test "$ZEND_EXPERIMENTAL_ZTS" = "yes"; then
   AC_DEFINE(ZTS,1,[ ])
   CFLAGS="$CFLAGS -DZTS"
-  LIBZEND_CPLUSPLUS_CHECKS
 fi  
 
 if test "$ZEND_MEMORY_LIMIT" = "yes"; then
@@ -213,4 +211,3 @@ AC_SUBST(INLINE_CFLAGS)
 AC_DEFUN(LIBZEND_CPLUSPLUS_CHECKS,[
 
 ])
-

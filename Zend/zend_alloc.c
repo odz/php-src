@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2002 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -66,18 +66,22 @@ static long mem_block_end_magic = MEM_BLOCK_END_MAGIC;
 
 #define _CHECK_MEMORY_LIMIT(s, rs, file, lineno) { AG(allocated_memory) += rs;\
 								if (AG(memory_limit)<AG(allocated_memory)) {\
-									if ((AG(memory_limit)+1048576)<AG(allocated_memory)) { \
-										/* failed to handle this gracefully, exit() */ \
-										exit(1);	\
-									}	\
-									if (!AG(memory_exhausted)) {	\
-										if (!file) { \
-											zend_error(E_ERROR,"Allowed memory size of %d bytes exhausted (tried to allocate %d bytes)", AG(memory_limit), s); \
+									int php_mem_limit = AG(memory_limit); \
+									if (AG(memory_limit)+1048576 > AG(allocated_memory) - rs) { \
+										AG(memory_limit) = AG(allocated_memory) + 1048576; \
+										if (file) { \
+											zend_error(E_ERROR,"Allowed memory size of %d bytes exhausted (tried to allocate %d bytes)", php_mem_limit, s); \
 										} else { \
-											zend_error(E_ERROR,"Allowed memory size of %d bytes exhausted at %s:%d (tried to allocate %d bytes)", AG(memory_limit), file, lineno, s); \
+											zend_error(E_ERROR,"Allowed memory size of %d bytes exhausted at %s:%d (tried to allocate %d bytes)", php_mem_limit, file, lineno, s); \
 										} \
-										AG(memory_exhausted)=1;	\
-									}	\
+									} else { \
+										if (file) { \
+											fprintf(stderr, "Allowed memory size of %d bytes exhausted at %s:%d (tried to allocate %d bytes)\n", php_mem_limit, file, lineno, s); \
+										} else { \
+											fprintf(stderr, "Allowed memory size of %d bytes exhausted (tried to allocate %d bytes)\n", php_mem_limit, s); \
+										} \
+										exit(1); \
+									} \
 								} \
 							}
 # endif
@@ -192,6 +196,32 @@ ZEND_API void *_emalloc(size_t size ZEND_FILE_LINE_DC ZEND_FILE_LINE_ORIG_DC)
 	return (void *)((char *)p + sizeof(zend_mem_header) + MEM_HEADER_PADDING);
 }
 
+#include "zend_multiply.h"
+
+ZEND_API void *_safe_emalloc(size_t nmemb, size_t size, size_t offset ZEND_FILE_LINE_DC ZEND_FILE_LINE_ORIG_DC)
+{
+
+	if (nmemb < LONG_MAX 
+			&& size < LONG_MAX 
+			&& offset < LONG_MAX
+			&& nmemb >= 0 
+			&& size >= 0 
+			&& offset >= 0) {
+		long lval;
+		double dval;
+		int use_dval;
+
+		ZEND_SIGNED_MULTIPLY_LONG(nmemb, size, lval, dval, use_dval);
+
+		if (!use_dval
+			&& lval < LONG_MAX - offset) {
+			return emalloc_rel(lval + offset);
+		}
+	}
+
+	zend_error(E_ERROR, "Possible integer overflow in memory allocation (%ld * %ld + %ld)", nmemb, size, offset);
+	return 0;
+}
 
 ZEND_API void _efree(void *ptr ZEND_FILE_LINE_DC ZEND_FILE_LINE_ORIG_DC)
 {

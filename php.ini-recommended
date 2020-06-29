@@ -150,6 +150,11 @@ implicit_flush = Off
 ; callback-function.
 unserialize_callback_func=
 
+; When floats & doubles are serialized store serialize_precision significant
+; digits after the floating point. The default value ensures that when floats
+; are decoded with unserialize, the data will remain the same.
+serialize_precision = 100
+
 ; Whether to enable the ability to force arguments to be passed by reference
 ; at function call time.  This method is deprecated and is likely to be
 ; unsupported in future versions of PHP/Zend.  The encouraged method of
@@ -206,6 +211,11 @@ safe_mode_protected_env_vars = LD_LIBRARY_PATH
 ; It receives a comma-delimited list of function names. This directive is
 ; *NOT* affected by whether Safe Mode is turned On or Off.
 disable_functions =
+
+; This directive allows you to disable certain classes for security reasons.
+; It receives a comma-delimited list of class names. This directive is
+; *NOT* affected by whether Safe Mode is turned On or Off.
+disable_classes =
 
 ; Colors for Syntax Highlighting mode.  Anything that's acceptable in
 ; <font color="??????"> would work.
@@ -321,7 +331,7 @@ track_errors = Off
 ; and change docref_root to the base URL of your local copy including the
 ; leading '/'. You must also specify the file extension being used including 
 ; the dot.
-;docref_root = /phpmanual/
+;docref_root = "/phpmanual/"
 ;docref_ext = .html
   
 ; String to output before an error message.
@@ -407,11 +417,6 @@ default_mimetype = "text/html"
 ; Always populate the $HTTP_RAW_POST_DATA variable.                               
 ;always_populate_raw_post_data = On
 
-; Allow handling of WebDAV http requests within PHP scripts (eg.
-; PROPFIND, PROPPATCH, MOVE, COPY, etc..)
-; If you want to get the post data of those requests, you have to
-; set always_populate_raw_post_data as well.
-;allow_webdav_methods = On
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Paths and Directories ;
@@ -435,7 +440,7 @@ doc_root =
 user_dir =
 
 ; Directory in which the loadable extensions (modules) reside.
-extension_dir = ./
+extension_dir = "./"
 
 ; Whether or not to enable the dl() function.  The dl() function does NOT work
 ; properly in multithreaded servers, such as IIS or Zeus, and is automatically
@@ -453,6 +458,14 @@ enable_dl = On
 ; will look for to know it is OK to continue execution.  Setting this variable MAY
 ; cause security issues, KNOW WHAT YOU ARE DOING FIRST.
 ; cgi.redirect_status_env = ;
+
+; cgi.fix_pathinfo provides *real* PATH_INFO/PATH_TRANSLATED support for CGI.  PHP's
+; previous behaviour was to set PATH_TRANSLATED to SCRIPT_FILENAME, and to not grok
+; what PATH_INFO is.  For more information on PATH_INFO, see the cgi specs.  Setting
+; this to 1 will cause PHP CGI to fix it's paths to conform to the spec.  A setting
+; of zero causes PHP to behave as before.  Default is zero.  You should fix your scripts
+; to use SCRIPT_FILENAME rather than PATH_TRANSLATED.
+; cgi.fix_pathinfo=1
 
 ; FastCGI under IIS (on WINNT based OS) supports the ability to impersonate
 ; security tokens of the calling client.  This allows IIS to define the
@@ -543,10 +556,8 @@ default_socket_timeout = 60
 ;extension=php_dbx.dll
 ;extension=php_domxml.dll
 ;extension=php_exif.dll
-;extension=php_fbsql.dll
 ;extension=php_fdf.dll
 ;extension=php_filepro.dll
-;extension=php_gd.dll
 ;extension=php_gd2.dll
 ;extension=php_gettext.dll
 ;extension=php_hyperwave.dll
@@ -839,11 +850,12 @@ session.serialize_handler = php
 
 ; Define the probability that the 'garbage collection' process is started
 ; on every session initialization.
-; The probability is calculated by using gc_probability/gc_dividend,
-; e.g. 1/100 means 1%.
+; The probability is calculated by using gc_probability/gc_divisor,
+; e.g. 1/100 means there is a 1% chance that the GC process starts
+; on each request.
 
 session.gc_probability = 1
-session.gc_dividend    = 1000
+session.gc_divisor     = 1000
 
 ; After this number of seconds, stored data will be seen as 'garbage' and
 ; cleaned up by the garbage collection process.

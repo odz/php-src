@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_pcre.c,v 1.132.2.1 2002/11/21 23:51:57 iliaa Exp $ */
+/* $Id: php_pcre.c,v 1.132.2.7 2003/05/26 02:00:37 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -56,6 +56,7 @@ static void *php_pcre_malloc(size_t size)
 
 static void php_pcre_free(void *ptr)
 {
+	if (ptr)
 	pefree(ptr, 1);
 }
 
@@ -63,6 +64,7 @@ static void php_pcre_free(void *ptr)
 static void php_free_pcre_cache(void *data)
 {
 	pcre_cache_entry *pce = (pcre_cache_entry *) data;
+	if (!pce) return;
 	pefree(pce->re, 1);
 #if HAVE_SETLOCALE
 	if ((void*)pce->tables) pefree((void*)pce->tables, 1);
@@ -416,11 +418,11 @@ static void php_pcre_match(INTERNAL_FUNCTION_PARAMETERS, int global)
 	pcre_fullinfo(re, extra, PCRE_INFO_CAPTURECOUNT, &num_subpats);
 	num_subpats++;
 	size_offsets = num_subpats * 3;
-	offsets = (int *)emalloc(size_offsets * sizeof(int));
+	offsets = (int *)safe_emalloc(size_offsets, sizeof(int), 0);
 
 	/* Allocate match sets array and initialize the values */
 	if (global && subpats_order == PREG_PATTERN_ORDER) {
-		match_sets = (zval **)emalloc(num_subpats * sizeof(zval *));
+		match_sets = (zval **)safe_emalloc(num_subpats, sizeof(zval *), 0);
 		for (i=0; i<num_subpats; i++) {
 			ALLOC_ZVAL(match_sets[i]);
 			array_init(match_sets[i]);
@@ -787,10 +789,10 @@ PHPAPI char *php_pcre_replace(char *regex,   int regex_len,
 
 	/* Calculate the size of the offsets array, and allocate memory for it. */
 	size_offsets = (pcre_info(re, NULL, NULL) + 1) * 3;
-	offsets = (int *)emalloc(size_offsets * sizeof(int));
+	offsets = (int *)safe_emalloc(size_offsets, sizeof(int), 0);
 	
 	alloc_len = 2 * subject_len + 1;
-	result = emalloc(alloc_len * sizeof(char));
+	result = safe_emalloc(alloc_len, sizeof(char), 0);
 
 	/* Initialize */
 	match = NULL;
@@ -912,7 +914,7 @@ PHPAPI char *php_pcre_replace(char *regex,   int regex_len,
 				new_len = *result_len + subject_len - start_offset;
 				if (new_len + 1 > alloc_len) {
 					alloc_len = new_len + 1; /* now we know exactly how long it is */
-					new_buf = emalloc(alloc_len * sizeof(char));
+					new_buf = safe_emalloc(alloc_len, sizeof(char), 0);
 					memcpy(new_buf, result, *result_len);
 					efree(result);
 					result = new_buf;
@@ -1044,6 +1046,10 @@ static void preg_replace_impl(INTERNAL_FUNCTION_PARAMETERS, zend_bool is_callabl
 		zend_get_parameters_ex(ZEND_NUM_ARGS(), &regex, &replace, &subject, &limit) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
+	if (!is_callable_replace && Z_TYPE_PP(replace) == IS_ARRAY && Z_TYPE_PP(regex) != IS_ARRAY) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Parameter mismatch, pattern is a string while replacement in an array.");
+		RETURN_FALSE;
+	}
 
 	SEPARATE_ZVAL(replace);
 	if (Z_TYPE_PP(replace) != IS_ARRAY)
@@ -1079,6 +1085,7 @@ static void preg_replace_impl(INTERNAL_FUNCTION_PARAMETERS, zend_bool is_callabl
 		/* For each subject entry, convert it to string, then perform replacement
 		   and add the result to the return_value array. */
 		while (zend_hash_get_current_data(Z_ARRVAL_PP(subject), (void **)&subject_entry) == SUCCESS) {
+			SEPARATE_ZVAL(subject_entry);
 			if ((result = php_replace_in_subject(*regex, *replace, subject_entry, &result_len, limit_val, is_callable_replace TSRMLS_CC)) != NULL) {
 				/* Add to return array */
 				switch(zend_hash_get_current_key(Z_ARRVAL_PP(subject), &string_key, &num_key, 0))
@@ -1180,7 +1187,7 @@ PHP_FUNCTION(preg_split)
 
 	/* Calculate the size of the offsets array, and allocate memory for it. */
 	size_offsets = (pcre_info(re, NULL, NULL) + 1) * 3;
-	offsets = (int *)emalloc(size_offsets * sizeof(int));
+	offsets = (int *)safe_emalloc(size_offsets, sizeof(int), 0);
 	
 	/* Start at the beginning of the string */
 	start_offset = 0;
@@ -1320,7 +1327,7 @@ PHP_FUNCTION(preg_quote)
 	
 	/* Allocate enough memory so that even if each character
 	   is quoted, we won't run out of room */
-	out_str = emalloc(2 * Z_STRLEN_PP(in_str_arg) + 1);
+	out_str = safe_emalloc(2, Z_STRLEN_PP(in_str_arg), 1);
 	
 	/* Go through the string and quote necessary characters */
 	for(p = in_str, q = out_str; p != in_str_end; p++) {
@@ -1411,7 +1418,7 @@ PHP_FUNCTION(preg_grep)
 
 	/* Calculate the size of the offsets array, and allocate memory for it. */
 	size_offsets = (pcre_info(re, NULL, NULL) + 1) * 3;
-	offsets = (int *)emalloc(size_offsets * sizeof(int));
+	offsets = (int *)safe_emalloc(size_offsets, sizeof(int), 0);
 	
 	/* Initialize return array */
 	array_init(return_value);

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mail.c,v 1.66.2.1 2002/11/29 11:15:43 martin Exp $ */
+/* $Id: mail.c,v 1.66.2.5 2003/05/07 20:32:28 pollita Exp $ */
 
 #include <stdlib.h>
 #include <ctype.h>
@@ -45,6 +45,15 @@
 #include "netware/pipe.h"    /* For popen(), pclose() */
 #include "netware/sysexits.h"   /* For exit status codes like EX_OK */
 #endif
+
+#define SKIP_LONG_HEADER_SEP(str, pos)										\
+	if (str[pos] == '\r' && str[pos + 1] == '\n' && (str[pos + 2] == ' ' || str[pos + 2] == '\t')) {	\
+		pos += 3;											\
+		while (str[pos] == ' ' || str[pos] == '\t') {							\
+			pos++;											\
+		}												\
+		continue;											\
+	}													\
 
 /* {{{ proto int ezmlm_hash(string addr)
    Calculate EZMLM list hash value. */
@@ -102,6 +111,12 @@ PHP_FUNCTION(mail)
 		}
 		for (i = 0; to[i]; i++) {
 			if (iscntrl((unsigned char) to[i])) {
+				/* According to RFC 822, section 3.1.1 long headers may be separated into
+				 * parts using CRLF followed at least one linear-white-space character ('\t' or ' ').
+				 * To prevent these separators from being replaced with a space, we use the
+				 * SKIP_LONG_HEADER_SEP to skip over them.
+				 */
+				SKIP_LONG_HEADER_SEP(to, i);
 				to[i] = ' ';
 			}
 		}
@@ -116,6 +131,7 @@ PHP_FUNCTION(mail)
 		}
 		for(i = 0; subject[i]; i++) {
 			if (iscntrl((unsigned char) subject[i])) {
+				SKIP_LONG_HEADER_SEP(subject, i);
 				subject[i] = ' ';
 			}
 		}

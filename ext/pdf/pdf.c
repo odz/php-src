@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: pdf.c,v 1.112.2.2 2002/12/03 19:25:48 iliaa Exp $ */
+/* $Id: pdf.c,v 1.112.2.7 2003/05/21 00:57:43 iliaa Exp $ */
 
 /* pdflib 2.02 ... 3.0x is subject to the ALADDIN FREE PUBLIC LICENSE.
    Copyright (C) 1997-1999 Thomas Merz. 2000-2001 PDFlib GmbH */
@@ -331,7 +331,7 @@ PHP_MINFO_FUNCTION(pdf)
 #else
 	php_info_print_table_row(2, "PDFlib GmbH Version", tmp );
 #endif
-	php_info_print_table_row(2, "Revision", "$Revision: 1.112.2.2 $" );
+	php_info_print_table_row(2, "Revision", "$Revision: 1.112.2.7 $" );
 	php_info_print_table_end();
 
 }
@@ -1837,7 +1837,11 @@ static void _php_pdf_open_image(INTERNAL_FUNCTION_PARAMETERS, char *type)
 #else
 	image = Z_STRVAL_PP(arg2);
 #endif  
-        
+
+	if (php_check_open_basedir(image TSRMLS_CC) || (PG(safe_mode) && !php_checkuid(image, "rb+", CHECKUID_CHECK_MODE_PARAM))) {
+		RETURN_FALSE;
+	}
+
 	pdf_image = PDF_open_image_file(pdf, type, image, "", 0);
 
 	RETURN_LONG(pdf_image+PDFLIB_IMAGE_OFFSET);
@@ -1911,6 +1915,10 @@ PHP_FUNCTION(pdf_open_image_file)
 	image = Z_STRVAL_PP(arg3);
 #endif  
 
+	if (php_check_open_basedir(image TSRMLS_CC) || (PG(safe_mode) && !php_checkuid(image, "rb+", CHECKUID_CHECK_MODE_PARAM))) {
+		RETURN_FALSE;
+	}
+
 	if (argc == 3) {
 		pdf_image = PDF_open_image_file(pdf, Z_STRVAL_PP(arg2), image, "", 0);
 	} else {
@@ -1979,7 +1987,7 @@ PHP_FUNCTION(pdf_open_memory_image)
 			} else {
 #endif
 				if (im->pixels && gdImageBoundsSafe(im, j, i)) {
-					color = im->pixels[im->sy][im->sx];
+					color = im->pixels[i][j];
 					*ptr++ = im->red[color];
 					*ptr++ = im->green[color];
 					*ptr++ = im->blue[color];
@@ -2327,6 +2335,11 @@ PHP_FUNCTION(pdf_open_file)
 	if (argc == 2) {
 		convert_to_string_ex(arg2);
 		filename = Z_STRVAL_PP(arg2);
+
+		if (php_check_open_basedir(filename TSRMLS_CC) || (PG(safe_mode) && !php_checkuid(filename, "wb+", CHECKUID_CHECK_MODE_PARAM))) {
+			RETURN_FALSE;
+		}
+
 		pdf_file = PDF_open_file(pdf, filename);
 	} else {
 		/* open in memory */
@@ -2459,7 +2472,7 @@ PHP_FUNCTION(pdf_setpolydash)
 	array = Z_ARRVAL_PP(arg2);
 	len = zend_hash_num_elements(array);
 
-	if (NULL == (darray = emalloc(len * sizeof(double)))) {
+	if (NULL == (darray = safe_emalloc(len, sizeof(double), 0))) {
 	    RETURN_FALSE;
 	}
 	zend_hash_internal_pointer_reset(array);
@@ -2539,6 +2552,10 @@ PHP_FUNCTION(pdf_open_ccitt)
 	image = Z_STRVAL_PP(arg2);
 #endif  
 
+	if (php_check_open_basedir(image TSRMLS_CC) || (PG(safe_mode) && !php_checkuid(image, "rb+", CHECKUID_CHECK_MODE_PARAM))) {
+		RETURN_FALSE;
+	}
+
 	convert_to_long_ex(arg3);
 	convert_to_long_ex(arg4);
 	convert_to_long_ex(arg5);
@@ -2588,6 +2605,10 @@ PHP_FUNCTION(pdf_open_image)
 	image = Z_STRVAL_PP(arg4);
 #endif  
 
+	if (php_check_open_basedir(image TSRMLS_CC) || (PG(safe_mode) && !php_checkuid(image, "rb+", CHECKUID_CHECK_MODE_PARAM))) {
+		RETURN_FALSE;
+	}
+
 	pdf_image = PDF_open_image(pdf,
 		Z_STRVAL_PP(arg2),
 		Z_STRVAL_PP(arg3),
@@ -2625,6 +2646,10 @@ PHP_FUNCTION(pdf_attach_file)
 	convert_to_string_ex(arg8);
 	convert_to_string_ex(arg9);
 	convert_to_string_ex(arg10);
+
+	if (php_check_open_basedir(Z_STRVAL_PP(arg6) TSRMLS_CC) || (PG(safe_mode) && !php_checkuid(Z_STRVAL_PP(arg6), "rb+", CHECKUID_CHECK_MODE_PARAM))) {
+		RETURN_FALSE;
+	}
 
 	PDF_attach_file(pdf,
 		(float) Z_DVAL_PP(arg2),
@@ -2765,6 +2790,10 @@ PHP_FUNCTION(pdf_open_pdi)
 #else
 	file = Z_STRVAL_PP(arg2);
 #endif  
+
+	if (php_check_open_basedir(file TSRMLS_CC) || (PG(safe_mode) && !php_checkuid(file, "rb+", CHECKUID_CHECK_MODE_PARAM))) {
+		RETURN_FALSE;
+	}
 
 	pdi_handle = PDF_open_pdi(pdf,
 		file,

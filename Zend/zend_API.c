@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2002 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -435,16 +435,13 @@ static char *zend_parse_arg_impl(zval **arg, va_list *va, char **spec)
 static int zend_parse_arg(int arg_num, zval **arg, va_list *va, char **spec, int quiet TSRMLS_DC)
 {
 	char *expected_type = NULL;
-	char buf[1024];
 
 	expected_type = zend_parse_arg_impl(arg, va, spec);
 	if (expected_type) {
 		if (!quiet) {
-			snprintf(buf, sizeof(buf)-1, "%s() expects parameter %d to be %s, %s given",
+			zend_error(E_WARNING, "%s() expects parameter %d to be %s, %s given",
 					get_active_function_name(TSRMLS_C), arg_num, expected_type,
-					zend_zval_type_name(*arg));
-			buf[sizeof(buf)-1] = '\0';
-			zend_error(E_WARNING, buf);
+			                zend_zval_type_name(*arg));
 		}
 		return FAILURE;
 	}
@@ -1289,6 +1286,27 @@ ZEND_API int zend_disable_function(char *function_name, uint function_name_lengt
 	}
 	disabled_function[0].fname = function_name;
 	return zend_register_functions(disabled_function, CG(function_table), MODULE_PERSISTENT TSRMLS_CC);
+}
+
+static zend_function_entry disabled_class_functions[] =  {
+	ZEND_FE(display_disabled_function, NULL)
+	{ NULL, NULL, NULL }
+};
+
+ZEND_API int zend_disable_class(char *class_name, uint class_name_length TSRMLS_DC)
+{
+	zend_class_entry zce;
+
+	zend_str_tolower(class_name, class_name_length);
+	if (zend_hash_del(CG(class_table), class_name, class_name_length+1)==FAILURE) {
+		return FAILURE;
+	}
+
+	disabled_class_functions[0].fname = class_name;
+	INIT_CLASS_ENTRY(zce, class_name, disabled_class_functions);
+	zend_register_internal_class(&zce TSRMLS_CC);
+
+	return SUCCESS;
 }
 
 zend_bool zend_is_callable(zval *callable, zend_bool syntax_only, char **callable_name)

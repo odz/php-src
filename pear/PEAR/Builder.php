@@ -3,7 +3,7 @@
 // +----------------------------------------------------------------------+
 // | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2002 The PHP Group                                |
+// | Copyright (c) 1997-2003 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -13,17 +13,17 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors: Stig Sæther Bakken <ssb@fast.no>                            |
+// | Authors: Stig Sæther Bakken <ssb@php.net>                            |
 // +----------------------------------------------------------------------+
 //
-// $Id: Builder.php,v 1.7 2002/08/26 00:37:25 pajoye Exp $
+// $Id: Builder.php,v 1.7.4.3 2003/04/11 23:48:38 ssb Exp $
 
 require_once 'PEAR/Common.php';
 
 /**
  * Class to handle building (compiling) extensions.
  *
- * @author Stig Sæther Bakken <ssb@fast.no>
+ * @author Stig Sæther Bakken <ssb@php.net>
  */
 class PEAR_Builder extends PEAR_Common
 {
@@ -252,9 +252,13 @@ class PEAR_Builder extends PEAR_Common
         }
         foreach ($to_run as $cmd) {
             $err = $this->_runCommand($cmd, $callback);
-            if (PEAR::isError($err) && !$err) {
+            if (PEAR::isError($err)) {
                 chdir($old_cwd);
                 return $err;
+            }
+            if (!$err) {
+                chdir($old_cwd);
+                return $this->raiseError("`$cmd' failed");
             }
         }
         if (!($dp = opendir("modules"))) {

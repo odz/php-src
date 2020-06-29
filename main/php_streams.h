@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_streams.h,v 1.61.2.4 2002/11/17 23:16:45 wez Exp $ */
+/* $Id: php_streams.h,v 1.61.2.13 2003/05/21 10:19:03 zeev Exp $ */
 
 #ifndef PHP_STREAMS_H
 #define PHP_STREAMS_H
@@ -65,6 +65,7 @@ PHPAPI int php_file_le_pstream(void);
 #define php_stream_fopen_with_path_rel(filename, mode, path, opened, options) _php_stream_fopen_with_path((filename), (mode), (path), (opened), (options) STREAMS_REL_CC TSRMLS_CC)
 
 #define php_stream_fopen_from_file_rel(file, mode)	 _php_stream_fopen_from_file((file), (mode) STREAMS_REL_CC TSRMLS_CC)
+#define php_stream_fopen_from_fd_rel(fd, mode, persistent_id)	 	_php_stream_fopen_from_fd((fd), (mode), (persistent_id) STREAMS_REL_CC TSRMLS_CC)
 	
 #define php_stream_fopen_from_pipe_rel(file, mode)	 _php_stream_fopen_from_pipe((file), (mode) STREAMS_REL_CC TSRMLS_CC)
 	
@@ -318,8 +319,8 @@ PHPAPI php_stream_filter *php_stream_filter_create(const char *filtername, const
 # define php_stream_to_zval(stream, zval)	{ ZVAL_RESOURCE(zval, (stream)->rsrc_id); }
 #endif
 
-#define php_stream_from_zval(stream, ppzval)	ZEND_FETCH_RESOURCE2((stream), php_stream *, (ppzval), -1, "stream", php_file_le_stream(), php_file_le_pstream())
-#define php_stream_from_zval_no_verify(stream, ppzval)	(stream) = (php_stream*)zend_fetch_resource((ppzval) TSRMLS_CC, -1, "stream", NULL, 2, php_file_le_stream(), php_file_le_pstream())
+#define php_stream_from_zval(xstr, ppzval)	ZEND_FETCH_RESOURCE2((xstr), php_stream *, (ppzval), -1, "stream", php_file_le_stream(), php_file_le_pstream())
+#define php_stream_from_zval_no_verify(xstr, ppzval)	(xstr) = (php_stream*)zend_fetch_resource((ppzval) TSRMLS_CC, -1, "stream", NULL, 2, php_file_le_stream(), php_file_le_pstream())
 
 PHPAPI int php_stream_from_persistent_id(const char *persistent_id, php_stream **stream TSRMLS_DC);
 #define PHP_STREAM_PERSISTENT_SUCCESS	0 /* id exists */
@@ -439,6 +440,9 @@ PHPAPI php_stream *_php_stream_fopen(const char *filename, const char *mode, cha
 PHPAPI php_stream *_php_stream_fopen_with_path(char *filename, char *mode, char *path, char **opened_path, int options STREAMS_DC TSRMLS_DC);
 #define php_stream_fopen_with_path(filename, mode, path, opened)	_php_stream_fopen_with_path((filename), (mode), (path), (opened) STREAMS_CC TSRMLS_CC)
 
+PHPAPI php_stream *_php_stream_fopen_from_fd(int fd, const char *mode, const char *persistent_id STREAMS_DC TSRMLS_DC);
+#define php_stream_fopen_from_fd(fd, mode, persistent_id)  _php_stream_fopen_from_fd((fd), (mode), (persistent_id) STREAMS_CC TSRMLS_CC)
+
 PHPAPI php_stream *_php_stream_fopen_from_file(FILE *file, const char *mode STREAMS_DC TSRMLS_DC);
 #define php_stream_fopen_from_file(file, mode)	_php_stream_fopen_from_file((file), (mode) STREAMS_CC TSRMLS_CC)
 
@@ -458,6 +462,8 @@ PHPAPI php_stream *_php_stream_fopen_temporary_file(const char *dir, const char 
 #define PHP_STREAM_AS_FD		1
 /* cast as a socketd */
 #define PHP_STREAM_AS_SOCKETD	2
+/* cast as fd/socket for select purposes */
+#define PHP_STREAM_AS_FD_FOR_SELECT 3
 
 /* try really, really hard to make sure the cast happens (avoid using this flag if possible) */
 #define PHP_STREAM_CAST_TRY_HARD	0x80000000
@@ -502,6 +508,14 @@ PHPAPI int _php_stream_cast(php_stream *stream, int castas, void **ret, int show
 /* this flag is only used by include/require functions */
 #define STREAM_OPEN_FOR_INCLUDE		128
 
+/* 512 skipped for PHP 5 compat */
+
+/* if set, skip open_basedir checks */
+#define STREAM_DISABLE_OPEN_BASEDIR	1024
+
+/* get (or create) a persistent version of the stream */
+#define STREAM_OPEN_PERSISTENT 2048
+
 /* Antique - no longer has meaning */
 #define IGNORE_URL_WIN 0
 
@@ -538,6 +552,7 @@ PHPAPI int _php_stream_make_seekable(php_stream *origstream, php_stream **newstr
  * will most likely fail on systems with fopencookie. */
 PHPAPI FILE * _php_stream_open_wrapper_as_file(char * path, char * mode, int options, char **opened_path STREAMS_DC TSRMLS_DC);
 #define php_stream_open_wrapper_as_file(path, mode, options, opened_path) _php_stream_open_wrapper_as_file((path), (mode), (options), (opened_path) STREAMS_CC TSRMLS_CC)
+
 
 /* for user-space streams */
 PHPAPI extern php_stream_ops php_stream_userspace_ops;

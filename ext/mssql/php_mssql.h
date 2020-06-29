@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
  */
 
 
-/* $Id: php_mssql.h,v 1.23.4.2 2002/12/18 07:06:36 fmk Exp $ */
+/* $Id: php_mssql.h,v 1.23.4.7 2003/02/09 07:49:34 fmk Exp $ */
 
 #ifndef PHP_MSSQL_H
 #define PHP_MSSQL_H
@@ -65,7 +65,8 @@
 #define NO_MORE_RPC_RESULTS 3
 #define dbfreelogin dbloginfree
 #define dbrpcexec dbrpcsend
-typedef unsigned char *LPBYTE;
+typedef unsigned char	*LPBYTE;
+typedef float           DBFLT4;
 #else
 #define DBERRHANDLE(a, b) dbprocerrhandle(a, b)
 #define DBMSGHANDLE(a, b) dbprocmsghandle(a, b)
@@ -80,7 +81,7 @@ typedef unsigned char *LPBYTE;
 #define tinyintcol(i) ((int) *(DBTINYINT *) dbdata(mssql_ptr->link,i))
 #define anyintcol(j) (coltype(j)==SQLINT4?intcol(j):(coltype(j)==SQLINT2?smallintcol(j):tinyintcol(j)))
 #define charcol(i) ((DBCHAR *) dbdata(mssql_ptr->link,i))
-#define floatcol4(i) (*(DBFLT8 *) dbdata(mssql_ptr->link,i))
+#define floatcol4(i) (*(DBFLT4 *) dbdata(mssql_ptr->link,i))
 #define floatcol8(i) (*(DBFLT8 *) dbdata(mssql_ptr->link,i))
 
 #ifdef ZTS
@@ -124,6 +125,7 @@ PHP_FUNCTION(mssql_min_message_severity);
 PHP_FUNCTION(mssql_init);
 PHP_FUNCTION(mssql_bind);
 PHP_FUNCTION(mssql_execute);
+PHP_FUNCTION(mssql_free_statement);
 PHP_FUNCTION(mssql_guid_string);
 
 typedef struct mssql_link {
@@ -149,17 +151,18 @@ ZEND_BEGIN_MODULE_GLOBALS(mssql)
 	long default_link;
 	long num_links,num_persistent;
 	long max_links,max_persistent;
-	long allow_persistent;
+	zend_bool allow_persistent;
 	char *appname;
 	char *server_message;
 	long min_error_severity, min_message_severity;
 	long cfg_min_error_severity, cfg_min_message_severity;
-	long compatability_mode, connect_timeout, timeout;
+	long connect_timeout, timeout;
+	zend_bool compatability_mode;
 	void (*get_column_content)(mssql_link *mssql_ptr,int offset,pval *result,int column_type  TSRMLS_DC);
 	long textsize, textlimit, batchsize;
-	long datetimeconvert;
+	zend_bool datetimeconvert;
 	HashTable *resource_list, *resource_plist;
-	long secure_connection;
+	zend_bool secure_connection;
 	long max_procs;
 ZEND_END_MODULE_GLOBALS(mssql)
 

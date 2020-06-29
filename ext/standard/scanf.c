@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: scanf.c,v 1.16.4.2 2002/12/05 22:46:40 iliaa Exp $ */
+/* $Id: scanf.c,v 1.16.4.5 2003/04/23 02:37:29 iliaa Exp $ */
 
 /*
    scanf.c --
@@ -175,9 +175,9 @@ static char * BuildCharSet(CharSet *cset, char *format)
         ch = end++;
     }
 
-    cset->chars = (char *) emalloc(sizeof(char) * (end - format - 1));
+    cset->chars = (char *) safe_emalloc(sizeof(char), (end - format - 1), 0);
     if (nranges > 0) {
-        cset->ranges = (struct Range *) emalloc(sizeof(struct Range)*nranges);
+        cset->ranges = (struct Range *) safe_emalloc(sizeof(struct Range), nranges, 0);
     } else {
         cset->ranges = NULL;
     }
@@ -337,7 +337,7 @@ PHPAPI int ValidateFormat(char *format, int numVars, int *totalSubs)
      */
 
     if (numVars > nspace) {
-        nassign = (int*)emalloc(sizeof(int) * numVars);
+        nassign = (int*)safe_emalloc(sizeof(int), numVars, 0);
         nspace = numVars;
     }
     for (i = 0; i < nspace; i++) {
@@ -513,7 +513,7 @@ PHPAPI int ValidateFormat(char *format, int numVars, int *totalSubs)
                 nspace += STATIC_LIST_SIZE;
             }
             if (nassign == staticAssign) {
-                nassign = (void *)emalloc(nspace * sizeof(int));
+                nassign = (void *)safe_emalloc(nspace, sizeof(int), 0);
                 for (i = 0; i < STATIC_LIST_SIZE; ++i) {
                     nassign[i] = staticAssign[i];
                 }
@@ -762,9 +762,9 @@ PHPAPI int php_sscanf_internal(	char *string, char *format,
             case 'n':
                 if (!(flags & SCAN_SUPPRESS)) {
                     if (numVars) {
-                        current = args[objIndex++];
-                        convert_to_long( *current );
-                        ZVAL_STRINGL( *current, string, end-string, 1);
+						current = args[objIndex++];
+                        zval_dtor( *current );
+                        ZVAL_LONG( *current, (long)(string - baseString) );
                     } else {
                         add_index_long(*return_value, objIndex++, string - baseString);
                     }
@@ -883,8 +883,8 @@ PHPAPI int php_sscanf_internal(	char *string, char *format,
             if (!(flags & SCAN_SUPPRESS)) {
                 if (numVars) {
                     current = args[objIndex++];
-                    convert_to_string( *current );
-                    ZVAL_STRINGL( *current, string, end-string, 1);
+					zval_dtor( *current );
+					ZVAL_STRINGL( *current, string, end-string, 1);
                 } else {
                     add_index_stringl( *return_value, objIndex++, string, end-string, 1);
                 }

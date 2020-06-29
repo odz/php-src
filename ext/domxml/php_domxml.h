@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_domxml.h,v 1.72 2002/08/23 15:26:19 chregu Exp $ */
+/* $Id: php_domxml.h,v 1.72.4.2 2003/04/08 18:26:50 chregu Exp $ */
 
 #ifndef PHP_DOMXML_H
 #define PHP_DOMXML_H
@@ -53,7 +53,7 @@
     therefore it's easier for the script-programmers to check, what's working how
    Can be checked with phpversion("domxml");
 */
-#define DOMXML_API_VERSION "20020814"
+#define DOMXML_API_VERSION "20020815"
 
 extern zend_module_entry domxml_module_entry;
 #define domxml_module_ptr &domxml_module_entry
@@ -73,7 +73,7 @@ PHPAPI zval *php_domobject_new(xmlNodePtr obj, int *found, zval* in TSRMLS_DC);
 
 /* directory functions */
 PHP_MINIT_FUNCTION(domxml);
-PHP_RINIT_FUNCTION(domxml);
+PHP_MSHUTDOWN_FUNCTION(domxml);
 PHP_MINFO_FUNCTION(domxml);
 PHP_FUNCTION(domxml_version);
 PHP_FUNCTION(xmldoc);
@@ -108,6 +108,7 @@ PHP_FUNCTION(domxml_dump_mem_file);
 PHP_FUNCTION(domxml_dump_node);
 PHP_FUNCTION(domxml_doc_validate);
 PHP_FUNCTION(domxml_doc_xinclude);
+PHP_FUNCTION(domxml_doc_free_doc);
 #if defined(LIBXML_HTML_ENABLED)
 PHP_FUNCTION(domxml_html_dump_mem);
 #endif

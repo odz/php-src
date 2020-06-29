@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: array.c,v 1.199.2.10 2002/12/25 20:00:12 moriyoshi Exp $ */
+/* $Id: array.c,v 1.199.2.19 2003/05/11 06:39:42 moriyoshi Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -865,7 +865,7 @@ PHP_FUNCTION(min)
 			RETURN_FALSE;
 		}
 	} else {
-		pval ***args = (pval ***) emalloc(sizeof(pval **)*ZEND_NUM_ARGS());
+		pval ***args = (pval ***) safe_emalloc(sizeof(pval **), ZEND_NUM_ARGS(), 0);
 		pval **min, result;
 		int i;
 
@@ -917,7 +917,7 @@ PHP_FUNCTION(max)
 			RETURN_FALSE;
 		}
 	} else {
-		pval ***args = (pval ***) emalloc(sizeof(pval **)*ZEND_NUM_ARGS());
+		pval ***args = (pval ***) safe_emalloc(sizeof(pval **), ZEND_NUM_ARGS(), 0);
 		pval **max, result;
 		int i;
 
@@ -1125,12 +1125,12 @@ static int php_valid_var_name(char *var_name)
 	
 	len = strlen(var_name);
 	
-	if (!isalpha((int)var_name[0]) && var_name[0] != '_')
+	if (!isalpha((int)((unsigned char *)var_name)[0]) && var_name[0] != '_')
 		return 0;
 	
 	if (len > 1) {
 		for (i=1; i<len; i++) {
-			if (!isalnum((int)var_name[i]) && var_name[i] != '_') {
+			if (!isalnum((int)((unsigned char *)var_name)[i]) && var_name[i] != '_') {
 				return 0;
 			}
 		}
@@ -1345,7 +1345,7 @@ PHP_FUNCTION(compact)
 	zval ***args;			/* function arguments array */
 	int i;
 	
-	args = (zval ***)emalloc(ZEND_NUM_ARGS() * sizeof(zval **));
+	args = (zval ***)safe_emalloc(sizeof(zval **), ZEND_NUM_ARGS(), 0);
 	
 	if (zend_get_parameters_array_ex(ZEND_NUM_ARGS(), args) == FAILURE) {
 		efree(args);
@@ -1436,10 +1436,16 @@ PHP_FUNCTION(range)
 		if (low>high) {
 			for (; low >= high; (low)--) {
 				add_next_index_stringl(return_value, (char *)&low, 1, 1);
+				if ((int)low == 0) {
+					break;
+				}
 			}	
 		} else {
 			for (; low <= high; (low)++) {
 				add_next_index_stringl(return_value, (char *)&low, 1, 1);
+				if ((int)low == 255) {
+					break;
+				}
 			}	
 		}
 	} else {
@@ -1474,7 +1480,7 @@ static void array_data_shuffle(zval *array TSRMLS_DC)
 		return;
 	}
 
-	elems = (Bucket **)emalloc(n_elems * sizeof(Bucket *));
+	elems = (Bucket **)safe_emalloc(sizeof(Bucket *), n_elems, 0);
 	hash = Z_ARRVAL_P(array);
 	n_left = n_elems;
 
@@ -1652,7 +1658,7 @@ PHP_FUNCTION(array_push)
 	}
 	
 	/* Allocate arguments array and get the arguments, checking for errors. */
-	args = (zval ***)emalloc(argc * sizeof(zval **));
+	args = (zval ***)safe_emalloc(sizeof(zval **), argc, 0);
 	if (zend_get_parameters_array_ex(argc, args) == FAILURE) {
 		efree(args);
 		WRONG_PARAM_COUNT;
@@ -1724,15 +1730,18 @@ static void _phpi_pop(INTERNAL_FUNCTION_PARAMETERS, int off_the_end)
 		int k = 0;
 		Bucket *p = Z_ARRVAL_PP(stack)->pListHead;
 		while (p != NULL) {
-			if (p->nKeyLength == 0)
+			if (p->nKeyLength == 0) {
 				p->h = k++;
+			}
 			p = p->pListNext;
 		}
-		Z_ARRVAL_PP(stack)->nNextFreeElement = k+1;
+		Z_ARRVAL_PP(stack)->nNextFreeElement = k;
 		zend_hash_rehash(Z_ARRVAL_PP(stack));
 	} else if (!key_len) {
 		Z_ARRVAL_PP(stack)->nNextFreeElement = Z_ARRVAL_PP(stack)->nNextFreeElement - 1;
 	}
+
+	zend_hash_internal_pointer_reset(Z_ARRVAL_PP(stack));
 }
 /* }}} */
 
@@ -1771,7 +1780,7 @@ PHP_FUNCTION(array_unshift)
 	}
 	
 	/* Allocate arguments array and get the arguments, checking for errors. */
-	args = (zval ***)emalloc(argc * sizeof(zval **));
+	args = (zval ***)safe_emalloc(sizeof(zval **), argc, 0);
 	if (zend_get_parameters_array_ex(argc, args) == FAILURE) {
 		efree(args);
 		WRONG_PARAM_COUNT;
@@ -1821,7 +1830,7 @@ PHP_FUNCTION(array_splice)
 	}
 	
 	/* Allocate arguments array and get the arguments, checking for errors. */
-	args = (zval ***)emalloc(argc * sizeof(zval **));
+	args = (zval ***)safe_emalloc(sizeof(zval **), argc, 0);
 	if (zend_get_parameters_array_ex(argc, args) == FAILURE) {
 		efree(args);
 		WRONG_PARAM_COUNT;
@@ -1851,7 +1860,7 @@ PHP_FUNCTION(array_splice)
 		
 		/* Create the array of replacement elements */
 		repl_num = zend_hash_num_elements(Z_ARRVAL_PP(args[3]));
-		repl = (zval ***)emalloc(repl_num * sizeof(zval **));
+		repl = (zval ***)safe_emalloc(sizeof(zval **), repl_num, 0);
 		for (p=Z_ARRVAL_PP(args[3])->pListHead, i=0; p; p=p->pListNext, i++) {
 			repl[i] = ((zval **)p->pData);
 		}
@@ -2036,7 +2045,7 @@ static void php_array_merge_wrapper(INTERNAL_FUNCTION_PARAMETERS, int recursive)
 	}
 	
 	/* Allocate arguments array and get the arguments, checking for errors. */
-	args = (zval ***)emalloc(argc * sizeof(zval **));
+	args = (zval ***)safe_emalloc(sizeof(zval **), argc, 0);
 	if (zend_get_parameters_array_ex(argc, args) == FAILURE) {
 		efree(args);
 		WRONG_PARAM_COUNT;
@@ -2336,7 +2345,11 @@ PHP_FUNCTION(array_pad)
 	
 	/* Populate the pads array */
 	num_pads = pad_size_abs - input_size;
-	pads = (zval ***)emalloc(num_pads * sizeof(zval **));
+	if(num_pads > 1048576) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "You may only pad up to 1048576 elements at a time");
+		RETURN_FALSE;
+	}
+	pads = (zval ***)safe_emalloc(sizeof(zval **), num_pads, 0);
 	for (i = 0; i < num_pads; i++)
 		pads[i] = pad_value;
 	
@@ -2540,14 +2553,14 @@ static void php_array_intersect(INTERNAL_FUNCTION_PARAMETERS, int behavior)
 		WRONG_PARAM_COUNT;
 	}
 	/* Allocate arguments array and get the arguments, checking for errors. */
-	args = (zval ***)emalloc(argc * sizeof(zval **));
+	args = (zval ***)safe_emalloc(sizeof(zval **), argc, 0);
 	if (zend_get_parameters_array_ex(argc, args) == FAILURE) {
 		efree(args);
 		WRONG_PARAM_COUNT;
 	}
 	/* for each argument, create and sort list with pointers to the hash buckets */
-	lists = (Bucket ***)emalloc(argc * sizeof(Bucket **));
-	ptrs = (Bucket ***)emalloc(argc * sizeof(Bucket **));
+	lists = (Bucket ***)safe_emalloc(sizeof(Bucket **), argc, 0);
+	ptrs = (Bucket ***)safe_emalloc(sizeof(Bucket **), argc, 0);
 	set_compare_func(SORT_STRING TSRMLS_CC);
 	for (i=0; i<argc; i++) {
 		if (Z_TYPE_PP(args[i]) != IS_ARRAY) {
@@ -2688,14 +2701,14 @@ static void php_array_diff(INTERNAL_FUNCTION_PARAMETERS, int behavior)
 		WRONG_PARAM_COUNT;
 	}
 	/* Allocate arguments array and get the arguments, checking for errors. */
-	args = (zval ***)emalloc(argc * sizeof(zval **));
+	args = (zval ***)safe_emalloc(sizeof(zval **), argc, 0);
 	if (zend_get_parameters_array_ex(argc, args) == FAILURE) {
 		efree(args);
 		WRONG_PARAM_COUNT;
 	}
 	/* for each argument, create and sort list with pointers to the hash buckets */
-	lists = (Bucket ***)emalloc(argc * sizeof(Bucket **));
-	ptrs = (Bucket ***)emalloc(argc * sizeof(Bucket **));
+	lists = (Bucket ***)safe_emalloc(sizeof(Bucket **), argc, 0);
+	ptrs = (Bucket ***)safe_emalloc(sizeof(Bucket **), argc, 0);
 	set_compare_func(SORT_STRING TSRMLS_CC);
 	for (i = 0; i < argc; i++) {
 		if (Z_TYPE_PP(args[i]) != IS_ARRAY) {
@@ -2881,7 +2894,7 @@ PHP_FUNCTION(array_multisort)
 	}
 	
 	/* Allocate arguments array and get the arguments, checking for errors. */
-	args = (zval ***)emalloc(argc * sizeof(zval **));
+	args = (zval ***)safe_emalloc(sizeof(zval **), argc, 0);
 	if (zend_get_parameters_array_ex(argc, args) == FAILURE) {
 		efree(args);
 		WRONG_PARAM_COUNT;
@@ -2983,9 +2996,9 @@ PHP_FUNCTION(array_multisort)
 	   of the input arrays + 1. The last column is NULL to indicate the end
 	   of the row.
 	 */
-	indirect = (Bucket ***)emalloc(array_size * sizeof(Bucket **));
+	indirect = (Bucket ***)safe_emalloc(sizeof(Bucket **), array_size, 0);
 	for (i = 0; i < array_size; i++)
-		indirect[i] = (Bucket **)emalloc((num_arrays+1) * sizeof(Bucket *));
+		indirect[i] = (Bucket **)safe_emalloc(sizeof(Bucket *), (num_arrays+1), 0);
 	
 	for (i = 0; i < num_arrays; i++) {
 		k = 0;
@@ -3174,7 +3187,8 @@ PHP_FUNCTION(array_reduce)
 	zval *retval;
 	char *callback_name;
 	HashPosition pos;
-
+	HashTable *htbl;
+	
 	if (ZEND_NUM_ARGS() < 2 || ZEND_NUM_ARGS() > 3 ||
 		zend_get_parameters_ex(ZEND_NUM_ARGS(), &input, &callback, &initial) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -3197,7 +3211,13 @@ PHP_FUNCTION(array_reduce)
 		zval_add_ref(&result);
 	}
 
-	if (zend_hash_num_elements(Z_ARRVAL_PP(input)) == 0) {
+	/* (zval **)input points to an element of argument stack
+	 * the base pointer of which is subject to change.
+	 * thus we need to keep the pointer to the hashtable for safety */
+
+	htbl = Z_ARRVAL_PP(input);
+	
+	if (zend_hash_num_elements(htbl) == 0) {
 		if (result) {
 			*return_value = *result;
 			zval_copy_ctor(return_value);
@@ -3205,8 +3225,8 @@ PHP_FUNCTION(array_reduce)
 		return;
 	}
 
-	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_PP(input), &pos);
-	while (zend_hash_get_current_data_ex(Z_ARRVAL_PP(input), (void **)&operand, &pos) == SUCCESS) {
+	zend_hash_internal_pointer_reset_ex(htbl, &pos);
+	while (zend_hash_get_current_data_ex(htbl, (void **)&operand, &pos) == SUCCESS) {
 		if (result) {
 			args[0] = &result;
 			args[1] = operand;
@@ -3222,7 +3242,7 @@ PHP_FUNCTION(array_reduce)
 			zval_add_ref(&result);
 		}
 
-		zend_hash_move_forward_ex(Z_ARRVAL_PP(input), &pos);
+		zend_hash_move_forward_ex(htbl, &pos);
 	}
 	
 	*return_value = *result;
@@ -3309,11 +3329,12 @@ PHP_FUNCTION(array_filter)
    Applies the callback to the elements in given arrays. */
 PHP_FUNCTION(array_map)
 {
-	zval ***args = NULL;
+	zval ***pargs = NULL;
 	zval ***params;
 	zval *callback;
 	zval *result, *null;
 	HashPosition *array_pos;
+	zval **args;
 	char *callback_name;
 	int i, k, maxlen = 0;
 	int *array_len;
@@ -3322,44 +3343,52 @@ PHP_FUNCTION(array_map)
 		WRONG_PARAM_COUNT;
 	}
 
-	args = (zval ***)emalloc(ZEND_NUM_ARGS() * sizeof(zval **));
-	if (zend_get_parameters_array_ex(ZEND_NUM_ARGS(), args) == FAILURE) {
-		efree(args);
+	RETVAL_NULL();
+
+	pargs = (zval ***)safe_emalloc(ZEND_NUM_ARGS(), sizeof(zval **), 0);
+	if (zend_get_parameters_array_ex(ZEND_NUM_ARGS(), pargs) == FAILURE) {
+		efree(pargs);
 		WRONG_PARAM_COUNT;
 	}
 
-	callback = *args[0];
+	callback = *pargs[0];
+
 	if (Z_TYPE_P(callback) != IS_NULL) {
 		if (!zend_is_callable(callback, 0, &callback_name)) {
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "The first argument, '%s', should be either NULL or a valid callback", callback_name);
 			efree(callback_name);
-			efree(args);
+			efree(pargs);
 			return;
 		}
 		efree(callback_name);
 	}
 
-	/* Allocate array sizes and iterators. */
-	array_len = (int*)emalloc((ZEND_NUM_ARGS()-1) * sizeof(int));
-	array_pos = (HashPosition*)emalloc((ZEND_NUM_ARGS()-1) * sizeof(HashPosition));
+	args = (zval **)safe_emalloc(ZEND_NUM_ARGS(), sizeof(zval *), 0);
+	array_len = (int *)safe_emalloc(ZEND_NUM_ARGS(), sizeof(int), 0);
+	array_pos = (HashPosition *)safe_emalloc(ZEND_NUM_ARGS(), sizeof(HashPosition), 0);
 
-	/* Check that arrays are indeed arrays and calculate maximum size. */
-	for (i = 0; i < ZEND_NUM_ARGS()-1; i++) {
-		if (Z_TYPE_PP(args[i+1]) != IS_ARRAY) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Argument #%d should be an array", i + 2);
-			efree(array_len);
+	for (i = 1; i < ZEND_NUM_ARGS(); i++) {
+		if (Z_TYPE_PP(pargs[i]) != IS_ARRAY) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Argument #%d should be an array", i + 1);
+			efree(pargs);
 			efree(args);
+			efree(array_len);
+			efree(array_pos);
 			return;
 		}
-		array_len[i] = zend_hash_num_elements(Z_ARRVAL_PP(args[i+1]));
-		if (array_len[i] > maxlen)
+		args[i] = *pargs[i];
+		array_len[i] = zend_hash_num_elements(Z_ARRVAL_PP(pargs[i]));
+		if (array_len[i] > maxlen) {
 			maxlen = array_len[i];
-		zend_hash_internal_pointer_reset_ex(Z_ARRVAL_PP(args[i+1]), &array_pos[i]);
+		}
+		zend_hash_internal_pointer_reset_ex(Z_ARRVAL_PP(pargs[i]), &array_pos[i]);
 	}
+
+	efree(pargs);
 
 	/* Short-circuit: if no callback and only one array, just return it. */
 	if (Z_TYPE_P(callback) == IS_NULL && ZEND_NUM_ARGS() == 2) {
-		*return_value = **args[1];
+		*return_value = *args[1];
 		zval_copy_ctor(return_value);
 		efree(array_len);
 		efree(array_pos);
@@ -3368,7 +3397,7 @@ PHP_FUNCTION(array_map)
 	}
 
 	array_init(return_value);
-	params = (zval ***)emalloc((ZEND_NUM_ARGS()-1) * sizeof(zval **));
+	params = (zval ***)safe_emalloc(ZEND_NUM_ARGS(), sizeof(zval **), 0);
 	MAKE_STD_ZVAL(null);
 	ZVAL_NULL(null);
 
@@ -3388,35 +3417,35 @@ PHP_FUNCTION(array_map)
 			array_init(result);
 		}
 
-		for (i = 0; i < ZEND_NUM_ARGS()-1; i++) {
+		for (i = 1; i < ZEND_NUM_ARGS(); i++) {
 			/*
 			 * If this array still hash elements, add the current one to the
 			 * parameter list, otherwise use null value.
 			 */
 			if (k < array_len[i]) {
-				zend_hash_get_current_data_ex(Z_ARRVAL_PP(args[i+1]), (void **)&params[i], &array_pos[i]);
+				zend_hash_get_current_data_ex(Z_ARRVAL_P(args[i]), (void **)&params[i], &array_pos[i]);
 
 				/*
 				 * It is safe to store only last value of key type, because
 				 * this loop will run just once if there is only 1 array.
 				 */
 				if (ZEND_NUM_ARGS() == 2) {
-					key_type = zend_hash_get_current_key_ex(Z_ARRVAL_PP(args[1]), &str_key, &str_key_len, &num_key, 0, &array_pos[i]);
+					key_type = zend_hash_get_current_key_ex(Z_ARRVAL_P(args[1]), &str_key, &str_key_len, &num_key, 0, &array_pos[i]);
 				}
 															
-				zend_hash_move_forward_ex(Z_ARRVAL_PP(args[i+1]), &array_pos[i]);
+				zend_hash_move_forward_ex(Z_ARRVAL_P(args[i]), &array_pos[i]);
 			} else {
-				if (Z_TYPE_P(callback) == IS_NULL)
-					zval_add_ref(&null);
 				params[i] = &null;
 			}
 
-			if (Z_TYPE_P(callback) == IS_NULL)
+			if (Z_TYPE_P(callback) == IS_NULL) {
+				zval_add_ref(params[i]);
 				add_next_index_zval(result, *params[i]);
+			}
 		}
 
 		if (Z_TYPE_P(callback) != IS_NULL) {
-			if (!call_user_function_ex(EG(function_table), NULL, callback, &result, ZEND_NUM_ARGS()-1, params, 0, NULL TSRMLS_CC) == SUCCESS && result) {
+			if (!call_user_function_ex(EG(function_table), NULL, callback, &result, ZEND_NUM_ARGS() - 1, &params[1], 0, NULL TSRMLS_CC) == SUCCESS && result) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "An error occurred while invoking the map callback");
 				efree(array_len);
 				efree(args);
@@ -3429,10 +3458,11 @@ PHP_FUNCTION(array_map)
 		if (ZEND_NUM_ARGS() > 2) {
 			add_next_index_zval(return_value, result);
 		} else {
-			if (key_type == HASH_KEY_IS_STRING)
+			if (key_type == HASH_KEY_IS_STRING) {
 				add_assoc_zval_ex(return_value, str_key, str_key_len, result);
-			else
+			} else {
 				add_index_zval(return_value, num_key, result);
+			}
 		}
 	}
 	

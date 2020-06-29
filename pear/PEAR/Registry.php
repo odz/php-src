@@ -3,7 +3,7 @@
 // +----------------------------------------------------------------------+
 // | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2002 The PHP Group                                |
+// | Copyright (c) 1997-2003 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -13,12 +13,12 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Author: Stig Bakken <ssb@fast.no>                                    |
+// | Author: Stig Bakken <ssb@php.net>                                    |
 // |         Tomas V.V.Cox <cox@idecnet.com>                              |
 // |                                                                      |
 // +----------------------------------------------------------------------+
 //
-// $Id: Registry.php,v 1.35 2002/10/04 20:00:51 mj Exp $
+// $Id: Registry.php,v 1.35.2.5 2003/05/28 01:52:45 pajoye Exp $
 
 /*
 TODO:
@@ -271,9 +271,7 @@ class PEAR_Registry extends PEAR
                 $open_mode = 'r';
             }
 
-            @ini_set('track_errors', true);
             $this->lock_fp = @fopen($this->lockfile, $open_mode);
-            @ini_restore('track_errors');
 
             if (!is_resource($this->lock_fp)) {
                 return $this->raiseError("could not create lock file" .
@@ -406,7 +404,7 @@ class PEAR_Registry extends PEAR
         if (PEAR::isError($e = $this->_lock(LOCK_EX))) {
             return $e;
         }
-        $fp = $this->_openPackageFile($package, 'w');
+        $fp = $this->_openPackageFile($package, 'wb');
         if ($fp === null) {
             $this->_unlock();
             return false;
@@ -487,7 +485,7 @@ class PEAR_Registry extends PEAR
             }
             $pkgs = array();
             foreach ($path as $name => $attrs) {
-                if (isset($attrs['baseinstalldir'])) {
+                if (is_array($attrs) && isset($attrs['baseinstalldir'])) {
                     $name = $attrs['baseinstalldir'].DIRECTORY_SEPARATOR.$name;
                 }
                 $pkgs[$name] = $this->checkFileMap($name);

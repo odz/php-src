@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_odbc.c,v 1.143 2002/10/31 02:57:06 kalowsky Exp $ */
+/* $Id: php_odbc.c,v 1.143.2.9 2003/05/02 00:40:35 sniper Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -79,12 +79,14 @@ function_entry odbc_functions[] = {
 	PHP_FE(odbc_commit, NULL)
 	PHP_FE(odbc_connect, NULL)
 	PHP_FE(odbc_cursor, NULL)
+#ifdef HAVE_SQLDATASOURCES
 	PHP_FE(odbc_data_source, NULL)
+#endif
 	PHP_FE(odbc_execute, NULL)
 	PHP_FE(odbc_error, NULL)
 	PHP_FE(odbc_errormsg, NULL)
 	PHP_FE(odbc_exec, NULL)
-#ifdef HAVE_DBMAKER
+#ifdef PHP_ODBC_HAVE_FETCH_HASH
 	PHP_FE(odbc_fetch_array, NULL)
 	PHP_FE(odbc_fetch_object, NULL)
 #endif
@@ -1183,6 +1185,7 @@ PHP_FUNCTION(odbc_cursor)
 }
 /* }}} */
 
+#ifdef HAVE_SQLDATASOURCES
 /* {{{ proto array odbc_data_source(int connection_id, int fetch_type)
    Return information about the currently connected data source */
 PHP_FUNCTION(odbc_data_source)
@@ -1243,6 +1246,7 @@ PHP_FUNCTION(odbc_data_source)
 
 }
 /* }}} */
+#endif /* HAVE_SQLDATASOURCES *
 
 /* {{{ proto int odbc_exec(int connection_id, string query [, int flags])
    Prepare and execute an SQL statement */
@@ -1346,7 +1350,7 @@ PHP_FUNCTION(odbc_exec)
 }
 /* }}} */
 
-#ifdef HAVE_DBMAKER
+#ifdef PHP_ODBC_HAVE_FETCH_HASH
 #define ODBC_NUM  1
 #define ODBC_OBJECT  2
 
@@ -1396,10 +1400,6 @@ static void php_odbc_fetch_hash(INTERNAL_FUNCTION_PARAMETERS, int result_type)
 		RETURN_FALSE;
 	}
 
-	if (array_init(return_value)==FAILURE) {
-		RETURN_FALSE;
-	}
-
 #ifdef HAVE_SQL_EXTENDED_FETCH
 	if (result->fetch_abs) {
 		if (rownum > 0)
@@ -1414,6 +1414,8 @@ static void php_odbc_fetch_hash(INTERNAL_FUNCTION_PARAMETERS, int result_type)
 		RETURN_FALSE;
 	}
 	
+	array_init(return_value);
+	
 #ifdef HAVE_SQL_EXTENDED_FETCH
 	if (rownum > 0 && result->fetch_abs)
 		result->fetched = rownum;
@@ -1422,8 +1424,7 @@ static void php_odbc_fetch_hash(INTERNAL_FUNCTION_PARAMETERS, int result_type)
 		result->fetched++;
 
 	for(i = 0; i < result->numcols; i++) {
-		ALLOC_ZVAL(tmp);
-		tmp->refcount = 1;
+		ALLOC_INIT_ZVAL(tmp);
 		Z_TYPE_P(tmp) = IS_STRING;
 		Z_STRLEN_P(tmp) = 0;
 		sql_c_type = SQL_C_CHAR;
@@ -1455,7 +1456,7 @@ static void php_odbc_fetch_hash(INTERNAL_FUNCTION_PARAMETERS, int result_type)
 				if (rc == SQL_SUCCESS_WITH_INFO) {
 					Z_STRLEN_P(tmp) = result->longreadlen;
 				} else if (result->values[i].vallen == SQL_NULL_DATA) {
-					Z_STRVAL_P(tmp) = empty_string;
+					ZVAL_NULL(tmp);
 					break;
 				} else {
 					Z_STRLEN_P(tmp) = result->values[i].vallen;
@@ -1465,7 +1466,7 @@ static void php_odbc_fetch_hash(INTERNAL_FUNCTION_PARAMETERS, int result_type)
 
 			default:
 				if (result->values[i].vallen == SQL_NULL_DATA) {
-					Z_STRVAL_P(tmp) = empty_string;
+					ZVAL_NULL(tmp);
 					break;
 				}
 				Z_STRLEN_P(tmp) = result->values[i].vallen;
@@ -2174,7 +2175,7 @@ void odbc_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 	pval **pv_db, **pv_uid, **pv_pwd, **pv_opt;
 	odbc_connection *db_conn;
 	char *hashed_details;
-	int hashed_len, len, cur_opt;
+	int hashed_len, cur_opt;
 
 	/*  Now an optional 4th parameter specifying the cursor type
 	 *  defaulting to the cursors default
@@ -2220,15 +2221,7 @@ void odbc_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 		persistent = 0;
 	}
 
-	len = strlen(db) + strlen(uid) + strlen(pwd) + sizeof(ODBC_TYPE) + 5;
-	hashed_details = emalloc(len);
-
-	if (hashed_details == NULL) {
-		php_error(E_WARNING, "Out of memory");
-		RETURN_FALSE;
-	}
-
-	hashed_len = sprintf(hashed_details, "%s_%s_%s_%s_%d", ODBC_TYPE, db, uid, pwd, cur_opt);
+	hashed_len = spprintf(&hashed_details, 0, "%s_%s_%s_%s_%d", ODBC_TYPE, db, uid, pwd, cur_opt);
 
 	/* FIXME the idea of checking to see if our connection is already persistent
 		is good, but it adds a lot of overhead to non-persistent connections.  We
@@ -2920,6 +2913,13 @@ PHP_FUNCTION(odbc_columns)
 		odbc_sql_error(conn, SQL_NULL_HSTMT, "SQLAllocStmt");
 		efree(result);
 		RETURN_FALSE;
+	}
+
+	/* 
+	 * Needed to make MS Access happy
+	 */
+	if (table && strlen(table) && schema && !strlen(schema)) {
+		schema = NULL;
 	}
 
 	rc = SQLColumns(result->stmt, 

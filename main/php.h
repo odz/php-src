@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php.h,v 1.178 2002/11/07 11:52:45 sas Exp $ */
+/* $Id: php.h,v 1.178.2.3 2003/04/19 18:35:51 sas Exp $ */
 
 #ifndef PHP_H
 #define PHP_H
@@ -218,7 +218,7 @@ char *strerror(int);
 #define LONG_MIN (- LONG_MAX - 1)
 #endif
 
-#if !defined(HAVE_SNPRINTF) || !defined(HAVE_VSNPRINTF) || defined(BROKEN_SPRINTF) || defined(BROKEN_SNPRINTF) || defined(BROKEN_VSNPRINTF)
+#if !defined(HAVE_SNPRINTF) || !defined(HAVE_VSNPRINTF) || PHP_BROKEN_SPRINTF || PHP_BROKEN_SNPRINTF || PHP_BROKEN_VSNPRINTF
 #include "snprintf.h"
 #endif
 #include "spprintf.h"
@@ -341,10 +341,18 @@ PHPAPI int cfg_get_string(char *varname, char **result);
 /* Output support */
 #include "main/php_output.h"
 #define PHPWRITE(str, str_len)		php_body_write((str), (str_len) TSRMLS_CC)
-#define PUTS(str)					php_body_write((str), strlen((str)) TSRMLS_CC)
+#define PUTS(str)					do {			\
+	const char *__str = (str);						\
+	php_body_write(__str, strlen(__str) TSRMLS_CC);	\
+} while (0)
+
 #define PUTC(c)						(php_body_write(&(c), 1 TSRMLS_CC), (c))
 #define PHPWRITE_H(str, str_len)	php_header_write((str), (str_len) TSRMLS_CC)
-#define PUTS_H(str)					php_header_write((str), strlen((str)) TSRMLS_CC)
+#define PUTS_H(str)					do {				\
+	const char *__str = (str);							\
+	php_header_write(__str, strlen(__str) TSRMLS_CC);	\
+} while (0)
+
 #define PUTC_H(c)					(php_header_write(&(c), 1 TSRMLS_CC), (c))
 
 #ifdef ZTS

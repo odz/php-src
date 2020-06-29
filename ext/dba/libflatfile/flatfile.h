@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,10 +16,10 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: flatfile.h,v 1.4.2.1 2002/11/19 01:07:09 edink Exp $ */
+/* $Id: flatfile.h,v 1.4.2.4 2003/02/19 06:35:57 sniper Exp $ */
 
-#ifndef PHP_LIBDBM_H
-#define PHP_LIBDBM_H
+#ifndef PHP_LIB_FLATFILE_H
+#define PHP_LIB_FLATFILE_H
 
 typedef struct {
 	char *dptr;
@@ -43,5 +43,6 @@ int flatfile_delete(flatfile *dba, datum key_datum TSRMLS_DC);
 int flatfile_findkey(flatfile *dba, datum key_datum TSRMLS_DC);
 datum flatfile_firstkey(flatfile *dba TSRMLS_DC);
 datum flatfile_nextkey(flatfile *dba TSRMLS_DC);
+char *flatfile_version();
 
 #endif

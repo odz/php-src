@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: sysvsem.c,v 1.41 2002/09/27 10:24:54 wez Exp $ */
+/* $Id: sysvsem.c,v 1.41.2.2 2003/03/07 13:42:20 ddhill Exp $ */
 
 /* Latest update build anc tested on Linux 2.2.14
  *
@@ -161,7 +161,7 @@ PHP_MINIT_FUNCTION(sysvsem)
    Return an id for the semaphore with the given key, and allow max_acquire (default 1) processes to acquire it simultaneously */
 PHP_FUNCTION(sem_get)
 {
-	int key, max_acquire, perm, auto_release = 1;
+	long key, max_acquire, perm, auto_release = 1;
     int semid;
 	struct sembuf sop[3];
 	int count;

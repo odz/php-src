@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    |          Jaakko Hyvätti <jaakko@hyvatti.iki.fi>                      | 
    +----------------------------------------------------------------------+
  */
-/* $Id: reg.c,v 1.66.2.2 2002/12/05 22:46:40 iliaa Exp $ */
+/* $Id: reg.c,v 1.66.2.7 2003/04/22 01:38:36 iliaa Exp $ */
 
 #include <stdio.h>
 #include <ctype.h>
@@ -118,7 +118,7 @@ static void php_reg_eprint(int err, regex_t *re) {
 	/* get the length of the message */
 	buf_len = regerror(REG_ITOA | err, re, NULL, 0);
 	if (buf_len) {
-		buf = (char *)emalloc(buf_len * sizeof(char));
+		buf = (char *)safe_emalloc(buf_len, sizeof(char), 0);
 		if (!buf) return; /* fail silently */
 		/* finally, get the error message */
 		regerror(REG_ITOA | err, re, buf, buf_len);
@@ -130,7 +130,7 @@ static void php_reg_eprint(int err, regex_t *re) {
 	if (len) {
 		TSRMLS_FETCH();
 
-		message = (char *)emalloc((buf_len + len + 2) * sizeof(char));
+		message = (char *)safe_emalloc((buf_len + len + 2), sizeof(char), 0);
 		if (!message) {
 			return; /* fail silently */
 		}
@@ -278,10 +278,12 @@ PHPAPI char *php_reg_replace(const char *pattern, const char *replace, const cha
 
 	string_len = strlen(string);
 
-	if (icase)
+	if (icase) {
 		copts = REG_ICASE;
-	if (extended)
+	}
+	if (extended) {
 		copts |= REG_EXTENDED;
+	}
 
 	err = regcomp(&re, pattern, copts);
 	if (err) {
@@ -296,7 +298,7 @@ PHPAPI char *php_reg_replace(const char *pattern, const char *replace, const cha
 	/* start with a buffer that is twice the size of the stringo
 	   we're doing replacements in */
 	buf_len = 2 * string_len + 1;
-	buf = emalloc(buf_len * sizeof(char));
+	buf = safe_emalloc(buf_len, sizeof(char), 0);
 
 	err = pos = 0;
 	buf[0] = '\0';
@@ -321,8 +323,8 @@ PHPAPI char *php_reg_replace(const char *pattern, const char *replace, const cha
 
 			new_l = strlen(buf) + subs[0].rm_so; /* part before the match */
 			walk = replace;
-			while (*walk)
-				if ('\\' == *walk && isdigit(walk[1]) && walk[1] - '0' <= ((char) re.re_nsub)) {
+			while (*walk) {
+				if ('\\' == *walk && isdigit((unsigned char)walk[1]) && ((unsigned char)walk[1]) - '0' <= re.re_nsub) {
 					if (subs[walk[1] - '0'].rm_so > -1 && subs[walk[1] - '0'].rm_eo > -1) {
 						new_l += subs[walk[1] - '0'].rm_eo - subs[walk[1] - '0'].rm_so;
 					}    
@@ -331,7 +333,7 @@ PHPAPI char *php_reg_replace(const char *pattern, const char *replace, const cha
 					new_l++;
 					walk++;
 				}
-
+			}
 			if (new_l + 1 > buf_len) {
 				buf_len = 1 + buf_len + 2 * new_l;
 				nbuf = emalloc(buf_len);
@@ -346,7 +348,7 @@ PHPAPI char *php_reg_replace(const char *pattern, const char *replace, const cha
 			/* copy replacement and backrefs */
 			walkbuf = &buf[tmp + subs[0].rm_so];
 			walk = replace;
-			while (*walk)
+			while (*walk) {
 				if ('\\' == *walk && isdigit(walk[1]) && walk[1] - '0' <= re.re_nsub) {
 					if (subs[walk[1] - '0'].rm_so > -1 && subs[walk[1] - '0'].rm_eo > -1
 						/* this next case shouldn't happen. it does. */
@@ -359,17 +361,19 @@ PHPAPI char *php_reg_replace(const char *pattern, const char *replace, const cha
 					walk += 2;
 				} else {
 					*walkbuf++ = *walk++;
-				}	
+				}
+			}
 			*walkbuf = '\0';
 
 			/* and get ready to keep looking for replacements */
 			if (subs[0].rm_so == subs[0].rm_eo) {
-				if (subs[0].rm_so + pos >= string_len)
+				if (subs[0].rm_so + pos >= string_len) {
 					break;
+				}
 				new_l = strlen (buf) + 1;
 				if (new_l + 1 > buf_len) {
 					buf_len = 1 + buf_len + 2 * new_l;
-					nbuf = emalloc(buf_len * sizeof(char));
+					nbuf = safe_emalloc(buf_len, sizeof(char), 0);
 					strcpy(nbuf, buf);
 					efree(buf);
 					buf = nbuf;
@@ -384,7 +388,7 @@ PHPAPI char *php_reg_replace(const char *pattern, const char *replace, const cha
 			new_l = strlen(buf) + strlen(&string[pos]);
 			if (new_l + 1 > buf_len) {
 				buf_len = new_l + 1; /* now we know exactly how long it is */
-				nbuf = emalloc(buf_len * sizeof(char));
+				nbuf = safe_emalloc(buf_len, sizeof(char), 0);
 				strcpy(nbuf, buf);
 				efree(buf);
 				buf = nbuf;
@@ -603,7 +607,7 @@ PHPAPI PHP_FUNCTION(sql_regcase)
 	}	
 	convert_to_string_ex(string);
 	
-	tmp = emalloc((Z_STRLEN_PP(string) * 4) + 1);
+	tmp = safe_emalloc(Z_STRLEN_PP(string), 4, 1);
 	
 	for (i = j = 0; i < Z_STRLEN_PP(string); i++) {
 		c = (unsigned char) Z_STRVAL_PP(string)[i];

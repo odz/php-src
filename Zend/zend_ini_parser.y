@@ -18,7 +18,7 @@
 */
 
 
-/* $Id: zend_ini_parser.y,v 1.18 2002/10/14 23:29:13 iliaa Exp $ */
+/* $Id: zend_ini_parser.y,v 1.18.2.5 2003/05/18 13:16:45 stas Exp $ */
 
 #define DEBUG_CFG_PARSER 0
 #include "zend.h"
@@ -140,7 +140,7 @@ static void ini_error(char *str)
 		fprintf(stderr, "PHP:  %s", error_buf);
 #endif
 	} else {
-		zend_error(E_CORE_WARNING, error_buf);
+		zend_error(E_WARNING, error_buf);
 	}
 	efree(error_buf);
 }

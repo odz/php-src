@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: cyr_convert.c,v 1.22 2002/08/24 01:19:27 helly Exp $ */
+/* $Id: cyr_convert.c,v 1.22.4.2 2003/04/16 22:57:15 moriyoshi Exp $ */
 
 #include <stdlib.h>
 
@@ -210,7 +210,7 @@ static char * php_convert_cyr_string(unsigned char *str, int length, char from, 
 	from_table = NULL;
 	to_table   = NULL;
 	
-	switch (toupper(from))
+	switch (toupper((int)(unsigned char)from))
 	{
 		case 'W':
 			from_table = _cyr_win1251;
@@ -232,7 +232,7 @@ static char * php_convert_cyr_string(unsigned char *str, int length, char from, 
 			break;
 	}
 
-	switch (toupper(to))
+	switch (toupper((int)(unsigned char)to))
 	{
 		case 'W':
 			to_table = _cyr_win1251;

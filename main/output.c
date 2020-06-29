@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,12 +18,15 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: output.c,v 1.142 2002/10/07 11:21:06 zeev Exp $ */
+/* $Id: output.c,v 1.142.2.12 2003/05/17 09:34:12 wez Exp $ */
 
 #include "php.h"
 #include "ext/standard/head.h"
 #include "ext/standard/basic_functions.h"
 #include "ext/standard/url_scanner_ex.h"
+#if HAVE_ZLIB && !defined(COMPILE_DL_ZLIB)
+#include "ext/zlib/php_zlib.h"
+#endif
 #include "SAPI.h"
 
 #define OB_DEFAULT_HANDLER_NAME "default output handler"
@@ -147,7 +150,7 @@ PHPAPI int php_start_ob_buffer(zval *output_handler, uint chunk_size, zend_bool 
 		php_error_docref("ref.outcontrol" TSRMLS_CC, E_ERROR, "Cannot use output buffering in output buffering display handlers");
 		return FAILURE;
 	}
-	if (chunk_size) {
+	if (chunk_size > 0) {
 		if (chunk_size==1) {
 			chunk_size = 4096;
 		}
@@ -235,6 +238,7 @@ PHPAPI void php_end_ob_buffer(zend_bool send_buffer, zend_bool just_flush TSRMLS
 		params[0] = &orig_buffer;
 		params[1] = &z_status;
 		OG(ob_lock) = 1;
+
 		if (call_user_function_ex(CG(function_table), NULL, OG(active_ob_buffer).output_handler, &alternate_buffer, 2, params, 1, NULL TSRMLS_CC)==SUCCESS) {
 			if (!(Z_TYPE_P(alternate_buffer)==IS_BOOL && Z_BVAL_P(alternate_buffer)==0)) {
 				convert_to_string_ex(&alternate_buffer);
@@ -404,7 +408,15 @@ PHPAPI int php_ob_init_conflict(char *handler_new, char *handler_set TSRMLS_DC)
  */
 static int php_ob_init_named(uint initial_size, uint block_size, char *handler_name, zval *output_handler, uint chunk_size, zend_bool erase TSRMLS_DC)
 {
+	if (output_handler && !zend_is_callable(output_handler, 0, NULL)) {
+		return FAILURE;
+	}
 	if (OG(ob_nesting_level)>0) {
+#if HAVE_ZLIB && !defined(COMPILE_DL_ZLIB)
+		if (!strncmp(handler_name, "ob_gzhandler", sizeof("ob_gzhandler")) && php_ob_gzhandler_check(TSRMLS_C)) {
+			return FAILURE;
+		}
+#endif
 		if (OG(ob_nesting_level)==1) { /* initialize stack */
 			zend_stack_init(&OG(ob_buffers));
 		}
@@ -420,7 +432,7 @@ static int php_ob_init_named(uint initial_size, uint block_size, char *handler_n
 	OG(active_ob_buffer).status = 0;
 	OG(active_ob_buffer).internal_output_handler = NULL;
 	OG(active_ob_buffer).handler_name = estrdup(handler_name&&handler_name[0]?handler_name:OB_DEFAULT_HANDLER_NAME);
-	OG(active_ob_buffer).erase = erase;	
+	OG(active_ob_buffer).erase = erase;
 	OG(php_body_write) = php_b_body_write;
 	return SUCCESS;
 }
@@ -445,62 +457,60 @@ static zval* php_ob_handler_from_string(const char *handler_name TSRMLS_DC)
  */
 static int php_ob_init(uint initial_size, uint block_size, zval *output_handler, uint chunk_size, zend_bool erase TSRMLS_DC)
 {
-	int res, result, len;
+	int result = FAILURE, len;
 	char *handler_name, *next_handler_name;
 	HashPosition pos;
 	zval **tmp;
 	zval *handler_zval;
 
 	if (output_handler && output_handler->type == IS_STRING) {
-		result = 0;
 		handler_name = Z_STRVAL_P(output_handler);
+
+		result = SUCCESS;
 		while ((next_handler_name=strchr(handler_name, ',')) != NULL) {
 			len = next_handler_name-handler_name;
 			next_handler_name = estrndup(handler_name, len);
 			handler_zval = php_ob_handler_from_string(next_handler_name TSRMLS_CC);
-			res = php_ob_init_named(initial_size, block_size, next_handler_name, handler_zval, chunk_size, erase TSRMLS_CC);
-			result &= res;
-			if (!res==SUCCESS) {
+			result = php_ob_init_named(initial_size, block_size, next_handler_name, handler_zval, chunk_size, erase TSRMLS_CC);
+			if (result != SUCCESS) {
 				zval_dtor(handler_zval);
 				FREE_ZVAL(handler_zval);
 			}
 			handler_name += len+1;
 			efree(next_handler_name);
 		}
-		handler_zval = php_ob_handler_from_string(handler_name TSRMLS_CC);
-		res = php_ob_init_named(initial_size, block_size, handler_name, handler_zval, chunk_size, erase TSRMLS_CC);
-		result &= res;
-		if (!res==SUCCESS) {
-			zval_dtor(handler_zval);
-			FREE_ZVAL(handler_zval);
+		if (result == SUCCESS) {
+			handler_zval = php_ob_handler_from_string(handler_name TSRMLS_CC);
+			result = php_ob_init_named(initial_size, block_size, handler_name, handler_zval, chunk_size, erase TSRMLS_CC);
+			if (result != SUCCESS) {
+				zval_dtor(handler_zval);
+				FREE_ZVAL(handler_zval);
+			}
 		}
-		result = result ? SUCCESS : FAILURE;
 	} else if (output_handler && output_handler->type == IS_ARRAY) {
-		result = 0;
 		/* do we have array(object,method) */
-		if (zend_is_callable(output_handler, 1, &handler_name)) {
+		if (zend_is_callable(output_handler, 0, &handler_name)) {
 			SEPARATE_ZVAL(&output_handler);
 			output_handler->refcount++;
 			result = php_ob_init_named(initial_size, block_size, handler_name, output_handler, chunk_size, erase TSRMLS_CC);
 			efree(handler_name);
 		} else {
+			efree(handler_name);
 			/* init all array elements recursively */
 			zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(output_handler), &pos);
 			while (zend_hash_get_current_data_ex(Z_ARRVAL_P(output_handler), (void **)&tmp, &pos) == SUCCESS) {
-				result &= php_ob_init(initial_size, block_size, *tmp, chunk_size, erase TSRMLS_CC);
+				result = php_ob_init(initial_size, block_size, *tmp, chunk_size, erase TSRMLS_CC);
+				if (result == FAILURE) {
+					break;
+				}
 				zend_hash_move_forward_ex(Z_ARRVAL_P(output_handler), &pos);
 			}
 		}
-		result = result ? SUCCESS : FAILURE;
 	} else if (output_handler && output_handler->type == IS_OBJECT) {
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "No method name given: use ob_start(array($object,'method')) to specify instance $object and the name of a method of class %s to use as output handler", Z_OBJCE_P(output_handler)->name);
 		result = FAILURE;
 	} else {
-		if (output_handler) {
-			SEPARATE_ZVAL(&output_handler);
-			output_handler->refcount++;
-		}
-		result = php_ob_init_named(initial_size, block_size, OB_DEFAULT_HANDLER_NAME, output_handler, chunk_size, erase TSRMLS_CC);
+		result = php_ob_init_named(initial_size, block_size, OB_DEFAULT_HANDLER_NAME, NULL, chunk_size, erase TSRMLS_CC);
 	}
 	return result;
 }
@@ -713,7 +723,7 @@ static int php_ub_body_write(const char *str, uint str_length TSRMLS_DC)
 PHP_FUNCTION(ob_start)
 {
 	zval *output_handler=NULL;
-	uint chunk_size=0;
+	long chunk_size=0;
 	zend_bool erase=1;
 	int argc = ZEND_NUM_ARGS();
 	
@@ -721,6 +731,9 @@ PHP_FUNCTION(ob_start)
 		RETURN_FALSE;
 	}
 
+	if (chunk_size < 0)
+		chunk_size = 0;
+	
 	if (php_start_ob_buffer(output_handler, chunk_size, erase TSRMLS_CC)==FAILURE) {
 		RETURN_FALSE;
 	}

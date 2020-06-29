@@ -3,7 +3,7 @@
 // +----------------------------------------------------------------------+
 // | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2002 The PHP Group                                |
+// | Copyright (c) 1997-2003 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -14,10 +14,10 @@
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
 // | Authors: Tomas V.V.Cox <cox@idecnet.com>                             |
-// |          Stig Bakken <ssb@fast.no>                                   |
+// |          Stig Bakken <ssb@php.net>                                   |
 // +----------------------------------------------------------------------+
 //
-// $Id: Dependency.php,v 1.14.4.2 2002/12/13 02:14:23 ssb Exp $
+// $Id: Dependency.php,v 1.14.4.6 2003/04/14 12:37:59 jmcastagnetto Exp $
 
 /**
 * Methods for dependencies check. Based on Stig's dependencies RFC
@@ -199,14 +199,15 @@ class PEAR_Dependency
      */
     function checkPHP(&$errmsg, $req, $relation = 'ge')
     {
-        if (substr($relation, 0, 2) == 'v.') {
-            $php_ver = phpversion();
-            $operator = substr($relation, 2);
-            if (!version_compare("$php_ver", "$req", $operator)) {
-                $errmsg = "PHP version " . $this->signOperator($operator) .
-                    " $req is required";
-                return PEAR_DEPENDENCY_CONFLICT;
-            }
+        if (substr($req, 0, 2) == 'v.') {
+            $req = substr($req,2, strlen($req) - 2);
+        }
+        $php_ver = phpversion();
+        $operator = substr($relation,0,2);
+        if (!version_compare("$php_ver", "$req", $operator)) {
+            $errmsg = "PHP version " . $this->signOperator($operator) .
+                " $req is required";
+            return PEAR_DEPENDENCY_CONFLICT;
         }
         return false;
     }
@@ -271,14 +272,15 @@ class PEAR_Dependency
      */
     function checkZend(&$errmsg, $req, $relation = 'ge')
     {
-        if (substr($relation, 0, 2) == 'v.') {
-            $zend_ver = zend_version();
-            $operator = substr($relation, 2);
-            if (!version_compare("$zend_ver", "$req", $operator)) {
-                $errmsg = "Zend version " . $this->signOperator($operator) .
-                    " $req is required";
-                return PEAR_DEPENDENCY_CONFLICT;
-            }
+        if (substr($req, 0, 2) == 'v.') {
+            $req = substr($req,2, strlen($req) - 2);
+        }
+        $zend_ver = zend_version();
+        $operator = substr($relation,0,2);
+        if (!version_compare("$zend_ver", "$req", $operator)) {
+            $errmsg = "Zend version " . $this->signOperator($operator) .
+                " $req is required";
+            return PEAR_DEPENDENCY_CONFLICT;
         }
         return false;
     }

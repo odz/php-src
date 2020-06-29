@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,11 +15,12 @@
    | Authors: Danny Heijl <Danny.Heijl@cevi.be>, initial cut (ODS 7)      |
    |          Christian Cartus <chc@idgruppe.de>, blobs, and IUS 9        |
    |          Jouni Ahto <jouni.ahto@exdec.fi>, configuration stuff       |
+   |          Corne' Cornelius <cornec@reach.co.za>,  input descriptors   |
    | based on mysql code by: Zeev Suraski <zeev@php.net>                  |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_informix_includes.h,v 1.1 2002/06/14 00:01:45 sniper Exp $ */
+/* $Id: php_informix_includes.h,v 1.1.4.4 2003/02/25 07:09:10 nobbie Exp $ */
 
 #ifndef PHP_INFORMIX_INCLUDES_H
 #define PHP_INFORMIX_INCLUDES_H
@@ -37,15 +38,17 @@
 
 /* query result set data */
 typedef struct ifx_res {
-	char connecid[16];
-	char cursorid[16];
-	char descrpid[16];
-	char statemid[16];
+	char connecid[32];
+	char cursorid[32];
+	char descrpid[32];
+	char i_descrpid[32];
+	char statemid[32];
 	int  isscroll;
 	int  ishold;
 	int  iscursory;
 	int  paramquery;
 	int  numcols;
+	int  numicols;
 	int  rowid;
 	int  affected_rows;
 	long sqlerrd[6];

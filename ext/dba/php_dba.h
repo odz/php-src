@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_dba.h,v 1.19.2.2 2002/12/20 20:25:19 helly Exp $ */
+/* $Id: php_dba.h,v 1.19.2.5 2003/01/31 20:10:11 helly Exp $ */
 
 #ifndef PHP_DBA_H
 #define PHP_DBA_H
@@ -68,6 +68,23 @@ typedef struct dba_info {
 extern zend_module_entry dba_module_entry;
 #define dba_module_ptr &dba_module_entry
 
+typedef struct dba_handler {
+	char *name; /* handler name */
+	int flags; /* whether and how dba does locking and other flags*/
+	int (*open)(dba_info *, char **error TSRMLS_DC);
+	void (*close)(dba_info * TSRMLS_DC);
+	char* (*fetch)(dba_info *, char *, int, int, int * TSRMLS_DC);
+	int (*update)(dba_info *, char *, int, char *, int, int TSRMLS_DC);
+	int (*exists)(dba_info *, char *, int TSRMLS_DC);
+	int (*delete)(dba_info *, char *, int TSRMLS_DC);
+	char* (*firstkey)(dba_info *, int * TSRMLS_DC);
+	char* (*nextkey)(dba_info *, int * TSRMLS_DC);
+	int (*optimize)(dba_info * TSRMLS_DC);
+	int (*sync)(dba_info * TSRMLS_DC);
+	char* (*info)(struct dba_handler *hnd, dba_info * TSRMLS_DC);
+		/* dba_info==NULL: Handler info, dba_info!=NULL: Database info */
+} dba_handler;
+
 /* common prototypes which must be supplied by modules */
 
 #define DBA_OPEN_FUNC(x) \
@@ -90,6 +107,8 @@ extern zend_module_entry dba_module_entry;
 	int dba_optimize_##x(dba_info *info TSRMLS_DC)
 #define DBA_SYNC_FUNC(x) \
 	int dba_sync_##x(dba_info *info TSRMLS_DC)
+#define DBA_INFO_FUNC(x) \
+	char *dba_info_##x(dba_handler *hnd, dba_info *info TSRMLS_DC)
 
 #define DBA_FUNCS(x) \
 	DBA_OPEN_FUNC(x); \
@@ -101,7 +120,8 @@ extern zend_module_entry dba_module_entry;
 	DBA_FIRSTKEY_FUNC(x); \
 	DBA_NEXTKEY_FUNC(x); \
 	DBA_OPTIMIZE_FUNC(x); \
-	DBA_SYNC_FUNC(x)
+	DBA_SYNC_FUNC(x); \
+	DBA_INFO_FUNC(x)
 
 #define VALLEN(p) Z_STRVAL_PP(p), Z_STRLEN_PP(p)
 	

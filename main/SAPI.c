@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,13 +18,14 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: SAPI.c,v 1.155.2.2 2002/12/05 22:15:00 helly Exp $ */
+/* $Id: SAPI.c,v 1.155.2.9 2003/02/11 23:30:13 moriyoshi Exp $ */
 
 #include <ctype.h>
 #include <sys/stat.h>
 
 #include "php.h"
 #include "SAPI.h"
+#include "php_ini.h"
 #include "ext/standard/php_string.h"
 #include "ext/standard/pageinfo.h"
 #if (HAVE_PCRE || HAVE_BUNDLED_PCRE) && !defined(COMPILE_DL_PCRE)
@@ -32,7 +33,6 @@
 #endif
 #if HAVE_ZLIB
 #include "ext/zlib/php_zlib.h"
-ZEND_EXTERN_MODULE_GLOBALS(zlib)
 #endif
 #ifdef ZTS
 #include "TSRM.h"
@@ -278,10 +278,42 @@ SAPI_API size_t sapi_apply_default_charset(char **mimetype, size_t len TSRMLS_DC
 	return 0;
 }
 
+SAPI_API void sapi_activate_headers_only(TSRMLS_D)
+{
+	if (SG(request_info).headers_read == 1)
+		return;
+	SG(request_info).headers_read = 1;
+	zend_llist_init(&SG(sapi_headers).headers, sizeof(sapi_header_struct), 
+			(void (*)(void *)) sapi_free_header, 0);
+	SG(sapi_headers).send_default_content_type = 1;
+
+	/* SG(sapi_headers).http_response_code = 200; */ 
+	SG(sapi_headers).http_status_line = NULL;
+	SG(request_info).current_user = NULL;
+	SG(request_info).current_user_length = 0;
+	SG(request_info).no_headers = 0;
+
+	/*
+	 * It's possible to override this general case in the activate() callback, 
+	 * if necessary.
+	 */
+	if (SG(request_info).request_method && !strcmp(SG(request_info).request_method, "HEAD")) {
+		SG(request_info).headers_only = 1;
+	} else {
+		SG(request_info).headers_only = 0;
+	}
+	if (SG(server_context)) {
+		SG(request_info).cookie_data = sapi_module.read_cookies(TSRMLS_C);
+		if (sapi_module.activate) {
+			sapi_module.activate(TSRMLS_C);
+		}
+	}
+}
 
 /*
  * Called from php_request_startup() for every request.
  */
+
 SAPI_API void sapi_activate(TSRMLS_D)
 {
 	zend_llist_init(&SG(sapi_headers).headers, sizeof(sapi_header_struct), (void (*)(void *)) sapi_free_header, 0);
@@ -391,6 +423,9 @@ SAPI_API void sapi_deactivate(TSRMLS_D)
 		SG(sapi_headers).mimetype = NULL;
 	}
 	sapi_send_headers_free(TSRMLS_C);
+	SG(sapi_started) = 0;
+	SG(headers_sent) = 0;
+	SG(request_info).headers_read = 0;
 }
 
 
@@ -523,7 +558,7 @@ SAPI_API int sapi_header_op(sapi_header_op_enum op, void *arg TSRMLS_DC)
 				}
 #if HAVE_ZLIB
 				if(!strncmp(ptr, "image/", sizeof("image/")-1)) {
-					ZLIBG(output_compression) = 0;
+					zend_alter_ini_entry("zlib.output_compression", sizeof("zlib.output_compression"), "0", sizeof("0") - 1, PHP_INI_USER, PHP_INI_STAGE_RUNTIME);
 				}
 #endif
 				mimetype = estrdup(ptr);
@@ -591,7 +626,7 @@ SAPI_API int sapi_header_op(sapi_header_op_enum op, void *arg TSRMLS_DC)
 							/* If there is no realm string at all, append one */
 							if(!strstr(lower_temp,"realm")) {
 								efree(result);
-								conv_len = sprintf(conv_temp," realm=\"%ld\"",myuid);		
+								conv_len = sprintf(conv_temp, " realm=\"%ld\"",myuid);
 								result = emalloc(ptr_len+conv_len+1);
 								result_len = ptr_len+conv_len;
 								memcpy(result, ptr, ptr_len);	
@@ -614,7 +649,7 @@ SAPI_API int sapi_header_op(sapi_header_op_enum op, void *arg TSRMLS_DC)
 #else
 				{
 					myuid = php_getuid();
-					result = emalloc(32);
+					result = emalloc(sizeof("WWW-Authenticate: ")+20);
 					newlen = sprintf(result, "WWW-Authenticate: %ld", myuid);	
 					newheader = estrndup(result,newlen);
 					efree(header_line);
@@ -672,24 +707,29 @@ SAPI_API int sapi_send_headers(TSRMLS_D)
 #if HAVE_ZLIB
 	/* Add output compression headers at this late stage in order to make
 	   it possible to switch it off inside the script. */
-	if (ZLIBG(output_compression)) {
-		switch (ZLIBG(ob_gzip_coding)) {
-			case CODING_GZIP:
-				if (sapi_add_header("Content-Encoding: gzip", sizeof("Content-Encoding: gzip") - 1, 1)==FAILURE) {
-					return FAILURE;
-				}
-				if (sapi_add_header("Vary: Accept-Encoding", sizeof("Vary: Accept-Encoding") - 1, 1)==FAILURE) {
-					return FAILURE;			
-				}
-				break;
-			case CODING_DEFLATE:
-				if (sapi_add_header("Content-Encoding: deflate", sizeof("Content-Encoding: deflate") - 1, 1)==FAILURE) {
-					return FAILURE;
-				}
-				if (sapi_add_header("Vary: Accept-Encoding", sizeof("Vary: Accept-Encoding") - 1, 1)==FAILURE) {
-					return FAILURE;			
-				}
-				break;
+
+	if (zend_ini_long("zlib.output_compression", sizeof("zlib.output_compression"), 0)) {
+		zval nm_zlib_get_coding_type;
+		zval *uf_result = NULL;
+
+		ZVAL_STRINGL(&nm_zlib_get_coding_type, "zlib_get_coding_type", sizeof("zlib_get_coding_type") - 1, 0);
+
+		if (call_user_function_ex(CG(function_table), NULL, &nm_zlib_get_coding_type, &uf_result, 0, NULL, 1, NULL TSRMLS_CC) != FAILURE && uf_result != NULL && Z_TYPE_P(uf_result) == IS_STRING) {
+			char buf[128];
+			int len;
+
+			assert(Z_STRVAL_P(uf_result) != NULL);
+
+			len = snprintf(buf, sizeof(buf), "Content-Encoding: %s", Z_STRVAL_P(uf_result));
+			if (len <= 0 || sapi_add_header(buf, len, 1) == FAILURE) {
+				return FAILURE;
+			}
+			if (sapi_add_header("Vary: Accept-Encoding", sizeof("Vary: Accept-Encoding") - 1, 1) == FAILURE) {
+				return FAILURE;			
+			}
+		}
+		if (uf_result != NULL) {
+			zval_ptr_dtor(&uf_result);
 		}
 	}
 #endif
@@ -815,6 +855,44 @@ SAPI_API char *sapi_getenv(char *name, size_t name_len TSRMLS_DC)
 		return NULL;
 	}
 }
+
+SAPI_API int sapi_get_fd(int *fd TSRMLS_DC)
+{
+	if (sapi_module.get_fd) {
+		return sapi_module.get_fd(fd TSRMLS_CC);
+	} else {
+		return FAILURE;
+	}
+}
+
+SAPI_API int sapi_force_http_10(TSRMLS_D)
+{
+	if (sapi_module.force_http_10) {
+		return sapi_module.force_http_10(TSRMLS_C);
+	} else {
+		return FAILURE;
+	}
+}
+
+
+SAPI_API int sapi_get_target_uid(uid_t *obj TSRMLS_DC)
+{
+	if (sapi_module.get_target_uid) {
+		return sapi_module.get_target_uid(obj TSRMLS_CC);
+	} else {
+		return FAILURE;
+	}
+}
+
+SAPI_API int sapi_get_target_gid(gid_t *obj TSRMLS_DC)
+{
+	if (sapi_module.get_target_gid) {
+		return sapi_module.get_target_gid(obj TSRMLS_CC);
+	} else {
+		return FAILURE;
+	}
+}
+
 
 /*
  * Local variables:

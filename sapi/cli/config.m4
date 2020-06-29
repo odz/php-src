@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.11.2.2 2002/12/20 10:04:55 edink Exp $
+dnl $Id: config.m4,v 1.11.2.4 2003/02/12 04:39:30 sniper Exp $
 dnl
 
 AC_MSG_CHECKING(for CLI build)
@@ -14,7 +14,7 @@ AC_ARG_ENABLE(cli,
 ])
 
 if test "$PHP_SAPI_CLI" != "no"; then
-  PHP_ADD_MAKEFILE_FRAGMENT($abs_srcdir/sapi/cli/Makefile.frag)
+  PHP_ADD_MAKEFILE_FRAGMENT($abs_srcdir/sapi/cli/Makefile.frag,$abs_srcdir/sapi/cli,sapi/cli)
   SAPI_CLI_PATH=sapi/cli/php
   PHP_SUBST(SAPI_CLI_PATH)
 
@@ -31,8 +31,10 @@ if test "$PHP_SAPI_CLI" != "no"; then
     ;;
   esac
   INSTALL_CLI="\$(mkinstalldirs) \$(INSTALL_ROOT)\$(bindir); \$(INSTALL) -m 0755 \$(SAPI_CLI_PATH) \$(INSTALL_ROOT)\$(bindir)/php"
+
   PHP_SUBST(BUILD_CLI)
   PHP_SUBST(INSTALL_CLI)
+  PHP_OUTPUT(sapi/cli/php.1)
 else
   PHP_DISABLE_CLI
 fi

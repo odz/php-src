@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: metaphone.c,v 1.21 2002/03/20 08:17:06 mfischer Exp $ */
+/* $Id: metaphone.c,v 1.21.4.4 2003/04/22 01:38:36 iliaa Exp $ */
 
 /*
 	Based on CPANs "Text-Metaphone-1.96" by Michael G Schwern <schwern@pobox.com> 
@@ -27,15 +27,14 @@
 
 static int metaphone(char *word, int word_len, int max_phonemes, char **phoned_word, int traditional);
 
-PHP_FUNCTION(metaphone);
-
 /* {{{ proto string metaphone(string text, int phones)
    Break english phrases down into their phonemes */
 PHP_FUNCTION(metaphone)
 {
 	char *str;
 	char *result = 0;
-	int phones = 0, str_len;
+	int str_len;
+	long phones = 0;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|l", &str, &str_len,
 							  &phones) == FAILURE) {
@@ -184,12 +183,12 @@ static int metaphone(char *word, int word_len, int max_phonemes, char **phoned_w
 /*-- Allocate memory for our phoned_phrase --*/
 	if (max_phonemes == 0) {	/* Assume largest possible */
 		max_buffer_len = word_len;
-		*phoned_word = emalloc(sizeof(char) * word_len + 1);
+		*phoned_word = safe_emalloc(sizeof(char), word_len, 1);
 		if (!*phoned_word)
 			return -1;
 	} else {
 		max_buffer_len = max_phonemes;
-		*phoned_word = emalloc(sizeof(char) * max_phonemes + 1);
+		*phoned_word = safe_emalloc(sizeof(char), max_phonemes, 1);
 		if (!*phoned_word)
 			return -1;
 	}

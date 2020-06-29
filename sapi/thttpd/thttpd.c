@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: thttpd.c,v 1.77 2002/11/08 13:29:32 sas Exp $ */
+/* $Id: thttpd.c,v 1.77.2.11 2003/05/21 09:34:16 zeev Exp $ */
 
 #include "php.h"
 #include "SAPI.h"
@@ -42,7 +42,6 @@
 
 typedef struct {
 	httpd_conn *hc;
-	int read_post_data;	
 	void (*on_close)(int);
 
 	smart_str sbuf;
@@ -50,6 +49,9 @@ typedef struct {
 	int seen_cn;
 } php_thttpd_globals;
 
+#ifdef PREMIUM_THTTPD
+# define do_keep_alive persistent
+#endif
 
 #ifdef ZTS
 static int thttpd_globals_id;
@@ -91,6 +93,7 @@ static int sapi_thttpd_ub_write(const char *str, uint str_length TSRMLS_DC)
 }
 
 #define ADD_VEC(str,l) vec[n].iov_base=str;len += (vec[n].iov_len=l); n++
+#define ADD_VEC_S(str) ADD_VEC((str), sizeof(str)-1)
 #define COMBINE_HEADERS 30
 
 static int do_writev(struct iovec *vec, int nvec, int len TSRMLS_DC)
@@ -155,17 +158,20 @@ static int do_writev(struct iovec *vec, int nvec, int len TSRMLS_DC)
 
 static int sapi_thttpd_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 {
-	char buf[1024];
+	char buf[1024], *p;
 	struct iovec vec[COMBINE_HEADERS];
+	
 	int n = 0;
 	zend_llist_position pos;
 	sapi_header_struct *h;
 	size_t len = 0;
 	
 	if (!SG(sapi_headers).http_status_line) {
-		sprintf(buf, "HTTP/1.1 %d Code\r\n",  /* SAFE */
+		ADD_VEC_S("HTTP/1.1 ");
+		p = smart_str_print_long(buf+sizeof(buf)-1, 
 				SG(sapi_headers).http_response_code);
-		ADD_VEC(buf, strlen(buf));
+		ADD_VEC(p, strlen(p));
+		ADD_VEC_S(" HTTP\r\n");
 	} else {
 		ADD_VEC(SG(sapi_headers).http_status_line, 
 				strlen(SG(sapi_headers).http_status_line));
@@ -202,6 +208,7 @@ static int sapi_thttpd_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 	if (TG(seen_cl) && !TG(seen_cn) && TG(hc)->do_keep_alive) {
 		ADD_VEC(KA_DO, sizeof(KA_DO)-1);
 	} else {
+		TG(hc)->do_keep_alive = 0;
 		ADD_VEC(KA_NO, sizeof(KA_NO)-1);
 	}
 		
@@ -219,9 +226,8 @@ static int sapi_thttpd_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 
 static int sapi_thttpd_read_post(char *buffer, uint count_bytes TSRMLS_DC)
 {
-	size_t read_bytes = 0, tmp;
+	size_t read_bytes = 0;
 	int c;
-	int n;
 
 	c = SIZEOF_UNCONSUMED_BYTES();
 	if (c > 0) {
@@ -229,41 +235,6 @@ static int sapi_thttpd_read_post(char *buffer, uint count_bytes TSRMLS_DC)
 		memcpy(buffer, TG(hc)->read_buf + TG(hc)->checked_idx, read_bytes);
 		CONSUME_BYTES(read_bytes);
 		count_bytes -= read_bytes;
-	}
-	
-	count_bytes = MIN(count_bytes, 
-			SG(request_info).content_length - SG(read_post_bytes));
-
-	while (read_bytes < count_bytes) {
-		tmp = recv(TG(hc)->conn_fd, buffer + read_bytes, 
-				count_bytes - read_bytes, 0);
-		if (tmp == 0 || (tmp == -1 && errno != EAGAIN))
-			break;
-		/* A simple "tmp > 0" produced broken code on Solaris/GCC */
-		if (tmp != 0 && tmp != -1)
-			read_bytes += tmp;
-
-		if (tmp == -1 && errno == EAGAIN) {
-			fd_set fdr;
-
-			FD_ZERO(&fdr);
-			FD_SET(TG(hc)->conn_fd, &fdr);
-			n = select(TG(hc)->conn_fd + 1, &fdr, NULL, NULL, NULL);
-			if (n <= 0)
-				php_handle_aborted_connection();
-
-			continue;
-		}
-	}
-
-	TG(read_post_data) += read_bytes;
-
-	/* Hack for user-agents which send a LR or CRLF after POST data */
-	if (TG(read_post_data) >= TG(hc)->contentlength) {
-		char tmpbuf[2];
-	
-		/* we are in non-blocking mode */
-		recv(TG(hc)->conn_fd, tmpbuf, 2, 0);
 	}
 	
 	return read_bytes;
@@ -275,14 +246,14 @@ static char *sapi_thttpd_read_cookies(TSRMLS_D)
 }
 
 #define BUF_SIZE 512
-#define ADD_STRING(name)										\
+#define ADD_STRING_EX(name,buf)									\
 	php_register_variable(name, buf, track_vars_array TSRMLS_CC)
+#define ADD_STRING(name) ADD_STRING_EX((name), buf)
 
 static void sapi_thttpd_register_variables(zval *track_vars_array TSRMLS_DC)
 {
 	char buf[BUF_SIZE + 1];
 	char *p;
-	int xsa_len;
 
 	php_register_variable("PHP_SELF", SG(request_info).request_uri, track_vars_array TSRMLS_CC);
 	php_register_variable("SERVER_SOFTWARE", SERVER_SOFTWARE, track_vars_array TSRMLS_CC);
@@ -297,32 +268,21 @@ static void sapi_thttpd_register_variables(zval *track_vars_array TSRMLS_DC)
 		php_register_variable("SERVER_PROTOCOL", "HTTP/1.0", track_vars_array TSRMLS_CC);
 	}
 
-#ifdef HAVE_GETNAMEINFO
-	switch (TG(hc)->client_addr.sa.sa_family) {
-		case AF_INET: xsa_len = sizeof(struct sockaddr_in); break;
-		case AF_INET6: xsa_len = sizeof(struct sockaddr_in6); break;
-		default: xsa_len = 0;
-	}
+	p = httpd_ntoa(&TG(hc)->client_addr);	
+	
+	ADD_STRING_EX("REMOTE_ADDR", p);
+	ADD_STRING_EX("REMOTE_HOST", p);
 
-	if (getnameinfo(&TG(hc)->client_addr.sa, xsa_len, buf, sizeof(buf), 0, 0, NI_NUMERICHOST) == 0) {
-#else
-	p = inet_ntoa(TG(hc)->client_addr.sa_in.sin_addr);
-		
-	/* string representation of IPs are never larger than 512 bytes */
-	if (p) {
-		memcpy(buf, p, strlen(p) + 1);
-#endif
-		ADD_STRING("REMOTE_ADDR");
-		ADD_STRING("REMOTE_HOST");
-	}
+	ADD_STRING_EX("SERVER_PORT",
+			smart_str_print_long(buf + sizeof(buf) - 1,
+				TG(hc)->hs->port));
 
-	snprintf(buf, BUF_SIZE, "%d", TG(hc)->hs->port);
-	ADD_STRING("SERVER_PORT");
-
-	snprintf(buf, BUF_SIZE, "/%s", TG(hc)->pathinfo);
+	buf[0] = '/';
+	memcpy(buf + 1, TG(hc)->pathinfo, strlen(TG(hc)->pathinfo) + 1);
 	ADD_STRING("PATH_INFO");
 
-	snprintf(buf, BUF_SIZE, "/%s", TG(hc)->origfilename);
+	buf[0] = '/';
+	memcpy(buf + 1, TG(hc)->origfilename, strlen(TG(hc)->origfilename) + 1);
 	ADD_STRING("SCRIPT_NAME");
 
 #define CONDADD(name, field) 							\
@@ -343,8 +303,9 @@ static void sapi_thttpd_register_variables(zval *track_vars_array TSRMLS_DC)
 	CONDADD(SERVER_PROTOCOL, protocol);
 
 	if (TG(hc)->contentlength != -1) {
-		sprintf(buf, "%ld", (long) TG(hc)->contentlength);
-		ADD_STRING("CONTENT_LENGTH");
+		ADD_STRING_EX("CONTENT_LENGTH",
+				smart_str_print_long(buf + sizeof(buf) - 1, 
+					TG(hc)->contentlength));
 	}
 
 	if (TG(hc)->authorization[0])
@@ -382,6 +343,12 @@ static int php_thttpd_startup(sapi_module_struct *sapi_module)
 	return SUCCESS;
 }
 
+static int sapi_thttpd_get_fd(int *nfd TSRMLS_DC)
+{
+	if (nfd) *nfd = TG(hc)->conn_fd;
+	return SUCCESS;
+}
+
 static sapi_module_struct thttpd_sapi_module = {
 	"thttpd",
 	"thttpd",
@@ -408,10 +375,15 @@ static sapi_module_struct thttpd_sapi_module = {
 	sapi_thttpd_register_variables,
 	NULL,									/* Log message */
 
+	NULL,									/* php.ini path override */
 	NULL,									/* Block interruptions */
 	NULL,									/* Unblock interruptions */
 
-	STANDARD_SAPI_MODULE_PROPERTIES
+	NULL,
+	NULL,
+	NULL,
+	0,
+	sapi_thttpd_get_fd
 };
 
 static void thttpd_module_main(int show_source TSRMLS_DC)
@@ -460,7 +432,8 @@ static void thttpd_request_ctor(TSRMLS_D)
 	SG(request_info).request_uri = s.c;
 	SG(request_info).request_method = httpd_method_str(TG(hc)->method);
 	SG(sapi_headers).http_response_code = 200;
-	SG(request_info).content_type = TG(hc)->contenttype;
+	if (TG(hc)->contenttype)
+		SG(request_info).content_type = strdup(TG(hc)->contenttype);
 	SG(request_info).content_length = TG(hc)->contentlength == -1 ? 0
 		: TG(hc)->contentlength;
 	
@@ -474,6 +447,8 @@ static void thttpd_request_dtor(TSRMLS_D)
 		free(SG(request_info).query_string);
 	free(SG(request_info).request_uri);
 	free(SG(request_info).path_translated);
+	if (SG(request_info).content_type)
+		free(SG(request_info).content_type);
 }
 
 #ifdef ZTS
@@ -653,27 +628,20 @@ static void remove_dead_conn(int fd)
 
 #endif
 
-#define CT_LEN_MAX_RAM 8192
-
 static off_t thttpd_real_php_request(httpd_conn *hc, int show_source TSRMLS_DC)
 {
 	TG(hc) = hc;
 	hc->bytes_sent = 0;
 
-	TG(read_post_data) = 0;
-	if (hc->method == METHOD_POST)
+	if (hc->contentlength != -1) {
 		hc->should_linger = 1;
+		hc->do_keep_alive = 0;
+	}
 	
-	if (hc->contentlength > 0 
+	if (hc->contentlength != -1
 			&& SIZEOF_UNCONSUMED_BYTES() < hc->contentlength) {
-		int missing = hc->contentlength - SIZEOF_UNCONSUMED_BYTES();
-		
-		if (hc->contentlength < CT_LEN_MAX_RAM) {
-			hc->read_body_into_mem = 1;
-			return 0;
-		} else {
-			return -1;
-		}
+		hc->read_body_into_mem = 1;
+		return 0;
 	}
 	
 	thttpd_request_ctor(TSRMLS_C);
@@ -682,7 +650,7 @@ static off_t thttpd_real_php_request(httpd_conn *hc, int show_source TSRMLS_DC)
 
 	/* disable kl, if no content-length was seen or Connection: was set */
 	if (TG(seen_cl) == 0 || TG(seen_cn) == 1) {
-		TG(hc)->do_keep_alive = TG(hc)->keep_alive = 0;
+		TG(hc)->do_keep_alive = 0;
 	}
 	
 	if (TG(sbuf).c != 0) {
@@ -691,6 +659,7 @@ static off_t thttpd_real_php_request(httpd_conn *hc, int show_source TSRMLS_DC)
 		
 		TG(hc)->response = TG(sbuf).c;
 		TG(hc)->responselen = TG(sbuf).len;
+		TG(hc)->maxresponse = TG(sbuf).a;
 
 		TG(sbuf).c = 0;
 		TG(sbuf).len = 0;
@@ -733,7 +702,9 @@ int thttpd_get_fd(void)
 void thttpd_set_dont_close(void)
 {
 	TSRMLS_FETCH();
+#ifndef PREMIUM_THTTPD
 	TG(hc)->file_address = (char *) 1;
+#endif
 }
 
 

@@ -3,7 +3,7 @@
 // +----------------------------------------------------------------------+
 // | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2002 The PHP Group                                |
+// | Copyright (c) 1997-2003 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.0 of the PHP license,       |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
 // | Authors: Tomas V.V.Cox <cox@idecnet.com>                             |
 // +----------------------------------------------------------------------+
 //
-// $Id: System.php,v 1.21.2.2 2002/12/22 01:43:19 ssb Exp $
+// $Id: System.php,v 1.21.2.5 2003/04/11 23:48:37 ssb Exp $
 //
 
 require_once 'PEAR.php';
@@ -43,7 +43,7 @@ $GLOBALS['_System_temp_files'] = array();
 *
 * @package  System
 * @author   Tomas V.V.Cox <cox@idecnet.com>
-* @version  $Revision: 1.21.2.2 $
+* @version  $Revision: 1.21.2.5 $
 * @access   public
 * @see      http://pear.php.net/manual/
 */
@@ -415,7 +415,7 @@ class System
     *
     * @param string $program The command to search for
     * @return mixed A string with the full path or false if not found
-    * @author Stig Bakken <ssb@fast.no>
+    * @author Stig Bakken <ssb@php.net>
     */
     function which($program, $fallback = false)
     {
@@ -433,12 +433,14 @@ class System
 
         // XXX FIXME honor safe mode
         $path_delim = OS_WINDOWS ? ';' : ':';
-        $exe_suffix = OS_WINDOWS ? '.exe' : '';
+        $exe_suffixes = OS_WINDOWS ? array('.exe','.bat','.cmd','.com') : array('');
         $path_elements = explode($path_delim, getenv('PATH'));
-        foreach ($path_elements as $dir) {
-            $file = $dir . DIRECTORY_SEPARATOR . $program . $exe_suffix;
-            if (@is_file($file) && @$pear_is_executable($file)) {
-                return $file;
+        foreach ($exe_suffixes as $suff) {
+            foreach ($path_elements as $dir) {
+                $file = $dir . DIRECTORY_SEPARATOR . $program . $suff;
+                if (@is_file($file) && @$pear_is_executable($file)) {
+                    return $file;
+                }
             }
         }
         return $fallback;

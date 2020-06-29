@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,9 +17,10 @@
    | PHP 4.0 patches by Zeev Suraski <zeev@zend.com>                      |
    +----------------------------------------------------------------------+
  */
-/* $Id: mod_php4.c,v 1.146.2.1 2002/12/21 20:09:09 andrei Exp $ */
+/* $Id: mod_php4.c,v 1.146.2.10 2003/05/21 09:34:13 zeev Exp $ */
 
 #include "php_apache_http.h"
+#include "http_conf_globals.h"
 
 #ifdef NETWARE
 #define SIGPIPE SIGINT
@@ -169,6 +170,10 @@ static int sapi_apache_header_handler(sapi_header_struct *sapi_header, sapi_head
 	char *header_name, *header_content, *p;
 	request_rec *r = (request_rec *) SG(server_context);
 
+	if(!r) {
+		efree(sapi_header->header);
+		return 0;
+	}
 	header_name = sapi_header->header;
 
 	header_content = p = strchr(header_name, ':');
@@ -292,11 +297,14 @@ static void php_apache_request_shutdown(void *dummy)
 	TSRMLS_FETCH();
 
 	php_output_set_status(0 TSRMLS_CC);
-	SG(server_context) = NULL; /* The server context (request) is invalid by the time run_cleanups() is called */
 	if (AP(in_request)) {
 		AP(in_request) = 0;
 		php_request_shutdown(dummy);
 	}
+	SG(server_context) = NULL; 
+	/* The server context (request) is NOT invalid by the time 
+	 * run_cleanups() is called 
+	 */
 }
 /* }}} */
 
@@ -343,6 +351,52 @@ static char *php_apache_getenv(char *name, size_t name_len TSRMLS_DC)
 }
 /* }}} */
 
+/* {{{ sapi_apache_get_fd
+ */
+static int sapi_apache_get_fd(int *nfd TSRMLS_DC)
+{
+#if PHP_APACHE_HAVE_CLIENT_FD
+	request_rec *r = SG(server_context);
+	int fd;
+
+	fd = r->connection->client->fd;
+	
+	if (fd >= 0) {
+		if (nfd) *nfd = fd;
+		return SUCCESS;
+	}
+#endif
+	return FAILURE;
+}
+/* }}} */
+
+/* {{{ sapi_apache_force_http_10
+ */
+static int sapi_apache_force_http_10(TSRMLS_D)
+{
+	request_rec *r = SG(server_context);
+	
+	r->proto_num = HTTP_VERSION(1,0);
+	
+	return SUCCESS;
+}
+
+/* {{{ sapi_apache_get_target_uid
+ */
+static int sapi_apache_get_target_uid(uid_t *obj TSRMLS_DC)
+{
+	*obj = ap_user_id;
+	return SUCCESS;
+}
+
+/* {{{ sapi_apache_get_target_gid
+ */
+static int sapi_apache_get_target_gid(gid_t *obj TSRMLS_DC)
+{
+	*obj = ap_group_id;
+	return SUCCESS;
+}
+
 /* {{{ sapi_module_struct apache_sapi_module
  */
 static sapi_module_struct apache_sapi_module = {
@@ -382,7 +436,14 @@ static sapi_module_struct apache_sapi_module = {
 	unblock_alarms,					/* Unblock interruptions */
 #endif
 
-	STANDARD_SAPI_MODULE_PROPERTIES
+	NULL,							/* default post reader */
+	NULL,							/* treat data */
+	NULL,							/* exe location */
+	0,								/* ini ignore */
+	sapi_apache_get_fd,
+	sapi_apache_force_http_10,
+	sapi_apache_get_target_uid,
+	sapi_apache_get_target_gid
 };
 /* }}} */
 

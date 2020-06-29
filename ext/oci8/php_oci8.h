@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_oci8.h,v 1.24 2002/09/12 09:48:03 thies Exp $ */
+/* $Id: php_oci8.h,v 1.24.2.2 2003/01/31 14:21:19 sniper Exp $ */
 
 #if HAVE_OCI8
 # ifndef PHP_OCI8_H
@@ -70,6 +70,8 @@ typedef struct {
 	char *hashed_details;
 	oci_server *server;
 	OCISession *pSession;
+	OCIEnv *pEnv;				/* sessions own environment */
+	ub2 charsetId;				/* sessions used character set (mostly this will be 0, so NLS_LANG will be used. */
 } oci_session;
 
 typedef struct {

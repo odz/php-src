@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,7 +15,7 @@
    | Author: Rasmus Lerdorf                                               |
    +----------------------------------------------------------------------+
  */
-/* $Id: exec.c,v 1.84.2.3 2002/12/19 20:34:33 wez Exp $ */
+/* $Id: exec.c,v 1.84.2.8 2003/04/16 22:57:15 moriyoshi Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -250,7 +250,7 @@ int php_Exec(int type, char *cmd, pval *array, pval *return_value TSRMLS_DC)
 				/* strip trailing whitespaces */	
 				l = strlen(buf);
 				t = l;
-				while (l-- && isspace((int)buf[l]));
+				while (l-- && isspace(((unsigned char *)buf)[l]));
 				if (l < t) {
 					buf[l + 1] = '\0';
 				}
@@ -261,7 +261,7 @@ int php_Exec(int type, char *cmd, pval *array, pval *return_value TSRMLS_DC)
 		/* strip trailing spaces */
 		l = strlen(buf);
 		t = l;
-		while (l && isspace((int)buf[l - 1])) {
+		while (l && isspace(((unsigned char *)buf)[l - 1])) {
 			l--;
 		}
 		if (l < t) buf[l] = '\0';
@@ -276,11 +276,12 @@ int php_Exec(int type, char *cmd, pval *array, pval *return_value TSRMLS_DC)
 			RETVAL_STRINGL(buf, l, 1);
 		}
 	} else {
-		int b, i;
+		size_t b;
 
-		while ((b = fread(buf, 1, buflen, fp)) > 0) {
-			for (i = 0; i < b; i++)
-				if (output) (void)PUTC(buf[i]);
+		while((b = php_stream_read(stream, buf, EXEC_INPUT_BUF)) > 0) {
+			if (output) {
+				PHPWRITE(buf, b);
+			}
 		}
 	}
 
@@ -670,7 +671,7 @@ PHP_FUNCTION(proc_open)
 #define MAX_DESCRIPTORS	16
 
 	char *command;
-	long command_len;
+	int command_len;
 	zval *descriptorspec;
 	zval *pipes;
 	int ndesc = 0;

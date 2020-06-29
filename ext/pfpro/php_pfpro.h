@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_pfpro.h,v 1.12 2002/10/10 02:23:23 sniper Exp $ */
+/* $Id: php_pfpro.h,v 1.12.2.2 2003/03/10 13:35:20 ddhill Exp $ */
 
 #ifndef PHP_PFPRO_H
 #define PHP_PFPRO_H
@@ -54,10 +54,10 @@ PHP_FUNCTION(pfpro_process);            /* Transaction processing     */
 ZEND_BEGIN_MODULE_GLOBALS(pfpro)
 	int initialized;
 	char *defaulthost;
-	int defaultport;
-	int defaulttimeout;
+	long defaultport;
+	long defaulttimeout;
 	char *proxyaddress;
-	int proxyport;
+	long proxyport;
 	char *proxylogon;
 	char *proxypassword;
 ZEND_END_MODULE_GLOBALS(pfpro)

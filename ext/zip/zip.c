@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: zip.c,v 1.33 2002/10/17 04:42:22 sniper Exp $ */
+/* $Id: zip.c,v 1.33.2.2 2003/03/07 13:42:21 ddhill Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -285,7 +285,7 @@ PHP_FUNCTION(zip_entry_read)
 	zval             *zzip_ent;
 	php_zzip_dirent  *entry = NULL;
 	char             *buf   = NULL;
-	int               len   = 1024;
+	long              len   = 1024;
 	int               ret   = 0;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r|l", &zzip_ent, &len) == FAILURE) {

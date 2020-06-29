@@ -120,6 +120,9 @@
 /* Define if you have the alarm function.  */
 #undef HAVE_ALARM
 
+/* Define if you have the alphasort function.  */
+#undef HAVE_ALPHASORT
+
 /* Define if you have the asctime_r function.  */
 #undef HAVE_ASCTIME_R
 
@@ -422,6 +425,9 @@
 
 /* Define if you have the rwlock_init function.  */
 #undef HAVE_RWLOCK_INIT
+
+/* Define if you have the scandir function.  */
+#undef HAVE_SCANDIR
 
 /* Define if you have the setegid function.  */
 #undef HAVE_SETEGID
@@ -847,7 +853,22 @@
 #undef HAVE_AP_COMPAT_H
 
 /*   */
+#undef HAVE_APACHE
+
+/*   */
+#undef HAVE_APACHE
+
+/*   */
 #undef HAVE_AP_CONFIG_H
+
+/*   */
+#undef HAVE_AP_CONFIG_H
+
+/*   */
+#undef HAVE_AP_COMPAT_H
+
+/*   */
+#undef HAVE_OLD_COMPAT_H
 
 /*   */
 #undef HAVE_AP_CONFIG_H
@@ -868,13 +889,7 @@
 #undef HAVE_OLD_COMPAT_H
 
 /*   */
-#undef HAVE_AP_CONFIG_H
-
-/*   */
-#undef HAVE_AP_COMPAT_H
-
-/*   */
-#undef HAVE_OLD_COMPAT_H
+#undef PHP_APACHE_HAVE_CLIENT_FD
 
 /*   */
 #undef USE_TRANSFER_TABLES
@@ -1087,6 +1102,12 @@
 /*   */
 #undef COOKIE_SEEKER_USES_OFF64_T
 
+/* Define if system has broken getcwd */
+#undef HAVE_BROKEN_GETCWD
+
+/* Define if your glibc borks on fopen with mode a+ */
+#undef HAVE_BROKEN_GLIBC_FOPEN_APPEND
+
 /* whether you have tm_gmtoff in struct tm */
 #undef HAVE_TM_GMTOFF
 
@@ -1177,9 +1198,6 @@
 /* Whether to enable IPv6 support */
 #undef HAVE_IPV6
 
-/*   */
-#undef HAVE_CRYPT
-
 /* Whether to build zlib as dynamic module */
 #undef COMPILE_DL_ZLIB
 
@@ -1203,12 +1221,6 @@
 
 /* Whether to build calendar as dynamic module */
 #undef COMPILE_DL_CALENDAR
-
-/* Whether to build cpdf as dynamic module */
-#undef COMPILE_DL_CPDF
-
-/* Whether you have cpdflib */
-#undef HAVE_CPDFLIB
 
 /* Whether to build cpdf as dynamic module */
 #undef COMPILE_DL_CPDF
@@ -1259,6 +1271,9 @@
 #undef COMPILE_DL_DB
 
 /*   */
+#undef GDBM_INCLUDE_FILE
+
+/*   */
 #undef DBA_GDBM
 
 /*   */
@@ -1268,16 +1283,31 @@
 #undef DBA_NDBM
 
 /*   */
-#undef DB2_INCLUDE_FILE
+#undef DBA_DB4
 
 /*   */
-#undef DBA_DB2
+#undef DB4_INCLUDE_FILE
+
+/*   */
+#undef DBA_DB3
 
 /*   */
 #undef DB3_INCLUDE_FILE
 
 /*   */
-#undef DBA_DB3
+#undef DBA_DB2
+
+/*   */
+#undef DB2_INCLUDE_FILE
+
+/*   */
+#undef DBM_INCLUDE_FILE
+
+/*   */
+#undef DBM_VERSION
+
+/*   */
+#undef DBM_VERSION
 
 /*   */
 #undef DBA_DBM
@@ -1290,6 +1320,9 @@
 
 /*   */
 #undef DBA_CDB
+
+/*   */
+#undef CDB_INCLUDE_FILE
 
 /*   */
 #undef DBA_CDB
@@ -1433,6 +1466,9 @@
 #undef HAVE_GD_PNG
 
 /*   */
+#undef HAVE_GD_XBM
+
+/*   */
 #undef HAVE_GD_BUNDLED
 
 /*   */
@@ -1449,6 +1485,9 @@
 
 /*   */
 #undef HAVE_GD_STRINGFTEX
+
+/*   */
+#undef USE_GD_JISX0208
 
 /*   */
 #undef USE_GD_IMGSTRTTF
@@ -1524,6 +1563,9 @@
 
 /*   */
 #undef HAVE_GD_GIF_CTX
+
+/*   */
+#undef HAVE_GD_CACHE_CREATE
 
 /*   */
 #undef HAVE_LIBGD204
@@ -1637,6 +1679,9 @@
 #undef HAVE_IMAP_SSL
 
 /*   */
+#undef HAVE_IMAP_AUTH_GSS
+
+/*   */
 #undef IFX_VERSION
 
 /*   */
@@ -1746,6 +1791,12 @@
 
 /* Whether to build mcal as dynamic module */
 #undef COMPILE_DL_MCAL
+
+/*   */
+#undef HAVE_LIBMCRYPT24
+
+/*   */
+#undef HAVE_MCRYPT_GENERIC_DEINIT
 
 /*   */
 #undef HAVE_LIBMCRYPT24
@@ -1931,10 +1982,22 @@
 #undef COMPILE_DL_NCURSES
 
 /*   */
-#undef HAVE_OCI8_TEMP_LOB
+#undef HAVE_OCI8_ATTR_STATEMENT
 
 /*   */
 #undef HAVE_OCI8_ATTR_STATEMENT
+
+/*   */
+#undef HAVE_OCI8_SHARED_MODE
+
+/*   */
+#undef HAVE_OCI_9_2
+
+/*   */
+#undef HAVE_OCI8_TEMP_LOB
+
+/*   */
+#undef HAVE_OCI8_TEMP_LOB
 
 /* Whether to build oci8 as dynamic module */
 #undef COMPILE_DL_OCI8
@@ -2000,6 +2063,9 @@
 #undef HAVE_DBMAKER
 
 /*   */
+#undef HAVE_SQLDATASOURCES
+
+/*   */
 #undef HAVE_UODBC
 
 /* Whether to build odbc as dynamic module */
@@ -2052,9 +2118,6 @@
 
 /* Whether to build pcre as dynamic module */
 #undef COMPILE_DL_PCRE
-
-/*   */
-#undef USE_BCOPY
 
 /* Whether to build pdf as dynamic module */
 #undef COMPILE_DL_PDF
@@ -2170,14 +2233,17 @@
 /*   */
 #undef HAVE_NET_SNMP
 
+/*   */
+#undef HAVE_SNMP
+
 /* Whether to build snmp as dynamic module */
 #undef COMPILE_DL_SNMP
 
 /*   */
-#undef HAVE_SNMP
-
-/*   */
 #undef UCD_SNMP_HACK
+
+/* Whether you have struct cmsghdr */
+#undef HAVE_CMSGHDR
 
 /*   */
 #undef MISSING_MSGHDR_MSGFLAGS
@@ -2187,6 +2253,9 @@
 
 /* Whether to build sockets as dynamic module */
 #undef COMPILE_DL_SOCKETS
+
+/*   */
+#undef HAVE_CRYPT
 
 /* Whether the system supports standard DES salt */
 #undef PHP_STD_DES_CRYPT
@@ -2441,6 +2510,7 @@ int zend_sprintf(char *buffer, const char *format, ...);
 
 #include <math.h>
 
+#ifndef zend_isnan
 #ifdef HAVE_ISNAN
 #define zend_isnan(a) isnan(a)
 #elif defined(NAN)
@@ -2449,6 +2519,7 @@ int zend_sprintf(char *buffer, const char *format, ...);
 #define zend_isnan(a) ((fpclass(a) == FP_SNAN) || (fpclass(a) == FP_QNAN))
 #else
 #define zend_isnan(a) 0
+#endif
 #endif
 
 #ifdef HAVE_ISINF

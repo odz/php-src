@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_sybase_ct.c,v 1.73.2.1 2002/12/08 15:40:18 thekid Exp $ */
+/* $Id: php_sybase_ct.c,v 1.73.2.4 2003/01/11 23:50:59 iliaa Exp $ */
 
 
 #ifdef HAVE_CONFIG_H
@@ -1059,7 +1059,7 @@ static int php_sybase_fetch_result_row (sybase_result *result, int numrows)
 						convert_to_long(&result->data[i][j]);
 						break;
 					case 2: 
-						convert_to_double(&result->data[i][j]); result->numerics[j]= 1; 
+						convert_to_double(&result->data[i][j]);
 						break;
 				}
 			}
@@ -1168,7 +1168,7 @@ static sybase_result * php_sybase_fetch_result_set (sybase_link *sybase_ptr, int
 			case CS_DECIMAL_TYPE:
 				result->datafmt[i].maxlength = result->datafmt[i].precision + 3;
 				/* numeric(10) vs numeric(10, 1) */
-				result->numerics[i] = (result->datafmt[i].scale == 0) ? 1 : 2;
+				result->numerics[i] = (result->datafmt[i].scale == 0 && result->datafmt[i].precision <= 10) ? 1 : 2;
 				break;
 			default:
 				result->datafmt[i].maxlength++;

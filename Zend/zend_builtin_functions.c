@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2002 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -891,11 +891,17 @@ ZEND_FUNCTION(set_error_handler)
 	}
 	ALLOC_ZVAL(EG(user_error_handler));
 
-	if (Z_STRLEN_PP(error_handler)==0) { /* unset user-defined handler */
-		FREE_ZVAL(EG(user_error_handler));
-		EG(user_error_handler) = NULL;
-		RETURN_TRUE;
-	}
+#ifdef JANI_0
+    /*
+     * This part would never be reached unless there is something
+     * wrong with the engine as empty string can not be valid callback.
+     * See bug #23619 for more information why this is left here.
+     * (this only applies to non-debug-builds.)
+     */
+    if (Z_STRLEN_PP(error_handler)==0) { /* unset user-defined handler */
+        zend_error(E_ERROR, "%s(): This should never happen! '%s'", get_active_function_name(TSRMLS_C), error_handler);
+    }
+#endif
 
 	*EG(user_error_handler) = **error_handler;
 	zval_copy_ctor(EG(user_error_handler));
@@ -1233,7 +1239,7 @@ ZEND_FUNCTION(debug_backtrace)
 			filename = NULL;
 		}
 
-		function_name = ptr->function_state.function->common.function_name;
+		function_name = ptr->function_state.function->type != ZEND_OVERLOADED_FUNCTION ? ptr->function_state.function->common.function_name : get_active_function_name(TSRMLS_C);  /* "OVERLOADED_FUNCTION" */
 
 		if (function_name) {
 			add_assoc_string_ex(stack_frame, "function", sizeof("function"), function_name, 1);

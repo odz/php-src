@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -2725,7 +2725,7 @@ static void php_ming_error(char *msg, ...)
 	vspprintf(&buffer, 0, msg, args);
 	va_end(args);
 
-	php_error_docref(NULL TSRMLS_CC, E_ERROR, buffer);
+	php_error_docref(NULL TSRMLS_CC, E_ERROR, "%s", buffer);
 	efree(buffer);
 }
 

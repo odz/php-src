@@ -1,8 +1,8 @@
-/* 
+/*
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_gd.h,v 1.44.2.1 2002/12/11 23:30:23 iliaa Exp $ */
+/* $Id: php_gd.h,v 1.44.2.5 2003/03/31 08:49:30 sniper Exp $ */
 
 #ifndef PHP_GD_H
 #define PHP_GD_H
@@ -58,11 +58,16 @@ extern zend_module_entry gd_module_entry;
 PHP_MINFO_FUNCTION(gd);
 PHP_MINIT_FUNCTION(gd);
 PHP_MSHUTDOWN_FUNCTION(gd);
+#if HAVE_LIBGD20 && HAVE_GD_STRINGFT
+PHP_RSHUTDOWN_FUNCTION(gd);
+#endif
 
 PHP_FUNCTION(gd_info);
 PHP_FUNCTION(imagearc);
+PHP_FUNCTION(imageellipse);
 PHP_FUNCTION(imagechar);
 PHP_FUNCTION(imagecharup);
+PHP_FUNCTION(imageistruecolor);
 PHP_FUNCTION(imagecolorallocate);
 PHP_FUNCTION(imagepalettecopy);
 PHP_FUNCTION(imagecolorat);
@@ -83,24 +88,27 @@ PHP_FUNCTION(imagecreate);
 PHP_FUNCTION(imageftbbox);
 PHP_FUNCTION(imagefttext);
 
+#ifdef HAVE_LIBGD20
 PHP_FUNCTION(imagecreatetruecolor);
 PHP_FUNCTION(imagetruecolortopalette);
 PHP_FUNCTION(imagesetthickness);
-PHP_FUNCTION(imageellipse);
 PHP_FUNCTION(imagefilledellipse);
 PHP_FUNCTION(imagefilledarc);
 PHP_FUNCTION(imagealphablending);
+PHP_FUNCTION(imagesavealpha);
+PHP_FUNCTION(imagecolorallocatealpha);
 PHP_FUNCTION(imagecolorresolvealpha);
 PHP_FUNCTION(imagecolorclosestalpha);
 PHP_FUNCTION(imagecolorexactalpha);
 PHP_FUNCTION(imagecopyresampled);
+#endif
 
 #ifdef HAVE_GD_BUNDLED
 PHP_FUNCTION(imagerotate);
+PHP_FUNCTION(imageantialias);
 #endif
 
 PHP_FUNCTION(imagesetthickness);
-PHP_FUNCTION(imagesettile);
 PHP_FUNCTION(imagecopymergegray);
 PHP_FUNCTION(imagesetbrush);
 PHP_FUNCTION(imagesettile);
@@ -166,6 +174,7 @@ PHP_FUNCTION(image2wbmp);
 #if HAVE_GD_BUNDLED
 PHP_FUNCTION(imagelayereffect);
 PHP_FUNCTION(imagecolormatch);
+PHP_FUNCTION(imagefilter);
 #endif
 
 PHP_GD_API int phpi_get_le_gd(void);

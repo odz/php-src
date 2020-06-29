@@ -3,7 +3,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 4                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2002 The PHP Group                                |
+  | Copyright (c) 1997-2003 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 2.02 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -13,10 +13,10 @@
   | obtain it through the world-wide-web, please send a note to          |
   | license@php.net so we can mail you a copy immediately.               |
   +----------------------------------------------------------------------+
-  | Author: Stig Sæther Bakken <ssb@fast.no>                             |
+  | Author: Stig Sæther Bakken <ssb@php.net>                             |
   +----------------------------------------------------------------------+
 
-  $Id: CLI.php,v 1.25.2.3 2002/12/13 02:14:26 ssb Exp $
+  $Id: CLI.php,v 1.25.2.6 2003/04/11 23:48:38 ssb Exp $
 */
 
 require_once "PEAR.php";
@@ -33,7 +33,6 @@ class PEAR_Frontend_CLI extends PEAR
     var $type = 'CLI';
     var $lp = ''; // line prefix
 
-    var $omode = 'plain';
     var $params = array();
     var $term = array(
         'bold' => '',
@@ -68,7 +67,7 @@ class PEAR_Frontend_CLI extends PEAR
 
     function displayLine($text)
     {
-        trigger_error("Frontend::displayLine deprecated", E_USER_ERROR);
+        trigger_error("PEAR_Frontend_CLI::displayLine deprecated", E_USER_ERROR);
     }
 
     function _displayLine($text)
@@ -81,7 +80,7 @@ class PEAR_Frontend_CLI extends PEAR
 
     function display($text)
     {
-        trigger_error("Frontend::display deprecated", E_USER_ERROR);
+        trigger_error("PEAR_Frontend_CLI::display deprecated", E_USER_ERROR);
     }
 
     function _display($text)
@@ -111,7 +110,7 @@ class PEAR_Frontend_CLI extends PEAR
 
     function displayHeading($title)
     {
-        trigger_error("Frontend::displayHeading deprecated", E_USER_ERROR);
+        trigger_error("PEAR_Frontend_CLI::displayHeading deprecated", E_USER_ERROR);
     }
 
     function _displayHeading($title)
@@ -160,7 +159,7 @@ class PEAR_Frontend_CLI extends PEAR
 
     function userConfirm($prompt, $default = 'yes')
     {
-        trigger_error("Frontend::userConfirm not yet converted", E_USER_ERROR);
+        trigger_error("PEAR_Frontend_CLI::userConfirm not yet converted", E_USER_ERROR);
         static $positives = array('y', 'yes', 'on', '1');
         static $negatives = array('n', 'no', 'off', '0');
         print "$this->lp$prompt [$default] : ";
@@ -188,12 +187,11 @@ class PEAR_Frontend_CLI extends PEAR
 
     function startTable($params = array())
     {
-        trigger_error("Frontend::startTable deprecated", E_USER_ERROR);
+        trigger_error("PEAR_Frontend_CLI::startTable deprecated", E_USER_ERROR);
     }
 
     function _startTable($params = array())
     {
-        $this->omode = 'table';
         $params['table_data'] = array();
         $params['widest'] = array();  // indexed by column
         $params['highest'] = array(); // indexed by row
@@ -206,7 +204,7 @@ class PEAR_Frontend_CLI extends PEAR
 
     function tableRow($columns, $rowparams = array(), $colparams = array())
     {
-        trigger_error("Frontend::tableRow deprecated", E_USER_ERROR);
+        trigger_error("PEAR_Frontend_CLI::tableRow deprecated", E_USER_ERROR);
     }
 
     function _tableRow($columns, $rowparams = array(), $colparams = array())
@@ -256,12 +254,11 @@ class PEAR_Frontend_CLI extends PEAR
 
     function endTable()
     {
-        trigger_error("Frontend::tableRow deprecated", E_USER_ERROR);
+        trigger_error("PEAR_Frontend_CLI::endTable deprecated", E_USER_ERROR);
     }
 
     function _endTable()
     {
-        $this->omode = '';
         extract($this->params);
         if (!empty($caption)) {
             $this->_displayHeading($caption);
@@ -278,6 +275,7 @@ class PEAR_Frontend_CLI extends PEAR
                 }
             }
         }
+        $border = false;
         if (empty($border)) {
             $cellstart = '';
             $cellend = ' ';
@@ -361,7 +359,7 @@ class PEAR_Frontend_CLI extends PEAR
                 if (isset($data['release_warnings'])) {
                     $this->_displayLine('');
                     $this->_startTable(array(
-                        'border' => true,
+                        'border' => false,
                         'caption' => 'Release Warnings'
                         ));
                     $this->_tableRow(array($data['release_warnings']), null, array(1 => array('wrap' => 55)));
@@ -397,7 +395,7 @@ class PEAR_Frontend_CLI extends PEAR
                 $this->_endTable();
                 break;
             case 'config-show':
-                $data['border'] = true;
+                $data['border'] = false;
                 $opts = array(0 => array('wrap' => 30),
                               1 => array('wrap' => 20),
                               2 => array('wrap' => 35));
@@ -420,7 +418,7 @@ class PEAR_Frontend_CLI extends PEAR
             case 'remote-info':
                 $data = array(
                     'caption' => 'Package details:',
-                    'border' => true,
+                    'border' => false,
                     'data' => array(
                         array("Latest",    $data['stable']),
                         array("Installed", $data['installed']),

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    |          Jade Nicoletti <nicoletti@nns.ch>                           |
    +----------------------------------------------------------------------+
  */
-/* $Id: zlib.c,v 1.153.2.1 2002/11/18 11:03:38 wez Exp $ */
+/* $Id: zlib.c,v 1.153.2.10 2003/05/21 17:00:57 rasmus Exp $ */
 #define IS_EXT_MODULE
 
 #ifdef HAVE_CONFIG_H
@@ -104,6 +104,7 @@ function_entry php_zlib_functions[] = {
 	PHP_FE(gzinflate,              			NULL)
 	PHP_FE(gzencode,						NULL)
 	PHP_FE(ob_gzhandler,					NULL)
+	PHP_FE(zlib_get_coding_type,			NULL)
 	{NULL, NULL, NULL}
 };
 /* }}} */
@@ -352,7 +353,7 @@ PHP_FUNCTION(gzopen)
 	convert_to_string_ex(arg2);
 	p = estrndup(Z_STRVAL_PP(arg2),Z_STRLEN_PP(arg2));
 	
-	stream = php_stream_gzopen(NULL, Z_STRVAL_PP(arg1), p, use_include_path|ENFORCE_SAFE_MODE, NULL, NULL STREAMS_CC TSRMLS_CC);
+	stream = php_stream_gzopen(NULL, Z_STRVAL_PP(arg1), p, use_include_path|ENFORCE_SAFE_MODE|REPORT_ERRORS, NULL, NULL STREAMS_CC TSRMLS_CC);
 	if (!stream) {
 		RETURN_FALSE;
 	}
@@ -449,7 +450,7 @@ PHP_FUNCTION(gzcompress)
 		RETURN_STRINGL(s2, l2, 0);
 	} else {
 		efree(s2);
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, zError(status));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", zError(status));
 		RETURN_FALSE;
 	}
 }
@@ -506,7 +507,7 @@ PHP_FUNCTION(gzuncompress)
 		RETURN_STRINGL(s2, length, 0);
 	} else {
 		efree(s2);
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, zError(status));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", zError(status));
 		RETURN_FALSE;
 	}
 }
@@ -576,7 +577,7 @@ PHP_FUNCTION(gzdeflate)
 		RETURN_STRINGL(s2, stream.total_out, 0);
 	} else {
 		efree(s2);
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, zError(status));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", zError(status));
 		RETURN_FALSE;
 	}
 }
@@ -658,11 +659,28 @@ PHP_FUNCTION(gzinflate)
 		RETURN_STRINGL(s2, stream.total_out, 0);
 	} else {
 		efree(s2);
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, zError(status));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", zError(status));
 		RETURN_FALSE;
 	}
 }
 /* }}} */
+
+/*`{{{ proto zlib_get_coding_type()
+   Returns the coding type used for output compression */
+
+PHP_FUNCTION(zlib_get_coding_type)
+{
+	switch (ZLIBG(ob_gzip_coding)) {
+		case CODING_GZIP:
+			RETURN_STRINGL("gzip", sizeof("gzip") - 1, 1);
+
+		case CODING_DEFLATE:
+			RETURN_STRINGL("deflate", sizeof("deflate") - 1, 1);
+	}
+
+	RETURN_FALSE;
+}
+
 
 /* {{{ php_do_deflate
  */
@@ -793,7 +811,7 @@ PHP_FUNCTION(gzencode)
 {
 	char *data, *s2;
 	int data_len;
-	int level = Z_DEFAULT_COMPRESSION, coding = CODING_GZIP;
+	long level = Z_DEFAULT_COMPRESSION, coding = CODING_GZIP;
 	int status;
 	z_stream stream;
 
@@ -839,14 +857,14 @@ PHP_FUNCTION(gzencode)
 									  -MAX_WBITS, MAX_MEM_LEVEL,
 									   Z_DEFAULT_STRATEGY))
 							!= Z_OK) {
-				php_error_docref(NULL TSRMLS_CC, E_WARNING, zError(status));
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", zError(status));
 				RETURN_FALSE;
 			}
 		
 			break;
 		case CODING_DEFLATE:
 			if ((status = deflateInit(&stream, level)) != Z_OK) {
-				php_error_docref(NULL TSRMLS_CC, E_WARNING, zError(status));
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", zError(status));
 				RETURN_FALSE;
 			}
 			break;		
@@ -884,10 +902,38 @@ PHP_FUNCTION(gzencode)
 		RETURN_STRINGL(s2, stream.total_out+GZIP_HEADER_LENGTH+(coding==CODING_GZIP?GZIP_FOOTER_LENGTH:0), 0);
 	} else {
 		efree(s2);
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, zError(status));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", zError(status));
 		RETURN_FALSE;
 	}
 }
+/* }}} */
+
+/* {{{ php_ob_gzhandler_check
+ */
+int php_ob_gzhandler_check(TSRMLS_D)
+{
+	/* check for wrong usages */
+	if (OG(ob_nesting_level>0)) {
+		if (php_ob_handler_used("ob_gzhandler" TSRMLS_CC)) {
+			php_error_docref("ref.outcontrol" TSRMLS_CC, E_WARNING, "output handler 'ob_gzhandler' cannot be used twice");
+			return FAILURE;
+		}
+		if (php_ob_handler_used("mb_output_handler" TSRMLS_CC)) {
+			php_error_docref("ref.outcontrol" TSRMLS_CC, E_WARNING, "output handler 'ob_gzhandler' cannot be used after 'mb_output_handler'");
+			return FAILURE;
+		}
+		if (php_ob_handler_used("URL-Rewriter" TSRMLS_CC)) {
+			php_error_docref("ref.outcontrol" TSRMLS_CC, E_WARNING, "output handler 'ob_gzhandler' cannot be used after 'URL-Rewriter'");
+			return FAILURE;
+		}
+		if (php_ob_init_conflict("ob_gzhandler", "zlib output compression" TSRMLS_CC)) {
+			return FAILURE;
+		}
+	}
+
+	return SUCCESS;
+}
+
 /* }}} */
 
 /* {{{ proto string ob_gzhandler(string str, int mode)
@@ -902,24 +948,6 @@ PHP_FUNCTION(ob_gzhandler)
 
 	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2, &zv_string, &zv_mode)==FAILURE) {
 		ZEND_WRONG_PARAM_COUNT();
-	}
-
-	/* check for wrong usages */
-	if (OG(ob_nesting_level>1)) {
-		if (php_ob_handler_used("ob_gzhandler" TSRMLS_CC)) {
-			php_error_docref("ref.outcontrol" TSRMLS_CC, E_WARNING, "output handler 'ob_gzhandler' cannot be used twice");
-			RETURN_FALSE;
-		}
-		if (php_ob_handler_used("mb_output_handler" TSRMLS_CC)) {
-			php_error_docref("ref.outcontrol" TSRMLS_CC, E_WARNING, "output handler 'ob_gzhandler' cannot be used after 'mb_output_handler'");
-			RETURN_FALSE;
-		}
-		if (php_ob_handler_used("URL-Rewriter" TSRMLS_CC)) {
-			php_error_docref("ref.outcontrol" TSRMLS_CC, E_WARNING, "output handler 'ob_gzhandler' cannot be used after 'URL-Rewriter'");
-			RETURN_FALSE;
-		}
-		if (php_ob_init_conflict("ob_gzhandler", "zlib output compression" TSRMLS_CC))
-			RETURN_FALSE;
 	}
 
 	if (ZLIBG(ob_gzhandler_status)==-1

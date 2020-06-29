@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,10 +17,26 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_openssl.h,v 1.10 2001/12/11 15:30:02 sebastian Exp $ */
+/* $Id: php_openssl.h,v 1.10.8.4 2003/05/01 10:44:17 wez Exp $ */
 
 #ifndef PHP_OPENSSL_H
 #define PHP_OPENSSL_H
+
+#ifdef PHP_WIN32
+# undef PHP_OPENSSL_API
+# ifdef OPENSSL_EXPORTS
+#  define PHP_OPENSSL_API __declspec(dllexport)
+# else
+#  define PHP_OPENSSL_API __declspec(dllimport)
+# endif
+#else
+# undef PHP_OPENSSL_API
+# define PHP_OPENSSL_API /* nothing special */
+#endif
+
+
+
+
 /* HAVE_OPENSSL would include SSL MySQL stuff */
 #if HAVE_OPENSSL_EXT
 extern zend_module_entry openssl_module_entry;
@@ -64,6 +80,11 @@ PHP_FUNCTION(openssl_csr_new);
 PHP_FUNCTION(openssl_csr_export);
 PHP_FUNCTION(openssl_csr_export_to_file);
 PHP_FUNCTION(openssl_csr_sign);
+
+#include <openssl/ssl.h>
+int php_openssl_apply_verification_policy(SSL *ssl, X509 *peer, php_stream *stream TSRMLS_DC);
+SSL *php_SSL_new_from_context(SSL_CTX *ctx, php_stream *stream TSRMLS_DC);
+
 
 #else
 

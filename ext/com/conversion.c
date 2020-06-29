@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -729,7 +729,6 @@ PHPAPI int php_variant_to_pval(VARIANT *var_arg, pval *pval_arg, int codepage TS
 					php_COM_set(obj, &V_DISPATCH(var_arg), FALSE TSRMLS_CC);
 					
 					ZVAL_COM(pval_arg, obj);
-					VariantInit(var_arg);	// to protect C_DISPATCH(obj) from being freed when var_result is destructed
 				}
 			}
 			break;

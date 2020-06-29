@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_mbregex.c,v 1.18.2.1 2002/11/13 23:01:17 edink Exp $ */
+/* $Id: php_mbregex.c,v 1.18.2.8 2003/05/01 21:08:47 iliaa Exp $ */
 
 
 #ifdef HAVE_CONFIG_H
@@ -145,7 +145,7 @@ php_mbregex_compile_pattern(mb_regex_t *pre, const char *pattern, int patlen, in
 	if(zend_hash_find(&MBSTRG(ht_rc), (char *)pattern, patlen+1, (void **) &rc) == FAILURE ||
 			rc->options != options || rc->mbctype != mbctype) {
 		memset(pre, 0, sizeof(*pre));
-		pre->fastmap = (char*)emalloc((1 << MBRE_BYTEWIDTH)*sizeof(char));
+		pre->fastmap = (char*)safe_emalloc((1 << MBRE_BYTEWIDTH), sizeof(char), 0);
 		if (pre->fastmap) {
 			pre->options = options;
 			pre->mbctype = mbctype;
@@ -318,6 +318,7 @@ PHP_FUNCTION(mb_regex_encoding)
 static void
 _php_mb_regex_ereg_exec(INTERNAL_FUNCTION_PARAMETERS, int icase)
 {
+	zval tmp;
 	zval *arg_pattern, *array;
 	char *string;
 	int string_len;
@@ -340,10 +341,13 @@ _php_mb_regex_ereg_exec(INTERNAL_FUNCTION_PARAMETERS, int icase)
 	/* compile the regular expression from the supplied regex */
 	if (Z_TYPE_P(arg_pattern) != IS_STRING) {
 		/* we convert numbers to integers and treat them as a string */
-		if (Z_TYPE_P(arg_pattern) == IS_DOUBLE) {
-			convert_to_long_ex(&arg_pattern);	/* get rid of decimal places */
+		tmp = *arg_pattern;
+		zval_copy_ctor(&tmp);
+		if (Z_TYPE_P(&tmp) == IS_DOUBLE) {
+			convert_to_long(&tmp);	/* get rid of decimal places */
 		}
-		convert_to_string_ex(&arg_pattern);
+		convert_to_string(&tmp);
+		arg_pattern = &tmp;
 		/* don't bother doing an extended regex with just a number */
 	}
 	err = php_mbregex_compile_pattern(
@@ -352,7 +356,8 @@ _php_mb_regex_ereg_exec(INTERNAL_FUNCTION_PARAMETERS, int icase)
 	     Z_STRLEN_P(arg_pattern),
 	     option, MBSTRG(current_mbctype) TSRMLS_CC);
 	if (err) {
-		RETURN_FALSE;
+		RETVAL_FALSE;
+		goto out;
 	}
 
 	/* actually execute the regular expression */
@@ -364,7 +369,8 @@ _php_mb_regex_ereg_exec(INTERNAL_FUNCTION_PARAMETERS, int icase)
 	     &regs);
 	if (err < 0) {
 		mbre_free_registers(&regs);
-		RETURN_FALSE;
+		RETVAL_FALSE;
+		goto out;
 	}
 
 	match_len = 1;
@@ -389,6 +395,10 @@ _php_mb_regex_ereg_exec(INTERNAL_FUNCTION_PARAMETERS, int icase)
 		match_len = 1;
 	}
 	RETVAL_LONG(match_len);
+out:
+	if (arg_pattern == &tmp) {
+		zval_dtor(&tmp);
+	}
 }
 
 /* {{{ proto int mb_ereg(string pattern, string string [, array registers])
@@ -591,20 +601,23 @@ PHP_FUNCTION(mb_eregi_replace)
    split multibyte string into array by regular expression */
 PHP_FUNCTION(mb_split)
 {
-	zval *arg_pat;
+	char *arg_pattern;
+	int arg_pattern_len;
 	mb_regex_t re;
 	struct mbre_registers regs = {0, 0, 0, 0};
 	char *string;
-	int n, err, count, string_len, pos;
+	int string_len;
 
-	count = -1;
+	int n, err, pos;
+	long count = -1;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zs|l", &arg_pat,
-	                        &string, &string_len, &count) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|l", &arg_pattern, &arg_pattern_len, &string, &string_len, &count) == FAILURE) {
 		RETURN_FALSE;
 	} 
 
-	if (count == 0) count = 1;
+	if (count == 0) {
+		count = 1;
+	}
 
 	if (array_init(return_value) == FAILURE) {
 		RETURN_FALSE;
@@ -613,8 +626,8 @@ PHP_FUNCTION(mb_split)
 	/* create regex pattern buffer */
 	err = php_mbregex_compile_pattern(
 	     &re,
-	     Z_STRVAL_P(arg_pat),
-	     Z_STRLEN_P(arg_pat),
+	     arg_pattern,
+	     arg_pattern_len,
 	     MBSTRG(regex_default_options), MBSTRG(current_mbctype) TSRMLS_CC);
 	if (err) {
 		RETURN_FALSE;
@@ -672,7 +685,8 @@ PHP_FUNCTION(mb_split)
    Regular expression match for multibyte string */
 PHP_FUNCTION(mb_ereg_match)
 {
-	zval *arg_pattern;
+	char *arg_pattern;
+	int arg_pattern_len;
 
 	char *string;
 	int string_len;
@@ -685,8 +699,8 @@ PHP_FUNCTION(mb_ereg_match)
 		char *option_str = NULL;
 		int option_str_len = 0;
 
-		if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zs|s",
-		                          &arg_pattern, &string, &string_len,
+		if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|s",
+		                          &arg_pattern, &arg_pattern_len, &string, &string_len,
 		                          &option_str, &option_str_len)==FAILURE) {
 			RETURN_FALSE;
 		}
@@ -697,12 +711,11 @@ PHP_FUNCTION(mb_ereg_match)
 			option |= MBSTRG(regex_default_options);
 		}
 	}
-	convert_to_string_ex(&arg_pattern);
 
 	err = php_mbregex_compile_pattern(
 	    &re,
-	    Z_STRVAL_P(arg_pattern),
-	    Z_STRLEN_P(arg_pattern),
+	    arg_pattern,
+		arg_pattern_len,
 	    option, MBSTRG(current_mbctype) TSRMLS_CC);
 
 	if (err) {
@@ -770,7 +783,7 @@ _php_mb_regex_ereg_search_exec(INTERNAL_FUNCTION_PARAMETERS, int mode)
 	pos = MBSTRG(search_pos);
 	str = NULL;
 	len = 0;
-	if (Z_TYPE_PP(MBSTRG(search_str)) == IS_STRING){
+	if (MBSTRG(search_str) != NULL && Z_TYPE_PP(MBSTRG(search_str)) == IS_STRING){
 		str = (unsigned char *)Z_STRVAL_PP(MBSTRG(search_str));
 		len = Z_STRLEN_PP(MBSTRG(search_str));
 	}

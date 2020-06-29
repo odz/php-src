@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sablot.c,v 1.68.2.1 2002/11/21 23:32:53 msopacua Exp $ */
+/* $Id: sablot.c,v 1.68.2.3 2003/03/06 20:58:17 sesser Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -1797,7 +1797,7 @@ static MH_ERROR error_print(void *user_data, SablotHandle proc, MH_ERROR code, M
 		XSLT_REG_ERRMSG(errmsg, handle);
 
 		/* Output a warning */
-		php_error(E_WARNING, msgbuf);
+		php_error(E_WARNING, "%s", msgbuf);
 
 		/* Cleanup */
 		efree(msgbuf);

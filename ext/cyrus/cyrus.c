@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2002 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: cyrus.c,v 1.12 2002/09/20 15:39:50 martin Exp $ */
+/* $Id: cyrus.c,v 1.12.2.2 2003/03/06 20:58:14 sesser Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -108,7 +108,7 @@ PHP_MINFO_FUNCTION(cyrus)
 
 extern void fatal(char *s, int exit)
 {
-	php_error(E_ERROR, s);
+	php_error(E_ERROR, "%s", s);
 }
 
 /* {{{ proto resource cyrus_connect([ string host [, string port [, int flags]]])

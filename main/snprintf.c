@@ -299,6 +299,9 @@ ap_php_cvt(double arg, int ndigits, int *decpt, int *sign, int eflag, char *buf)
 			*p++ = *p1++;
 	} else if (arg > 0) {
 		while ((fj = arg * 10) < 1) {
+			if (!eflag && (r2 * -1) < ndigits) {
+				break;
+			}
 			arg = fj;
 			r2--;
 		}
@@ -364,6 +367,10 @@ ap_php_gcvt(double number, int ndigit, char *buf, boolean_e altform)
 	register int i;
 	char buf1[NDIG];
 
+	if (ndigit >= NDIG - 1) {
+		ndigit = NDIG - 2;	
+	}
+
 	p1 = ap_php_ecvt(number, ndigit, &decpt, &sign, buf1);
 	p2 = buf;
 	if (sign)
@@ -416,7 +423,7 @@ ap_php_gcvt(double number, int ndigit, char *buf, boolean_e altform)
 	return (buf);
 }
 
-#if !defined(HAVE_SNPRINTF) || !defined(HAVE_VSNPRINTF) || defined(BROKEN_SNPRINTF) || defined(BROKEN_VSNPRINTF)
+#if !defined(HAVE_SNPRINTF) || !defined(HAVE_VSNPRINTF) || PHP_BROKEN_SNPRINTF || PHP_BROKEN_VSNPRINTF
 
 /*
  * NUM_BUF_SIZE is the size of the buffer used for arithmetic conversions
