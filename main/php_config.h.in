@@ -1787,15 +1787,6 @@
 /* Whether to build interbase as dynamic module */
 #undef COMPILE_DL_INTERBASE
 
-/* Whether thttpd is available */
-#undef IRCG_WITH_THTTPD
-
-/* Whether you want IRCG support */
-#undef HAVE_IRCG
-
-/* Whether to build ircg as dynamic module */
-#undef COMPILE_DL_IRCG
-
 /*   */
 #undef HAVE_JAVA
 

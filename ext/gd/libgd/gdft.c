@@ -772,10 +772,12 @@ gdroundupdown (FT_F26Dot6 v1, int updown)
 void gdFontCacheShutdown()
 {
 	if (fontCache) {
- 		gdMutexShutdown(gdFontCacheMutex);
- 		gdCacheDelete(fontCache);
+		gdMutexLock(gdFontCacheMutex);
+		gdCacheDelete(fontCache);
 		fontCache = NULL;
- 		FT_Done_FreeType(library);
+		gdMutexUnlock(gdFontCacheMutex);
+		gdMutexShutdown(gdFontCacheMutex);
+		FT_Done_FreeType(library);
 	}
 }
 
@@ -1036,7 +1038,7 @@ gdImageStringFTEx (gdImage * im, int *brect, int fg, char *fontlist, double ptsi
 					} else {
 						ch = c & 0xFF;	/* don't extend sign */
 					}
-					if (next) next++;
+					if (*next) next++;
 				}
 				break;
 			case gdFTEX_Big5: {

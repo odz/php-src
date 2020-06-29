@@ -1,7 +1,35 @@
 PHP 4                                                                      NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-28 Feb 2007, Version 4.4.6
+04 May 2007, Version 4.4.7
+- Fixed MOPB-33-2007 (PHP mail() Message ASCIIZ Byte Truncation). (Ilia)
+- Fixed MOPB-32-2007 (Double free inside session_decode()). (Ilia)
+- Fixed MOPB-26-2007 (mb_parse_str() can be used to activate
+  register_globals). (Ilia)
+- Fixed MOPB-24-2007 (Fixed unallocated memory access/double free in in
+  array_user_key_compare()).  (Stas)
+- Fixed MOPB-22-2007 (PHP session_regenerate_id() Double Free Vulnerability).
+  (Ilia)
+- Fixed MOPB-21-2007 (An open_basedir/safe_mode bypass inside the
+  compress.bzip2 wraper). (Ilia)
+- Fixed MOPB-8-2007 (XSS in phpinfo()). (Joe Orton, Stas)
+- Fixed CVE-2007-1001 (GD wbmp used with invalid image size). (Pierre)
+- Fixed CVE-2007-0455 (Buffer overflow in gdImageStringFTEx, used by imagettf
+  function). (Kees Cook, Pierre)
+- Fixed bug #41252 (Calling mcrypt_generic without first calling
+  mcrypt_generic_init crashes). (Derick)
+- Fixed bug #40998 (long session array keys are truncated). (Tony)
+- Fixed bug #40915 (addcslashes unexpected behavior with binary input). (Tony)
+- Fixed bug #40831 (cURL extension doesn't clean up the buffer of reused
+  handle). (Tony)
+- Fixed bug #40747 (possible crash in session when save_path is out of 
+  open_basedir). (Tony)
+- Fixed bug #38236 (Binary data gets corrupted on multipart/formdata POST)
+  (patch by ass3mbler@gmail.com)
+- Fixed huge CPU usage in imagearc when used with large angles (libgd bug #74).
+  (Pierre)
+- Fixed CRLF injection inside ftp_putcmd(). (Ilia)
 
+28 Feb 2007, Version 4.4.6
 - Updated PCRE to version 7.0. (Nuno)
 - Fixed segfault in ext/session when register_globals=On. (Tony)
 - Fixed bug #40635 (segfault in cURL extension). (Tony)
