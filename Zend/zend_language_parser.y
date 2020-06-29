@@ -388,6 +388,7 @@ class_statement:
 is_reference:
 		/* empty */	{ $$.op_type = ZEND_RETURN_VAL; }
 	|	'&'			{ $$.op_type = ZEND_RETURN_REF; }
+;
 
 class_variable_decleration:
 		class_variable_decleration ',' T_VARIABLE					{ zend_do_declare_property(&$3, NULL TSRMLS_CC); }
@@ -529,7 +530,7 @@ common_scalar:
 static_scalar: /* compile-time evaluated scalars */
 		common_scalar		{ $$ = $1; }
 	|	T_STRING 		{ zend_do_fetch_constant(&$$, &$1, ZEND_CT TSRMLS_CC); }
-	|	'+' static_scalar	{ $$ = $1; }
+	|	'+' static_scalar	{ $$ = $2; }
 	|	'-' static_scalar	{ zval minus_one;  minus_one.type = IS_LONG; minus_one.value.lval = -1;  mul_function(&$2.u.constant, &$2.u.constant, &minus_one TSRMLS_CC);  $$ = $2; }
 	|	T_ARRAY '(' static_array_pair_list ')' { $$ = $3; $$.u.constant.type = IS_CONSTANT_ARRAY; }
 ;

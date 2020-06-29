@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.8.2.4 2002/03/26 00:15:29 sniper Exp $
+dnl $Id: config.m4,v 1.8.2.7 2002/09/01 00:19:38 sniper Exp $
 dnl
 
 sinclude(ext/xmlrpc/libxmlrpc/acinclude.m4)
@@ -10,12 +10,18 @@ sinclude(libxmlrpc/xmlrpc.m4)
 PHP_ARG_WITH(xmlrpc, for XMLRPC-EPI support,
 [  --with-xmlrpc[=DIR]     Include XMLRPC-EPI support.])
 
+xmlrpc_ext_shared=$ext_shared
+
 PHP_ARG_WITH(expat-dir, libexpat dir for XMLRPC-EPI,
 [  --with-expat-dir=DIR      XMLRPC-EPI: libexpat dir for XMLRPC-EPI.])
 
+PHP_ARG_WITH(iconv-dir, iconv dir for XMLRPC-EPI,
+[  --with-iconv-dir=DIR      XMLRPC-EPI: iconv dir for XMLRPC-EPI.])
+
+
 if test "$PHP_XMLRPC" != "no"; then
 
-  PHP_EXTENSION(xmlrpc, $ext_shared)
+  PHP_EXTENSION(xmlrpc, $xmlrpc_ext_shared)
   PHP_SUBST(XMLRPC_SHARED_LIBADD)
   AC_DEFINE(HAVE_XMLRPC,1,[ ])
 
@@ -33,6 +39,10 @@ if test "$PHP_XMLRPC" != "no"; then
     AC_MSG_ERROR(XML-RPC support requires libexpat. Use --with-expat-dir=<DIR>)
   fi
 
+  if test "$PHP_ICONV_DIR" != "no"; then
+    PHP_ICONV=$PHP_ICONV_DIR
+  fi
+
   if test "$PHP_ICONV" = "no"; then
     PHP_ICONV=yes
   fi
@@ -45,23 +55,28 @@ fi
 if test "$PHP_XMLRPC" = "yes"; then
   XMLRPC_CHECKS
   XMLRPC_LIBADD=libxmlrpc/libxmlrpc.la
-  XMLRPC_SHARED_LIBADD=libxmlrpc/libxmlrpc.la
+  XMLRPC_SHARED_LIBADD="$XMLRPC_SHARED_LIBADD libxmlrpc/libxmlrpc.la"
   XMLRPC_SUBDIRS=libxmlrpc
   PHP_SUBST(XMLRPC_LIBADD)
   PHP_SUBST(XMLRPC_SUBDIRS)
-  LIB_BUILD($ext_builddir/libxmlrpc,$ext_shared,yes)
+  LIB_BUILD($ext_builddir/libxmlrpc,$xmlrpc_ext_shared,yes)
   PHP_ADD_INCLUDE($ext_srcdir/libxmlrpc)
   XMLRPC_MODULE_TYPE=builtin
 
 elif test "$PHP_XMLRPC" != "no"; then
 
   if test -r $PHP_XMLRPC/include/xmlrpc.h; then
-    XMLRPC_DIR=$PHP_XMLRPC
+    XMLRPC_DIR=$PHP_XMLRPC/include
+  elif test -r $PHP_XMLRPC/include/xmlrpc-epi/xmlrpc.h; then
+dnl some xmlrpc-epi header files have generic file names like
+dnl queue.h or base64.h. Distributions have to create dir
+dnl for xmlrpc-epi because of this.
+    XMLRPC_DIR=$PHP_XMLRPC/include/xmlrpc-epi
   else
     AC_MSG_CHECKING(for XMLRPC-EPI in default path)
     for i in /usr/local /usr; do
       if test -r $i/include/xmlrpc.h; then
-        XMLRPC_DIR=$i
+        XMLRPC_DIR=$i/include
         AC_MSG_RESULT(found in $i)
       fi
     done
@@ -72,7 +87,7 @@ elif test "$PHP_XMLRPC" != "no"; then
     AC_MSG_ERROR(Please reinstall the XMLRPC-EPI distribution)
   fi
 
-  PHP_ADD_INCLUDE($XMLRPC_DIR/include)
+  PHP_ADD_INCLUDE($XMLRPC_DIR)
   PHP_ADD_LIBRARY_WITH_PATH(xmlrpc, $XMLRPC_DIR/lib, XMLRPC_SHARED_LIBADD)
   
 fi

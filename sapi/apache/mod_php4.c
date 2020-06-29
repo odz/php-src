@@ -17,7 +17,7 @@
    | PHP 4.0 patches by Zeev Suraski <zeev@zend.com>                      |
    +----------------------------------------------------------------------+
  */
-/* $Id: mod_php4.c,v 1.127.2.2 2002/04/24 01:53:54 sniper Exp $ */
+/* $Id: mod_php4.c,v 1.127.2.4 2002/08/22 14:45:56 rasmus Exp $ */
 
 #define NO_REGEX_EXTRA_H
 #ifdef WIN32
@@ -666,7 +666,7 @@ static void *php_create_dir(pool *p, char *dummy)
 	HashTable *per_dir_info;
 
 	per_dir_info = (HashTable *) malloc(sizeof(HashTable));
-	zend_hash_init(per_dir_info, 5, NULL, (void (*)(void *)) destroy_per_dir_entry, 1);
+	zend_hash_init_ex(per_dir_info, 5, NULL, (void (*)(void *)) destroy_per_dir_entry, 1, 0);
 	register_cleanup(p, (void *) per_dir_info, (void (*)(void *)) php_destroy_per_dir_info, (void (*)(void *)) zend_hash_destroy);
 
 	return per_dir_info;
@@ -773,13 +773,18 @@ CONST_PREFIX char *php_apache_admin_flag_handler(cmd_parms *cmd, HashTable *conf
 int php_xbithack_handler(request_rec * r)
 {
 	php_apache_info_struct *conf;
+	HashTable *per_dir_conf;
+	TSRMLS_FETCH();
 
-	conf = (php_apache_info_struct *) get_module_config(r->per_dir_config, &php4_module);
 	if (!(r->finfo.st_mode & S_IXUSR)) {
 		r->allowed |= (1 << METHODS) - 1;
 		return DECLINED;
 	}
-	if (conf->xbithack == 0) {
+	per_dir_conf = (HashTable *) get_module_config(r->per_dir_config, &php4_module);
+	if (per_dir_conf) {
+		zend_hash_apply((HashTable *) per_dir_conf, (apply_func_t) php_apache_alter_ini_entries TSRMLS_CC);
+	}
+	if(!AP(xbithack)) {
 		r->allowed |= (1 << METHODS) - 1;
 		return DECLINED;
 	}

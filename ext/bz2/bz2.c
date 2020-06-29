@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: bz2.c,v 1.35.2.1 2002/03/29 15:28:04 sniper Exp $ */
+/* $Id: bz2.c,v 1.35.2.2 2002/06/12 07:25:16 mfischer Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -281,8 +281,7 @@ PHP_FUNCTION(bzcompress)
 					  block_size  = 4, /* Block size for compression algorithm */
 					  work_factor = 0, /* Work factor for compression algorithm */
 					  argc;            /* Argument count */
-	unsigned int      size,            /* The size to "realloc" to */
-	                  source_len,      /* Length of the source data */
+	unsigned int      source_len,      /* Length of the source data */
 					  dest_len;        /* Length of the destination buffer */ 
 	
 	argc = ZEND_NUM_ARGS();
@@ -301,7 +300,9 @@ PHP_FUNCTION(bzcompress)
 	dest_len   = Z_STRLEN_PP(source) + (0.01 * Z_STRLEN_PP(source)) + 600;
 	
 	/* Allocate the destination buffer */
-	dest = emalloc(dest_len + 1);
+	if (NULL == (dest = emalloc(dest_len + 1))) {
+		RETURN_LONG(BZ_MEM_ERROR);
+	}
 	
 	/* Handle the optional arguments */
 	if (argc > 1) {
@@ -315,20 +316,21 @@ PHP_FUNCTION(bzcompress)
 	}
 
 	error = BZ2_bzBuffToBuffCompress(dest, 
-									 &size, 
+									 &dest_len, 
 									 Z_STRVAL_PP(source), 
 									 source_len, 
 									 block_size, 
 									 0, 
 									 work_factor);
 	if (error != BZ_OK) {
+		efree(dest);
 		RETURN_LONG(error);
 	} else {
 		/* Copy the buffer, we have perhaps allocate alot more than we need,
 		   so we erealloc() the buffer to the proper size */
-		dest = erealloc(dest, size + 1);
-		dest[size] = 0;
-		RETURN_STRINGL(dest, size, 0);
+		dest = erealloc(dest, dest_len + 1);
+		dest[dest_len] = 0;
+		RETURN_STRINGL(dest, dest_len, 0);
 	}
 }
 /* }}} */
@@ -363,11 +365,9 @@ PHP_FUNCTION(bzdecompress)
 	/* Depending on the size of the source buffer, either allocate
 	  the length of the source buffer or the a default decompression
 	  size */
-	dest = emalloc(
-		PHP_BZ_DECOMPRESS_SIZE > Z_STRLEN_PP(source) ?
-		PHP_BZ_DECOMPRESS_SIZE :
-		Z_STRLEN_PP(source)
-		);
+	if (NULL == (dest = emalloc( PHP_BZ_DECOMPRESS_SIZE > Z_STRLEN_PP(source) ?  PHP_BZ_DECOMPRESS_SIZE : Z_STRLEN_PP(source)))) {
+		RETURN_LONG(BZ_MEM_ERROR);
+	}
 
 	/* (de)Compression Loop */	
 	do {
@@ -388,6 +388,7 @@ PHP_FUNCTION(bzdecompress)
 	} while (error == BZ_OUTBUFF_FULL);
 	
 	if (error != BZ_OK) {
+		efree(dest);
 		RETURN_LONG(error);
 	} else {
 		/* we might have allocated a little to much, so erealloc the buffer 

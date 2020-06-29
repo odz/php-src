@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: array.c,v 1.157.2.1 2002/04/24 15:29:38 andrei Exp $ */
+/* $Id: array.c,v 1.157.2.4 2002/08/21 15:17:16 sniper Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -353,7 +353,7 @@ static int array_natural_general_compare(const void *a, const void *b, int fold_
 		convert_to_string(&first);
 	}
 	if (Z_TYPE_P(sval) != IS_STRING) {
-		zval_copy_ctor(&first);
+		zval_copy_ctor(&second);
 		convert_to_string(&second);
 	}
 
@@ -2545,7 +2545,7 @@ PHP_FUNCTION(array_diff)
 	/* for each argument, create and sort list with pointers to the hash buckets */
 	lists = (Bucket ***)emalloc(argc * sizeof(Bucket **));
 	ptrs = (Bucket ***)emalloc(argc * sizeof(Bucket **));
-    set_compare_func(SORT_STRING TSRMLS_CC);
+	set_compare_func(SORT_STRING TSRMLS_CC);
 	for (i=0; i<argc; i++) {
 		if (Z_TYPE_PP(args[i]) != IS_ARRAY) {
 			php_error(E_WARNING, "Argument #%d to array_diff() is not an array", i+1);
@@ -2880,15 +2880,7 @@ PHP_FUNCTION(array_rand)
 	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_PP(input), &pos);
 	while (num_req_val && (key_type = zend_hash_get_current_key_ex(Z_ARRVAL_PP(input), &string_key, &string_key_len, &num_key, 0, &pos)) != HASH_KEY_NON_EXISTANT) {
 
-#ifdef HAVE_RANDOM
-		randval = random();
-#else
-#ifdef HAVE_LRAND48
-		randval = lrand48();
-#else
-		randval = rand();
-#endif
-#endif
+		randval = php_rand(TSRMLS_C);
 
 		if ((double)(randval/(PHP_RAND_MAX+1.0)) < (double)num_req_val/(double)num_avail) {
 			/* If we are returning a single result, just do it. */

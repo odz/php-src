@@ -864,7 +864,7 @@ ZEND_API int bitwise_or_function(zval *result, zval *op1, zval *op2 TSRMLS_DC)
 			result_str[i] |= shorter->value.str.val[i];
 		}
 		if (result==op1) {
-			efree(result->value.str.val);
+			STR_FREE(result->value.str.val);
 		}
 		result->value.str.val = result_str;
 		result->value.str.len = result_len;
@@ -903,7 +903,7 @@ ZEND_API int bitwise_and_function(zval *result, zval *op1, zval *op2 TSRMLS_DC)
 			result_str[i] &= longer->value.str.val[i];
 		}
 		if (result==op1) {
-			efree(result->value.str.val);
+			STR_FREE(result->value.str.val);
 		}
 		result->value.str.val = result_str;
 		result->value.str.len = result_len;
@@ -944,7 +944,7 @@ ZEND_API int bitwise_xor_function(zval *result, zval *op1, zval *op2 TSRMLS_DC)
 			result_str[i] ^= longer->value.str.val[i];
 		}
 		if (result==op1) {
-			efree(result->value.str.val);
+			STR_FREE(result->value.str.val);
 		}
 		result->value.str.val = result_str;
 		result->value.str.len = result_len;
@@ -1473,12 +1473,12 @@ ZEND_API int increment_function(zval *op1)
 							op1->value.lval = lval+1;
 							op1->type = IS_LONG;
 						}
-						efree(strval);
+						efree(strval); /* should never be empty_string */
 						break;
 					case IS_DOUBLE:
 						op1->value.dval = dval+1;
 						op1->type = IS_DOUBLE;
-						efree(strval);
+						efree(strval); /* should never be empty_string */
 						break;
 #if 0
 					case FLAG_IS_BC:

@@ -16,7 +16,7 @@
    |          Jani Taskinen <sniper@php.net>                              |
    +----------------------------------------------------------------------+
  */
-/* $Id: rfc1867.c,v 1.94.2.4.2.1 2002/07/20 19:17:52 derick Exp $ */
+/* $Id: rfc1867.c,v 1.94.2.12 2002/08/17 12:01:28 sesser Exp $ */
 
 /*
  *  This product includes software developed by the Apache Group
@@ -32,6 +32,9 @@
 #include "php_variables.h"
 #include "rfc1867.h"
 
+#if HAVE_MBSTRING && MBSTR_ENC_TRANS && !defined(COMPILE_DL_MBSTRING)
+#include "ext/mbstring/mbstring.h"
+#endif
 
 #undef DEBUG_FILE_UPLOAD
 
@@ -57,6 +60,8 @@
 #define UPLOAD_ERROR_C  3  /* Only partiallly uploaded */
 #define UPLOAD_ERROR_D  4  /* No file uploaded */
 #define UPLOAD_ERROR_E  5  /* Uploaded file size 0 bytes */
+
+
 
 static void add_protected_variable(char *varname TSRMLS_DC)
 {
@@ -435,8 +440,7 @@ static char *php_ap_getword(char **line, char stop)
 	return res;
 }
 
-
-static char *substring_conf(char *start, int len, char quote)
+static char *substring_conf(char *start, int len, char quote  TSRMLS_DC)
 {
 	char *result = emalloc(len + 2);
 	char *resp = result;
@@ -447,6 +451,11 @@ static char *substring_conf(char *start, int len, char quote)
 			*resp++ = start[++i];
 		} else {
 			*resp++ = start[i];
+#if HAVE_MBSTRING && MBSTR_ENC_TRANS && !defined(COMPILE_DL_MBSTRING)
+			if (mbstr_is_mb_leadbyte(start+i TSRMLS_CC)) {
+				*resp++ = start[++i];
+			}
+#endif
 		}
 	}
 
@@ -455,7 +464,7 @@ static char *substring_conf(char *start, int len, char quote)
 }
 
 
-static char *php_ap_getword_conf(char **line)
+static char *php_ap_getword_conf(char **line TSRMLS_DC)
 {
 	char *str = *line, *strend, *res, quote;
 
@@ -477,7 +486,7 @@ static char *php_ap_getword_conf(char **line)
 				++strend;
 			}
 		}
-		res = substring_conf(str + 1, strend - str - 1, quote);
+		res = substring_conf(str + 1, strend - str - 1, quote TSRMLS_CC);
 
 		if (*strend == quote) {
 			++strend;
@@ -489,7 +498,7 @@ static char *php_ap_getword_conf(char **line)
 		while (*strend && !isspace(*strend)) {
 			++strend;
 		}
-		res = substring_conf(str, strend - str, 0);
+		res = substring_conf(str, strend - str, 0  TSRMLS_CC);
 	}
 
 	while (*strend && isspace(*strend)) {
@@ -599,7 +608,7 @@ static char *multipart_buffer_read_body(multipart_buffer *self TSRMLS_DC)
 
 SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 {
-	char *boundary, *s=NULL, *start_arr=NULL, *array_index=NULL;
+	char *boundary, *boundary_end=NULL, *s=NULL, *start_arr=NULL, *array_index=NULL;
 	char *temp_filename=NULL, *lbuf=NULL, *abuf=NULL;
 	int boundary_len=0, total_bytes=0, cancel_upload=0, is_arr_upload=0, array_len=0, max_file_size=0;
 	zval *http_post_files=NULL;
@@ -623,14 +632,20 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 	boundary++;
 	boundary_len = strlen(boundary);
 
-	if (boundary[0] == '"' && boundary[boundary_len-1] == '"') {
-		if (boundary_len < 2) { /* otherwise a single " passes */
+	if (boundary[0] == '"') {
+		boundary++;
+		boundary_end = strchr(boundary, '"');
+		if (!boundary_end) { 
 			sapi_module.sapi_error(E_WARNING, "Invalid boundary in multipart/form-data POST data");
 			return;
 		}
-		boundary++;
-		boundary_len -= 2;
-		boundary[boundary_len] = '\0';
+	} else {
+		/* search for the end of the boundary */
+		boundary_end = strchr(boundary, ',');
+	}
+	if (boundary_end) {
+		boundary_end[0] = '\0';
+		boundary_len = boundary_end-boundary;
 	}
 
 	/* Initialize the buffer */
@@ -686,12 +701,12 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 						if (param) {
 							efree(param);
 						}
-						param = php_ap_getword_conf(&pair);
+						param = php_ap_getword_conf(&pair TSRMLS_CC);
 					} else if (!strcmp(key, "filename")) {
 						if (filename) {
 							efree(filename);
 						}
-						filename = php_ap_getword_conf(&pair);
+						filename = php_ap_getword_conf(&pair TSRMLS_CC);
 					}
 				}
 				if (key) {
@@ -823,7 +838,11 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 				sprintf(lbuf, "%s_name", param);
 			}
 
+#if HAVE_MBSTRING && MBSTR_ENC_TRANS && !defined(COMPILE_DL_MBSTRING)
+			s = mbstr_strrchr(filename, '\\' TSRMLS_CC);
+#else
 			s = strrchr(filename, '\\');
+#endif
 			if (s && s > filename) {
 				safe_php_register_variable(lbuf, s+1, NULL, 0 TSRMLS_CC);
 			} else {

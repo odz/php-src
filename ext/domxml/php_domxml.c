@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_domxml.c,v 1.118.2.8 2002/05/03 15:16:14 chregu Exp $ */
+/* $Id: php_domxml.c,v 1.118.2.16 2002/08/27 08:41:25 chregu Exp $ */
 
 /* TODO
  * - Support Notation Nodes
@@ -493,15 +493,21 @@ static zval *dom_object_get_data(void *obj)
 static inline void node_wrapper_dtor(xmlNodePtr node)
 {
 	zval *wrapper;
-
+	int refcount = 0;
 	/* FIXME: type check probably unnecessary here? */
 	if (!node || Z_TYPE_P(node) == XML_DTD_NODE)
 		return;
 
 	wrapper = dom_object_get_data(node);
 
-	if (wrapper)
+	if (wrapper != NULL) {
+		refcount = wrapper->refcount;
 		zval_ptr_dtor(&wrapper);
+		/*only set it to null, if refcount was 1 before, otherwise it has still needed references */
+		if (refcount == 1) {
+			dom_object_set_data(node, NULL);
+		}
+	}
 
 }
 
@@ -561,7 +567,6 @@ static void php_free_xml_doc(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 
 	if (doc) {
 		node_list_wrapper_dtor(doc->children);
-
 		node_wrapper_dtor((xmlNodePtr) doc);
 		xmlFreeDoc(doc);
 	}
@@ -572,13 +577,28 @@ static void php_free_xml_node(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	xmlNodePtr node = (xmlNodePtr) rsrc->ptr;
 
-	if (node) {
-		zval *wrapper = dom_object_get_data(node);
-		if (wrapper)
-			zval_ptr_dtor(&wrapper);
+	/* if node has no parent, it will not be freed by php_free_xml_doc, so do it here 
+	and for all children as well. */
+	if (node->parent == NULL) {
+		node_list_wrapper_dtor(node->children);
+		node_wrapper_dtor(node);        
+		xmlFreeNode(node);
+	} else {
+		node_wrapper_dtor(node);
 	}
+
 }
 
+static void php_free_xml_attr(zend_rsrc_list_entry *rsrc TSRMLS_DC)
+{
+	xmlNodePtr node = (xmlNodePtr) rsrc->ptr;
+	if (node->parent == NULL) {
+		node_wrapper_dtor(node);
+		xmlFreeProp((xmlAttrPtr) node);
+	} else {
+		node_wrapper_dtor(node);
+	}
+}
 
 #if defined(LIBXML_XPATH_ENABLED)
 static void php_free_xpath_context(zend_rsrc_list_entry *rsrc TSRMLS_DC)
@@ -1055,7 +1075,7 @@ static zval *php_domobject_new(xmlNodePtr obj, int *found TSRMLS_DC)
 			rsrc_type = le_domxmltextp;
 			content = xmlNodeGetContent(nodep);
 			add_property_long(wrapper, "type", Z_TYPE_P(nodep));
-			add_property_stringl(wrapper, "name", "#text", sizeof("#text"), 1);
+			add_property_stringl(wrapper, "name", "#text", 5, 1);
 			if (content)
 				add_property_stringl(wrapper, "content", (char *) content, strlen(content), 1);
 			xmlFree(content);
@@ -1070,7 +1090,7 @@ static zval *php_domobject_new(xmlNodePtr obj, int *found TSRMLS_DC)
 			content = xmlNodeGetContent(nodep);
 			if (content) {
 				add_property_long(wrapper, "type", Z_TYPE_P(nodep));
-				add_property_stringl(wrapper, "name", "#comment", sizeof("#comment"), 1);
+				add_property_stringl(wrapper, "name", "#comment", 8, 1);
 				add_property_stringl(wrapper, "content", (char *) content, strlen(content), 1);
 				xmlFree(content);
 			}
@@ -1143,7 +1163,7 @@ static zval *php_domobject_new(xmlNodePtr obj, int *found TSRMLS_DC)
 			if (docp->name)
 				add_property_stringl(wrapper, "name", (char *) docp->name, strlen(docp->name), 1);
 			else
-				add_property_stringl(wrapper, "name", "#document", sizeof("#document"), 1);
+				add_property_stringl(wrapper, "name", "#document", 9, 1);
 			if (docp->URL)
 				add_property_stringl(wrapper, "url", (char *) docp->URL, strlen(docp->URL), 1);
 			else
@@ -1247,7 +1267,7 @@ PHP_MINIT_FUNCTION(domxml)
 	 */
 	le_domxmlnodep = zend_register_list_destructors_ex(php_free_xml_node, NULL, "domnode", module_number);
 	le_domxmlcommentp = zend_register_list_destructors_ex(php_free_xml_node, NULL, "domnode", module_number);
-	le_domxmlattrp = zend_register_list_destructors_ex(php_free_xml_node, NULL, "domattribute", module_number);
+	le_domxmlattrp = zend_register_list_destructors_ex(php_free_xml_attr, NULL, "domattribute", module_number);
 	le_domxmltextp = zend_register_list_destructors_ex(php_free_xml_node, NULL, "domtext", module_number);
 	le_domxmlelementp =	zend_register_list_destructors_ex(php_free_xml_node, NULL, "domelement", module_number);
 	le_domxmldtdp = zend_register_list_destructors_ex(php_free_xml_node, NULL, "domdtd", module_number);
@@ -2034,7 +2054,7 @@ PHP_FUNCTION(domxml_node_append_child)
 	 * Uwe: must have been a temporary problem. It works for me with both
 	 * xmlAddChildList and xmlAddChild
 	 */
-//	child = xmlAddSibling(nodep, new_child);
+
 	child = xmlAddChild(nodep, new_child);
 
 	if (NULL == child) {
@@ -2072,7 +2092,7 @@ PHP_FUNCTION(domxml_node_append_sibling)
 		RETURN_FALSE;
 	}
 
-	// FIXME reverted xmlAddChildList; crashes
+	/* FIXME reverted xmlAddChildList; crashes */
 	child = xmlAddSibling(nodep, new_child);
 
 	if (NULL == child) {
@@ -2663,14 +2683,14 @@ PHP_FUNCTION(domxml_doc_get_element_by_id)
 	xmlDocPtr docp;
 	idsIterator iter;
 	xmlHashTable *ids = NULL;
-	int retnode;
-
-	id = getThis();
-	DOMXML_GET_OBJ(docp, id, le_domxmldocp);
+	int retnode,idname_len;
+	char *idname;
+	
+	DOMXML_PARAM_TWO(docp, id, le_domxmldocp, "s", &idname, &idname_len);
 
 	ids = (xmlHashTable *) docp->ids;
 	if(ids) {
-		iter.elementId = (xmlChar *) 
+		iter.elementId = (xmlChar *) idname;
 		iter.element = NULL;
 		xmlHashScan(ids, idsHashScanner, &iter);
 		rv = php_domobject_new(iter.element, &retnode TSRMLS_CC);
@@ -3183,7 +3203,8 @@ PHP_FUNCTION(domxml_dump_mem)
 	if (!size) {
 		RETURN_FALSE;
 	}
-	RETURN_STRINGL(mem, size, 1);
+	RETVAL_STRINGL(mem, size, 1);
+	xmlFree(mem);
 }
 /* }}} */
 
@@ -3407,7 +3428,7 @@ PHP_FUNCTION(domxml_html_dump_mem)
 			xmlFree(mem);
 		RETURN_FALSE;
 	}
-	RETURN_STRINGL(mem, size, 1);
+	RETVAL_STRINGL(mem, size, 1);
 	xmlFree(mem);
 }
 /* }}} */
@@ -4189,20 +4210,21 @@ static char *php_domxslt_string_to_xpathexpr(const char *str TSRMLS_DC)
 	const xmlChar *string = (const xmlChar *)str;
 
 	xmlChar *value;
-
+	int str_len;
+	
+	str_len = xmlStrlen(string) + 3;
+	
 	if (xmlStrchr(string, '"')) {
 		if (xmlStrchr(string, '\'')) {
-			php_error(E_WARNING, "Cannot create XPath expression (string contains both quote and double-quotes) in %s",
+			php_error(E_WARNING, "%s(): Cannot create XPath expression (string contains both quote and double-quotes)",
 					  get_active_function_name(TSRMLS_C));
 			return NULL;
 		}
-		value = xmlStrdup((const xmlChar *)"'");
-		value = xmlStrcat(value, string);
-		value = xmlStrcat(value, (const xmlChar *)"'");
+		value = (xmlChar*) emalloc (str_len * sizeof(xmlChar) );
+		snprintf(value, str_len, "'%s'", string);
 	} else {
-		value = xmlStrdup((const xmlChar *)"\"");
-		value = xmlStrcat(value, string);
-		value = xmlStrcat(value, (const xmlChar *)"\"");
+		value = (xmlChar*) emalloc (str_len * sizeof(xmlChar) );
+		snprintf(value, str_len, "\"%s\"", string);
 	}
 
 	return (char *)value;
@@ -4266,7 +4288,7 @@ PHP_FUNCTION(domxml_xslt_process)
 	- test other stuff
 	- check xsltsp->errors ???
 */
-	zval *rv, *idxsl, *idxml, *idparams = NULL;
+	zval *rv = NULL, *idxsl, *idxml, *idparams = NULL;
 	zend_bool xpath_params = 0;
 	xsltStylesheetPtr xsltstp;
 	xmlDocPtr xmldocp;

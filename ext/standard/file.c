@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: file.c,v 1.205.2.2 2002/05/12 16:08:31 rasmus Exp $ */
+/* $Id: file.c,v 1.205.2.5 2002/09/02 14:36:20 derick Exp $ */
 
 /* Synced with php 3.0 revision 1.218 1999-06-16 [ssb] */
 
@@ -878,7 +878,7 @@ PHP_FUNCTION(set_socket_blocking)
    Set timeout on socket read to seconds + microseonds */
 PHP_FUNCTION(socket_set_timeout)
 {
-#if HAVE_SYS_TIME_H
+#if HAVE_SYS_TIME_H || defined(PHP_WIN32)
 	zval **socket, **seconds, **microseconds;
 	int type;
 	void *what;
@@ -1232,6 +1232,7 @@ PHP_FUNCTION(fwrite)
 	int issock=0;
 	int socketd=0;
 	void *what;
+	char *buffer = NULL;
 
 	switch (ZEND_NUM_ARGS()) {
 	case 2:
@@ -1264,27 +1265,30 @@ PHP_FUNCTION(fwrite)
 		socketd = *(int *) what;
 	}
 
+	buffer = estrndup(Z_STRVAL_PP(arg2), Z_STRLEN_PP(arg2));
 	if (!arg3 && PG(magic_quotes_runtime)) {
-		zval_copy_ctor(*arg2);
-		php_stripslashes(Z_STRVAL_PP(arg2), &num_bytes TSRMLS_CC);
+		php_stripslashes(buffer, &num_bytes TSRMLS_CC);
 	}
 
 #if HAVE_PHP_STREAM
 	if (type == le_stream)	{
-		ret = php_stream_write((php_stream *) what, Z_STRVAL_PP(arg2), num_bytes);
+		ret = php_stream_write((php_stream *) what, buffer, num_bytes);
 	}
 	else
 #endif
 	
 	if (issock){
-		ret = SOCK_WRITEL(Z_STRVAL_PP(arg2), num_bytes, socketd);
+		ret = SOCK_WRITEL(buffer, num_bytes, socketd);
 	} else {
 #ifdef HAVE_FLUSHIO
 		if (type == le_fopen) {
 			fseek((FILE *) what, 0, SEEK_CUR);
 		}
 #endif
-		ret = fwrite(Z_STRVAL_PP(arg2), 1, num_bytes, (FILE *) what);
+		ret = fwrite(buffer, 1, num_bytes, (FILE *) what);
+	}
+	if (buffer) {
+		efree(buffer);
 	}
 	RETURN_LONG(ret);
 }

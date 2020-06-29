@@ -53,9 +53,14 @@ ZEND_API void _zval_dtor(zval *zvalue ZEND_FILE_LINE_DC)
 				}
 			}
 			break;
-		case IS_OBJECT:
-			zend_hash_destroy(zvalue->value.obj.properties);
-			FREE_HASHTABLE(zvalue->value.obj.properties);
+		case IS_OBJECT: {
+				TSRMLS_FETCH();
+
+				if (zvalue->value.obj.properties != &EG(symbol_table)) {
+					zend_hash_destroy(zvalue->value.obj.properties);
+					FREE_HASHTABLE(zvalue->value.obj.properties);
+				}
+			}
 			break;
 		case IS_RESOURCE:	{
 				TSRMLS_FETCH();
@@ -122,7 +127,11 @@ ZEND_API int _zval_copy_ctor(zval *zvalue ZEND_FILE_LINE_DC)
 		case IS_OBJECT: {
 				zval *tmp;
 				HashTable *original_ht = zvalue->value.obj.properties;
+				TSRMLS_FETCH();
 
+				if (zvalue->value.obj.properties == &EG(symbol_table)) {
+					return SUCCESS; /* do nothing */
+				}
 				ALLOC_HASHTABLE_REL(zvalue->value.obj.properties);
 				zend_hash_init(zvalue->value.obj.properties, 0, NULL, ZVAL_PTR_DTOR, 0);
 				zend_hash_copy(zvalue->value.obj.properties, original_ht, (copy_ctor_func_t) zval_add_ref, (void *) &tmp, sizeof(zval *));

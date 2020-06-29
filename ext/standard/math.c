@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: math.c,v 1.80.2.1 2002/04/01 09:21:29 derick Exp $ */
+/* $Id: math.c,v 1.80.2.4 2002/06/24 08:18:54 derick Exp $ */
 
 #include "php.h"
 #include "php_math.h"
@@ -429,14 +429,11 @@ PHP_FUNCTION(pow)
 		return;
 	}
 
-	/* TODO: handle numeric strings. */
-	if ((Z_TYPE_P(zbase) != IS_LONG && Z_TYPE_P(zbase) != IS_DOUBLE) ||
-		(Z_TYPE_P(zexp ) != IS_LONG && Z_TYPE_P(zexp ) != IS_DOUBLE)) {
-		php_error(E_WARNING, "Invalid argument(s) passed to %s()", get_active_function_name(TSRMLS_C));
-		RETURN_FALSE;
-	}
+	/* make sure we're dealing with numbers */
+	convert_scalar_to_number(zbase TSRMLS_CC);
+	convert_scalar_to_number(zexp TSRMLS_CC);
 
-	/* if both base and exponent were longs, try to get a long out */
+	/* if both base and exponent were longs, we'll try to get a long out */
 	wantlong = Z_TYPE_P(zbase) == IS_LONG 
 	        && Z_TYPE_P(zexp ) == IS_LONG && Z_LVAL_P(zexp) >= 0;
 
@@ -760,7 +757,7 @@ _php_math_longtobase(zval *arg, int base)
  * the number.
  */
 PHPAPI char *
-_php_math_zvaltobase(zval *arg, int base)
+_php_math_zvaltobase(zval *arg, int base TSRMLS_DC)
 {
 	static char digits[] = "0123456789abcdefghijklmnopqrstuvwxyz";
 
@@ -773,6 +770,13 @@ _php_math_zvaltobase(zval *arg, int base)
 		char *ptr, *end;
 		char buf[(sizeof(double) << 3) + 1];
 
+		/* Don't try to convert +/- infinity */
+		if (fvalue == HUGE_VAL || fvalue == -HUGE_VAL) {
+			php_error(E_WARNING, "Number too large in %s() call",
+				get_active_function_name(TSRMLS_C));
+			return empty_string;
+		}
+		
 		end = ptr = buf + sizeof(buf) - 1;
 		*ptr = '\0';
 
@@ -933,7 +937,7 @@ PHP_FUNCTION(base_convert)
 	if(_php_math_basetozval(*number, Z_LVAL_PP(frombase), &temp) != SUCCESS) {
 		RETURN_FALSE;
 	}
-	result = _php_math_zvaltobase(&temp, Z_LVAL_PP(tobase));
+	result = _php_math_zvaltobase(&temp, Z_LVAL_PP(tobase) TSRMLS_CC);
 	RETVAL_STRING(result, 0);
 } 
 

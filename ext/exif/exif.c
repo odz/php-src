@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: exif.c,v 1.52.2.7 2002/04/10 06:37:49 derick Exp $ */
+/* $Id: exif.c,v 1.52.2.12 2002/09/03 19:09:03 helly Exp $ */
 
 /*	ToDos
  *
@@ -73,8 +73,8 @@
 typedef unsigned char uchar;
 
 #ifndef TRUE
-	#define TRUE 1
-	#define FALSE 0
+#define TRUE 1
+#define FALSE 0
 #endif
 
 #define EXIT_FAILURE  1
@@ -120,7 +120,7 @@ PHP_MINFO_FUNCTION(exif)
 	php_info_print_table_start();
 	php_info_print_table_row(2, "EXIF Support", "enabled" );
 	php_info_print_table_row(2, "EXIF Version", EXIF_VERSION );
-	php_info_print_table_row(2, "Supported EXIF Version", "02100");
+	php_info_print_table_row(2, "Supported EXIF Version", "0210");
 	php_info_print_table_row(2, "Supported filetypes", "JPEG,TIFF");
 	php_info_print_table_end();
 }
@@ -720,6 +720,7 @@ typedef struct {
 	int  motorola_intel; /* 1 Motorola; 0 Intel */
 
 	char *UserComment;
+	int  UserCommentLen;
 	char UserCommentEncoding[12];
 
 	char *Thumbnail;
@@ -808,6 +809,7 @@ void exif_add_image_info( image_info_type *image_info, int section_index, char *
 		case TAG_FMT_UNDEFINED:
 			if ( value) {
 				info_value->value.s = estrndup(value,length);
+				info_value->length = length;
 			} else {
 				info_value->length = 0;
 				info_value->value.s = estrdup("");
@@ -834,7 +836,7 @@ void exif_add_image_info( image_info_type *image_info, int section_index, char *
 
 		case TAG_FMT_SINGLE:
 			php_error(E_WARNING, "Found value of type single");
-			info_value->value.f = (double)*(float *)value;
+			info_value->value.f = *(float *)value;
 
 		case TAG_FMT_DOUBLE:
 			php_error(E_WARNING, "Found value of type double");
@@ -935,9 +937,9 @@ void add_assoc_image_info( pval *value, int sub_array, image_info_type *image_in
 		for(i=0; i<image_info->info_list[section_index].count; i++)
 		{
 			info_value = &image_info->info_list[section_index].list[i];
-			#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 			/* php_error(E_NOTICE,"adding info #%d: '%s:%s'", i, exif_get_sectionname(section_index), info_value->name);*/
-			#endif
+#endif
 			if ( !(name = info_value->name)) {
 				sprintf(uname,"%d", unknown++);
 				name = uname;
@@ -1063,7 +1065,7 @@ void add_assoc_image_info( pval *value, int sub_array, image_info_type *image_in
    We want to print out the marker contents as legible text;
    we must guard against random junk and varying newline representations.
 */
-static void exif_process_COM (image_info_type *image_info, uchar *value, int length)
+static void exif_process_COM (image_info_type *image_info, char *value, int length)
 {
     exif_add_image_info( image_info, SECTION_COMMENT, "Comment", TAG_COMPUTED_VALUE, TAG_FMT_STRING, length-2, value+2);
 }
@@ -1280,7 +1282,7 @@ static int exif_process_user_comment(char **pszInfoPtr,char *szEncoding,char *sz
 	}
 
 	/* Olympus has this padded with trailing spaces.  Remove these first. */
-	if (a) for (a=ByteCount-1;a && szValuePtr[a]==' ';a--) (szValuePtr)[a] = '\0';
+	if (ByteCount) for (a=ByteCount-1;a && szValuePtr[a]==' ';a--) (szValuePtr)[a] = '\0';
 
 	/* normal text without encoding */
 	return exif_process_string(pszInfoPtr, szValuePtr, ByteCount);
@@ -1340,9 +1342,11 @@ static void exif_process_IFD_TAG(image_info_type *ImageInfo, char *dir_entry, ch
 		/* If its bigger than 4 bytes, the dir entry contains an offset. */
 		value_ptr = offset_base+offset_val;
 		if (offset_val+byte_count > IFDlength || value_ptr < dir_entry) {
+			/*
 			// It is important to check for IMAGE_FILETYPE_TIFF
 			// JPEG does not use absolute pointers instead its pointers are relative to the start
 			// of the TIFF header in APP1 section.
+			*/
 			if (offset_val<0 || offset_val+byte_count>ImageInfo->FileSize || (ImageInfo->FileType!=IMAGE_FILETYPE_TIFF_II && ImageInfo->FileType!=IMAGE_FILETYPE_TIFF_MM)) {
 				if (value_ptr < dir_entry) {
 					/* we can read this if offset_val > 0 */
@@ -1356,7 +1360,7 @@ static void exif_process_IFD_TAG(image_info_type *ImageInfo, char *dir_entry, ch
 				return;
 			}
 			if ( byte_count>sizeof(cbuf)) {
-				// mark as outside range and get buffer
+				/* mark as outside range and get buffer */
 				value_ptr = emalloc(byte_count);
 				if ( !value_ptr) {
 					php_error(E_WARNING, "could not allocate data for entire image");
@@ -1364,11 +1368,13 @@ static void exif_process_IFD_TAG(image_info_type *ImageInfo, char *dir_entry, ch
 				}
 				outside = value_ptr;
 			} else {
+				/*
 				// in most cases we only access a small range so
 				// it is faster to use a static buffer there
 				// BUT it offers also the possibility to have
 				// pointers read without the need to free them
 				// explicitley before returning.
+				*/
 				value_ptr = cbuf;
 			}
 			fpos = ftell(ImageInfo->infile);
@@ -1393,9 +1399,9 @@ static void exif_process_IFD_TAG(image_info_type *ImageInfo, char *dir_entry, ch
 	}
 
 	ImageInfo->sections_found |= FOUND_ANY_TAG;
-	#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 	php_error(E_NOTICE,"process tag(x%04x=%s,@x%04X+x%04X(=%d)): %s", tag, exif_get_tagname(tag,tagname), value_ptr-offset_base, byte_count, byte_count, format==TAG_FMT_STRING?(value_ptr?value_ptr:"<no data>"):exif_get_tagformat(format));
-	#endif
+#endif
 	if (section_index==SECTION_THUMBNAIL) {
 		switch(tag) {
 			case TAG_STRIP_OFFSETS:
@@ -1417,7 +1423,7 @@ static void exif_process_IFD_TAG(image_info_type *ImageInfo, char *dir_entry, ch
 		switch(tag) {
 			case TAG_COPYRIGHT:
 				if (byte_count>1 && (l=php_strnlen(value_ptr,byte_count)) > 0) {
-					if ( l<byte_count-1) {
+					if ( (size_t)l<byte_count-1) {
 						/* When there are any characters after the first NUL */
 						exif_add_image_info( ImageInfo, SECTION_COMPUTED, "Copyright.Photographer", TAG_COPYRIGHT, TAG_FMT_STRING, l, value_ptr);
 						exif_add_image_info( ImageInfo, SECTION_COMPUTED, "Copyright.Editor",       TAG_COPYRIGHT, TAG_FMT_STRING, byte_count-l-1, value_ptr+l+1);
@@ -1429,7 +1435,9 @@ static void exif_process_IFD_TAG(image_info_type *ImageInfo, char *dir_entry, ch
 				break;
 
 			case TAG_USERCOMMENT:
-				exif_process_user_comment(&(ImageInfo->UserComment),ImageInfo->UserCommentEncoding,value_ptr,byte_count);
+				ImageInfo->UserCommentLen = exif_process_user_comment(&(ImageInfo->UserComment),ImageInfo->UserCommentEncoding,value_ptr,byte_count);
+				if (ImageInfo->UserCommentLen)
+					ImageInfo->UserCommentLen--; /* We want number of characters not allocation size */
 				break;
 
 			/* this is only a comment if type is string! */
@@ -1557,9 +1565,9 @@ static void exif_process_IFD_in_JPEG(image_info_type *ImageInfo, char *DirStart,
 	int NumDirEntries;
 	int NextDirOffset;
 
-	#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 	php_error(E_NOTICE,"exif_process_IFD_in_JPEG(x%04X(=%d))", IFDlength, IFDlength);
-	#endif
+#endif
 
 	ImageInfo->sections_found |= FOUND_IFD0;
 
@@ -1585,9 +1593,9 @@ static void exif_process_IFD_in_JPEG(image_info_type *ImageInfo, char *DirStart,
 			return;
 		}
 		/* That is the IFD for the first thumbnail */
-		#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 		php_error(E_NOTICE,"expect next IFD to be thumbnail");
-		#endif
+#endif
 		exif_process_IFD_in_JPEG(ImageInfo, OffsetBase + NextDirOffset, OffsetBase, IFDlength, SECTION_THUMBNAIL);
 	}
 }
@@ -1618,9 +1626,9 @@ static void exif_process_TIFF_in_JPEG(image_info_type *ImageInfo, char *CharBuf,
 	/* First directory starts at offset 8. Offsets starts at 0. */
 	exif_process_IFD_in_JPEG(ImageInfo, CharBuf+8, CharBuf, length/*-14*/, SECTION_IFD0);
 
-	#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 	php_error(E_NOTICE,"exif_process_TIFF_in_JPEG, done");
-	#endif
+#endif
 
 	/* Compute the CCD width, in milimeters. */
 	if (ImageInfo->FocalplaneXRes != 0) {
@@ -1642,9 +1650,9 @@ static void exif_process_APP1(image_info_type *ImageInfo, char *CharBuf, unsigne
 		return;
 	}
 	exif_process_TIFF_in_JPEG(ImageInfo,CharBuf+8,length-8);
-	#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 	php_error(E_NOTICE,"process Exif done");
-	#endif
+#endif
 }
 /* }}} */
 
@@ -1657,14 +1665,14 @@ static void exif_process_APP12(image_info_type *ImageInfo, char *buffer, unsigne
 
 	if ( (l1 = php_strnlen(buffer+2,length-2)) > 0) {
 		exif_add_image_info( ImageInfo, SECTION_APP12, "Company", TAG_NONE, TAG_FMT_STRING, l1, buffer+2);
-		if ( length > 2+l1+1) {
+		if ( length > 2+(unsigned int)l1+1) {
 			l2 = php_strnlen(buffer+2+l1+1,length-2-l1+1);
 			exif_add_image_info( ImageInfo, SECTION_APP12, "Info", TAG_NONE, TAG_FMT_STRING, l2, buffer+2+l1+1);
 		}
 	}
-	#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 	php_error(E_NOTICE,"process section APP12 with l1=%d, l2=%d done", l1, l2);
-	#endif
+#endif
 }
 /* }}} */
 
@@ -1679,22 +1687,22 @@ static int exif_scan_JPEG_header(image_info_type *ImageInfo, FILE *infile)
 		int marker = 0;
 		int ll, lh, got;
 		uchar *Data;
-		#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 		size_t fpos;
-		#endif
+#endif
 
-		#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 		fpos = ftell(infile);
 		php_error(E_NOTICE,"search section %d at 0x%04X", ImageInfo->sections_count, fpos);
-		#endif
+#endif
 
 		for (a=0;a<7;a++) {
 			marker = fgetc(infile);
 			if (marker != 0xff) break;
 		}
-		#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 		fpos = ftell(infile);
-		#endif
+#endif
 		if (marker == 0xff) {
 			/* 0xff is legal padding, but if we get that many, something's wrong. */
 			php_error(E_WARNING, "too many padding bytes!");
@@ -1729,9 +1737,9 @@ static int exif_scan_JPEG_header(image_info_type *ImageInfo, FILE *infile)
 			return FALSE;
 		}
 
-		#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 		php_error(E_NOTICE,"process section(x%02X=%s) @ x%04X + x%04X(=%d)", marker, exif_get_markername(marker), fpos, itemlen, itemlen);
-		#endif
+#endif
 		switch(marker) {
 			case M_SOS:   /* stop before hitting compressed data  */
 				/* If reading entire image is requested, read the rest of the data. */
@@ -1785,9 +1793,9 @@ static int exif_scan_JPEG_header(image_info_type *ImageInfo, FILE *infile)
 				break;
 			case M_FPIX:
 				/*ImageInfo->sections_found |= FOUND_FPIX;*/
-				#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 				php_error(E_NOTICE,"Found Flash Pix Extension Data");
-				#endif
+#endif
 				/*exif_process_TIFF_in_JPEG(ImageInfo,(char *)Data,itemlen);*/
 				break;
 			case M_APP12:
@@ -1815,9 +1823,9 @@ static int exif_scan_JPEG_header(image_info_type *ImageInfo, FILE *infile)
 				break;
 		}
 	}
-	#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 	php_error(E_NOTICE,"exif_scan_JPEG_header, done");
-	#endif
+#endif
 	return TRUE;
 }
 /* }}} */
@@ -1830,9 +1838,9 @@ static int exif_process_IFD_in_TIFF(image_info_type *ImageInfo, FILE *infile, si
 	unsigned char *dir_entry;
 	size_t ifd_size, dir_size, entry_offset, next_offset, entry_length, entry_value;
 	int entry_tag , entry_type;
-	#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 	char tagname[64];
-	#endif
+#endif
 
 	sn = ImageInfo->sections_count++;
 	if ( ImageInfo->FileSize >= dir_offset+2) {
@@ -1842,17 +1850,17 @@ static int exif_process_IFD_in_TIFF(image_info_type *ImageInfo, FILE *infile, si
 		fread(ImageInfo->sections[sn].Data, 1, 2, infile);
 	    num_entries = php_ifd_get16u(ImageInfo->sections[sn].Data, ImageInfo->motorola_intel);
 		dir_size = 2/*num dir entries*/ +12/*length of entry*/*num_entries +4/* offset to next ifd (points to thumbnail or NULL)*/;
-		#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 		php_error(E_NOTICE,"Read from TIFF: filesize(x%04X), IFD dir(x%04X + x%04X), IFD entries(%d)", ImageInfo->FileSize, dir_offset, dir_size, num_entries);
-		#endif
+#endif
 		if ( ImageInfo->FileSize >= dir_offset+dir_size) {
 			ImageInfo->sections[sn].Size = dir_size;
 			ImageInfo->sections[sn].Data = erealloc(ImageInfo->sections[sn].Data,ImageInfo->sections[sn].Size);
 			fread(ImageInfo->sections[sn].Data+2, 1, dir_size-2, infile);
 			next_offset = php_ifd_get32u(ImageInfo->sections[sn].Data + dir_size - 4, ImageInfo->motorola_intel);
-			#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 			php_error(E_NOTICE,"Read from TIFF done, next offset x%04X", next_offset);
-			#endif
+#endif
 			/* now we have the directory we can look how long it should be */
 			ifd_size = dir_size;
 			for(i=0;i<num_entries;i++) {
@@ -1922,13 +1930,13 @@ static int exif_process_IFD_in_TIFF(image_info_type *ImageInfo, FILE *infile, si
 						php_error(E_ERROR,"Error in TIFF: filesize(x%04X) less than size of IFD(x%04X + x%04X)", ImageInfo->FileSize, dir_offset, ifd_size);
 						return FALSE;
 					}
-					#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 					php_error(E_NOTICE,"Read from TIFF: filesize(x%04X), IFD(x%04X + x%04X)", ImageInfo->FileSize, dir_offset, ifd_size);
-					#endif
+#endif
 					fread(ImageInfo->sections[sn].Data+dir_size, 1, ifd_size-dir_size, infile);
-					#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 					php_error(E_NOTICE,"Read from TIFF, done");
-					#endif
+#endif
 				}
 				/* now process the tags */
 				for(i=0;i<num_entries;i++) {
@@ -1956,27 +1964,27 @@ static int exif_process_IFD_in_TIFF(image_info_type *ImageInfo, FILE *infile, si
 								break;
 						}
 						entry_offset = php_ifd_get32u(dir_entry+8, ImageInfo->motorola_intel);
-						#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 						php_error(E_NOTICE,"Found other IFD: %s at x%04X", exif_get_tagname(entry_tag,tagname), entry_offset);
-						#endif
+#endif
 						exif_process_IFD_in_TIFF(ImageInfo,infile,entry_offset,sub_section_index);
-						#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 						php_error(E_NOTICE,"TIFF subsection %s done", exif_get_sectionname(sub_section_index));
-						#endif
+#endif
 					} else {
-						exif_process_IFD_TAG(ImageInfo,dir_entry,ImageInfo->sections[sn].Data-dir_offset,ifd_size,section_index,0);
+						exif_process_IFD_TAG(ImageInfo,(char*)dir_entry,(char*)(ImageInfo->sections[sn].Data-dir_offset),ifd_size,section_index,0);
 					}
 				}
 				if (next_offset && section_index != SECTION_THUMBNAIL) {
 					/* this should be a thumbnail IFD */
 					/* the thumbnail itself is stored at Tag=StripOffsets */
-					#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 					php_error(E_NOTICE,"Read next IFD (THUMBNAIL) at x%04X", next_offset);
-					#endif
+#endif
 					exif_process_IFD_in_TIFF(ImageInfo,infile,next_offset,SECTION_THUMBNAIL);
-					#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 					php_error(E_NOTICE,"Read THUMBNAIL @0x%04X + 0x%04X", ImageInfo->ThumbnailOffset, ImageInfo->ThumbnailSize);
-					#endif
+#endif
 					if (ImageInfo->ThumbnailOffset && ImageInfo->ThumbnailSize) {
 						ImageInfo->Thumbnail = emalloc(ImageInfo->ThumbnailSize);
 						if (!ImageInfo->Thumbnail) {
@@ -1986,9 +1994,9 @@ static int exif_process_IFD_in_TIFF(image_info_type *ImageInfo, FILE *infile, si
 							fread(ImageInfo->Thumbnail, 1, ImageInfo->ThumbnailSize, infile);
 						}
 					}
-					#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 					php_error(E_NOTICE,"Read next IFD (THUMBNAIL) done");
-					#endif
+#endif
 				}
 				return TRUE;
 			} else {
@@ -2026,9 +2034,9 @@ static int exif_scan_FILE_header (image_info_type *ImageInfo, FILE *infile)
 		    {
 		    	ImageInfo->FileType = IMAGE_FILETYPE_TIFF_II;
 		    	ImageInfo->motorola_intel = 0;
-		    	#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 		    	php_error(E_NOTICE,"File(%s) has TIFF/II format", ImageInfo->FileName);
-		    	#endif
+#endif
 				ImageInfo->sections_found |= FOUND_IFD0;
 		    	return exif_process_IFD_in_TIFF(ImageInfo,infile,php_ifd_get32u(file_header+4,ImageInfo->motorola_intel),SECTION_IFD0);
 		    }
@@ -2037,9 +2045,9 @@ static int exif_scan_FILE_header (image_info_type *ImageInfo, FILE *infile)
 		    {
 		    	ImageInfo->FileType = IMAGE_FILETYPE_TIFF_MM;
 		    	ImageInfo->motorola_intel = 1;
-		    	#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 		    	php_error(E_NOTICE,"File(%s) has TIFF/MM format", ImageInfo->FileName);
-		    	#endif
+#endif
 				ImageInfo->sections_found |= FOUND_IFD0;
 		    	return exif_process_IFD_in_TIFF(ImageInfo,infile,php_ifd_get32u(file_header+4,ImageInfo->motorola_intel),SECTION_IFD0);
 		    }
@@ -2171,11 +2179,11 @@ PHP_FUNCTION(exif_read_data)
 		}
     	efree(sections_str);
     	/* now see what we need */
-    	#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
     	sections_str = exif_get_sectionlist(sections_needed);
     	php_error(E_NOTICE,"Sections needed: %s", sections_str[0] ? sections_str : "None");
     	efree(sections_str);
-		#endif
+#endif
 	}
 	if(ac >= 3) {
 		convert_to_long_ex(p_sub_arrays);
@@ -2196,9 +2204,9 @@ PHP_FUNCTION(exif_read_data)
 
    	sections_str = exif_get_sectionlist(ImageInfo.sections_found);
 
-	#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 	php_error(E_NOTICE,"Sections found: %s", sections_str[0] ? sections_str : "None");
-	#endif
+#endif
 
 	ImageInfo.sections_found |= FOUND_COMPUTED;/* do not inform about in debug*/
 
@@ -2209,9 +2217,9 @@ PHP_FUNCTION(exif_read_data)
 		RETURN_FALSE;
 	}
 
-	#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 	php_error(E_NOTICE,"Returning information");
-	#endif
+#endif
 
 	/*************************************************************************************************/
 	/* generic created information must use motorola/intel organisation from the executing processor */
@@ -2266,7 +2274,8 @@ PHP_FUNCTION(exif_read_data)
 		exif_add_image_info( &ImageInfo, SECTION_COMPUTED, "FocusDistance", TAG_NONE, TAG_FMT_STRING, strlen(tmp), tmp);
 	}
 	if (ImageInfo.UserComment) {
-		exif_add_image_info( &ImageInfo, SECTION_COMPUTED, "UserComment", TAG_NONE, TAG_FMT_STRING, strlen(ImageInfo.UserComment), ImageInfo.UserComment);
+		/*exif_iif_add_int( &ImageInfo, SECTION_COMPUTED, "UserCommentLen",  ImageInfo.UserCommentLen);*/
+		exif_add_image_info( &ImageInfo, SECTION_COMPUTED, "UserComment", TAG_NONE, TAG_FMT_UNDEFINED, ImageInfo.UserCommentLen, ImageInfo.UserComment);
 		if ( (len=strlen(ImageInfo.UserCommentEncoding))) {
 			exif_add_image_info( &ImageInfo, SECTION_COMPUTED, "UserCommentEncoding", TAG_NONE, TAG_FMT_STRING, len, ImageInfo.UserCommentEncoding);
 		}
@@ -2277,9 +2286,9 @@ PHP_FUNCTION(exif_read_data)
 	}
    	efree(sections_str);
 
-	#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 	php_error(E_NOTICE,"adding image infos");
-	#endif
+#endif
 
 	add_assoc_image_info( return_value, sub_arrays, &ImageInfo, SECTION_FILE);
 	add_assoc_image_info( return_value, 1, 			&ImageInfo, SECTION_COMPUTED);
@@ -2293,15 +2302,15 @@ PHP_FUNCTION(exif_read_data)
 	add_assoc_image_info( return_value, sub_arrays, &ImageInfo, SECTION_FPIX);
 	add_assoc_image_info( return_value, sub_arrays, &ImageInfo, SECTION_APP12);
 
-	#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 	php_error(E_NOTICE,"Discarding info");
-	#endif
+#endif
 
 	php_exif_discard_imageinfo(&ImageInfo);
 
-	#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 	php_error(E_NOTICE,"read_exif_data done");
-	#endif
+#endif
 }
 /* }}} */
 
@@ -2333,21 +2342,21 @@ PHP_FUNCTION(exif_thumbnail)
 		RETURN_FALSE;
 	}
 
-	#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 	php_error(E_NOTICE,"Returning thumbnail(%d)", ImageInfo.ThumbnailSize);
-	#endif
+#endif
 
-	ZVAL_STRINGL( return_value, ImageInfo.Thumbnail, ImageInfo.ThumbnailSize, 1);
+	RETVAL_STRINGL(ImageInfo.Thumbnail, ImageInfo.ThumbnailSize, 1);
 
-	#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 	php_error(E_NOTICE,"Discarding info");
-	#endif
+#endif
 
 	php_exif_discard_imageinfo(&ImageInfo);
 
-	#ifdef EXIF_DEBUG
+#ifdef EXIF_DEBUG
 	php_error(E_NOTICE,"exif_thumbnail done");
-	#endif
+#endif
 }
 /* }}} */
 

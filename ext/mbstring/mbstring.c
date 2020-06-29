@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mbstring.c,v 1.48.2.6 2002/04/24 09:46:23 yohgaki Exp $ */
+/* $Id: mbstring.c,v 1.48.2.14 2002/08/01 05:47:56 zeev Exp $ */
 
 /*
  * PHP4 Multibyte String module "mbstring" (currently only for Japanese)
@@ -993,7 +993,7 @@ PHP_FUNCTION(mb_preferred_mime_name)
 static void
 php_mbstr_encoding_handler(zval *arg, char *res, char *separator TSRMLS_DC)
 {
-	char *var, *val;
+	char *var, *val, *s1, *s2;
 	char *strtok_buf = NULL, **val_list;
 	zval *array_ptr = (zval *) arg;
 	int n, num, val_len, *len_list, *elist, elistsz;
@@ -1005,19 +1005,23 @@ php_mbstr_encoding_handler(zval *arg, char *res, char *separator TSRMLS_DC)
 	mbfl_string_init_set(&string, MBSTRG(current_language), MBSTRG(current_internal_encoding));
 	mbfl_string_init_set(&resvar, MBSTRG(current_language), MBSTRG(current_internal_encoding));
 	mbfl_string_init_set(&resval, MBSTRG(current_language), MBSTRG(current_internal_encoding));
-	
-	/* count the variables contained in the query */
-	num = 0;
-	var = res;
-	n = strlen(res);
-	while(n > 0) {
-		if (*var == '=') {
-			num++;
-		}
-		var++;
-		n--;
+
+	if (!res || *res == '\0') {
+		return;
 	}
-	num *= 2;
+	
+	/* count the variables(separators) contained in the "res".
+	 * separator may contain multiple separator chars.
+	 * separaror chars are set in php.ini (arg_separator.input)
+	 */
+	num = 1;
+	for (s1=res; *s1 != '\0'; s1++)
+		for (s2=separator; *s2 != '\0'; s2++)
+			if (*s1 == *s2)
+				num++;
+				
+	num *= 2; /* need space for variable name and value */
+	
 	val_list = (char **)ecalloc(num, sizeof(char *));
 	len_list = (int *)ecalloc(num, sizeof(int));
 
@@ -1025,28 +1029,24 @@ php_mbstr_encoding_handler(zval *arg, char *res, char *separator TSRMLS_DC)
 	n = 0;
 	strtok_buf = NULL;
 	var = php_strtok_r(res, separator, &strtok_buf);
-	
-	while (var && n < num) {
+	while (var)  {
 		val = strchr(var, '=');
+		val_list[n] = var;
+		len_list[n] = php_url_decode(var, strlen(var));
+		n++;
 		if (val) { /* have a value */
 			*val++ = '\0';
-			val_list[n] = var;
-			len_list[n] = php_url_decode(var, strlen(var));
-			n++;
 			val_list[n] = val;
 			len_list[n] = php_url_decode(val, strlen(val));
 		} else {
-			val_list[n] = var;
-			len_list[n] = php_url_decode(var, strlen(var));
-			n++;
-			val_list[n] = NULL;
+			val_list[n] = "";
 			len_list[n] = 0;
 		}
 		n++;
 		var = php_strtok_r(NULL, separator, &strtok_buf);
-	}
-	num = n;
-
+	} 
+	num = n; /* make sure to process initilized vars only */
+	
 	/* initialize converter */
 	to_encoding = MBSTRG(current_internal_encoding);
 	elist = MBSTRG(http_input_list);
@@ -1129,7 +1129,6 @@ php_mbstr_encoding_handler(zval *arg, char *res, char *separator TSRMLS_DC)
 
 }
 
-#if defined(MBSTR_ENC_TRANS)
 SAPI_POST_HANDLER_FUNC(php_mbstr_post_handler)
 {
 	MBSTRG(http_input_identify_post) = mbfl_no_encoding_invalid;
@@ -1140,7 +1139,38 @@ SAPI_POST_HANDLER_FUNC(php_mbstr_post_handler)
 		MBSTRG(http_input_identify_post) = MBSTRG(http_input_identify);
 	}
 }
-#endif
+
+#define IS_SJIS1(c) ((((c)>=0x81 && (c)<=0x9f) || ((c)>=0xe0 && (c)<=0xf5)) ? 1 : 0)
+#define IS_SJIS2(c) ((((c)>=0x40 && (c)<=0x7e) || ((c)>=0x80 && (c)<=0xfc)) ? 1 : 0)
+
+char *mbstr_strrchr(const char *s, char c TSRMLS_DC){
+	unsigned char *p = (unsigned char *)s, *last = NULL;
+	while(*p) {
+		if (*p == c) {
+			last = p;
+		}
+		if (*p == '\0'){
+			break;
+		}
+		if (MBSTRG(current_language) == mbfl_no_language_japanese 
+			&& IS_SJIS1(*p) && IS_SJIS2(*(p+1))) {
+			p++;
+		}
+		p++;
+	}
+	return last;
+}
+
+
+int mbstr_is_mb_leadbyte(const char *s TSRMLS_DC){
+	unsigned char *p = (unsigned char *)s;
+	if (MBSTRG(current_language) == mbfl_no_language_japanese 
+		&& IS_SJIS1(*p) && IS_SJIS2(*(p+1))){
+		return 1;
+	}
+	return 0;
+}
+
 
 /* http input processing */
 void mbstr_treat_data(int arg, char *str, zval* destArray TSRMLS_DC)
@@ -1454,10 +1484,12 @@ PHP_FUNCTION(mb_output_handler)
 	size_t arg_string_len;
 	long arg_status;
 	mbfl_string string, result;
-	const char *mimetype, *charset;
+	const char *charset;
 	char *p;
 	enum mbfl_no_encoding encoding;
 	int last_feed, len;
+	unsigned char send_text_mimetype = 0;
+	char *s, *mimetype = NULL;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sl", &arg_string, &arg_string_len, &arg_status) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -1475,9 +1507,23 @@ PHP_FUNCTION(mb_output_handler)
 		if (encoding == mbfl_no_encoding_pass) {
 			RETURN_STRINGL(arg_string, arg_string_len, 1);
 		}
- 		/* if content-type is not yet set, set it and activate the converter */
- 		if (SG(sapi_headers).send_default_content_type ) {
+
+		/* analyze mime type */
+		if (SG(sapi_headers).mimetype && 
+			strncmp(SG(sapi_headers).mimetype, "text/", 5) == 0) {
+			if ((s = strchr(SG(sapi_headers).mimetype,';')) == NULL){
+				mimetype = estrdup(SG(sapi_headers).mimetype);
+			} else {
+				mimetype = estrndup(SG(sapi_headers).mimetype,s-SG(sapi_headers).mimetype);
+			}
+			send_text_mimetype = 1;
+		} else if (SG(sapi_headers).send_default_content_type) {
 			mimetype = SG(default_mimetype) ? SG(default_mimetype) : SAPI_DEFAULT_MIMETYPE;
+		}
+
+ 		/* if content-type is not yet set or text mimetype is set, 
+		   set it and activate the converter */
+ 		if (SG(sapi_headers).send_default_content_type || send_text_mimetype) {
 			charset = mbfl_no2preferred_mime_name(encoding);
 			if (charset) {
 				len = (sizeof ("Content-Type:")-1) + strlen(mimetype) + (sizeof (";charset=")-1) + strlen(charset) + 1;
@@ -1491,6 +1537,9 @@ PHP_FUNCTION(mb_output_handler)
 			}
  			/* activate the converter */
  			MBSTRG(outconv) = mbfl_buffer_converter_new(MBSTRG(current_internal_encoding), encoding, 0);
+			if (send_text_mimetype){
+				efree(mimetype);
+			}
  		}
   	}
 

@@ -280,9 +280,6 @@ track_errors = Off
 ; Log errors to syslog (Event Log on NT, not valid in Windows 95).
 ;error_log = syslog
 
-; Warn if the + operator is used with strings.
-warn_plus_overloading = Off
-
 
 ;;;;;;;;;;;;;;;;;
 ; Data Handling ;
@@ -752,8 +749,16 @@ session.cache_limiter = nocache
 ; Document expires after n minutes.
 session.cache_expire = 180
 
-; use transient sid support if enabled by compiling with --enable-trans-sid.
-session.use_trans_sid = 1
+; trans sid support is disabled by default.
+; Use of trans sid may risk your users security. 
+; Use this option with caution.
+; - User may send URL contains active session ID
+;   to other person via. email/irc/etc.
+; - URL that contains active session ID may be stored
+;   in publically accessible computer.
+; - User may access your site with the same session ID
+;   always using URL stored in browser's history or bookmarks.
+session.use_trans_sid = 0
 
 url_rewriter.tags = "a=href,area=href,frame=src,input=src,form=fakeentry"
 

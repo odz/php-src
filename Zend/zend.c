@@ -205,7 +205,7 @@ ZEND_API void zend_print_zval_r_ex(zend_write_func_t write_func, zval *expr, int
 			ZEND_PUTS("Array\n");
 			if (++expr->value.ht->nApplyCount>1) {
 				ZEND_PUTS(" *RECURSION*");
-				expr->value.ht->nApplyCount=0;
+				expr->value.ht->nApplyCount--;
 				return;
 			}
 			print_hash(expr->value.ht, indent);
@@ -217,7 +217,7 @@ ZEND_API void zend_print_zval_r_ex(zend_write_func_t write_func, zval *expr, int
 
 				if (++object->properties->nApplyCount>1) {
 					ZEND_PUTS(" *RECURSION*");
-					object->properties->nApplyCount=0;
+					object->properties->nApplyCount--;
 					return;
 				}
 				zend_printf("%s Object\n", object->ce->name);
@@ -369,7 +369,9 @@ static void scanner_globals_ctor(zend_scanner_globals *scanner_globals_p TSRMLS_
 	scanner_globals_p->yy_out = NULL;
 	scanner_globals_p->_yy_more_flag = 0;
 	scanner_globals_p->_yy_more_len = 0;
-
+	scanner_globals_p->yy_start_stack_ptr = 0;
+	scanner_globals_p->yy_start_stack_depth = 0;
+	scanner_globals_p->yy_start_stack = 0;
 }
 
 

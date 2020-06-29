@@ -16,6 +16,8 @@
    +----------------------------------------------------------------------+
 */
 
+/* $Id: zend_qsort.c,v 1.4.2.1 2002/08/27 00:33:18 sniper Exp $ */
+
 #include "zend.h"
 
 #include <limits.h>
@@ -32,23 +34,21 @@ static void _zend_qsort_swap(void *a, void *b, size_t siz)
 	int             t_i;
 	char            t_c;
 
+	tmp_a_int = (int *) a;
+	tmp_b_int = (int *) b;
+
 	for (i = sizeof(int); i <= siz; i += sizeof(int)) {
-		tmp_a_int = (int *) a;
-		tmp_b_int = (int *) b;
-
 		t_i = *tmp_a_int;
-
-		*tmp_a_int++ = *(int *) b;
+		*tmp_a_int++ = *tmp_b_int;
 		*tmp_b_int++ = t_i;
 	}
 
+	tmp_a_char = (char *) tmp_a_int;
+	tmp_b_char = (char *) tmp_b_int;
+
 	for (i = i - sizeof(int) + 1; i <= siz; ++i) {
-		tmp_a_char = (char *) a;
-		tmp_b_char = (char *) b;
-
 		t_c = *tmp_a_char;
-
-		*tmp_a_char++ = *(char *) b;
+		*tmp_a_char++ = *tmp_b_char;
 		*tmp_b_char++ = t_c;
 	}
 }

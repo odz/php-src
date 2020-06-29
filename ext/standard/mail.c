@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mail.c,v 1.48 2002/02/28 08:26:46 sebastian Exp $ */
+/* $Id: mail.c,v 1.48.2.3 2002/08/24 11:38:13 sesser Exp $ */
 
 #include <stdlib.h>
 #include <ctype.h>
@@ -70,8 +70,12 @@ PHP_FUNCTION(ezmlm_hash)
 PHP_FUNCTION(mail)
 {
 	char *to=NULL, *message=NULL, *headers=NULL, *subject=NULL, *extra_cmd=NULL;
-	int to_len,message_len,headers_len,subject_len,extra_cmd_len;
+	int to_len,message_len,headers_len,subject_len,extra_cmd_len,i;
 	
+	if (PG(safe_mode) && (ZEND_NUM_ARGS() == 5)) {
+		php_error(E_WARNING, "%s(): SAFE MODE Restriction in effect.  The fifth parameter is disabled in SAFE MODE.", get_active_function_name(TSRMLS_C));
+		RETURN_FALSE;
+	}
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sss|ss",
 							  &to, &to_len,
@@ -83,14 +87,28 @@ PHP_FUNCTION(mail)
 		return;
 	}
 
-	for(to_len--;to_len;to_len--) {
-		if(!isspace(to[to_len]))break;
-		to[to_len]='\0';
+	if (to_len > 0) {
+		for(;to_len;to_len--) {
+			if(!isspace((unsigned char)to[to_len-1]))break;
+			to[to_len-1]='\0';
+		}
+		for(i=0;to[i];i++) {
+			if (iscntrl((unsigned char)to[i])) {
+				to[i]=' ';
+			}
+		}
 	}
 
-	for(subject_len--;subject_len;subject_len--) {
-		if(!isspace(subject[subject_len]))break;
-		subject[subject_len]='\0';
+	if (subject_len > 0) {
+		for(;subject_len;subject_len--) {
+			if(!isspace((unsigned char)subject[subject_len-1]))break;
+			subject[subject_len-1]='\0';
+		}
+		for(i=0;subject[i];i++) {
+			if (iscntrl((unsigned char)subject[i])) {
+				subject[i]=' ';
+			}
+		}
 	}
 
 	if(extra_cmd)

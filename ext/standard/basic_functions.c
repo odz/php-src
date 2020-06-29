@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: basic_functions.c,v 1.447.2.4 2002/05/11 19:23:05 rasmus Exp $ */
+/* $Id: basic_functions.c,v 1.447.2.7 2002/08/24 00:44:03 zeev Exp $ */
 
 #include "php.h"
 #include "php_main.h"
@@ -626,7 +626,7 @@ function_entry basic_functions[] = {
 	PHP_FALIAS(fopenstream, warn_not_available,								NULL)
 #endif
 
-#if HAVE_SYS_TIME_H
+#if HAVE_SYS_TIME_H || defined(PHP_WIN32)
 	PHP_FE(socket_set_timeout,												NULL)
 #else
 	PHP_FALIAS(socket_set_timeout, warn_not_available,						NULL)
@@ -1084,6 +1084,9 @@ PHP_RINIT_FUNCTION(basic)
 	PHP_RINIT(filestat) (INIT_FUNC_ARGS_PASSTHRU);
 	PHP_RINIT(syslog) (INIT_FUNC_ARGS_PASSTHRU);
 	PHP_RINIT(dir) (INIT_FUNC_ARGS_PASSTHRU);
+
+	/* Reset magic_quotes_runtime */
+	PG(magic_quotes_runtime) = INI_BOOL("magic_quotes_runtime");
 
 	return SUCCESS;
 }
@@ -2542,7 +2545,8 @@ static int copy_request_variable(void *pDest, int num_args, va_list args, zend_h
 	memcpy(new_key, prefix, prefix_len);
 	memcpy(new_key+prefix_len, hash_key->arKey, hash_key->nKeyLength);
 
-	ZEND_SET_SYMBOL_WITH_LENGTH(&EG(symbol_table), new_key, new_key_len, *var, 0, 1);
+	zend_hash_del(&EG(symbol_table), new_key, new_key_len);
+	ZEND_SET_SYMBOL_WITH_LENGTH(&EG(symbol_table), new_key, new_key_len, *var, (*var)->refcount+1, 0);
 
 	efree(new_key);
 	return 0;

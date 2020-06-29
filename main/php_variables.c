@@ -16,7 +16,7 @@
    |          Zeev Suraski <zeev@zend.com>                                |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_variables.c,v 1.35 2001/12/11 15:31:05 sebastian Exp $ */
+/* $Id: php_variables.c,v 1.35.2.3 2002/08/01 02:21:00 yohgaki Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -198,6 +198,10 @@ SAPI_API SAPI_POST_HANDLER_FUNC(php_std_post_handler)
 	char *strtok_buf = NULL;
 	zval *array_ptr = (zval *) arg;
 
+	if (SG(request_info).post_data==NULL) {
+		return;
+	}	
+
 	var = php_strtok_r(SG(request_info).post_data, "&", &strtok_buf);
 
 	while (var) {
@@ -299,6 +303,10 @@ void php_treat_data(int arg, char *str, zval* destArray TSRMLS_DC)
 			val_len = php_url_decode(val, strlen(val));
 			php_register_variable_safe(var, val, val_len, array_ptr TSRMLS_CC);
 		}
+		else {
+			php_register_variable_safe(var, "", 0, array_ptr TSRMLS_CC);
+		}
+		
 		var = php_strtok_r(NULL, separator, &strtok_buf);
 	}
 

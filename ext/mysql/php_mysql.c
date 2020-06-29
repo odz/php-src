@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
  
-/* $Id: php_mysql.c,v 1.116 2002/02/28 08:26:25 sebastian Exp $ */
+/* $Id: php_mysql.c,v 1.116.2.4 2002/08/29 01:18:28 sniper Exp $ */
 
 
 /* TODO:
@@ -103,7 +103,7 @@ static int le_result, le_link, le_plink;
 #define MYSQL_USE_RESULT	0
 #define MYSQL_STORE_RESULT	1
 
-#if MYSQL_VERSION_ID < 32223
+#if MYSQL_VERSION_ID < 32224
 #define PHP_MYSQL_VALID_RESULT(mysql)		\
 	(mysql_num_fields(mysql)>0)
 #else
@@ -215,6 +215,26 @@ ZEND_GET_MODULE(mysql)
 void timeout(int sig);
 
 #define CHECK_LINK(link) { if (link==-1) { php_error(E_WARNING, "MySQL:  A link to the server could not be established"); RETURN_FALSE; } }
+/* {{{ _rollback_mysql_transactions
+ */
+static int _rollback_mysql_transactions(zend_rsrc_list_entry *rsrc TSRMLS_DC)
+{
+	php_mysql_conn *link;
+	char	query[128];
+
+	/* check if its a persistent link */
+	if (Z_TYPE_P(rsrc) != le_plink) 
+		return 0;
+
+	link = (php_mysql_conn *) rsrc->ptr;
+
+	/* rollback possible transactions */
+	strcpy (query, "ROLLBACK");
+	mysql_real_query(&link->conn, query, strlen(query));
+
+	return 0;	
+}
+/* }}} */
 
 /* {{{ _free_mysql_result
  * This wrapper is required since mysql_free_result() returns an integer, and
@@ -385,6 +405,8 @@ PHP_RINIT_FUNCTION(mysql)
  */
 PHP_RSHUTDOWN_FUNCTION(mysql)
 {
+	zend_hash_apply(&EG(persistent_list), (apply_func_t) _rollback_mysql_transactions TSRMLS_CC);
+
 	if (MySG(connect_error)!=NULL) {
 		efree(MySG(connect_error));
 	}
@@ -1124,7 +1146,9 @@ PHP_FUNCTION(mysql_db_query)
 			break;
 	}
 	
-	zend_error(E_NOTICE, "%s is deprecated; use mysql_select_db() and mysql_query() instead", get_active_function_name(TSRMLS_C));
+	if (!strcasecmp(get_active_function_name(TSRMLS_C), "mysql")) {
+		zend_error(E_NOTICE, "%s is deprecated; use mysql_db_query()", get_active_function_name(TSRMLS_C));
+	}
 	
 	php_mysql_do_query_general(query, mysql_link, id, db, MYSQL_STORE_RESULT, return_value TSRMLS_CC);
 }
