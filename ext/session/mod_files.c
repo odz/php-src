@@ -16,7 +16,6 @@
    +----------------------------------------------------------------------+
  */
 
-
 #include "php.h"
 
 #include <sys/stat.h>
@@ -55,7 +54,7 @@ ps_module ps_mod_files = {
 	PS_MOD(files)
 };
 
-static int _ps_files_valid_key(const char *key)
+static int ps_files_valid_key(const char *key)
 {
 	size_t len;
 	const char *p;
@@ -80,7 +79,7 @@ static int _ps_files_valid_key(const char *key)
 	return ret;
 }
 
-static char *_ps_files_path_create(char *buf, size_t buflen, ps_files *data, const char *key)
+static char *ps_files_path_create(char *buf, size_t buflen, ps_files *data, const char *key)
 {
 	int keylen;
 	const char *p;
@@ -108,7 +107,7 @@ static char *_ps_files_path_create(char *buf, size_t buflen, ps_files *data, con
 #define O_BINARY 0
 #endif 
 
-static void _ps_files_open(ps_files *data, const char *key)
+static void ps_files_open(ps_files *data, const char *key)
 {
 	char buf[MAXPATHLEN];
 
@@ -122,8 +121,8 @@ static void _ps_files_open(ps_files *data, const char *key)
 			data->fd = -1;
 		}
 		
-		if (!_ps_files_valid_key(key) || 
-				!_ps_files_path_create(buf, sizeof(buf), data, key))
+		if (!ps_files_valid_key(key) || 
+				!ps_files_path_create(buf, sizeof(buf), data, key))
 			return;
 		
 		data->lastkey = estrdup(key);
@@ -148,10 +147,11 @@ static void _ps_files_open(ps_files *data, const char *key)
 	}
 }
 
-static int _ps_files_cleanup_dir(const char *dirname, int maxlifetime)
+static int ps_files_cleanup_dir(const char *dirname, int maxlifetime)
 {
 	DIR *dir;
-	struct dirent *entry, dentry;
+	char dentry[sizeof(struct dirent) + MAXPATHLEN + 1];
+	struct dirent *entry = (struct dirent *) &dentry;
 	struct stat sbuf;
 	char buf[MAXPATHLEN];
 	time_t now;
@@ -159,13 +159,13 @@ static int _ps_files_cleanup_dir(const char *dirname, int maxlifetime)
 
 	dir = opendir(dirname);
 	if (!dir) {
-		php_error(E_NOTICE, "_ps_files_cleanup_dir: opendir(%s) failed: %m (%d)\n", dirname, errno);
+		php_error(E_NOTICE, "ps_files_cleanup_dir: opendir(%s) failed: %m (%d)\n", dirname, errno);
 		return (0);
 	}
 
 	time(&now);
 
-	while (php_readdir_r(dir, &dentry, &entry) == 0 && entry) {
+	while (php_readdir_r(dir, (struct dirent *) dentry, &entry) == 0 && entry) {
 		/* does the file start with our prefix? */
 		if (!strncmp(entry->d_name, FILE_PREFIX, sizeof(FILE_PREFIX) - 1) &&
 				/* create full path */
@@ -226,7 +226,7 @@ PS_READ_FUNC(files)
 	struct stat sbuf;
 	PS_FILES_DATA;
 
-	_ps_files_open(data, key);
+	ps_files_open(data, key);
 	if (data->fd < 0)
 		return FAILURE;
 	
@@ -251,7 +251,7 @@ PS_WRITE_FUNC(files)
 {
 	PS_FILES_DATA;
 
-	_ps_files_open(data, key);
+	ps_files_open(data, key);
 	if (data->fd < 0)
 		return FAILURE;
 
@@ -270,7 +270,7 @@ PS_DESTROY_FUNC(files)
 	char buf[MAXPATHLEN];
 	PS_FILES_DATA;
 
-	if (!_ps_files_path_create(buf, sizeof(buf), data, key))
+	if (!ps_files_path_create(buf, sizeof(buf), data, key))
 		return FAILURE;
 	
 	if (V_UNLINK(buf) == -1) {
@@ -289,7 +289,7 @@ PS_GC_FUNC(files)
 	   an external entity (i.e. find -ctime x | xargs rm) */
 	   
 	if (data->dirdepth == 0)
-		*nrdels = _ps_files_cleanup_dir(data->basedir, maxlifetime);
+		*nrdels = ps_files_cleanup_dir(data->basedir, maxlifetime);
 	
 	return SUCCESS;
 }

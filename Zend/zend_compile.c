@@ -113,6 +113,7 @@ ZEND_API char *zend_set_compiled_filename(char *new_compiled_filename)
 	CLS_FETCH();
 
 	if (zend_hash_find(&CG(filenames_table), new_compiled_filename, length+1, (void **) &pp)==SUCCESS) {
+		CG(compiled_filename) = *pp;
 		return *pp;
 	}
 	p = estrndup(new_compiled_filename, length);
@@ -1947,18 +1948,22 @@ void do_cast(znode *result, znode *expr, int type CLS_DC)
 
 void do_include_or_eval(int type, znode *result, znode *op1 CLS_DC)
 {
-	zend_op *opline = get_next_op(CG(active_op_array) CLS_CC);
+	do_extended_fcall_begin(CLS_C);
+	{
+		zend_op *opline = get_next_op(CG(active_op_array) CLS_CC);
 
-	opline->opcode = ZEND_INCLUDE_OR_EVAL;
-	opline->result.op_type = IS_VAR;
-	opline->result.u.var = get_temporary_variable(CG(active_op_array));
-	opline->op1 = *op1;
-	SET_UNUSED(opline->op2);
-	opline->op2.u.constant.value.lval = type;
-	*result = opline->result;
-	if (type==ZEND_REQUIRE) {
-		opline->result.u.EA.type |= EXT_TYPE_UNUSED;
+		opline->opcode = ZEND_INCLUDE_OR_EVAL;
+		opline->result.op_type = IS_VAR;
+		opline->result.u.var = get_temporary_variable(CG(active_op_array));
+		opline->op1 = *op1;
+		SET_UNUSED(opline->op2);
+		opline->op2.u.constant.value.lval = type;
+		*result = opline->result;
+		if (type==ZEND_REQUIRE) {
+			opline->result.u.EA.type |= EXT_TYPE_UNUSED;
+		}
 	}
+	do_extended_fcall_end(CLS_C);
 }
 
 

@@ -15,12 +15,11 @@
    | Authors: Rasmus Lerdorf <rasmus@php.net>                             |
    +----------------------------------------------------------------------+
  */
-/* $Id: rfc1867.c,v 1.38 2000/08/06 06:40:28 rasmus Exp $ */
+/* $Id: rfc1867.c,v 1.51 2000/09/11 18:56:47 andi Exp $ */
 
 #include <stdio.h>
 #include "php.h"
-#include "ext/standard/php_standard.h"
-#include "ext/standard/file.h" /* for php_file_le_uploads() */
+#include "php_open_temporary_file.h"
 #include "zend_globals.h"
 #include "php_globals.h"
 #include "php_variables.h"
@@ -28,38 +27,87 @@
 
 
 #define NEW_BOUNDARY_CHECK 1
-#define SAFE_RETURN { if (namebuf) efree(namebuf); if (filenamebuf) efree(filenamebuf); if (lbuf) efree(lbuf); if (abuf) efree(abuf); if(arr_index) efree(arr_index); return; }
+#define SAFE_RETURN { if (namebuf) efree(namebuf); if (filenamebuf) efree(filenamebuf); if (lbuf) efree(lbuf); if (abuf) efree(abuf); if(arr_index) efree(arr_index); zend_hash_destroy(&PG(rfc1867_protected_variables)); return; }
 
 /* The longest property name we use in an uploaded file array */
 #define MAX_SIZE_OF_INDEX sizeof("[tmp_name]")
 
+static void add_protected_variable(char *varname PLS_DC)
+{
+	int dummy=1;
 
-static void register_http_post_files_variable(char *strvar, char *val, zval *http_post_files ELS_DC PLS_DC)
+	zend_hash_add(&PG(rfc1867_protected_variables), varname, strlen(varname)+1, &dummy, sizeof(int), NULL);
+}
+
+
+static zend_bool is_protected_variable(char *varname PLS_DC)
+{
+	return zend_hash_exists(&PG(rfc1867_protected_variables), varname, strlen(varname)+1);
+}
+
+
+static void safe_php_register_variable(char *var, char *strval, zval *track_vars_array, zend_bool override_protection ELS_DC PLS_DC)
+{
+	if (override_protection || !is_protected_variable(var PLS_CC)) {
+		php_register_variable(var, strval, track_vars_array ELS_CC PLS_CC);
+	}
+}
+
+
+static void safe_php_register_variable_ex(char *var, zval *val, pval *track_vars_array, zend_bool override_protection ELS_DC PLS_DC)
+{
+	if (override_protection || !is_protected_variable(var PLS_CC)) {
+		php_register_variable_ex(var, val, track_vars_array ELS_CC PLS_CC);
+	}
+}
+
+
+static void register_http_post_files_variable(char *strvar, char *val, zval *http_post_files, zend_bool override_protection ELS_DC PLS_DC)
 {
 	int register_globals = PG(register_globals);
-	
+
 	PG(register_globals) = 0;
-	php_register_variable(strvar, val, http_post_files ELS_CC PLS_CC);
+	safe_php_register_variable(strvar, val, http_post_files, override_protection ELS_CC PLS_CC);
 	PG(register_globals) = register_globals;
 }
 
 
-static void register_http_post_files_variable_ex(char *var, zval *val, zval *http_post_files ELS_DC PLS_DC)
+static void register_http_post_files_variable_ex(char *var, zval *val, zval *http_post_files, zend_bool override_protection ELS_DC PLS_DC)
 {
 	int register_globals = PG(register_globals);
-	
+
 	PG(register_globals) = 0;
-	php_register_variable_ex(var, val, http_post_files ELS_CC PLS_CC);
+	safe_php_register_variable_ex(var, val, http_post_files, override_protection ELS_CC PLS_CC);
 	PG(register_globals) = register_globals;
 }
 
+
+static void free_filename(char **filename)
+{
+	efree(*filename);
+}
+
+
+static int unlink_filename(char **filename)
+{
+	V_UNLINK(*filename);
+	return 0;
+}
+
+
+void destroy_uploaded_files_hash(SLS_D)
+{
+	zend_hash_apply(SG(rfc1867_uploaded_files), (apply_func_t) unlink_filename);
+	zend_hash_destroy(SG(rfc1867_uploaded_files));
+	FREE_HASHTABLE(SG(rfc1867_uploaded_files));
+}
 
 /*
  * Split raw mime stream up into appropriate components
  */
-static void php_mime_split(char *buf, int cnt, char *boundary, zval *array_ptr)
+static void php_mime_split(char *buf, int cnt, char *boundary, zval *array_ptr SLS_DC PLS_DC)
 {
-	char *ptr, *loc, *loc2, *loc3, *s, *name, *filename, *u, *fn;
+	char *ptr, *loc, *loc2, *loc3, *s, *name, *filename, *u, *temp_filename;
 	int len, state = 0, Done = 0, rem, urem;
 	int eolsize;
 	long bytes, max_file_size = 0;
@@ -68,16 +116,19 @@ static void php_mime_split(char *buf, int cnt, char *boundary, zval *array_ptr)
 	FILE *fp;
 	int itype, is_arr_upload=0, arr_len=0;
 	zval *http_post_files=NULL;
+	zend_bool upload_successful;
+	zend_bool magic_quotes_gpc;
 	ELS_FETCH();
-	PLS_FETCH();
 
-	if (PG(track_vars)) {
-		ALLOC_ZVAL(http_post_files);
-		array_init(http_post_files);
-		INIT_PZVAL(http_post_files);
-		PG(http_globals).post_files = http_post_files;
-	}
+	zend_hash_init(&PG(rfc1867_protected_variables), 5, NULL, NULL, 0);
 
+	ALLOC_HASHTABLE(SG(rfc1867_uploaded_files));
+	zend_hash_init(SG(rfc1867_uploaded_files), 5, NULL, (dtor_func_t) free_filename, 0);
+
+	ALLOC_ZVAL(http_post_files);
+	array_init(http_post_files);
+	INIT_PZVAL(http_post_files);
+	PG(http_globals)[TRACK_VARS_FILES] = http_post_files;
 
 	ptr = buf;
 	rem = cnt;
@@ -177,9 +228,9 @@ static void php_mime_split(char *buf, int cnt, char *boundary, zval *array_ptr)
 					}
 					s = strrchr(filenamebuf, '\\');
 					if (s && s > filenamebuf) {
-						php_register_variable(lbuf, s+1, NULL ELS_CC PLS_CC);
+						safe_php_register_variable(lbuf, s+1, NULL, 0 ELS_CC PLS_CC);
 					} else {
-						php_register_variable(lbuf, filenamebuf, NULL ELS_CC PLS_CC);
+						safe_php_register_variable(lbuf, filenamebuf, NULL, 0 ELS_CC PLS_CC);
 					}
 
 					/* Add $foo[name] */
@@ -189,9 +240,9 @@ static void php_mime_split(char *buf, int cnt, char *boundary, zval *array_ptr)
                         sprintf(lbuf, "%s[name]", namebuf);
                     }
 					if (s && s > filenamebuf) {
-						register_http_post_files_variable(lbuf, s+1, http_post_files ELS_CC PLS_CC);
+						register_http_post_files_variable(lbuf, s+1, http_post_files, 0 ELS_CC PLS_CC);
 					} else {
-						register_http_post_files_variable(lbuf, filenamebuf, http_post_files ELS_CC PLS_CC);
+						register_http_post_files_variable(lbuf, filenamebuf, http_post_files, 0 ELS_CC PLS_CC);
 					}
 
 					state = 3;
@@ -221,7 +272,7 @@ static void php_mime_split(char *buf, int cnt, char *boundary, zval *array_ptr)
 					} else {
 						sprintf(lbuf, "%s_type", namebuf);
 					}
-					php_register_variable(lbuf, s, NULL ELS_CC PLS_CC);
+					safe_php_register_variable(lbuf, s, NULL, 0 ELS_CC PLS_CC);
 					
 					/* Add $foo[type] */
 					if (is_arr_upload) {
@@ -229,7 +280,7 @@ static void php_mime_split(char *buf, int cnt, char *boundary, zval *array_ptr)
 					} else {
 						sprintf(lbuf, "%s[type]", namebuf);
 					}
-					register_http_post_files_variable(lbuf, s, http_post_files ELS_CC PLS_CC);
+					register_http_post_files_variable(lbuf, s, http_post_files, 0 ELS_CC PLS_CC);
 					if(*s != '\0') {
 						*(loc2 - 1) = '\n';
 					}
@@ -252,7 +303,9 @@ static void php_mime_split(char *buf, int cnt, char *boundary, zval *array_ptr)
 				}
 				*(loc - 4) = '\0';
 
-				php_register_variable(namebuf, ptr, array_ptr ELS_CC PLS_CC);
+				/* Check to make sure we are not overwriting special file
+				 * upload variables */
+				safe_php_register_variable(namebuf, ptr, array_ptr, 0 ELS_CC PLS_CC);
 
 				/* And a little kludge to pick out special MAX_FILE_SIZE */
 				itype = php_check_ident_type(namebuf);
@@ -294,37 +347,49 @@ static void php_mime_split(char *buf, int cnt, char *boundary, zval *array_ptr)
 					SAFE_RETURN;
 				}
 				bytes = 0;
-				fn = tempnam(PG(upload_tmp_dir), "php");
+
+				fp = php_open_temporary_file(PG(upload_tmp_dir), "php", &temp_filename);
+				if (!fp) {
+					php_error(E_WARNING, "File upload error - unable to create a temporary file");
+					SAFE_RETURN;
+				}
 				if ((loc - ptr - 4) > PG(upload_max_filesize)) {
 					php_error(E_WARNING, "Max file size of %ld bytes exceeded - file [%s] not saved", PG(upload_max_filesize),namebuf);
-					fn = "none";
+					upload_successful = 0;
 				} else if (max_file_size && ((loc - ptr - 4) > max_file_size)) {
 					php_error(E_WARNING, "Max file size exceeded - file [%s] not saved", namebuf);
-					fn = "none";
+					upload_successful = 0;
 				} else if ((loc - ptr - 4) <= 0) {
-					fn = "none";
+					upload_successful = 0;
 				} else {
-					fp = V_FOPEN(fn, "wb");
-					if (!fp) {
-						php_error(E_WARNING, "File Upload Error - Unable to open temporary file [%s]", fn);
-						SAFE_RETURN;
-					}
 					bytes = fwrite(ptr, 1, loc - ptr - 4, fp);
-					fclose(fp);
-					zend_list_insert(fn,php_file_le_uploads());  /* Tell PHP about the file so the destructor can unlink it later */
 					if (bytes < (loc - ptr - 4)) {
 						php_error(E_WARNING, "Only %d bytes were written, expected to write %ld", bytes, loc - ptr - 4);
 					}
+					upload_successful = 1;
 				}
-				php_register_variable(namebuf, fn, NULL ELS_CC PLS_CC);
+				fclose(fp);
+				add_protected_variable(namebuf PLS_CC);
+				if (!upload_successful) {
+					efree(temp_filename);
+					temp_filename = "none";
+				} else {
+					zend_hash_add(SG(rfc1867_uploaded_files), temp_filename, strlen(temp_filename)+1, &temp_filename, sizeof(char *), NULL);
+				}
 
+				magic_quotes_gpc = PG(magic_quotes_gpc);
+				PG(magic_quotes_gpc) = 0;
+				safe_php_register_variable(namebuf, temp_filename, NULL, 1 ELS_CC PLS_CC);
 				/* Add $foo[tmp_name] */
 				if(is_arr_upload) {
 					sprintf(lbuf, "%s[tmp_name][%s]", abuf, arr_index);
 				} else {
 					sprintf(lbuf, "%s[tmp_name]", namebuf);
 				}
-				register_http_post_files_variable(lbuf, fn, http_post_files ELS_CC PLS_CC);
+				add_protected_variable(lbuf PLS_CC);
+				register_http_post_files_variable(lbuf, temp_filename, http_post_files, 1 ELS_CC PLS_CC);
+				PG(magic_quotes_gpc) = magic_quotes_gpc;
+
 				{
 					zval file_size;
 
@@ -337,7 +402,7 @@ static void php_mime_split(char *buf, int cnt, char *boundary, zval *array_ptr)
 					} else {
 						sprintf(lbuf, "%s_size", namebuf);
 					}
-					php_register_variable_ex(lbuf, &file_size, NULL ELS_CC PLS_CC);
+					safe_php_register_variable_ex(lbuf, &file_size, NULL, 0 ELS_CC PLS_CC);
 
 					/* Add $foo[size] */
 					if(is_arr_upload) {
@@ -345,7 +410,7 @@ static void php_mime_split(char *buf, int cnt, char *boundary, zval *array_ptr)
 					} else {
 						sprintf(lbuf, "%s[size]", namebuf);
 					}
-					register_http_post_files_variable_ex(lbuf, &file_size, http_post_files ELS_CC PLS_CC);
+					register_http_post_files_variable_ex(lbuf, &file_size, http_post_files, 0 ELS_CC PLS_CC);
 				}
 				state = 0;
 				rem -= (loc - ptr);
@@ -362,6 +427,12 @@ SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 	char *boundary;
 	uint boundary_len;
 	zval *array_ptr = (zval *) arg;
+	PLS_FETCH();
+
+	if (!PG(file_uploads)) {
+		php_error(E_WARNING, "File uploads are disabled");
+		return;
+	}
 
 	boundary = strstr(content_type_dup, "boundary");
 	if (!boundary || !(boundary=strchr(boundary, '='))) {
@@ -372,7 +443,7 @@ SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 	boundary_len = strlen(boundary);
 
 	if (SG(request_info).post_data) {
-		php_mime_split(SG(request_info).post_data, SG(request_info).post_data_length, boundary, array_ptr);
+		php_mime_split(SG(request_info).post_data, SG(request_info).post_data_length, boundary, array_ptr SLS_CC PLS_CC);
 	}
 }
 

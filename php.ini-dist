@@ -135,7 +135,7 @@ expose_php	=	On		; Decides whether PHP may expose the fact that it is installed 
 ;;;;;;;;;;;;;;;;;;;
 
 max_execution_time = 30     ; Maximum execution time of each script, in seconds
-memory_limit = 8388608		; Maximum amount of memory a script may consume (8MB)
+memory_limit = 8M			; Maximum amount of memory a script may consume (8MB)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -167,6 +167,10 @@ display_errors	=	On	; Print out errors (as a part of the output)
 						; Keeping display_errors enabled on a production web site may reveal
 						; security information to end users, such as file paths on your Web server,
 						; your database schema or other information.
+display_startup_errors = Off		; Even when display_errors is on, errors that occur during
+									; PHP's startup sequence are not displayed.  It's strongly
+									; recommended to keep display_startup_errors off, except for
+									; when debugging.
 log_errors		=	Off	; Log errors into a log file (server-specific log, stderr, or error_log (below))
 						; As stated above, you're strongly advised to use error logging in place of
 						; error displaying on production web sites.
@@ -181,6 +185,7 @@ warn_plus_overloading	=	Off		; warn if the + operator is used with strings
 ;;;;;;;;;;;;;;;;;
 ; Data Handling ;
 ;;;;;;;;;;;;;;;;;
+; Note - track_vars is ALWAYS enabled as of PHP 4.0.3
 variables_order		=	"EGPCS"	; This directive describes the order in which PHP registers
 								; GET, POST, Cookie, Environment and Built-in variables (G, P,
 								; C, E & S respectively, often referred to as EGPCS or GPC).
@@ -192,12 +197,15 @@ register_globals	=	On		; Whether or not to register the EGPCS variables as globa
 								; most sense when coupled with track_vars - in which case you can
 								; access all of the GPC variables through the $HTTP_*_VARS[],
 								; variables.
+								; You should do your best to write your scripts so that they do
+								; not require register_globals to be on;  Using form variables
+								; as globals can easily lead to possible security problems, if
+								; the code is not very well thought of.
 register_argc_argv	=	On		; This directive tells PHP whether to declare the argv&argc
 								; variables (that would contain the GET information).  If you
 								; don't use these variables, you should turn it off for
 								; increased performance
-track_vars			=	On		; enable the $HTTP_*_VARS[] arrays, where * is one of
-								; ENV, POST, GET, COOKIE or SERVER.
+post_max_size		=	8M		; Maximum size of POST data that PHP will accept.
 gpc_order			=	"GPC"	; This directive is deprecated.  Use variables_order instead.
 
 ; Magic quotes
@@ -222,13 +230,19 @@ default_mimetype = "text/html"
 include_path	=                   ; UNIX: "/path1:/path2"  Windows: "\path1;\path2"
 doc_root		=					; the root of the php pages, used only if nonempty
 user_dir		=					; the directory under which php opens the script using /~username, used only if nonempty
-;upload_tmp_dir	=	                ; temporary directory for HTTP uploaded files (will use system default if not specified)
-upload_max_filesize = 2097152       ; 2 Meg default limit on file uploads
 extension_dir	=	./				; directory in which the loadable extensions (modules) reside
 enable_dl		= On				; Whether or not to enable the dl() function.
 									; The dl() function does NOT properly work in multithreaded
 									; servers, such as IIS or Zeus, and is automatically disabled
 									; on them.
+
+
+;;;;;;;;;;;;;;;;
+; File Uploads ;
+;;;;;;;;;;;;;;;;
+file_uploads	= On				; Whether to allow HTTP file uploads
+;upload_tmp_dir	=	                ; temporary directory for HTTP uploaded files (will use system default if not specified)
+upload_max_filesize = 2M		    ; Maximum allowed size for uploaded files
 
 
 ;;;;;;;;;;;;;;;;;;;;;;
@@ -245,21 +259,35 @@ enable_dl		= On				; Whether or not to enable the dl() function.
 
 
 ;Windows Extensions
-;extension=php_nsmail.dll
-;extension=php_calendar.dll
+;Note that MySQL and ODBC support is now built in, so no dll is needed for it.
+;
+;extension=php_cpdf.dll
+;extension=php_cybercash.dll
+;extension=php_db.dll
 ;extension=php_dbase.dll
-;extension=php_filepro.dll
+;extension=php_domxml.dll
+;extension=php_dotnet.dll
+;extension=php_exif.dll
+;extension=php_fdf.dll
 ;extension=php_gd.dll
-;extension=php_dbm.dll
-;extension=php_mssql.dll
-;extension=php_zlib.dll
-;extension=php_filepro.dll
-;extension=php_imap4r2.dll
+;extension=php_gettext.dll
+;extension=php_ifx.dll
+;extension=php_imap.dll
+;extension=php_interbase.dll
+;extension=php_java.dll
 ;extension=php_ldap.dll
-;extension=php_crypt.dll
-;extension=php_msql2.dll
-;extension=php_odbc.dll
-; Note that MySQL support is now built in, so no dll is needed for it.
+;extension=php_mhash.dll
+;extension=php_mssql65.dll
+;extension=php_mssql70.dll
+;extension=php_oci8.dll
+;extension=php_oracle.dll
+;extension=php_pdf.dll
+;extension=php_pgsql.dll
+;extension=php_sablot.dll
+;extension=php_swf.dll
+;extension=php_sybase_ct.dll
+;extension=php_zlib.dll
+
 
 ;;;;;;;;;;;;;;;;;;;
 ; Module Settings ;
@@ -287,6 +315,13 @@ debugger.enabled	=	False
 ; See examples/README.logging for more explanation.
 ;logging.method    = db
 ;logging.directory = /path/to/log/directory
+
+[Java]
+;java.class.path = .\php_java.jar
+;java.home = c:\jdk
+;java.library = c:\jdk\jre\bin\hotspot\jvm.dll 
+;java.library.path = .\
+
 
 [SQL]
 sql.safe_mode	=	Off
@@ -407,6 +442,8 @@ session.entropy_file      =         ; specified here to create the session id
 session.cache_limiter     = nocache ; set to {nocache,private,public} to
                                     ; determine HTTP caching aspects
 session.cache_expire      = 180     ; document expires after n minutes
+session.use_trans_sid     = 1       ; use transient sid support if enabled
+                                    ; by compiling with --enable-trans-sid
 
 [MSSQL]
 ;extension=php_mssql.dll
@@ -425,12 +462,12 @@ mssql.compatability_mode	= Off	; compatability mode with old versions of PHP 3.0
 ;assert.quiet_eval			=	0	; eval the expression with current error_reporting(). set to true if you want error_reporting(0) around the eval().
 
 [Ingres II]
-ii.allow_persistent			=	On	; allow or prevent persistent link
-ii.max_persistent			=	-1	; maximum number of persistent links. (-1 means no limit)
-ii.max_links				=  -1	; maximum number of links, including persistents (-1 means no limit)
-ii.default_database			=		; default database (format : [node_id::]dbname[/srv_class]
-ii.default_user				=		; default user
-ii.default_password			=		; default password
+ingres.allow_persistent		=	On	; allow or prevent persistent link
+ingres.max_persistent		=	-1	; maximum number of persistent links. (-1 means no limit)
+ingres.max_links			=	-1	; maximum number of links, including persistents (-1 means no limit)
+ingres.default_database		=		; default database (format : [node_id::]dbname[/srv_class]
+ingres.default_user			=		; default user
+ingres.default_password		=		; default password
 
 [Verisign Payflow Pro]
 pfpro.defaulthost			=	"test.signio.com"	; default Signio server

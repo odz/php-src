@@ -17,7 +17,7 @@
 |          Steven Lawrance <slawrance@technologist.com>                |
 +----------------------------------------------------------------------+
 */
-/* $Id: snmp.c,v 1.36 2000/07/01 22:39:27 sterling Exp $ */
+/* $Id: snmp.c,v 1.38 2000/09/14 20:22:02 andrei Exp $ */
 
 #include "php.h"
 #include "ext/standard/info.h"
@@ -62,6 +62,7 @@
 #include "snmp.h"
 #include "parse.h"
 #include "mib.h"
+#include "version.h"
 
 /* ucd-snmp 3.3.1 changed the name of a few #defines... They've been changed back to the original ones in 3.5.3! */
 #ifndef SNMP_MSG_GET
@@ -112,6 +113,7 @@ PHP_MINFO_FUNCTION(snmp)
 {
 	php_info_print_table_start();
 	php_info_print_table_row(2, "UCD-SNMP Support", "enabled");
+	php_info_print_table_row(2, "UCD-SNMP Version", VersionInfo);
 	php_info_print_table_end();
 }
 
@@ -347,14 +349,14 @@ PHP_FUNCTION(snmpget) {
 /* {{{ proto array snmpwalk(string host, string community, string object_id [, int timeout [, int retries]]) 
    Return all objects under the specified object id */
 PHP_FUNCTION(snmpwalk) {
-	return php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,2);
+	php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,2);
 }
 /* }}} */
 
 /* {{{ proto array snmprealwalk(string host, string community, string object_id [, int timeout [, int retries]])
    Return all objects including their respective object id withing the specified one */
 PHP_FUNCTION(snmprealwalk) {
-	return php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,3);
+	php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,3);
 }
 /* }}} */
 

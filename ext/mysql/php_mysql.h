@@ -17,7 +17,7 @@
 */
 
 
-/* $Id: php_mysql.h,v 1.14 2000/07/02 23:46:43 sas Exp $ */
+/* $Id: php_mysql.h,v 1.16 2000/10/11 18:27:21 zeev Exp $ */
 
 #ifndef PHP_MYSQL_H
 #define PHP_MYSQL_H
@@ -63,6 +63,7 @@ PHP_FUNCTION(mysql_num_rows);
 PHP_FUNCTION(mysql_num_fields);
 PHP_FUNCTION(mysql_fetch_row);
 PHP_FUNCTION(mysql_fetch_array);
+PHP_FUNCTION(mysql_fetch_assoc);
 PHP_FUNCTION(mysql_fetch_object);
 PHP_FUNCTION(mysql_data_seek);
 PHP_FUNCTION(mysql_fetch_lengths);
@@ -74,6 +75,7 @@ PHP_FUNCTION(mysql_field_table);
 PHP_FUNCTION(mysql_field_len);
 PHP_FUNCTION(mysql_field_type);
 PHP_FUNCTION(mysql_field_flags);
+PHP_FUNCTION(mysql_escape_string);
 
 ZEND_BEGIN_MODULE_GLOBALS(mysql)
 	long default_link;

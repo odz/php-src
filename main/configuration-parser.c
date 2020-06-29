@@ -1,5 +1,5 @@
 
-/*  A Bison parser, made from /home/php/php4/php-4.0.2/main/configuration-parser.y
+/*  A Bison parser, made from /home/php/php4/php-4.0.3/main/configuration-parser.y
     by GNU Bison version 1.28  */
 
 #define YYBISON 1  /* Identify Bison output.  */
@@ -22,7 +22,6 @@
 #define	T_ZEND_EXTENSION_DEBUG	265
 #define	T_ZEND_EXTENSION_DEBUG_TS	266
 
-#line 1 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 
 /*
    +----------------------------------------------------------------------+
@@ -44,7 +43,7 @@
 
 
 
-/* $Id: configuration-parser.y,v 1.53 2000/07/25 18:50:50 stas Exp $ */
+/* $Id: configuration-parser.y,v 1.54 2000/08/31 22:23:53 andi Exp $ */
 
 #define DEBUG_CFG_PARSER 0
 #include "php.h"
@@ -248,13 +247,14 @@ int php_init_config(void)
 		if (opened_path) {
 			zval tmp;
 			
-			tmp.value.str.val = opened_path;
+			tmp.value.str.val = strdup(opened_path);
 			tmp.value.str.len = strlen(opened_path);
 			tmp.type = IS_STRING;
 			zend_hash_update(&configuration_hash,"cfg_file_path",sizeof("cfg_file_path"),(void *) &tmp,sizeof(zval),NULL);
 #if DEBUG_CFG_PARSER
 			php_printf("INI file opened at '%s'\n",opened_path);
 #endif
+			efree(opened_path);
 		}
 			
 		init_cfg_scanner();
@@ -515,9 +515,9 @@ static const short yyrhs[] = {    22,
 
 #if YYDEBUG != 0
 static const short yyrline[] = { 0,
-   440,   442,   445,   489,   490,   500,   508,   516,   524,   532,
-   556,   560,   562,   565,   567,   568,   569,   570,   571,   574,
-   576,   577,   578,   579,   580,   583
+   441,   443,   446,   490,   491,   501,   509,   517,   525,   533,
+   557,   561,   563,   566,   568,   569,   570,   571,   572,   575,
+   577,   578,   579,   580,   581,   584
 };
 #endif
 
@@ -590,7 +590,7 @@ static const short yycheck[] = {    21,
 #define YYPURE 1
 
 /* -*-C-*-  Note some compilers choke on comments on `#line' lines.  */
-#line 3 "/usr/lib/bison.simple"
+
 /* This file comes from bison-1.28.  */
 
 /* Skeleton output parser for bison,
@@ -804,7 +804,7 @@ __yy_memcpy (char *to, char *from, unsigned int count)
 #endif
 #endif
 
-#line 217 "/usr/lib/bison.simple"
+
 
 /* The user can define YYPARSE_PARAM as the name of an argument to be passed
    into yyparse.  The argument should have type void *.
@@ -1133,7 +1133,6 @@ yyreduce:
   switch (yyn) {
 
 case 3:
-#line 446 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 {
 #if DEBUG_CFG_PARSER
 			printf("'%s' = '%s'\n",yyvsp[-2].value.str.val,yyvsp[0].value.str.val);
@@ -1179,11 +1178,9 @@ case 3:
 		;
     break;}
 case 4:
-#line 489 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { free(yyvsp[0].value.str.val); ;
     break;}
 case 5:
-#line 490 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 {
 			if (parsing_mode==PARSING_MODE_CFG) {
 				zval dummy;
@@ -1196,7 +1193,6 @@ case 5:
 		;
     break;}
 case 6:
-#line 500 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 {
 			if (parsing_mode==PARSING_MODE_CFG) {
 #if !defined(ZTS) && !ZEND_DEBUG
@@ -1207,7 +1203,6 @@ case 6:
 		;
     break;}
 case 7:
-#line 508 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { 
 			if (parsing_mode==PARSING_MODE_CFG) {
 #if defined(ZTS) && !ZEND_DEBUG
@@ -1218,7 +1213,6 @@ case 7:
 		;
     break;}
 case 8:
-#line 516 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { 
 			if (parsing_mode==PARSING_MODE_CFG) {
 #if !defined(ZTS) && ZEND_DEBUG
@@ -1229,7 +1223,6 @@ case 8:
 		;
     break;}
 case 9:
-#line 524 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { 
 			if (parsing_mode==PARSING_MODE_CFG) {
 #if defined(ZTS) && ZEND_DEBUG
@@ -1240,7 +1233,6 @@ case 9:
 		;
     break;}
 case 10:
-#line 532 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { 
 			if (parsing_mode==PARSING_MODE_BROWSCAP) {
 				zval *processed;
@@ -1267,68 +1259,53 @@ case 10:
 		;
     break;}
 case 12:
-#line 561 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { yyval = yyvsp[0]; ;
     break;}
 case 13:
-#line 562 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { yyval = yyvsp[0]; ;
     break;}
 case 14:
-#line 566 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { yyval = yyvsp[0]; ;
     break;}
 case 15:
-#line 567 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { yyval = yyvsp[0]; ;
     break;}
 case 16:
-#line 568 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { yyval = yyvsp[0]; ;
     break;}
 case 17:
-#line 569 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { yyval = yyvsp[0]; ;
     break;}
 case 18:
-#line 570 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { yyval.value.str.val = strdup(""); yyval.value.str.len=0; yyval.type = IS_STRING; ;
     break;}
 case 19:
-#line 571 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { yyval.value.str.val = strdup(""); yyval.value.str.len=0; yyval.type = IS_STRING; ;
     break;}
 case 20:
-#line 575 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { yyval = yyvsp[0]; ;
     break;}
 case 21:
-#line 576 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { do_cfg_op('|', &yyval, &yyvsp[-2], &yyvsp[0]); ;
     break;}
 case 22:
-#line 577 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { do_cfg_op('&', &yyval, &yyvsp[-2], &yyvsp[0]); ;
     break;}
 case 23:
-#line 578 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { do_cfg_op('~', &yyval, &yyvsp[0], NULL); ;
     break;}
 case 24:
-#line 579 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { do_cfg_op('!', &yyval, &yyvsp[0], NULL); ;
     break;}
 case 25:
-#line 580 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { yyval = yyvsp[-1]; ;
     break;}
 case 26:
-#line 584 "/home/php/php4/php-4.0.2/main/configuration-parser.y"
 { do_cfg_get_constant(&yyval, &yyvsp[0]); ;
     break;}
 }
    /* the action file gets copied in in place of this dollarsign */
-#line 543 "/usr/lib/bison.simple"
+
 
   yyvsp -= yylen;
   yyssp -= yylen;
@@ -1548,4 +1525,3 @@ yyerrhandle:
     }
   return 1;
 }
-#line 592 "/home/php/php4/php-4.0.2/main/configuration-parser.y"

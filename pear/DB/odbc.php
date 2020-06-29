@@ -31,7 +31,7 @@
 //				 a reference.
 //
 
-include_once 'DB/common.php';
+require_once 'DB/common.php';
 
 class DB_odbc extends DB_common {
     // {{{ properties
@@ -100,7 +100,7 @@ class DB_odbc extends DB_common {
 			$dsninfo = DB::parseDSN($dsn);
 		}
 		if (!$dsninfo || !$dsninfo['phptype']) {
-			return new DB_Error(); // XXX ERRORMSG
+			return $this->raiseError(); // XXX ERRORMSG
 		}
 		$this->dbsyntax = $dsninfo['dbsyntax'];
 		switch ($this->dbsyntax) {
@@ -133,7 +133,7 @@ class DB_odbc extends DB_common {
 			$conn = false;
 		}
 		if ($conn == false) {
-			return new DB_Error(); // XXX ERRORMSG
+			return $this->raiseError(); // XXX ERRORMSG
 		}
 		$this->connection = $conn;
 		return DB_OK;
@@ -155,9 +155,10 @@ class DB_odbc extends DB_common {
     // {{{ query()
 
 	function query($query) {
+		$this->last_query = $query;
 		$result = odbc_exec($this->connection, $query);
 		if (!$result) {
-			return new DB_Error(); // XXX ERRORMSG
+			return $this->raiseError(); // XXX ERRORMSG
 		}
 		// Determine which queries that should return data, and which
 		// should return an error code only.
@@ -183,9 +184,10 @@ class DB_odbc extends DB_common {
 	 * is returned on failure.
 	 */
 	function simpleQuery($query) {
+		$this->last_query = $query;
 		$result = odbc_exec($this->connection, $query);
 		if (!$result) {
-			return new DB_Error(); // XXX ERRORMSG
+			return $this->raiseError(); // XXX ERRORMSG
 		}
 		// Determine which queries that should return data, and which
 		// should return an error code only.

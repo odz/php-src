@@ -58,8 +58,7 @@ ZEND_API int is_not_identical_function(zval *result, zval *op1, zval *op2);
 ZEND_API int is_not_equal_function(zval *result, zval *op1, zval *op2);
 ZEND_API int is_smaller_function(zval *result, zval *op1, zval *op2);
 ZEND_API int is_smaller_or_equal_function(zval *result, zval *op1, zval *op2);
-ZEND_API inline int is_numeric_string(char *str, int length, long *lval, double *dval)
-#if defined(C9X_INLINE_SEMANTICS)
+static inline int is_numeric_string(char *str, int length, long *lval, double *dval)
 {
 	long local_lval;
 	double local_dval;
@@ -115,9 +114,6 @@ ZEND_API inline int is_numeric_string(char *str, int length, long *lval, double 
 	
 	return 0;
 }
-#else
-;
-#endif
 
 ZEND_API int increment_function(zval *op1);
 ZEND_API int decrement_function(zval *op2);
@@ -132,6 +128,9 @@ ZEND_API void convert_to_null(zval *op);
 ZEND_API void convert_to_boolean(zval *op);
 ZEND_API void convert_to_array(zval *op);
 ZEND_API void convert_to_object(zval *op);
+ZEND_API void multi_convert_to_long_ex(int argc, ...);
+ZEND_API void multi_convert_to_double_ex(int argc, ...);
+ZEND_API void multi_convert_to_string_ex(int argc, ...);
 ZEND_API int add_char_to_string(zval *result, zval *op1, zval *op2);
 ZEND_API int add_string_to_string(zval *result, zval *op1, zval *op2);
 #define convert_to_string(op)			_convert_to_string((op) ZEND_FILE_LINE_CC)
@@ -203,18 +202,21 @@ ZEND_API void zend_compare_objects(zval *result, zval *o1, zval *o2);
 
 
 #define Z_LVAL(zval)		(zval).value.lval
+#define Z_BVAL(zval)		((zend_bool)(zval).value.lval)
 #define Z_DVAL(zval)		(zval).value.dval
 #define Z_STRVAL(zval)		(zval).value.str.val
 #define Z_STRLEN(zval)		(zval).value.str.len
 #define Z_ARRVAL(zval)		(zval).value.ht
 
 #define Z_LVAL_P(zval_p)		Z_LVAL(*zval_p)
+#define Z_BVAL_P(zval_p)		Z_BVAL(*zval_p)
 #define Z_DVAL_P(zval_p)		Z_DVAL(*zval_p)
 #define Z_STRVAL_P(zval_p)		Z_STRVAL(*zval_p)
 #define Z_STRLEN_P(zval_p)		Z_STRLEN(*zval_p)
 #define Z_ARRVAL_P(zval_p)		Z_ARRVAL(*zval_p)
 
 #define Z_LVAL_PP(zval_pp)		Z_LVAL(**zval_pp)
+#define Z_BVAL_PP(zval_pp)		Z_BVAL(**zval_pp)
 #define Z_DVAL_PP(zval_pp)		Z_DVAL(**zval_pp)
 #define Z_STRVAL_PP(zval_pp)	Z_STRVAL(**zval_pp)
 #define Z_STRLEN_PP(zval_pp)	Z_STRLEN(**zval_pp)

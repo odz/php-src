@@ -9,11 +9,12 @@
 */
 #if HAVE_EXTNAME
 
-#ifdef ZTS
-int extname_globals_id;
-#else
-php_extname_globals extname_globals;
-#endif
+/* If you declare any globals in php_extname.h uncomment this:
+ZEND_DECLARE_MODULE_GLOBALS(extname)
+*/
+
+/* True global resources - no need for thread safety here */
+static int le_extname;
 
 /* Every user visible function must have an entry in extname_functions[].
 */
@@ -102,7 +103,7 @@ PHP_FUNCTION(confirm_extname_compiled)
 	convert_to_string_ex(arg);
 
 	len = sprintf(string, "Congratulations, you have successfully modified ext/extname/config.m4, module %s is compiled into PHP", Z_STRVAL_PP(arg));
-	RETVAL_STRINGL(string, len, 1);
+	RETURN_STRINGL(string, len, 1);
 }
 /* }}} */
 /* The previous line is meant for emacs, so it can correctly fold and unfold

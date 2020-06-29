@@ -90,7 +90,7 @@ class DB_mysql extends DB_common {
 			$dsninfo = DB::parseDSN($dsn);
 		}
 		if (!$dsninfo || !$dsninfo['phptype']) {
-			return new DB_Error(); // XXX ERRORMSG
+			return $this->raiseError(); // XXX ERRORMSG
 		}
 		$dbhost = $dsninfo['hostspec'] ? $dsninfo['hostspec'] : 'localhost';
 		$user = $dsninfo['username'];
@@ -106,11 +106,11 @@ class DB_mysql extends DB_common {
 			$conn = false;
 		}
 		if ($conn == false) {
-			return new DB_Error(); // XXX ERRORMSG
+			return $this->raiseError(); // XXX ERRORMSG
 		}
 		if ($dsninfo['database']) {
 			if (!mysql_select_db($dsninfo['database'], $conn)) {
-				return new DB_Error(); // XXX ERRORMSG
+				return $this->raiseError(); // XXX ERRORMSG
 			}
 		}
 		$this->connection = $conn;
@@ -146,9 +146,10 @@ class DB_mysql extends DB_common {
 	 * on failure
 	 */
 	function &query($query) {
-		$result = mysql_query($query, $this->connection);
+		$this->last_query = $query;
+		$result = @mysql_query($query, $this->connection);
 		if (!$result) {
-			return new DB_Error($this->errorCode(mysql_errno($this->connection)));
+			return $this->raiseError($this->errorCode(mysql_errno($this->connection)));
 		}
 		// Determine which queries that should return data, and which
 		// should return an error code only.
@@ -176,9 +177,10 @@ class DB_mysql extends DB_common {
 	 * returned on failure.
 	 */
 	function simpleQuery($query) {
+		$this->last_query = $query;
 		$result = mysql_query($query, $this->connection);
 		if (!$result) {
-			return new DB_Error($this->errorCode(mysql_errno($this->connection)));
+			return $this->raiseError($this->errorCode(mysql_errno($this->connection)));
 		}
 		// Determine which queries that should return data, and which
 		// should return an error code only.
@@ -196,15 +198,18 @@ class DB_mysql extends DB_common {
 	 * Fetch a row and return as array.
 	 *
 	 * @param $result MySQL result identifier
-	 * @param $getmode how the resulting array should be indexed
+	 * @param $fetchmode how the resulting array should be indexed
 	 *
 	 * @access public
 	 *
-	 * @return int an array on success, a DB error on failure, NULL
-	 *             if there is no more data
+	 * @return mixed an array on success, a DB error on failure, NULL
+	 *               if there is no more data
 	 */
-	function &fetchRow($result, $getmode = DB_GETMODE_DEFAULT) {
-		if ($getmode & DB_GETMODE_ASSOC) {
+	function &fetchRow($result, $fetchmode = DB_FETCHMODE_DEFAULT) {
+		if ($fetchmode == DB_FETCHMODE_DEFAULT) {
+			$fetchmode = $this->fetchmode;
+		}
+		if ($fetchmode & DB_FETCHMODE_ASSOC) {
 			$row = mysql_fetch_array($result, MYSQL_ASSOC);
 		} else {
 			$row = mysql_fetch_row($result);
@@ -214,7 +219,7 @@ class DB_mysql extends DB_common {
 			if (!$errno) {
 				return NULL;
 			}
-			return new DB_Error($this->errorCode($errno));
+			return $this->raiseError($this->errorCode($errno));
 		}
 		return $row;
 	}
@@ -227,14 +232,17 @@ class DB_mysql extends DB_common {
 	 *
 	 * @param $result MySQL result identifier
 	 * @param $arr (reference) array where data from the row is stored
-	 * @param $getmode how the array data should be indexed
+	 * @param $fetchmode how the array data should be indexed
 	 *
 	 * @access public
 	 *
 	 * @return int DB_OK on success, a DB error on failure
 	 */
-	function fetchInto($result, &$arr, $getmode = DB_GETMODE_DEFAULT) {
-		if ($getmode & DB_GETMODE_ASSOC) {
+	function fetchInto($result, &$arr, $fetchmode = DB_FETCHMODE_DEFAULT) {
+		if ($fetchmode == DB_FETCHMODE_DEFAULT) {
+			$fetchmode = $this->fetchmode;
+		}
+		if ($fetchmode & DB_FETCHMODE_ASSOC) {
 			$arr = mysql_fetch_array($result, MYSQL_ASSOC);
 		} else {
 			$arr = mysql_fetch_row($result);
@@ -244,7 +252,7 @@ class DB_mysql extends DB_common {
 			if (!$errno) {
 				return NULL;
 			}
-			return new DB_Error($this->errorCode($errno));
+			return $this->raiseError($this->errorCode($errno));
 		}
 		return DB_OK;
 	}
@@ -288,7 +296,7 @@ class DB_mysql extends DB_common {
 	function numCols($result) {
 		$cols = mysql_num_fields($result);
 		if (!$cols) {
-			return new DB_Error($this->errorCode(mysql_errno($this->connection)));
+			return $this->raiseError($this->errorCode(mysql_errno($this->connection)));
 		}
 		return $cols;
 	}
@@ -362,9 +370,10 @@ class DB_mysql extends DB_common {
 	 */
 	function execute($stmt, $data = false) {
 		$realquery = $this->execute_emulate_query($stmt, $data);
+		$this->last_query = $realquery;
 		$result = mysql_query($realquery, $this->connection);
 		if (!$result) {
-			return new DB_Error($this->errorCode(mysql_errno($this->connection)));
+			return $this->raiseError($this->errorCode(mysql_errno($this->connection)));
 		}
 		if (preg_match('/(SELECT|SHOW)/i', $realquery)) {
 			return $result;
@@ -384,7 +393,7 @@ class DB_mysql extends DB_common {
 	 * @return object DB error code (not capable)
 	 */
 	function autoCommit($onoff = false) {
-		return new DB_Error(DB_ERROR_NOT_CAPABLE);
+		return $this->raiseError(DB_ERROR_NOT_CAPABLE);
 	}
 
     // }}}
@@ -398,7 +407,7 @@ class DB_mysql extends DB_common {
 	 * @return object DB error code (not capable)
 	 */
 	function commit() {
-		return new DB_Error(DB_ERROR_NOT_CAPABLE);
+		return $this->raiseError(DB_ERROR_NOT_CAPABLE);
 	}
 
     // }}}
@@ -413,7 +422,7 @@ class DB_mysql extends DB_common {
 	 * @return object DB error code (not capable)
 	 */
 	function rollback() {
-		return new DB_Error(DB_ERROR_NOT_CAPABLE);
+		return $this->raiseError(DB_ERROR_NOT_CAPABLE);
 	}
 
     // }}}

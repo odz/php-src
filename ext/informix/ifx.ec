@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: ifx.ec,v 1.47 2000/08/12 12:03:39 danny Exp $ */
+/* $Id: ifx.ec,v 1.49 2000/09/05 18:21:57 danny Exp $ */
 
 /* -------------------------------------------------------------------
  * if you want a function reference : "grep '^\*\*' ifx.ec" will give
@@ -1808,8 +1808,8 @@ PHP_FUNCTION(ifx_errormsg)
     returnmsg = (char *) emalloc(strlen(ifx_errmsg) + 128);
     sprintf(returnmsg,ifx_errmsg, sqlca.sqlerrm);
     free(ifx_errmsg);
+    RETURN_STRING(returnmsg,0); 
      
-    RETURN_STRING(returnmsg,0);    /* do not dup, emalloced ! */
 }
 /* }}} */
 
@@ -3783,6 +3783,10 @@ static char* php3_intifx_create_tmpfile(long bid) {
  sprintf(filename,"blb%d",(int)bid);
  blobfile=tempnam(blobdir,filename);
  free(blobdir);
+ 
+ if (blobfile == NULL) 
+   return NULL;
+ 
  retval=emalloc(strlen(blobfile)+1);
  if(retval==NULL) 
   return NULL;

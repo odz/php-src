@@ -19,7 +19,7 @@
 */
 
 
-/* $Id: main.c,v 1.304 2000/08/29 09:18:48 ssb Exp $ */
+/* $Id: main.c,v 1.322 2000/10/03 14:43:04 andi Exp $ */
 
 
 #include <stdio.h>
@@ -44,6 +44,7 @@
 #include <locale.h>
 #endif
 #include "zend.h"
+#include "zend_extensions.h"
 #include "php_ini.h"
 #include "php_globals.h"
 #include "php_main.h"
@@ -122,7 +123,7 @@ static PHP_INI_MH(OnChangeMemoryLimit)
 	int new_limit;
 
 	if (new_value) {
-		new_limit = atoi(new_value);
+		new_limit = php_atoi(new_value, new_value_length);
 	} else {
 		new_limit = 1<<30;		/* effectively, no limit */
 	}
@@ -207,6 +208,7 @@ PHP_INI_BEGIN()
 	STD_PHP_INI_BOOLEAN("allow_call_time_pass_reference","1",PHP_INI_SYSTEM|PHP_INI_PERDIR,		OnUpdateBool,	allow_call_time_pass_reference,	zend_compiler_globals,	compiler_globals)
 	STD_PHP_INI_BOOLEAN("asp_tags",				"0",		PHP_INI_SYSTEM|PHP_INI_PERDIR,		OnUpdateBool,			asp_tags,				zend_compiler_globals,	compiler_globals)
 	STD_PHP_INI_BOOLEAN("display_errors",		"1",		PHP_INI_ALL,		OnUpdateBool,			display_errors,			php_core_globals,	core_globals)
+	STD_PHP_INI_BOOLEAN("display_startup_errors",	"0",	PHP_INI_ALL,		OnUpdateBool,			display_startup_errors,	php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("enable_dl",			"1",		PHP_INI_SYSTEM,		OnUpdateBool,			enable_dl,				php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("error_append_string",	NULL,		PHP_INI_ALL,		OnUpdateString,			error_append_string,	php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("error_prepend_string",	NULL,		PHP_INI_ALL,		OnUpdateString,			error_prepend_string,	php_core_globals,	core_globals)
@@ -225,7 +227,6 @@ PHP_INI_BEGIN()
 	STD_PHP_INI_BOOLEAN("short_open_tag",		"1",		PHP_INI_SYSTEM|PHP_INI_PERDIR,		OnUpdateBool,			short_tags,				zend_compiler_globals,	compiler_globals)
 	STD_PHP_INI_BOOLEAN("sql.safe_mode",		"0",		PHP_INI_SYSTEM,		OnUpdateBool,			sql_safe_mode,			php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("track_errors",			"0",		PHP_INI_ALL,		OnUpdateBool,			track_errors,			php_core_globals,	core_globals)
-	STD_PHP_INI_BOOLEAN("track_vars",			"1",		PHP_INI_ALL,		OnUpdateBool,			track_vars,				php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("y2k_compliance",		"0",		PHP_INI_ALL,		OnUpdateBool,			y2k_compliance,			php_core_globals,	core_globals)
 
 	STD_PHP_INI_ENTRY("arg_separator",			"&",		PHP_INI_ALL,		OnUpdateStringUnempty,	arg_separator,			php_core_globals,	core_globals)
@@ -241,7 +242,9 @@ PHP_INI_BEGIN()
 	PHP_INI_ENTRY("max_execution_time",			"30",		PHP_INI_ALL,			OnUpdateTimeout)
 	STD_PHP_INI_ENTRY("open_basedir",			NULL,		PHP_INI_SYSTEM,		OnUpdateStringUnempty,	open_basedir,			php_core_globals,	core_globals)
 	STD_PHP_INI_ENTRY("safe_mode_exec_dir",		"1",		PHP_INI_SYSTEM,		OnUpdateString,			safe_mode_exec_dir,		php_core_globals,	core_globals)
-	STD_PHP_INI_ENTRY("upload_max_filesize",	"2097152",	PHP_INI_ALL,		OnUpdateInt,			upload_max_filesize,	php_core_globals,	core_globals)
+	STD_PHP_INI_ENTRY("upload_max_filesize",	"2M",		PHP_INI_ALL,		OnUpdateInt,			upload_max_filesize,	php_core_globals,	core_globals)
+	STD_PHP_INI_ENTRY("file_uploads",			"1",		PHP_INI_ALL,		OnUpdateBool,			file_uploads,			php_core_globals,	core_globals)
+	STD_PHP_INI_ENTRY("post_max_size",			"8M",		PHP_INI_SYSTEM,		OnUpdateInt,			post_max_size,			sapi_globals_struct,sapi_globals)
 	STD_PHP_INI_ENTRY("upload_tmp_dir",			NULL,		PHP_INI_SYSTEM,		OnUpdateStringUnempty,	upload_tmp_dir,			php_core_globals,	core_globals)
 	STD_PHP_INI_ENTRY("user_dir",				NULL,		PHP_INI_SYSTEM,		OnUpdateStringUnempty,	user_dir,				php_core_globals,	core_globals)
 	STD_PHP_INI_ENTRY("variables_order",		NULL,		PHP_INI_ALL,		OnUpdateStringUnempty,	variables_order,		php_core_globals,	core_globals)
@@ -250,7 +253,7 @@ PHP_INI_BEGIN()
 	PHP_INI_ENTRY("browscap",					NULL,		PHP_INI_SYSTEM,		NULL)
 	PHP_INI_ENTRY("error_reporting",			NULL,		PHP_INI_ALL,		OnUpdateErrorReporting)
 #if MEMORY_LIMIT
-	PHP_INI_ENTRY("memory_limit",				"8388608",	PHP_INI_ALL,		OnChangeMemoryLimit)
+	PHP_INI_ENTRY("memory_limit",				"8M",		PHP_INI_ALL,		OnChangeMemoryLimit)
 #endif
 	PHP_INI_ENTRY("precision",					"14",		PHP_INI_ALL,		OnSetPrecision)
 	PHP_INI_ENTRY("sendmail_from",				NULL,		PHP_INI_ALL,		NULL)
@@ -276,7 +279,7 @@ void php_log_err(char *log_message)
 	if (PG(error_log) != NULL) {
 #ifdef HAVE_SYSLOG_H
 		if (!strcmp(PG(error_log), "syslog")) {
-			php_syslog(LOG_NOTICE, log_message);
+			php_syslog(LOG_NOTICE, "%.500s", log_message);
 			return;
 		}
 #endif
@@ -285,7 +288,7 @@ void php_log_err(char *log_message)
 			time(&error_time);
 			strftime(error_time_str, 128, "%d-%b-%Y %H:%M:%S", php_localtime_r(&error_time, &tmbuf)); 
 			fprintf(log_file, "[%s] ", error_time_str);
-			fprintf(log_file, log_message);
+			fprintf(log_file, "%s", log_message);
 			fprintf(log_file, "\n");
 			fclose(log_file);
 			return;
@@ -318,6 +321,9 @@ PHPAPI int php_printf(const char *format, ...)
 
 	va_start(args, format);
 	size = vsnprintf(buffer, sizeof(buffer), format, args);
+	if(size > sizeof(buffer) - 1) {
+		size = sizeof(buffer) - 1;
+	}
 	ret = PHPWRITE(buffer, size);
 	va_end(args);
 	
@@ -326,14 +332,22 @@ PHPAPI int php_printf(const char *format, ...)
 
 
 /* extended error handling function */
-static void php_error_cb(int type, const char *error_filename, const uint error_lineno, const char *format, va_list orig_args)
+static void php_error_cb(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args)
 {
 	char buffer[1024];
-	int size = 0;
+	int buffer_len;
 	ELS_FETCH();
 	PLS_FETCH();
 
-	if (EG(error_reporting) & type || (type & E_CORE)) {
+	buffer_len = vsnprintf(buffer, sizeof(buffer)-1, format, args);
+	buffer[sizeof(buffer)-1]=0;
+	if(buffer_len > sizeof(buffer) - 1 || buffer_len < 0) {
+		buffer_len = sizeof(buffer) - 1;
+	}
+
+	/* display/log the error if necessary */
+	if ((EG(error_reporting) & type || (type & E_CORE))
+		&& (PG(log_errors) || PG(display_errors) || (!module_initialized))) {
 		char *error_type_str;
 
 		switch (type) {
@@ -363,63 +377,57 @@ static void php_error_cb(int type, const char *error_filename, const uint error_
 				break;
 		}
 
-		/* get include file name */
-		if (PG(log_errors) || PG(display_errors) || (!module_initialized)) {
-			size = vsnprintf(buffer, sizeof(buffer) - 1, format, orig_args);
-			va_end(orig_args);
-			
-			buffer[sizeof(buffer) - 1] = 0;
-
-			if (!module_initialized || PG(log_errors)) {
-				char log_buffer[1024];
+		if (!module_initialized || PG(log_errors)) {
+			char log_buffer[1024];
 
 #ifdef PHP_WIN32
-				if (type==E_CORE_ERROR || type==E_CORE_WARNING) {
-					MessageBox(NULL, buffer, error_type_str, MB_OK|ZEND_SERVICE_MB_STYLE);
-				}
-#endif
-				snprintf(log_buffer, 1024, "PHP %s:  %s in %s on line %d", error_type_str, buffer, error_filename, error_lineno);
-				php_log_err(log_buffer);
-			}
-			if (module_initialized && PG(display_errors)) {
-				char *prepend_string = INI_STR("error_prepend_string");
-				char *append_string = INI_STR("error_append_string");
-				char *error_format;
-
-				error_format = PG(html_errors) ?
-					"<br>\n<b>%s</b>:  %s in <b>%s</b> on line <b>%d</b><br>\n"
-					: "\n%s: %s in %s on line %d\n";
-
-				if (prepend_string) {
-					PUTS(prepend_string);
-				}
-				php_printf(error_format, error_type_str, buffer,
-						   error_filename, error_lineno);
-				if (append_string) {
-					PUTS(append_string);
-				}
-			}
-#if ZEND_DEBUG
-			{
-				zend_bool trigger_break;
-
-				switch (type) {
-					case E_ERROR:
-					case E_CORE_ERROR:
-					case E_COMPILE_ERROR:
-					case E_USER_ERROR:
-						trigger_break=1;
-						break;
-					default:
-						trigger_break=0;
-						break;
-				}
-				zend_output_debug_string(trigger_break, "%s(%d) : %s - %s", error_filename, error_lineno, error_type_str, buffer);
+			if (type==E_CORE_ERROR || type==E_CORE_WARNING) {
+				MessageBox(NULL, buffer, error_type_str, MB_OK|ZEND_SERVICE_MB_STYLE);
 			}
 #endif
+			snprintf(log_buffer, 1024, "PHP %s:  %s in %s on line %d", error_type_str, buffer, error_filename, error_lineno);
+			php_log_err(log_buffer);
 		}
+		if (module_initialized && PG(display_errors)
+			&& (!PG(during_request_startup) || PG(display_startup_errors))) {
+			char *prepend_string = INI_STR("error_prepend_string");
+			char *append_string = INI_STR("error_append_string");
+			char *error_format;
+
+			error_format = PG(html_errors) ?
+				"<br>\n<b>%s</b>:  %s in <b>%s</b> on line <b>%d</b><br>\n"
+				: "\n%s: %s in %s on line %d\n";
+
+			if (prepend_string) {
+				PUTS(prepend_string);
+			}
+			php_printf(error_format, error_type_str, buffer,
+					   error_filename, error_lineno);
+			if (append_string) {
+				PUTS(append_string);
+			}
+		}
+#if ZEND_DEBUG
+		{
+			zend_bool trigger_break;
+
+			switch (type) {
+				case E_ERROR:
+				case E_CORE_ERROR:
+				case E_COMPILE_ERROR:
+				case E_USER_ERROR:
+					trigger_break=1;
+					break;
+				default:
+					trigger_break=0;
+					break;
+			}
+			zend_output_debug_string(trigger_break, "%s(%d) : %s - %s", error_filename, error_lineno, error_type_str, buffer);
+		}
+#endif
 	}
 
+	/* Bail out if we can't recover */
 	switch (type) {
 		case E_CORE_ERROR:
 			if(!module_initialized) {
@@ -438,20 +446,15 @@ static void php_error_cb(int type, const char *error_filename, const uint error_
 			break;
 	}
 
+	/* Log if necessary */
 	if (PG(track_errors) && EG(active_symbol_table)) {
 		pval *tmp;
 
-		size = vsnprintf(buffer, sizeof(buffer) - 1, format, orig_args);
-		va_end(orig_args);
-
-		buffer[sizeof(buffer) - 1] = 0;
-
 		ALLOC_ZVAL(tmp);
 		INIT_PZVAL(tmp);
-		tmp->value.str.val = (char *) estrndup(buffer, size);
-		tmp->value.str.len = size;
+		tmp->value.str.val = (char *) estrndup(buffer, buffer_len);
+		tmp->value.str.len = buffer_len;
 		tmp->type = IS_STRING;
-
 		zend_hash_update(EG(active_symbol_table), "php_errormsg", sizeof("php_errormsg"), (void **) & tmp, sizeof(pval *), NULL);
 	}
 }
@@ -475,16 +478,6 @@ PHP_FUNCTION(set_time_limit)
 	}
 
 	convert_to_long_ex(new_timeout);
-	/* FIXME ** This is BAD...in a threaded situation, any user
-	   can set the timeout for php on a server wide basis. 
-	   INI variables should not be reset via a user script
-
-	   Fix what?  At least on Unix, timers like these are
-	   per-thread timers.  Well, with a little work they will
-	   be.  If we use a bound thread and proper masking it
-	   should work fine.  Is this FIXME a WIN32 problem?  Is
-	   there no way to do per-thread timers on WIN32?
-	 */
 	zend_unset_timeout();
 	zend_set_timeout(Z_LVAL_PP(new_timeout));
 }
@@ -605,6 +598,8 @@ int php_request_startup(CLS_D ELS_DC PLS_DC SLS_DC)
 	signal(SIGCHLD,sigchld_handler);
 #endif
 
+	PG(during_request_startup) = 1;
+
 	global_lock();
 	
 	php_output_startup();
@@ -624,11 +619,14 @@ int php_request_startup(CLS_D ELS_DC PLS_DC SLS_DC)
 	}
 
 	if (PG(output_buffering)) {
-		php_start_ob_buffer();
+		php_start_ob_buffer(NULL);
 	} else if (PG(implicit_flush)) {
 		php_start_implicit_flush();
 	}
-	
+
+	/* We turn this off in php_execute_script() */
+	/* PG(during_request_startup) = 0; */
+
 	return SUCCESS;
 }
 
@@ -648,28 +646,43 @@ void php_request_shutdown(void *dummy)
 	SLS_FETCH();
 	PLS_FETCH();
 
-	if (setjmp(EG(bailout))!=0) {
-		return;
+	if (setjmp(EG(bailout))==0) {
+		sapi_send_headers();
 	}
 
-	sapi_send_headers();
-	php_end_ob_buffers(SG(request_info).headers_only?0:1);
+	if (setjmp(EG(bailout))==0) {
+		php_end_ob_buffers(SG(request_info).headers_only?0:1);
+	}
 
-	php_call_shutdown_functions();
+	if (setjmp(EG(bailout))==0) {
+		php_call_shutdown_functions();
+	}
 	
 	if (PG(modules_activated)) {
 		zend_deactivate_modules();
 	}
 	
-	php_ini_rshutdown();
+	if (setjmp(EG(bailout))==0) {
+		php_ini_rshutdown();
+	}
 	
 	zend_deactivate(CLS_C ELS_CC);
-	sapi_deactivate(SLS_C);
 
-	shutdown_memory_manager(CG(unclean_shutdown), 0);
-	zend_unset_timeout();
+	if (setjmp(EG(bailout))==0) {
+		sapi_deactivate(SLS_C);
+	}
 
-	global_unlock();
+	if (setjmp(EG(bailout))==0) { 
+		shutdown_memory_manager(CG(unclean_shutdown), 0);
+	}
+
+	if (setjmp(EG(bailout))==0) { 
+		zend_unset_timeout();
+	}
+
+	if (setjmp(EG(bailout))==0) { 
+		global_unlock();
+	}
 }
 
 
@@ -822,6 +835,7 @@ int php_module_startup(sapi_module_struct *sf)
 	SG(request_info).headers_only = 0;
 	SG(request_info).argv0 = NULL;
 	PG(connection_status) = PHP_CONNECTION_NORMAL;
+	PG(during_request_startup) = 0;
 
 #if HAVE_SETLOCALE
 	setlocale(LC_CTYPE, "");
@@ -869,6 +883,7 @@ int php_module_startup(sapi_module_struct *sf)
 		return FAILURE;
 	}
 	php_disable_functions();
+	zend_startup_extensions();
 	module_initialized = 1;
 	sapi_deactivate(SLS_C);
 	return SUCCESS;
@@ -924,12 +939,10 @@ static inline void php_register_server_variables(ELS_D SLS_DC PLS_DC)
 {
 	zval *array_ptr=NULL;
 
-	if (PG(track_vars)) {
-		ALLOC_ZVAL(array_ptr);
-		array_init(array_ptr);
-		INIT_PZVAL(array_ptr);
-		PG(http_globals).server = array_ptr;
-	}
+	ALLOC_ZVAL(array_ptr);
+	array_init(array_ptr);
+	INIT_PZVAL(array_ptr);
+	PG(http_globals)[TRACK_VARS_SERVER] = array_ptr;
 
 	/* Server variables */
 	if (sapi_module.register_server_variables) {
@@ -956,8 +969,31 @@ static int php_hash_environment(ELS_D SLS_DC PLS_DC)
 	char *p;
 	unsigned char _gpc_flags[3] = {0,0,0};
 	zend_bool have_variables_order;
+	zval *dummy_track_vars_array;
+	zend_bool initialized_dummy_track_vars_array=0;
+	int i;
+	char *track_vars_names[] = {
+		"HTTP_POST_VARS",
+		"HTTP_GET_VARS",
+		"HTTP_COOKIE_VARS",
+		"HTTP_SERVER_VARS",
+		"HTTP_ENV_VARS",
+		"HTTP_POST_FILES",
+		NULL
+	};
+	int track_vars_names_length[] = {
+		sizeof("HTTP_POST_VARS"),
+		sizeof("HTTP_GET_VARS"),
+		sizeof("HTTP_COOKIE_VARS"),
+		sizeof("HTTP_SERVER_VARS"),
+		sizeof("HTTP_ENV_VARS"),
+		sizeof("HTTP_POST_FILES")
+	};
 
-	PG(http_globals).post = PG(http_globals).get = PG(http_globals).cookie = PG(http_globals).server = PG(http_globals).environment = PG(http_globals).post_files = NULL;
+
+	for (i=0; i<6; i++) {
+		PG(http_globals)[i] = NULL;
+	}
 
 	if (PG(variables_order)) {
 		p = PG(variables_order);
@@ -973,21 +1009,21 @@ static int php_hash_environment(ELS_D SLS_DC PLS_DC)
 			case 'p':
 			case 'P':
 				if (!_gpc_flags[0] && !SG(headers_sent) && SG(request_info).request_method && !strcasecmp(SG(request_info).request_method, "POST")) {
-					php_treat_data(PARSE_POST, NULL ELS_CC PLS_CC SLS_CC);	/* POST Data */
+					php_treat_data(PARSE_POST, NULL, NULL ELS_CC PLS_CC SLS_CC);	/* POST Data */
 					_gpc_flags[0]=1;
 				}
 				break;
 			case 'c':
 			case 'C':
 				if (!_gpc_flags[1]) {
-					php_treat_data(PARSE_COOKIE, NULL ELS_CC PLS_CC SLS_CC);	/* Cookie Data */
+					php_treat_data(PARSE_COOKIE, NULL, NULL  ELS_CC PLS_CC SLS_CC);	/* Cookie Data */
 					_gpc_flags[1]=1;
 				}
 				break;
 			case 'g':
 			case 'G':
 				if (!_gpc_flags[2]) {
-					php_treat_data(PARSE_GET, NULL ELS_CC PLS_CC SLS_CC);	/* GET Data */
+					php_treat_data(PARSE_GET, NULL, NULL  ELS_CC PLS_CC SLS_CC);	/* GET Data */
 					_gpc_flags[2]=1;
 				}
 				break;
@@ -1010,25 +1046,20 @@ static int php_hash_environment(ELS_D SLS_DC PLS_DC)
 		php_register_server_variables(ELS_C SLS_CC PLS_CC);
 	}
 
-	if (PG(http_globals).post) {
-		zend_hash_update(&EG(symbol_table), "HTTP_POST_VARS", sizeof("HTTP_POST_VARS"), &PG(http_globals).post, sizeof(zval *), NULL);
+	for (i=0; i<6; i++) {
+		if (!PG(http_globals)[i]) {
+			if (!initialized_dummy_track_vars_array) {
+				ALLOC_ZVAL(dummy_track_vars_array);
+				array_init(dummy_track_vars_array);
+				INIT_PZVAL(dummy_track_vars_array);
+				initialized_dummy_track_vars_array = 1;
+			} else {
+				dummy_track_vars_array->refcount++;
+			}
+			PG(http_globals)[i] = dummy_track_vars_array;
+		}
+		zend_hash_update(&EG(symbol_table), track_vars_names[i], track_vars_names_length[i], &PG(http_globals)[i], sizeof(zval *), NULL);
 	}
-	if (PG(http_globals).get) {
-		zend_hash_update(&EG(symbol_table), "HTTP_GET_VARS", sizeof("HTTP_GET_VARS"), &PG(http_globals).get, sizeof(zval *), NULL);
-	}
-	if (PG(http_globals).cookie) {
-		zend_hash_update(&EG(symbol_table), "HTTP_COOKIE_VARS", sizeof("HTTP_COOKIE_VARS"), &PG(http_globals).cookie, sizeof(zval *), NULL);
-	}
-	if (PG(http_globals).server) {
-		zend_hash_update(&EG(symbol_table), "HTTP_SERVER_VARS", sizeof("HTTP_SERVER_VARS"), &PG(http_globals).server, sizeof(zval *), NULL);
-	}
-	if (PG(http_globals).environment) {
-		zend_hash_update(&EG(symbol_table), "HTTP_ENV_VARS", sizeof("HTTP_ENV_VARS"), &PG(http_globals).environment, sizeof(zval *), NULL);
-	}
-	if (PG(http_globals).post_files) {
-		zend_hash_update(&EG(symbol_table), "HTTP_POST_FILES", sizeof("HTTP_POST_FILES"), &PG(http_globals).post_files, sizeof(zval *),NULL);
-	}
-
 	return SUCCESS;
 }
 
@@ -1038,9 +1069,6 @@ static void php_build_argv(char *s, zval *track_vars_array ELS_DC PLS_DC)
 	pval *arr, *argc, *tmp;
 	int count = 0;
 	char *ss, *space;
-
-	if (!PG(register_globals) && !PG(track_vars))
-		return;
 	
 	ALLOC_ZVAL(arr);
 	array_init(arr);
@@ -1086,15 +1114,12 @@ static void php_build_argv(char *s, zval *track_vars_array ELS_DC PLS_DC)
 		zend_hash_add(&EG(symbol_table), "argc", sizeof("argc"), &argc, sizeof(zval *), NULL);
 	}
 
-	if (PG(track_vars)) {
-		if (PG(register_globals)) {
-			arr->refcount++;
-			argc->refcount++;
-		}
-		zend_hash_update(track_vars_array->value.ht, "argv", sizeof("argv"), &arr, sizeof(pval *), NULL);
-		zend_hash_update(track_vars_array->value.ht, "argc", sizeof("argc"), &argc, sizeof(pval *), NULL);
+	if (PG(register_globals)) {
+		arr->refcount++;
+		argc->refcount++;
 	}
-
+	zend_hash_update(track_vars_array->value.ht, "argv", sizeof("argv"), &arr, sizeof(pval *), NULL);
+	zend_hash_update(track_vars_array->value.ht, "argc", sizeof("argc"), &argc, sizeof(pval *), NULL);
 }
 
 
@@ -1145,6 +1170,8 @@ PHPAPI void php_execute_script(zend_file_handle *primary_file CLS_DC ELS_DC PLS_
 #ifdef PHP_WIN32
 	UpdateIniFromRegistry(primary_file->filename);
 #endif
+
+	PG(during_request_startup) = 0;
 
 	if (primary_file->type == ZEND_HANDLE_FILENAME 
 			&& primary_file->filename) {

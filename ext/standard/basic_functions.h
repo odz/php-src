@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: basic_functions.h,v 1.60 2000/08/24 18:49:48 zeev Exp $ */
+/* $Id: basic_functions.h,v 1.66 2000/09/19 17:32:27 sas Exp $ */
 
 #ifndef BASIC_FUNCTIONS_H
 #define BASIC_FUNCTIONS_H
@@ -28,6 +28,7 @@
 
 #ifdef TRANS_SID
 #  include "url_scanner.h"
+#  include "url_scanner_ex.h"
 #endif
 
 extern zend_module_entry basic_functions_module;
@@ -106,6 +107,11 @@ PHP_FUNCTION(get_loaded_extensions);
 PHP_FUNCTION(extension_loaded);
 PHP_FUNCTION(get_extension_funcs);
 
+PHP_FUNCTION(register_tick_function);
+PHP_FUNCTION(unregister_tick_function);
+
+PHP_FUNCTION(is_uploaded_file);
+PHP_FUNCTION(move_uploaded_file);
 
 /* From the INI parser */
 PHP_FUNCTION(parse_ini_file);
@@ -140,6 +146,7 @@ typedef struct {
 	char str_ebuf[40];
 	zval **array_walk_func_name;
 	zval **user_compare_func_name;
+	zend_llist *user_tick_functions;
 	
 	HashTable sm_protected_env_vars;
 	char *sm_allowed_env_vars;
@@ -166,10 +173,13 @@ typedef struct {
 
 	/* var.c */
 	zend_class_entry *incomplete_class;
+	zend_bool use_trans_sid;
 
 #ifdef TRANS_SID
 	/* url_scanner.c */
 	url_adapt_state_t url_adapt_state; 
+	/* url_scanner_ex.re */
+	url_adapt_state_ex_t url_adapt_state_ex; 
 #endif
 } php_basic_globals;
 

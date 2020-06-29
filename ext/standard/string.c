@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: string.c,v 1.146 2000/08/18 13:43:22 sterling Exp $ */
+/* $Id: string.c,v 1.161 2000/10/03 16:47:25 andi Exp $ */
 
 /* Synced with php 3.0 revision 1.193 1999-06-16 [ssb] */
 
@@ -36,15 +36,21 @@
 #include "php_globals.h"
 #include "basic_functions.h"
 
-#define STR_PAD_LEFT	0
-#define STR_PAD_RIGHT	1
-#define STR_PAD_BOTH	2
+#define STR_PAD_LEFT			0
+#define STR_PAD_RIGHT			1
+#define STR_PAD_BOTH			2
+#define PHP_PATHINFO_DIRNAME 	0
+#define PHP_PATHINFO_BASENAME 	1
+#define PHP_PATHINFO_EXTENSION 	2
 
 void register_string_constants(INIT_FUNC_ARGS)
 {
-	REGISTER_LONG_CONSTANT("STR_PAD_LEFT", STR_PAD_LEFT, CONST_PERSISTENT|CONST_CS);
-	REGISTER_LONG_CONSTANT("STR_PAD_RIGHT", STR_PAD_RIGHT, CONST_PERSISTENT|CONST_CS);
-	REGISTER_LONG_CONSTANT("STR_PAD_BOTH", STR_PAD_BOTH, CONST_PERSISTENT|CONST_CS);
+	REGISTER_LONG_CONSTANT("STR_PAD_LEFT", STR_PAD_LEFT, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("STR_PAD_RIGHT", STR_PAD_RIGHT, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("STR_PAD_BOTH", STR_PAD_BOTH, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("PATHINFO_DIRNAME", PHP_PATHINFO_DIRNAME, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("PATHINFO_BASENAME", PHP_PATHINFO_BASENAME, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("PATHINFO_EXTENSION", PHP_PATHINFO_EXTENSION, CONST_CS | CONST_PERSISTENT);
 }
 
 int php_tag_find(char *tag, int len, char *set);
@@ -227,15 +233,15 @@ PHP_FUNCTION(ltrim)
 /* }}} */
 
 
-/* {{{ proto string wordwrap(string str [, int width [, string break]])
+/* {{{ proto string wordwrap(string str [, int width [, string break [, int cut]]])
    Wrap buffer to selected number of characters using string break char */
 PHP_FUNCTION(wordwrap)
 {
-	pval **ptext, **plinelength, **pbreakchar;
-	long i=0, l=0, pgr=0, linelength=0, last=0, breakcharlen;
+	pval **ptext, **plinelength, **pbreakchar, **cut;
+	long i=0, l=0, pgr=0, linelength=0, last=0, breakcharlen, docut=0;
 	char *text, *breakchar, *newtext;
 
-	if (ZEND_NUM_ARGS() < 1 || ZEND_NUM_ARGS() > 3 || zend_get_parameters_ex(ZEND_NUM_ARGS(), &ptext, &plinelength, &pbreakchar) == FAILURE) {
+	if (ZEND_NUM_ARGS() < 1 || ZEND_NUM_ARGS() > 4 || zend_get_parameters_ex(ZEND_NUM_ARGS(), &ptext, &plinelength, &pbreakchar, &cut) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
@@ -260,16 +266,21 @@ PHP_FUNCTION(wordwrap)
 		breakcharlen = 1;
 	}
 
+	if (ZEND_NUM_ARGS() > 3) {
+		convert_to_long_ex(cut);
+		docut = (*cut)->value.lval;
+	}
+
 	/* Special case for a single-character break as it needs no
 	   additional storage space */
 
-	if (breakcharlen == 1) {
-
-		while (text[i] != '\0') {
+	if (breakcharlen == 1 && docut == 0) {
+		newtext = estrdup (text);
+		while (newtext[i] != '\0') {
 			/* prescan line to see if it is greater than linelength */
 			l = 0;
-			while (text[i+l] != breakchar[0]) {
-				if (text[i+l] == '\0') {
+			while (newtext[i+l] != breakchar[0]) {
+				if (newtext[i+l] == '\0') {
 					l --;
 					break;
 				}
@@ -280,8 +291,8 @@ PHP_FUNCTION(wordwrap)
 				l = linelength;
 				/* needs breaking; work backwards to find previous word */
 				while (l >= 0) {
-					if (text[i+l] == ' ') {
-						text[i+l] = breakchar[0];
+					if (newtext[i+l] == ' ') {
+						newtext[i+l] = breakchar[0];
 						break;
 					}
 					l --;
@@ -290,8 +301,8 @@ PHP_FUNCTION(wordwrap)
 					/* couldn't break is backwards, try looking forwards */
 					l = linelength;
 					while (l <= pgr) {
-						if(text[i+l] == ' ') {
-							text[i+l] = breakchar[0];
+						if(newtext[i+l] == ' ') {
+							newtext[i+l] = breakchar[0];
 							break;
 						}
 						l ++;
@@ -300,11 +311,11 @@ PHP_FUNCTION(wordwrap)
 			}
 			i += l+1;
 		}
-		RETVAL_STRINGL(text, strlen(text), 1);
+		RETVAL_STRINGL(newtext, strlen(newtext), 1);
+		efree(newtext);
 	}
 	else {
 		/* Multiple character line break */
-
 		newtext = emalloc((*ptext)->value.str.len * (breakcharlen+1));
 		newtext[0] = '\0';
 
@@ -337,11 +348,23 @@ PHP_FUNCTION(wordwrap)
 					/* couldn't break it backwards, try looking forwards */
 					l = linelength;
 					while (l <= pgr) {
-						if (text[i+l] == ' ') {
-							strncat(newtext, text+last, i+l-last);
-							strcat(newtext, breakchar);
-							last = i + l + 1;
-							break;
+						if (docut == 0)
+						{
+							if (text[i+l] == ' ') {
+								strncat(newtext, text+last, i+l-last);
+								strcat(newtext, breakchar);
+								last = i + l + 1;
+								break;
+							}
+						}
+						if (docut == 1)
+						{
+							if (text[i+l] == ' ' || l > i-last) {
+								strncat(newtext, text+last, i+l-last);
+								strcat(newtext, breakchar);
+								last = i + l;
+								break;
+							}
 						}
 						l ++;
 					}
@@ -668,31 +691,55 @@ PHP_FUNCTION(basename)
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(str);
-	ret = php_basename((*str)->value.str.val,(*str)->value.str.len);
-	RETVAL_STRING(ret,1)
-	efree(ret);
+	ret = php_basename(Z_STRVAL_PP(str), Z_STRLEN_PP(str));
+	RETVAL_STRING(ret, 0)
 }
 /* }}} */
 
-PHPAPI void php_dirname(char *str, int len) {
-	register char *c;
+/* This function doesn't work with absolute paths in Win32 such as C:\foo
+ *  (and it didn't before either). This needs to be fixed
+ */
+PHPAPI void php_dirname(char *path, int len)
+{
+	register char *end = path + len - 1;
 
-	c = str + len - 1;
-	while (*c == '/'
-#ifdef PHP_WIN32
-		   || *c == '\\'
-#endif
-		)
-		c--; /* strip trailing slashes */
-	*(c + 1) = '\0';
-	if ((c = strrchr(str, '/'))
-#ifdef PHP_WIN32
-		|| (c = strrchr(str, '\\'))
-#endif
-		)
-		*c='\0';
-	else
-		*str='\0';
+	if (len <= 0) {
+		/* Illegal use of this function */
+		return;
+	}
+
+	/* Strip trailing slashes */
+	while (end >= path && IS_SLASH(*end)) {
+		end--;
+	}
+	if (end < path) {
+		/* The path only contained slashes */
+		path[0] = DEFAULT_SLASH;
+		path[1] = '\0';
+		return;
+	}
+
+	/* Strip filename */
+	while (end >= path && !IS_SLASH(*end)) {
+		end--;
+	}
+	if (end < path) {
+		/* No slash found, therefore return '.' */
+		path[0] = '.';
+		path[1] = '\0';
+		return;
+	}
+
+	/* Strip slashes which came before the file name */
+	while (end >= path && IS_SLASH(*end)) {
+		end--;
+	}
+	if (end < path) {
+		path[0] = DEFAULT_SLASH;
+		path[1] = '\0';
+		return;
+	}
+	*(end+1) = '\0';
 }
 
 /* {{{ proto string dirname(string path)
@@ -702,21 +749,81 @@ PHP_FUNCTION(dirname)
 	zval **str;
 	char *ret;
 	
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &str)) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &str) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(str);
-	ret = estrdup((*str)->value.str.val);
-	php_dirname(ret,(*str)->value.str.len);
-	if(*ret) {
-		RETVAL_STRING(ret,1);
-	} else { 
-		RETVAL_FALSE;
-	}
-	efree(ret);
+	ret = estrndup(Z_STRVAL_PP(str), Z_STRLEN_PP(str));
+	php_dirname(ret, Z_STRLEN_PP(str));
+	RETVAL_STRING(ret, 0);
 }
 /* }}} */
 
+/* {{{ proto array pathinfo(string path)
+   Return information about a certain string */
+PHP_FUNCTION(pathinfo)
+{
+	zval **path, **uopt, *tmp;
+	char *ret;
+	int argc = ZEND_NUM_ARGS(), opt, len;
+	
+	if (argc < 1 || argc > 2 ||
+	    zend_get_parameters_ex(argc, &path, &uopt) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+	convert_to_string_ex(path);
+	len = Z_STRLEN_PP(path);
+	
+	if (argc > 1) {
+		convert_to_long_ex(uopt);
+		opt = Z_LVAL_PP(uopt);
+		if (opt < PHP_PATHINFO_DIRNAME || opt > PHP_PATHINFO_EXTENSION) {
+			php_error(E_WARNING, "Invalid option in call to %s()",
+					  get_active_function_name());
+			return;
+		}
+	}
+	
+	MAKE_STD_ZVAL(tmp);
+	array_init(tmp);
+	
+	if (opt == PHP_PATHINFO_DIRNAME || argc < 2) {
+		ret = estrndup(Z_STRVAL_PP(path), len);
+		php_dirname(ret, len);
+		if (*ret)
+			add_assoc_string(tmp, "dirname", ret, 1);
+		efree(ret);
+	}
+	
+	if (opt == PHP_PATHINFO_BASENAME || argc < 2) {
+		ret = php_basename(Z_STRVAL_PP(path), len);
+		add_assoc_string(tmp, "basename", ret, 0);
+	}			
+	
+	if (opt == PHP_PATHINFO_EXTENSION || argc < 2) {
+		char *p;
+		int idx;
+
+		p = strrchr(Z_STRVAL_PP(path), '.');
+		if (*p) {
+			idx = p - Z_STRVAL_PP(path);
+			add_assoc_stringl(tmp, "extension", Z_STRVAL_PP(path) + idx + 1, len - idx - 1, 1);
+		}
+	}
+	
+	if (argc == 2) {
+		zval **element;
+		zend_hash_get_current_data(Z_ARRVAL_P(tmp), (void **)&element);
+		*return_value = **element;
+	} else {
+		*return_value = *tmp;
+	}
+
+	zval_copy_ctor(return_value);
+	zval_dtor(tmp);
+	efree(tmp);
+}
+/* }}} */
 
 /* case insensitve strstr */
 PHPAPI char *php_stristr(unsigned char *s, unsigned char *t,
@@ -1649,6 +1756,15 @@ PHP_FUNCTION(addcslashes)
 	}
 	convert_to_string_ex(str);
 	convert_to_string_ex(what);
+
+	if(Z_STRLEN_PP(str) == 0) {
+		RETURN_EMPTY_STRING();
+	}
+
+	if(Z_STRLEN_PP(what) == 0) {
+		RETURN_STRINGL(Z_STRVAL_PP(str),Z_STRLEN_PP(str),1);
+	}
+
 	return_value->value.str.val = php_addcslashes((*str)->value.str.val,(*str)->value.str.len,&return_value->value.str.len,0,(*what)->value.str.val,(*what)->value.str.len);
 	return_value->type = IS_STRING;
 }
@@ -1664,6 +1780,11 @@ PHP_FUNCTION(addslashes)
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(str);
+
+	if(Z_STRLEN_PP(str) == 0) {
+		RETURN_EMPTY_STRING();
+	}
+
 	return_value->value.str.val = php_addslashes((*str)->value.str.val,(*str)->value.str.len,&return_value->value.str.len,0);
 	return_value->type = IS_STRING;
 }
@@ -1927,20 +2048,6 @@ PHPAPI void php_char_to_str(char *str,uint len,char from,char *to,int to_len,zva
 	*target = 0;
 }
 
-
-PHPAPI inline char *
-php_memnstr(char *haystack, char *needle, int needle_len, char *end)
-{
-	char *p = haystack;
-	char *s = NULL;
-
-	for(; p <= end - needle_len && 
-			(s = memchr(p, *needle, end - p - needle_len + 1)); p = s + 1) {
-		if(memcmp(s, needle, needle_len) == 0)
-			return s;
-	}
-	return NULL;
-}
 
 PHPAPI char *php_str_to_str(char *haystack, int length, 
 	char *needle, int needle_len, char *str, int str_len, int *_new_length)
@@ -2326,23 +2433,44 @@ PHP_FUNCTION(setlocale)
 }
 /* }}} */
 
-/* {{{ proto void parse_str(string encoded_string)
+/* {{{ proto void parse_str(string encoded_string, [array result])
    Parses GET/POST/COOKIE data and sets global variables */
 PHP_FUNCTION(parse_str)
 {
 	zval **arg;
+	zval **arrayArg;
+	zval *sarg;
 	char *res = NULL;
+	int argCount;
+	int old_rg;
+	
 	PLS_FETCH();
 	SLS_FETCH();
 
-	if (zend_get_parameters_ex(1, &arg) == FAILURE) {
+	argCount = ARG_COUNT(ht);
+	if(argCount < 1 || argCount > 2 || zend_get_parameters_ex(argCount, &arg, &arrayArg) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
+
 	convert_to_string_ex(arg);
-	if ((*arg)->value.str.val && *(*arg)->value.str.val) {
-		res = estrndup((*arg)->value.str.val,(*arg)->value.str.len);
+	sarg = *arg;
+	if (sarg->value.str.val && *sarg->value.str.val) {
+		res = estrndup(sarg->value.str.val, sarg->value.str.len);
 	}
-	php_treat_data(PARSE_STRING, res ELS_CC PLS_CC SLS_CC);
+
+	old_rg = PG(register_globals);
+	if(argCount == 1) {
+		PG(register_globals) = 1;
+		php_treat_data(PARSE_STRING, res, NULL ELS_CC PLS_CC SLS_CC);
+	} else 	{
+		PG(register_globals) = 0;
+		/* Clear out the array that was passed in. */
+		zval_dtor(*arrayArg);
+		array_init(*arrayArg);
+		
+		php_treat_data(PARSE_STRING, res, *arrayArg ELS_CC PLS_CC SLS_CC);
+	}
+	PG(register_globals) = old_rg;
 }
 /* }}} */
 
@@ -2553,14 +2681,18 @@ PHP_FUNCTION(str_repeat)
 	convert_to_string_ex(input_str);
 	convert_to_long_ex(mult);
 	
-	if ((*mult)->value.lval < 1) {
-		php_error(E_WARNING, "Second argument to %s() has to be greater than 0",
+	if ((*mult)->value.lval < 0) {
+		php_error(E_WARNING, "Second argument to %s() has to be greater than or equal to 0",
 				  get_active_function_name());
 		return;
 	}
 
 	/* Don't waste our time if it's empty */
 	if ((*input_str)->value.str.len == 0)
+		RETURN_STRINGL(empty_string, 0, 1);
+	
+	/* ... or if the multiplier is zero */
+	if ((*mult)->value.lval == 0)
 		RETURN_STRINGL(empty_string, 0, 1);
 	
 	/* Initialize the result string */	

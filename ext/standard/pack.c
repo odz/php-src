@@ -15,7 +15,7 @@
    | Authors: Chris Schneider <cschneid@relog.ch>                         |
    +----------------------------------------------------------------------+
  */
-/* $Id: pack.c,v 1.23 2000/07/09 14:26:50 eschmid Exp $ */
+/* $Id: pack.c,v 1.26 2000/09/10 13:47:51 stas Exp $ */
 
 #include "php.h"
 
@@ -302,6 +302,10 @@ PHP_FUNCTION(pack)
 				convert_to_string_ex(val);
 				v = (*val)->value.str.val;
 				outputpos--;
+				if(arg > (*val)->value.str.len) {
+					php_error(E_WARNING,"pack type %c: not enough characters in string",code);
+					arg = (*val)->value.str.len;
+				}
 
 				while (arg-- > 0) {
 					char n = *(v++);
@@ -460,7 +464,7 @@ static long php_unpack(char *data, int size, int issigned, int *map)
  * Rather than depending on error-prone ordered lists or syntactically
  * unpleasant pass-by-reference, we return an object with named paramters 
  * (like *_fetch_object()). Syntax is "f[repeat]name/...", where "f" is the
- * formatter char (like pack()), "[repeatt]" is the optional repeater argument,
+ * formatter char (like pack()), "[repeat]" is the optional repeater argument,
  * and "name" is the name of the variable to use.
  * Example: "c2chars/nints" will return an object with fields
  * chars1, chars2, and ints.
@@ -547,8 +551,14 @@ PHP_FUNCTION(unpack)
 				break;
 			}
 
-			case 'a': case 'A': case 'h': case 'H': {
+			case 'a': case 'A': {
 				size = arg;
+				arg = 1;
+				break;
+			}
+
+			case 'h': case 'H': {
+				size = arg/2;
 				arg = 1;
 				break;
 			}
@@ -634,11 +644,10 @@ PHP_FUNCTION(unpack)
 						int ipos, opos;
 
 						/* If size was given take minimum of len and size */
-						if ((size >= 0) && (len > size)) {
-							len = size;
-						}
-
-						size = (len + 1) / 2;
+						if ((size >= 0) && (len > size*2)) {
+							len = size*2;
+						} 
+							
 						buf = emalloc(len + 1);
 
 						for (ipos = opos = 0; opos < len; opos++) {
@@ -732,7 +741,7 @@ PHP_FUNCTION(unpack)
 					case 'd': {
 						double v;
 
-						memcpy(&v, &input[inputpos], sizeof(float));
+						memcpy(&v, &input[inputpos], sizeof(double));
 						add_assoc_double(return_value, n, v);
 						break;
 					}

@@ -13,11 +13,14 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
+   |          Stig Bakken <ssb@fast.no>                                   |
+   |          Andi Gutmans <andi@zend.com>                                |
+   |          Zeev Suraski <zeev@zend.com>                                |
    | PHP 4.0 patches by Thies C. Arntzen (thies@digicol.de)               |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: file.c,v 1.108 2000/08/21 19:24:44 torben Exp $ */
+/* $Id: file.c,v 1.116 2000/09/27 16:08:26 sas Exp $ */
 
 /* Synced with php 3.0 revision 1.218 1999-06-16 [ssb] */
 
@@ -28,6 +31,7 @@
 #include "ext/standard/flock_compat.h"
 #include "ext/standard/exec.h"
 #include "ext/standard/php_filestat.h"
+#include "php_open_temporary_file.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -107,106 +111,10 @@ php_file_globals file_globals;
 static void _file_fopen_dtor(FILE *pipe);
 static void _file_popen_dtor(FILE *pipe);
 static void _file_socket_dtor(int *sock);
-static void _file_upload_dtor(char *file);
 
 /* sharing globals is *evil* */
-static int le_fopen,le_popen, le_socket, le_uploads; 
+static int le_fopen, le_popen, le_socket; 
 
-
-/* }}} */
-/* {{{ tempnam */
-
-#ifndef HAVE_TEMPNAM
-/*
- * Copyright (c) 1988, 1993
- *      The Regents of the University of California.  All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *      This product includes software developed by the University of
- *      California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- */
-
-#ifdef HAVE_UNISTD_H
-# include <unistd.h>
-#endif
-
-#ifndef MAXPATHLEN
-# ifdef PATH_MAX
-#  define MAXPATHLEN PATH_MAX
-# else
-#  define MAXPATHLEN 255
-# endif
-#endif
-
-char *tempnam(const char *dir, const char *pfx)
-{
-	int save_errno;
-	char *f, *name;
-	static char path_tmp[] = "/tmp";
-	
-	if (!(name = emalloc(MAXPATHLEN))) {
-		return(NULL);
-	}
-	
-	if (!pfx) {
-		pfx = "tmp.";
-	}
-	
-	if (f = getenv("TMPDIR")) {
-		(void)snprintf(name, MAXPATHLEN, "%s%s%sXXXXXX", f,
-					   *(f + strlen(f) - 1) == '/'? "": "/", pfx);
-		if (f = mktemp(name))
-			return(f);
-	}
-	
-	if (f = (char *)dir) {
-		(void)snprintf(name, MAXPATHLEN, "%s%s%sXXXXXX", f,
-					   *(f + strlen(f) - 1) == '/'? "": "/", pfx);
-		if (f = mktemp(name))
-			return(f);
-	}
-
-	f = P_tmpdir;
-	(void)snprintf(name, MAXPATHLEN, "%s%sXXXXXX", f, pfx);
-	if (f = mktemp(name))
-		return(f);
-
-	f = path_tmp;
-	(void)snprintf(name, MAXPATHLEN, "%s%sXXXXXX", f, pfx);
-	if (f = mktemp(name))
-		return(f);
-
-	save_errno = errno;
-	efree(name);
-	errno = save_errno;
-	return(NULL);
-}
-
-#endif
 
 /* }}} */
 /* {{{ Module-Stuff */
@@ -225,12 +133,6 @@ static void _file_socket_dtor(int *sock)
 	shutdown(*sock, 0);
 #endif
 	efree(sock);
-}
-
-
-static void _file_upload_dtor(char *file)
-{
-	V_UNLINK(file);
 }
 
 
@@ -257,12 +159,6 @@ PHPAPI int php_file_le_socket(void) /* XXX doe we really want this???? */
 }
 
 
-PHPAPI int php_file_le_uploads(void) /* XXX doe we really want this???? */
-{
-	return le_uploads;
-}
-
-
 #ifdef ZTS
 static void php_file_init_globals(php_file_globals *file_globals)
 {
@@ -276,7 +172,6 @@ PHP_MINIT_FUNCTION(file)
 	le_fopen = register_list_destructors(_file_fopen_dtor, NULL);
 	le_popen = register_list_destructors(_file_popen_dtor, NULL);
 	le_socket = register_list_destructors(_file_socket_dtor, NULL);
-	le_uploads = register_list_destructors(_file_upload_dtor, NULL);
 
 #ifdef ZTS
 	file_globals_id = ts_allocate_id(sizeof(php_file_globals), (ts_allocate_ctor) php_file_init_globals, NULL);
@@ -581,8 +476,9 @@ PHP_FUNCTION(tempnam)
 {
 	pval **arg1, **arg2;
 	char *d;
-	char *t;
+	char *opened_path;
 	char p[64];
+	FILE *fp;
 	
 	if (ARG_COUNT(ht) != 2 || zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -592,12 +488,14 @@ PHP_FUNCTION(tempnam)
 	d = estrndup((*arg1)->value.str.val,(*arg1)->value.str.len);
 	strlcpy(p,(*arg2)->value.str.val,sizeof(p));
 
-	t = tempnam(d,p);
-	efree(d);
-	if(!t) {
-		RETURN_FALSE;
+
+	if ((fp = php_open_temporary_file(d, p, &opened_path))) {
+		fclose(fp);
+		RETVAL_STRING(opened_path, 0);
+	} else {
+		RETVAL_FALSE;
 	}
-	RETURN_STRING(t,1);
+	efree(d);
 }
 
 /* }}} */
@@ -1010,6 +908,7 @@ PHP_FUNCTION(fgetc) {
 	int issock=0;
 	int socketd=0;
 	void *what;
+	int result;
 	
 	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &arg1) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -1024,10 +923,11 @@ PHP_FUNCTION(fgetc) {
 	}
 
 	buf = emalloc(sizeof(int));
-	if ((*buf = FP_FGETC(socketd, (FILE*)what, issock)) == EOF) {
+	if ((result = FP_FGETC(socketd, (FILE*)what, issock)) == EOF) {
 		efree(buf);
 		RETVAL_FALSE;
 	} else {
+		buf[0]=result;
 		buf[1]='\0';
 		return_value->value.str.val = buf; 
 		return_value->value.str.len = 1; 
@@ -1416,7 +1316,7 @@ PHP_FUNCTION(rmdir)
 	if (PG(safe_mode) &&(!php_checkuid((*arg1)->value.str.val, NULL, 1))) {
 		RETURN_FALSE;
 	}
-	ret = rmdir((*arg1)->value.str.val);
+	ret = V_RMDIR((*arg1)->value.str.val);
 	if (ret < 0) {
 		php_error(E_WARNING,"RmDir failed (%s)", strerror(errno));
 		RETURN_FALSE;
@@ -1444,11 +1344,11 @@ static size_t php_passthru_fd(int socketd, FILE *fp, int issock)
 		fd = fileno(fp);
 		fstat(fd, &sbuf);
 	
-		if(sbuf.st_size > sizeof(buf)) {
+		if (sbuf.st_size > sizeof(buf)) {
 			off = ftell(fp);
 			len = sbuf.st_size - off;
 			p = mmap(0, len, PROT_READ, MAP_PRIVATE, fd, off);
-			if(p!=MAP_FAILED) {
+			if (p != (void *) MAP_FAILED) {
 				PHPWRITE(p, len);
 				munmap(p, len);
 				bcount += len;
@@ -1731,8 +1631,6 @@ PHP_FUNCTION(fstat)
 PHP_FUNCTION(copy)
 {
 	pval **source, **target;
-	char buffer[8192];
-	int fd_s,fd_t,read_bytes;
 	PLS_FETCH();
 	
 	if (ARG_COUNT(ht) != 2 || zend_get_parameters_ex(2, &source, &target) == FAILURE) {
@@ -1746,40 +1644,56 @@ PHP_FUNCTION(copy)
 		RETURN_FALSE;
 	}
 	
-#ifdef PHP_WIN32
-	if ((fd_s=V_OPEN((Z_STRVAL_PP(source),O_RDONLY|_O_BINARY)))==-1) {
-#else
-	if ((fd_s=V_OPEN((Z_STRVAL_PP(source),O_RDONLY)))==-1) {
-#endif
-		php_error(E_WARNING,"Unable to open '%s' for reading:  %s", Z_STRVAL_PP(source), strerror(errno));
+	if (php_copy_file(Z_STRVAL_PP(source), Z_STRVAL_PP(target))==SUCCESS) {
+		RETURN_TRUE;
+	} else {
 		RETURN_FALSE;
 	}
+}
+
+/* }}} */
+
+
+PHPAPI int php_copy_file(char *src, char *dest)
+{
+	char buffer[8192];
+	int fd_s,fd_t,read_bytes;
+
 #ifdef PHP_WIN32
-	if ((fd_t=V_OPEN((Z_STRVAL_PP(target),_O_WRONLY|_O_CREAT|_O_TRUNC|_O_BINARY,_S_IREAD|_S_IWRITE)))==-1){
+	if ((fd_s=V_OPEN((src,O_RDONLY|_O_BINARY)))==-1) {
 #else
-	if ((fd_t=V_CREAT(Z_STRVAL_PP(target),0777))==-1) {
+	if ((fd_s=V_OPEN((src,O_RDONLY)))==-1) {
 #endif
-		php_error(E_WARNING,"Unable to create '%s':  %s", Z_STRVAL_PP(target), strerror(errno));
+		php_error(E_WARNING,"Unable to open '%s' for reading:  %s", src, strerror(errno));
+		return FAILURE;
+	}
+#ifdef PHP_WIN32
+	if ((fd_t=V_OPEN((dest,_O_WRONLY|_O_CREAT|_O_TRUNC|_O_BINARY,_S_IREAD|_S_IWRITE)))==-1) {
+#else
+	if ((fd_t=V_CREAT(dest,0777))==-1) {
+#endif
+		php_error(E_WARNING,"Unable to create '%s':  %s", dest, strerror(errno));
 		close(fd_s);
-		RETURN_FALSE;
+		return FAILURE;
 	}
 
 	while ((read_bytes=read(fd_s,buffer,8192))!=-1 && read_bytes!=0) {
 		if (write(fd_t,buffer,read_bytes)==-1) {
-			php_error(E_WARNING,"Unable to write to '%s':  %s", Z_STRVAL_PP(target), strerror(errno));
+			php_error(E_WARNING,"Unable to write to '%s':  %s", dest, strerror(errno));
 			close(fd_s);
 			close(fd_t);
-			RETURN_FALSE;
+			return FAILURE;
 		}
 	}
 	
 	close(fd_s);
 	close(fd_t);
+	return SUCCESS;
+}	
 
-	RETVAL_TRUE;
-}
 
-/* }}} */
+
+
 /* {{{ proto int fread(int fp, int length)
    Binary-safe file read */
 

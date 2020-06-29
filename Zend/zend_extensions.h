@@ -23,7 +23,7 @@
 
 #include "zend_compile.h"
 
-#define ZEND_EXTENSION_API_NO		20000815
+#define ZEND_EXTENSION_API_NO		20001002
 
 typedef struct _zend_extension_version_info {
 	int zend_extension_api_no;
@@ -91,6 +91,7 @@ ZEND_API int zend_load_extension(char *path);
 ZEND_API int zend_load_extensions(char **extension_paths);
 ZEND_API int zend_register_extension(zend_extension *new_extension, DL_HANDLE handle);
 void zend_append_version_info(zend_extension *extension);
+int zend_startup_extensions_mechanism(void);
 int zend_startup_extensions(void);
 void zend_shutdown_extensions(void);
 

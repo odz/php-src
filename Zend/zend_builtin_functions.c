@@ -584,7 +584,7 @@ ZEND_FUNCTION(get_class_methods)
 		while ((key_type = zend_hash_get_current_key(&ce->function_table, &string_key, &num_key)) != HASH_KEY_NON_EXISTANT) {
 			if (key_type == HASH_KEY_IS_STRING) {
 				MAKE_STD_ZVAL(method_name);
-				ZVAL_STRING(method_name, string_key, 0);
+				ZVAL_STRING(method_name, string_key, 1);
 				zend_hash_next_index_insert(return_value->value.ht, &method_name, sizeof(zval *), NULL);
 			}
 			zend_hash_move_forward(&ce->function_table);
@@ -716,12 +716,19 @@ static int copy_import_use_file(zend_file_handle *fh, zval *array)
    Returns an array with the file names that were include_once()'d */
 ZEND_FUNCTION(get_included_files)
 {
+	char *entry;
 	if (ZEND_NUM_ARGS() != 0) {
 		ZEND_WRONG_PARAM_COUNT();
 	}
 
 	array_init(return_value);
-	zend_hash_apply_with_argument(&EG(included_files), (apply_func_arg_t) copy_import_use_file, return_value);
+	zend_hash_internal_pointer_reset(&EG(included_files));
+	while(zend_hash_get_current_key(&EG(included_files), &entry,NULL) == HASH_KEY_IS_STRING) {
+		add_next_index_string(return_value,entry,0);
+		zend_hash_move_forward(&EG(included_files));
+	}
+
+	/*	zend_hash_apply_with_argument(&EG(included_files), (apply_func_arg_t) copy_import_use_file, return_value); */
 }
 /* }}} */
 
@@ -756,9 +763,11 @@ ZEND_FUNCTION(trigger_error)
 					break;
 			}
 			break;
+		default:
+			ZEND_WRONG_PARAM_COUNT();	
 	}
 	convert_to_string_ex(z_error_message);
-	zend_error(error_type, (*z_error_message)->value.str.val);
+	zend_error(error_type, "%s", (*z_error_message)->value.str.val);
 	RETURN_TRUE;
 }
 /* }}} */
@@ -853,6 +862,7 @@ ZEND_FUNCTION(create_function)
 	int eval_code_length, function_name_length;
 	zval **z_function_args, **z_function_code;
 	int retval;
+	char *eval_name;
 	CLS_FETCH();
 
 	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2, &z_function_args, &z_function_code)==FAILURE) {
@@ -871,8 +881,11 @@ ZEND_FUNCTION(create_function)
 	eval_code = (char *) emalloc(eval_code_length);
 	sprintf(eval_code, "function " LAMBDA_TEMP_FUNCNAME "(%s){%s}", Z_STRVAL_PP(z_function_args), Z_STRVAL_PP(z_function_code));
 
-	retval = zend_eval_string(eval_code, NULL CLS_CC ELS_CC);
+	eval_name = zend_make_compiled_string_description("runtime-created function");
+	retval = zend_eval_string(eval_code, NULL, eval_name CLS_CC ELS_CC);
 	efree(eval_code);
+	efree(eval_name);
+
 	if (retval==SUCCESS) {
 		zend_function *func;
 

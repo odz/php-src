@@ -26,17 +26,14 @@ PHP_MINFO_FUNCTION(extname);
 PHP_FUNCTION(confirm_extname_compiled);	/* For testing, remove later. */
 /* __function_declarations_here__ */
 
-/* Fill in this structure and use entries in it
-   for thread safety instead of using true globals.
+/* 
+  	Declare any global variables you may need between the BEGIN
+	and END macros here:     
+
+ZEND_BEGIN_MODULE_GLOBALS(extname)
+	int global_variable;
+ZEND_END_MODULE_GLOBALS(extname)
 */
-typedef struct {
-	/* You can use the next one as type if your module registers any
-	   resources. Oh, you can of course rename it to something more
-	   suitable, add list entry types or remove it if it not needed.
-	   It's just an example.
-	*/
-	int le_extname;
-} php_extname_globals;
 
 /* In every function that needs to use variables in php_extname_globals,
    do call EXTNAMELS_FETCH(); after declaring other variables used by
@@ -47,7 +44,7 @@ typedef struct {
 
 #ifdef ZTS
 #define EXTNAMEG(v) (extname_globals->v)
-#define EXTNAMELS_FETCH() php_extname_globals *extname_globals = ts_resource(gd_extname_id)
+#define EXTNAMELS_FETCH() php_extname_globals *extname_globals = ts_resource(extname_globals_id)
 #else
 #define EXTNAMEG(v) (extname_globals.v)
 #define EXTNAMELS_FETCH()

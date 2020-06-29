@@ -44,7 +44,7 @@ RSC=rc.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MTd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "PHP4DLLTS_EXPORTS" /YX /FD /GZ /c
-# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I ".." /I "..\main" /I "..\regex" /I "..\..\bindlib_w32" /I "..\Zend" /I "..\TSRM" /I "..\ext\mysql\libmysql" /D "_DEBUG" /D "_WINDOWS" /D "_USRDLL" /D "PHP4DLLTS_EXPORTS" /D "PHP_EXPORTS" /D "LIBZEND_EXPORTS" /D "TSRM_EXPORTS" /D "SAPI_EXPORTS" /D ZEND_DEBUG=1 /D "MSVC5" /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "WIN32" /D "_MBCS" /FR /YX /FD /GZ /c
+# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I ".." /I "..\main" /I "..\regex" /I "..\..\bindlib_w32" /I "..\Zend" /I "..\TSRM" /I "..\ext\mysql\libmysql" /D "_DEBUG" /D ZEND_DEBUG=1 /D "_WINDOWS" /D "_USRDLL" /D "PHP4DLLTS_EXPORTS" /D "PHP_EXPORTS" /D "LIBZEND_EXPORTS" /D "TSRM_EXPORTS" /D "SAPI_EXPORTS" /D "MSVC5" /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "WIN32" /D "_MBCS" /FR /YX /FD /GZ /c
 # ADD BASE MTL /nologo /D "_DEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "_DEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x40d /d "_DEBUG"
@@ -70,7 +70,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MT /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "PHP4DLLTS_EXPORTS" /YX /FD /c
-# ADD CPP /nologo /MD /W3 /GX /O2 /I ".." /I "..\main" /I "..\regex" /I "..\..\bindlib_w32" /I "..\Zend" /I "..\TSRM" /I "..\ext\mysql\libmysql" /D "NDEBUG" /D "_WINDOWS" /D "_USRDLL" /D "PHP4DLLTS_EXPORTS" /D "PHP_EXPORTS" /D "LIBZEND_EXPORTS" /D "TSRM_EXPORTS" /D "SAPI_EXPORTS" /D ZEND_DEBUG=0 /D "MSVC5" /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "WIN32" /D "_MBCS" /FR /YX /FD /c
+# ADD CPP /nologo /MD /W3 /GX /O2 /I ".." /I "..\main" /I "..\regex" /I "..\..\bindlib_w32" /I "..\Zend" /I "..\TSRM" /I "..\ext\mysql\libmysql" /D "NDEBUG" /D ZEND_DEBUG=0 /D "_WINDOWS" /D "_USRDLL" /D "PHP4DLLTS_EXPORTS" /D "PHP_EXPORTS" /D "LIBZEND_EXPORTS" /D "TSRM_EXPORTS" /D "SAPI_EXPORTS" /D "MSVC5" /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "WIN32" /D "_MBCS" /FR /YX /FD /c
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x40d /d "NDEBUG"
@@ -97,7 +97,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MD /W3 /GX /O2 /I "." /I "regex" /I "..\bindlib_w32" /I "Zend" /I "tsrm" /D "NDEBUG" /D "_WINDOWS" /D "_USRDLL" /D "PHP4DLLTS_EXPORTS" /D "MSVC5" /D "PHP_EXPORTS" /D "LIBZEND_EXPORTS" /D "TSRM_EXPORTS" /D "SAPI_EXPORTS" /D "ZTS" /D "WIN32" /D "_MBCS" /D ZEND_DEBUG=0 /FR /YX /FD /c
-# ADD CPP /nologo /MD /W3 /GX /O2 /I ".." /I "..\main" /I "..\regex" /I "..\..\bindlib_w32" /I "..\Zend" /I "..\TSRM" /I "..\ext\mysql\libmysql" /D "NDEBUG" /D "_WINDOWS" /D "_USRDLL" /D "PHP4DLLTS_EXPORTS" /D "PHP_EXPORTS" /D "LIBZEND_EXPORTS" /D "TSRM_EXPORTS" /D "SAPI_EXPORTS" /D ZEND_DEBUG=0 /D "ZEND_WIN32_FORCE_INLINE" /D "MSVC5" /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "WIN32" /D "_MBCS" /FR /YX /FD /c
+# ADD CPP /nologo /MD /W3 /GX /O2 /I ".." /I "..\main" /I "..\regex" /I "..\..\bindlib_w32" /I "..\Zend" /I "..\TSRM" /I "..\ext\mysql\libmysql" /D "NDEBUG" /D ZEND_DEBUG=0 /D "ZEND_WIN32_FORCE_INLINE" /D "_WINDOWS" /D "_USRDLL" /D "PHP4DLLTS_EXPORTS" /D "PHP_EXPORTS" /D "LIBZEND_EXPORTS" /D "TSRM_EXPORTS" /D "SAPI_EXPORTS" /D "MSVC5" /D "ZTS" /D "ZEND_WIN32" /D "PHP_WIN32" /D "WIN32" /D "_MBCS" /FR /YX /FD /c
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x40d /d "NDEBUG"
@@ -153,6 +153,10 @@ SOURCE=..\main\mergesort.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\main\network.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\main\php_content_types.c
 # End Source File
 # Begin Source File
@@ -161,15 +165,15 @@ SOURCE=..\main\php_ini.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\main\php_open_temporary_file.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\main\php_ticks.c
 # End Source File
 # Begin Source File
 
 SOURCE=..\main\php_variables.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\main\php_virtual_cwd.c
 # End Source File
 # Begin Source File
 
@@ -265,7 +269,7 @@ SOURCE=..\main\php_ini.h
 # End Source File
 # Begin Source File
 
-SOURCE=..\main\php_realpath.h
+SOURCE=..\main\php_open_temporary_file.h
 # End Source File
 # Begin Source File
 
@@ -274,10 +278,6 @@ SOURCE=..\main\php_regex.h
 # Begin Source File
 
 SOURCE=..\main\php_variables.h
-# End Source File
-# Begin Source File
-
-SOURCE=..\main\php_virtual_cwd.h
 # End Source File
 # Begin Source File
 
@@ -522,6 +522,14 @@ SOURCE=..\ext\standard\url.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\ext\standard\url_scanner.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\standard\url_scanner_ex.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\ext\standard\var.c
 # End Source File
 # End Group
@@ -683,6 +691,14 @@ SOURCE=..\ext\standard\uniqid.h
 # Begin Source File
 
 SOURCE=..\ext\standard\url.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\standard\url_scanner.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\standard\url_scanner_ex.h
 # End Source File
 # End Group
 # Begin Group "PCRE"
@@ -892,6 +908,86 @@ SOURCE=..\ext\xml\expat\xmltok\xmltok_ns.c
 # PROP Exclude_From_Build 1
 # End Source File
 # End Group
+# End Group
+# End Group
+# Begin Group "FTP"
+
+# PROP Default_Filter ""
+# Begin Group "Source Files No. 6"
+
+# PROP Default_Filter ".c"
+# Begin Source File
+
+SOURCE=..\ext\ftp\ftp.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\ftp\php_ftp.c
+# End Source File
+# End Group
+# Begin Group "Header Files No. 6"
+
+# PROP Default_Filter ".h"
+# Begin Source File
+
+SOURCE=..\ext\ftp\ftp.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\ftp\php_ftp.h
+# End Source File
+# End Group
+# End Group
+# Begin Group "Calendar"
+
+# PROP Default_Filter ""
+# Begin Group "Source Files No. 7"
+
+# PROP Default_Filter ".c"
+# Begin Source File
+
+SOURCE=..\ext\calendar\cal_unix.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\calendar\calendar.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\calendar\dow.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\calendar\easter.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\calendar\french.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\calendar\gregor.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\calendar\jewish.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\calendar\julian.c
+# End Source File
+# End Group
+# Begin Group "Header Files No. 7"
+
+# PROP Default_Filter ".h"
+# Begin Source File
+
+SOURCE=..\ext\calendar\php_calendar.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\ext\calendar\sdncal.h
+# End Source File
 # End Group
 # End Group
 # End Group

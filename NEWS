@@ -1,7 +1,84 @@
 PHP 4.0                                                                    NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
+11 Oct 2000, Version 4.0.3
+- Fixed a possible crash in -a interactive mode (Zeev, Zend Engine)
+- Added mysql_escape_string() (Peter A. Savitch and & Brian Wang)
+- Fixed many possible crash bugs with improper use of the printf() family of
+  functions (Andi)
+- Fixed a problem that allowed users to override admin_value's and admin_flag's
+  (Zeev)
+- Fixed PostgreSQL module to work when the link handle is omitted (Zeev)
+- Fixed returning of empty LOB fields in OCI8. (Thies)
+- Added Calendar module to default Win32 build (Andi)
+- Added FTP module to default Win32 build (Andi)
+- Fixed crash in the POSIX getrlimit() function (alex@zend.com)
+- Fixed dirname() under certain conditions (Andi)
+- Added --with-imap-ssl to support SSL'ized imap library in RH7 and others
+  (Rasmus)
+- Fixed possible crash bug in parse_url() (Andi)
+- Added support for trans sid under Win32 (Daniel)
+- IPv6 support in fopen (Stig Venaas)
+- Added the shmop extension. It allows more general ways of shared memory
+  access. (thanks to Ilia Alshanestky <iliaa@home.com> and Slava Poliakov
+  <slavapl@mailandnews.com> (Derick)
+- Added the ability for CURLOPT_POSTFIELDS to accept an associative array of 
+  HTTP POST variables and values. (Sterling)
+- Added the CURLOPT_HTTPHEADER option to curl_setopt(). (Sterling)
+- Added the curl_error() and curl_errno() functions. (Sterling)
+- Changed ext/db not to be enabled by default (Jani)
+- Fixed building Apache SAPI module on SCO UnixWare (Sascha)
+- Fixed writing empty session sets to shared memory (tcarroll@chc-chimes.com)
+- Added support for BSD/OS make (Sascha)
+- Added improved URL rewriter (Sascha)
+- Fixed readdir_r() use on Solaris (Sascha)
+- Improved HTTP headers for private-caching (jon@csh.rit.edu, Sascha)
+- Added new function session_cache_limiter (jon@csh.rit.edu, Sascha)
+- Added ftp_exec to the ftp functions (thanks to <jhennebicq@i-d.net>)
+  (Derick)
+- PEAR: add last executed query as debug info in DB errors (Stig)
+- PEAR: allow multiple modes in PEAR_Error (Stig)
+- Made the Sybase CT module thread safe (Zeev)
+- Added second argument to array_reverse() that indicatese whether
+  the original array keys should be preserved. (Andrei)
+- Clean up htmlspecialchars/htmlentities inconsistencies. (Rasmus)
+- PEAR: renamed DB_GETMODE_* to DB_FETCHMODE_*, added setFetchMode()
+  in DB_common to set the default mode, added some MySQL tests (Stig)
+- Made eval() and several other runtime-evaluated code portions report the
+  nature and location of errors more accurately (Stas)
+- Added an optional parameter to wordwrap that cuts a string if the length of a
+  word is longer than the maximum allowed. (Derick)
+- Added functions pg_put_line and pg_end_copy (Dirk Elmendorf)
+- Added second parameter for parse_str to save result (John Bafford)
+- Fixed bug with curl places extra data in the output. (medvitz@medvitz.net)
+- Added the pathinfo() function. (Sterling)
+- Updated sybase_ct module and its sybase_query to use high performance API.
+  (Joey)
+- Added a more configurable error reporting interface to DB. (Stig)
+- Added is_uploaded_file() and move_uploaded_file() (Zeev)
+- Added several directives to php.ini - post_max_size, file_uploads,
+  display_startup_errors - see php.ini-dist for further information (Zeev)
+- Worked around a bug in the libc5 implementation of readdir() (Stas)
+- Fixed some potential OpenBSD and NetBSD crash bugs when opening files. (Andi)
+- Added EscapeShellArg() function (Rasmus)
+- Added a php.ini option session.use_trans_sid to enable/disable trans-sid.
+  (Sterling)
+- Added the Sablotron extension for XSL parsing. (Sterling)
+- Fixed a bug in checkdate() which caused < 1 years to be valid (Jani)
+- Added support for an optional output handler function for output
+  buffering.  This enables transparent rendering of XML through XSL,
+  transparent compression, etc. (Zeev)
+- Added support for user defined 'tick' callback functions. This helps
+  emulate background processing. (Andrei)
+- Fixed problem with having $this as the XML parser object. (Andrei)
+- Internal opened_path variable now uses the Zend memory manager so that full
+  paths of files won't leak on unclean shutdown (Andi)
+- Removed support of print $obj automatically calling the __string_value()
+  method. Instead define yourself a method such as toString() and use
+  print $obj->toString() (Andi, Zend Engine)
+
 29 Aug 2000, Version 4.0.2 
+- Added PHP API for Zend's ticks. (Stig)
 - PHP 3 regression testing framework re-born (Stig)
 - Added php_uname() function (Stig)
 - Made a minor change to allow building with OpenLDAP 2.0 (Stig Venaas)
@@ -17,7 +94,8 @@ PHP 4.0                                                                    NEWS
   syntax for the walk function. (Andrei)
 - Fixed segfault with fgets(), fgetcsv(), fgetss(), and fread() when
   called with negative length argument. (Torben)
-- Fix by-reference parameters passing for xml_ functions and for scanf functions (Stas)
+- Fixed by-reference parameters passing for xml_ functions and for scanf
+  functions (Stas)
 - Added experimental Oracle LDAP SDK support. 8.1.6 or later needed. Configure
   with something like --with-ldap=/usr/local/oracle/product/8.1.6 (Stig Venaas)
 - Fixed memory leaks in eval();  A script that used eval() extensively, could
@@ -309,7 +387,7 @@ PHP 4.0                                                                    NEWS
   (Patch by daniel.braun@ercom.fr)
 - Added extension YAZ (dickmeiss).
 - Fixed a crash bug triggered by certain cases of class redeclarations
-  (Stanislav & Zeev, Zend Engine)
+  (Stas & Zeev, Zend Engine)
 - Fixed min()/max() segfault. (Andrei)
 - New module for reading EXIF header data from JPEG files.  Most digital
   cameras will embed all sorts of information about a picture inside the

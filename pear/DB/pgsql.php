@@ -46,7 +46,7 @@
 //				 be registered here.
 //
 
-include_once 'DB/common.php';
+require_once 'DB/common.php';
 
 class DB_pgsql extends DB_common {
     // {{{ properties
@@ -95,9 +95,10 @@ class DB_pgsql extends DB_common {
 			$dsninfo = DB::parseDSN($dsn);
 		}
 		if (!$dsninfo || !$dsninfo['phptype']) {
-			return new DB_Error(); // XXX ERRORMSG
+			return $this->raiseError(); // XXX ERRORMSG
 		}
 		$dbhost = $dsninfo['hostspec'] ? $dsninfo['hostspec'] : 'localhost';
+		$protocol = $dsninfo['protocol'] ? $dsninfo['protocol'] : 'tcp';
 		$user = $dsninfo['username'];
 		$pw = $dsninfo['password'];
 		$dbname = $dsninfo['database'];
@@ -106,7 +107,17 @@ class DB_pgsql extends DB_common {
 		$port = $dsninfo['port'] ? $dsninfo['port'] : '5432';
 
 		$connect_function = $persistent ? 'pg_pconnect' : 'pg_connect';
-		if ($dbhost && $user && $pw && $dbname) {
+
+		if (($protocol == 'unix') && $dbname) {
+			$connect_params = "dbname=$dbname";
+			if ($user) {
+				$connect_params .= " user=$user";
+			}
+			if ($pw) {
+				$connect_params .= " password=$pw";
+			}
+			$conn = $connect_function($connect_params);
+		} elseif ($dbhost && $user && $pw && $dbname) {
 			$conn = $connect_function(
 				"host=$dbhost port=$port dbname=$dbname user=$user password=$pw");
 		} elseif ($dbhost && $dbname && $options && $tty) {
@@ -117,7 +128,7 @@ class DB_pgsql extends DB_common {
 			$conn = false;
 		}
 		if ($conn == false) {
-			return new DB_Error(); // XXX ERRORMSG
+			return $this->raiseError(); // XXX ERRORMSG
 		}
 		$this->connection = $conn;
 		return DB_OK;
@@ -148,6 +159,7 @@ class DB_pgsql extends DB_common {
 	 * on failure
 	 */
 	function &query($query) {
+		$this->last_query = $query;
 		$result = pg_exec($this->connection, $query);
 		if (!$result) {
 			return pg_errormessage($this->connection);
@@ -178,6 +190,7 @@ class DB_pgsql extends DB_common {
 	 * is returned on failure.
 	 */
 	function simpleQuery($query) {
+		$this->last_query = $query;
 		$result = pg_exec($this->connection, $query);
 		if (!$result) {
 			return pg_errormessage($this->connection);
@@ -200,16 +213,19 @@ class DB_pgsql extends DB_common {
 	 * Fetch a row and return as array.
 	 *
 	 * @param $result PostgreSQL result identifier
-	 * @param $getmode how the resulting array should be indexed
+	 * @param $fetchmode how the resulting array should be indexed
 	 *
 	 * @return int an array on success, a DB error code on failure, NULL
 	 *             if there is no more data
 	 */
-	function &fetchRow($result, $getmode = DB_GETMODE_DEFAULT) {
+	function &fetchRow($result, $fetchmode = DB_FETCHMODE_DEFAULT) {
+		if ($fetchmode == DB_FETCHMODE_DEFAULT) {
+			$fetchmode = $this->fetchmode;
+		}
 		if ($this->row[$result]>=$this->numrows[$result]){
 			return NULL;
 		}
-		if ($getmode & DB_GETMODE_ASSOC) {
+		if ($fetchmode & DB_FETCHMODE_ASSOC) {
 			$row = pg_fetch_array($result, $this->row[$result]);
 		} else {
 			$row = pg_fetch_row($result, $this->row[$result]);
@@ -233,15 +249,18 @@ class DB_pgsql extends DB_common {
 	 *
 	 * @param $result PostgreSQL result identifier
 	 * @param $arr (reference) array where data from the row is stored
-	 * @param $getmode how the array data should be indexed
+	 * @param $fetchmode how the array data should be indexed
 	 *
 	 * @return int DB_OK on success, a DB error code on failure
 	 */
-	function fetchInto($result, &$arr, $getmode = DB_GETMODE_DEFAULT) {
+	function fetchInto($result, &$arr, $fetchmode = DB_FETCHMODE_DEFAULT) {
+		if ($fetchmode == DB_FETCHMODE_DEFAULT) {
+			$fetchmode = $this->fetchmode;
+		}
 		if ($this->row[$result]>=$this->numrows[$result]){
 			return NULL;
 		}
-		if ($getmode & DB_GETMODE_ASSOC) {
+		if ($fetchmode & DB_FETCHMODE_ASSOC) {
 			$arr = pg_fetch_array($result, $this->row[$result]);
 		} else {
 			$arr = pg_fetch_row($result, $this->row[$result]);
@@ -255,7 +274,7 @@ class DB_pgsql extends DB_common {
 			 return $errno;
 			*/
 			// the error codes are not supported in pgsql. 
-			return new DB_Error(DB_ERROR_NOT_CAPABLE); 
+			return $this->raiseError(DB_ERROR_NOT_CAPABLE); 
 		}
 		$this->row[$result]++;
 		return DB_OK;
@@ -333,7 +352,7 @@ class DB_pgsql extends DB_common {
 	function errorNative() {
 	/*	return pg_errormessage($this->connection); */
 		// the error codes are not supported in pgsql. 
-		return new DB_Error(); 
+		return $this->raiseError(); 
 	}
 
     // }}}
@@ -374,6 +393,7 @@ class DB_pgsql extends DB_common {
 	 */
 	function execute($stmt, $data = false) {
 		$realquery = $this->execute_emulate_query($stmt, $data);
+		$this->last_query = $realquery;
 		$result = pg_exec($this->connection, $realquery);
 		if (!$result) {
 			return pg_errormessage($this->connection);
@@ -394,7 +414,7 @@ class DB_pgsql extends DB_common {
 	 * Enable/disable automatic commits [not supported by PostgreSQL]
 	 */
 	function autoCommit($onoff = false) {
-		return new DB_Error(DB_ERROR_NOT_CAPABLE);
+		return $this->raiseError(DB_ERROR_NOT_CAPABLE);
 	}
 
     // }}}

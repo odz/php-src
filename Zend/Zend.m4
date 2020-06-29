@@ -101,13 +101,6 @@ AC_ARG_ENABLE(debug,
 
 AC_DEFUN(LIBZEND_OTHER_CHECKS,[
 
-AC_ARG_ENABLE(c9x-inline,
-[  --enable-c9x-inline     Enable C9x-inline semantics],[
-  ZEND_C9X_INLINE=$enableval
-],[
-  ZEND_C9X_INLINE=no
-])
-
 AC_ARG_ENABLE(experimental-zts,
 [  --enable-experimental-zts   This will most likely break your build],[
   ZEND_EXPERIMENTAL_ZTS=$enableval
@@ -130,9 +123,6 @@ AC_ARG_ENABLE(memory-limit,
   ZEND_MEMORY_LIMIT=no
 ])
 
-AC_MSG_CHECKING(whether to enable C9x-inline semantics)
-AC_MSG_RESULT($ZEND_C9X_INLINE)
-
 AC_MSG_CHECKING(whether to enable experimental ZTS)
 AC_MSG_RESULT($ZEND_EXPERIMENTAL_ZTS)
 
@@ -148,6 +138,9 @@ AC_MSG_RESULT($ZEND_DEBUG)
 if test "$ZEND_DEBUG" = "yes"; then
   AC_DEFINE(ZEND_DEBUG,1,[ ])
   echo " $CFLAGS" | grep ' -g' >/dev/null || DEBUG_CFLAGS="-g"
+  if test "$CFLAGS" = "-g -O2"; then
+  	CFLAGS=-g
+  fi
   test -n "$GCC" && DEBUG_CFLAGS="$DEBUG_CFLAGS -Wall"
   test -n "$GCC" && test "$USE_MAINTAINER_MODE" = "yes" && \
     DEBUG_CFLAGS="$DEBUG_CFLAGS -Wmissing-prototypes -Wstrict-prototypes -Wmissing-declarations"
@@ -165,13 +158,6 @@ if test "$ZEND_EXPERIMENTAL_ZTS" = "yes"; then
 else
   ZEND_SCANNER_TYPE=c
 fi  
-
-if test "$ZEND_C9X_INLINE" = "yes"; then
-  AC_DEFINE(C9X_INLINE_SEMANTICS, 1, [whether to enable C9x-inline semantics])
-else
-  ZEND_GCC=libZend_gcc.la
-  AC_SUBST(ZEND_GCC)
-fi
 
 ZEND_SCANNER="libZend_${ZEND_SCANNER_TYPE}.la"
 

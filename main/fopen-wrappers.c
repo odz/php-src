@@ -16,7 +16,7 @@
    |          Jim Winstead <jimw@php.net>                                 |
    +----------------------------------------------------------------------+
  */
-/* $Id: fopen-wrappers.c,v 1.82 2000/08/21 09:50:52 sas Exp $ */
+/* $Id: fopen-wrappers.c,v 1.94 2000/10/03 15:05:50 andi Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -42,6 +42,7 @@
 #include "ext/standard/head.h"
 #include "ext/standard/php_standard.h"
 #include "zend_compile.h"
+#include "php_network.h"
 
 #if HAVE_PWD_H
 #ifdef PHP_WIN32
@@ -75,15 +76,6 @@
 #if defined(AF_UNIX)
 #include <sys/un.h>
 #endif
-
-/* The following macros are borrowed from virtual_cwd.c and should be put in
- * a joint header file when we move virtual_cwd to TSRM */
-#ifdef ZEND_WIN32
-#define IS_SLASH(c)	((c) == '/' || (c) == '\\')
-#else
-#define IS_SLASH(c)	((c) == '/')
-#endif
-
 
 typedef FILE * (*php_fopen_url_wrapper_t) (const char *, char *, int, int *, int *, char **) ;
 
@@ -289,7 +281,7 @@ PHPAPI FILE *php_fopen_primary_script(void)
 {
 	FILE *fp;
 	struct stat st;
-	char *temp, *path_info, *filename;
+	char *path_info, *filename;
 	int length;
 	PLS_FETCH();
 	SLS_FETCH();
@@ -328,12 +320,7 @@ PHPAPI FILE *php_fopen_primary_script(void)
 #endif
 	if (PG(doc_root) && path_info) {
 		length = strlen(PG(doc_root));
-#ifdef PHP_WIN32
-		/* Check for absolute path. This should really use virtual cwd macros */
-		if (IS_SLASH(*PG(doc_root)) || (length >= 3 && PG(doc_root)[1] == ':' && IS_SLASH(PG(doc_root)[2]))) {
-#else
-		if (IS_SLASH(*PG(doc_root))) {
-#endif
+		if (IS_ABSOLUTE_PATH(PG(doc_root), length)) {
 			filename = emalloc(length + strlen(path_info) + 2);
 			if (filename) {
 				memcpy(filename, PG(doc_root), length);
@@ -371,13 +358,7 @@ PHPAPI FILE *php_fopen_primary_script(void)
 		STR_FREE(SG(request_info).path_translated);	/* for same reason as above */
 		return NULL;
 	}
-	
-	temp = estrdup(filename);
-	php_dirname(temp, strlen(temp));
-	if (*temp) {
-		V_CHDIR(temp);
-	}
-	efree(temp);
+	V_CHDIR_FILE(filename);
 	SG(request_info).path_translated = filename;
 
 	return fp;
@@ -394,39 +375,23 @@ PHPAPI FILE *php_fopen_with_path(char *filename, char *mode, char *path, char **
 	char trypath[MAXPATHLEN + 1];
 	struct stat sb;
 	FILE *fp;
+	int filename_length;
 	PLS_FETCH();
 
 	if (opened_path) {
 		*opened_path = NULL;
 	}
 
-	/* Relative path open */
-	if (*filename == '.') {
+	filename_length = strlen(filename);
+
+	/* Absolute & relative path open */
+	if ((*filename == '.') || (IS_ABSOLUTE_PATH(filename, filename_length))) {
 		if (PG(safe_mode) && (!php_checkuid(filename, mode, 0))) {
 			return NULL;
 		}
 		return php_fopen_and_set_opened_path(filename, mode, opened_path);
 	}
-	/* Absolute path open - prepend document_root in safe mode */
-#ifdef PHP_WIN32
-	if (IS_SLASH(*filename) || (filename[1] == ':')) {
-#else
-	if (IS_SLASH(*filename)) {
-#endif
-		if (PG(safe_mode)) {
-			if(PG(doc_root)) {
-				snprintf(trypath, MAXPATHLEN, "%s%s", PG(doc_root), filename);
-			} else {
-				strlcpy(trypath,filename,sizeof(trypath));
-			}
-			if (!php_checkuid(trypath, mode, 0)) {
-				return NULL;
-			}
-			return php_fopen_and_set_opened_path(filename, mode, opened_path);
-		} else {
-			return php_fopen_and_set_opened_path(filename, mode, opened_path);
-		}
-	}
+
 	if (!path || (path && !*path)) {
 		if (PG(safe_mode) && (!php_checkuid(filename, mode, 0))) {
 			return NULL;
@@ -485,7 +450,6 @@ static FILE *php_fopen_url_wrap_http(const char *path, char *mode, int options, 
 {
 	FILE *fp=NULL;
 	php_url *resource=NULL;
-	struct sockaddr_in server;
 	char tmp_line[512];
 	char location[512];
 	char hdr_line[8192];
@@ -505,24 +469,8 @@ static FILE *php_fopen_url_wrap_http(const char *path, char *mode, int options, 
 	if (resource->port == 0)
 		resource->port = 80;
 	
-	*socketd = socket(AF_INET, SOCK_STREAM, 0);
-	if (*socketd == SOCK_ERR) {
-		SOCK_FCLOSE(*socketd);
-		*socketd = 0;
-		free_url(resource);
-		return NULL;
-	}
-	server.sin_family = AF_INET;
-	
-	if (lookup_hostname(resource->host, &server.sin_addr)) {
-		SOCK_FCLOSE(*socketd);
-		*socketd = 0;
-		free_url(resource);
-		return NULL;
-	}
-	server.sin_port = htons(resource->port);
-	
-	if (connect(*socketd, (struct sockaddr *) &server, sizeof(server)) == SOCK_CONN_ERR) {
+	*socketd = php_hostconnect(resource->host, resource->port, SOCK_STREAM, 0);
+	if (*socketd == -1) {
 		SOCK_FCLOSE(*socketd);
 		*socketd = 0;
 		free_url(resource);
@@ -593,6 +541,9 @@ static FILE *php_fopen_url_wrap_http(const char *path, char *mode, int options, 
 		len = snprintf(hdr_line, sizeof(hdr_line),
 					   "Host: %s\r\n", resource->host);
 	}
+	if(len > sizeof(hdr_line) - 1) {
+		len = sizeof(hdr_line) - 1;
+	}
 	if (len > 0) {
 		SOCK_WRITE(hdr_line, *socketd);
 	}
@@ -652,7 +603,6 @@ static FILE *php_fopen_url_wrap_http(const char *path, char *mode, int options, 
 {
 	FILE *fp=NULL;
 	php_url *resource=NULL;
-	struct sockaddr_in server;
 	char tmp_line[512];
 	unsigned short portno;
 	char *scratch;
@@ -674,30 +624,10 @@ static FILE *php_fopen_url_wrap_http(const char *path, char *mode, int options, 
 	/* use port 21 if one wasn't specified */
 	if (resource->port == 0)
 		resource->port = 21;
-	
-	*socketd = socket(AF_INET, SOCK_STREAM, 0);
-	if (*socketd == SOCK_ERR) {
-		SOCK_FCLOSE(*socketd);
-		*socketd = 0;
-		free_url(resource);
-		return NULL;
-	}
-	server.sin_family = AF_INET;
-	
-	if (lookup_hostname(resource->host, &server.sin_addr)) {
-		SOCK_FCLOSE(*socketd);
-		*socketd = 0;
-		free_url(resource);
-		return NULL;
-	}
-	server.sin_port = htons(resource->port);
-	
-	if (connect(*socketd, (struct sockaddr *) &server, sizeof(server)) == SOCK_CONN_ERR) {
-		SOCK_FCLOSE(*socketd);
-		*socketd = 0;
-		free_url(resource);
-		return NULL;
-	}
+
+	*socketd = php_hostconnect(resource->host, resource->port, SOCK_STREAM, 0);
+	if (*socketd == -1)
+		goto errexit;
 #if 0
 	if ((fpc = fdopen(*socketd, "r+")) == NULL) {
 		free_url(resource);
@@ -714,12 +644,9 @@ static FILE *php_fopen_url_wrap_http(const char *path, char *mode, int options, 
 	
 	/* Start talking to ftp server */
 	result = php_get_ftp_result(*socketd);
-	if (result > 299 || result < 200) {
-		free_url(resource);
-		SOCK_FCLOSE(*socketd);
-		*socketd = 0;
-		return NULL;
-	}
+	if (result > 299 || result < 200)
+		goto errexit;
+
 	/* send the user name */
 	SOCK_WRITE("USER ", *socketd);
 	if (resource->user != NULL) {
@@ -752,28 +679,15 @@ static FILE *php_fopen_url_wrap_http(const char *path, char *mode, int options, 
 		
 		/* read the response */
 		result = php_get_ftp_result(*socketd);
-		if (result > 299 || result < 200) {
-			free_url(resource);
-			SOCK_FCLOSE(*socketd);
-			*socketd = 0;
-			return NULL;
-		}
-	} else if (result > 299 || result < 200) {
-		free_url(resource);
-		SOCK_FCLOSE(*socketd);
-		*socketd = 0;
-		return NULL;
 	}
+	if (result > 299 || result < 200)
+		goto errexit;
 	
 	/* set the connection to be binary */
 	SOCK_WRITE("TYPE I\r\n", *socketd);
 	result = php_get_ftp_result(*socketd);
-	if (result > 299 || result < 200) {
-		free_url(resource);
-		SOCK_FCLOSE(*socketd);
-		*socketd = 0;
-		return NULL;
-	}
+	if (result > 299 || result < 200)
+		goto errexit;
 	
 	/* find out the size of the file (verifying it exists) */
 	SOCK_WRITE("SIZE ", *socketd);
@@ -805,69 +719,66 @@ static FILE *php_fopen_url_wrap_http(const char *path, char *mode, int options, 
 	}
 	
 	/* set up the passive connection */
-	SOCK_WRITE("PASV\r\n", *socketd);
+
+    /* We try EPSV first, needed for IPv6 and works on some IPv4 servers */
+	SOCK_WRITE("EPSV\r\n", *socketd);
 	while (SOCK_FGETS(tmp_line, sizeof(tmp_line)-1, *socketd) &&
 		   !(isdigit((int) tmp_line[0]) && isdigit((int) tmp_line[1]) &&
 			 isdigit((int) tmp_line[2]) && tmp_line[3] == ' '));
-	
-	/* make sure we got a 227 response */
-	if (strncmp(tmp_line, "227", 3)) {
-		free_url(resource);
-		SOCK_FCLOSE(*socketd);
-		*socketd = 0;
-		return NULL;
-	}
-	/* parse pasv command (129,80,95,25,13,221) */
-	tpath = tmp_line;
-	
-	/* skip over the "227 Some message " part */
-	for (tpath += 4; *tpath && !isdigit((int) *tpath); tpath++);
-	if (!*tpath) {
-		free_url(resource);
-		SOCK_FCLOSE(*socketd);
-		*socketd = 0;
-		return NULL;
-	}
-	/* skip over the host ip, we just assume it's the same */
-	for (i = 0; i < 4; i++) {
-		for (; isdigit((int) *tpath); tpath++);
-		if (*tpath == ',') {
+
+	/* check if we got a 229 response */
+	if (strncmp(tmp_line, "229", 3)) {
+		/* EPSV failed, let's try PASV */
+		SOCK_WRITE("PASV\r\n", *socketd);
+		while (SOCK_FGETS(tmp_line, sizeof(tmp_line)-1, *socketd) &&
+			   !(isdigit((int) tmp_line[0]) && isdigit((int) tmp_line[1]) &&
+				 isdigit((int) tmp_line[2]) && tmp_line[3] == ' '));
+		/* make sure we got a 227 response */
+		if (strncmp(tmp_line, "227", 3))
+			goto errexit;
+		/* parse pasv command (129,80,95,25,13,221) */
+		tpath = tmp_line;
+		/* skip over the "227 Some message " part */
+		for (tpath += 4; *tpath && !isdigit((int) *tpath); tpath++);
+		if (!*tpath)
+			goto errexit;
+		/* skip over the host ip, we just assume it's the same */
+		for (i = 0; i < 4; i++) {
+			for (; isdigit((int) *tpath); tpath++);
+			if (*tpath != ',')
+				goto errexit;
 			tpath++;
-		} else {
-			SOCK_FCLOSE(*socketd);
-			*socketd = 0;
-			return NULL;
 		}
-	}
-	
-	/* pull out the MSB of the port */
-	portno = (unsigned short) strtol(tpath, &ttpath, 10) * 256;
-	if (ttpath == NULL) {
-		/* didn't get correct response from PASV */
-		free_url(resource);
-		SOCK_FCLOSE(*socketd);
-		*socketd = 0;
-		return NULL;
-	}
-	tpath = ttpath;
-	if (*tpath == ',') {
+		/* pull out the MSB of the port */
+		portno = (unsigned short) strtol(tpath, &ttpath, 10) * 256;
+		if (ttpath == NULL) {
+			/* didn't get correct response from PASV */
+			goto errexit;
+		}
+		tpath = ttpath;
+		if (*tpath != ',')
+			goto errexit;
 		tpath++;
+		/* pull out the LSB of the port */
+		portno += (unsigned short) strtol(tpath, &ttpath, 10);
 	} else {
-		free_url(resource);
-		SOCK_FCLOSE(*socketd);
-		*socketd = 0;
-		return NULL;
+		/* parse epsv command (|||6446|) */
+		for (i = 0, tpath = tmp_line + 4; *tpath; tpath++) {
+			if (*tpath == '|') {
+				i++;
+				if (i == 3)
+					break;
+			}
+		}
+		if (i < 3)
+			goto errexit;
+		/* pull out the port */
+		portno = (unsigned short) strtol(tpath + 1, &ttpath, 10);
 	}
 	
-	/* pull out the LSB of the port */
-	portno += (unsigned short) strtol(tpath, &ttpath, 10);
-	
 	if (ttpath == NULL) {
-		/* didn't get correct response from PASV */
-		free_url(resource);
-		SOCK_FCLOSE(*socketd);
-		*socketd = 0;
-		return NULL;
+		/* didn't get correct response from EPSV/PASV */
+		goto errexit;
 	}
 	
 	if (mode[0] == 'r') {
@@ -888,29 +799,9 @@ static FILE *php_fopen_url_wrap_http(const char *path, char *mode, int options, 
 	SOCK_FCLOSE(*socketd);
 
 	/* open the data channel */
-	*socketd = socket(AF_INET, SOCK_STREAM, 0);
-	if (*socketd == SOCK_ERR) {
-		SOCK_FCLOSE(*socketd);
-		*socketd = 0;
-		free_url(resource);
-		return NULL;
-	}
-	server.sin_family = AF_INET;
-	
-	if (lookup_hostname(resource->host, &server.sin_addr)) {
-		free_url(resource);
-		SOCK_FCLOSE(*socketd);
-		*socketd = 0;
-		return NULL;
-	}
-	server.sin_port = htons(portno);
-	
-	if (connect(*socketd, (struct sockaddr *) &server, sizeof(server)) == SOCK_CONN_ERR) {
-		free_url(resource);
-		SOCK_FCLOSE(*socketd);
-		*socketd = 0;
-		return NULL;
-	}
+	*socketd = php_hostconnect(resource->host, portno, SOCK_STREAM, 0);
+	if (*socketd == -1)
+		goto errexit;
 #if 0
 	if (mode[0] == 'r') {
 		if ((fp = fdopen(*socketd, "r+")) == NULL) {
@@ -934,6 +825,12 @@ static FILE *php_fopen_url_wrap_http(const char *path, char *mode, int options, 
 	free_url(resource);
 	*issock = 1;
 	return (fp);
+
+ errexit:
+	free_url(resource);
+	SOCK_FCLOSE(*socketd);
+	*socketd = 0;
+	return NULL;
 }
 
 static FILE *php_fopen_url_wrap_php(const char *path, char *mode, int options, int *issock, int *socketd, char **opened_path)
@@ -1086,7 +983,8 @@ PHPAPI char *expand_filepath(const char *filepath, char *real_path)
 		memcpy(real_path,new_state.cwd,copy_len);
 		real_path[copy_len]='\0';
 	} else {
-		real_path = new_state.cwd;
+		real_path = estrndup(new_state.cwd, new_state.cwd_length);
+		free(new_state.cwd);
 	}
 
 	return real_path;

@@ -21,7 +21,6 @@
 #define	tYEAR_UNIT	271
 #define	tZONE	272
 
-#line 1 "parsedate.y"
 
 /*
 **  Originally written by Steven M. Bellovin <smb@research.att.com> while
@@ -203,7 +202,6 @@ static int	yyRelSeconds;
 static int	yyRelYear;
 
 
-#line 186 "parsedate.y"
 typedef union {
     int			Number;
     enum _MERIDIAN	Meridian;
@@ -371,7 +369,7 @@ static const short yycheck[] = {     0,
     56
 };
 /* -*-C-*-  Note some compilers choke on comments on `#line' lines.  */
-#line 3 "/usr/lib/bison.simple"
+
 /* This file comes from bison-1.28.  */
 
 /* Skeleton output parser for bison,
@@ -585,7 +583,7 @@ __yy_memcpy (char *to, char *from, unsigned int count)
 #endif
 #endif
 
-#line 217 "/usr/lib/bison.simple"
+
 
 /* The user can define YYPARSE_PARAM as the name of an argument to be passed
    into yyparse.  The argument should have type void *.
@@ -914,37 +912,31 @@ yyreduce:
   switch (yyn) {
 
 case 3:
-#line 206 "parsedate.y"
 {
 	    yyHaveTime++;
 	;
     break;}
 case 4:
-#line 209 "parsedate.y"
 {
 	    yyHaveZone++;
 	;
     break;}
 case 5:
-#line 212 "parsedate.y"
 {
 	    yyHaveDate++;
 	;
     break;}
 case 6:
-#line 215 "parsedate.y"
 {
 	    yyHaveDay++;
 	;
     break;}
 case 7:
-#line 218 "parsedate.y"
 {
 	    yyHaveRel++;
 	;
     break;}
 case 9:
-#line 224 "parsedate.y"
 {
 	    yyHour = yyvsp[-1].Number;
 	    yyMinutes = 0;
@@ -953,7 +945,6 @@ case 9:
 	;
     break;}
 case 10:
-#line 230 "parsedate.y"
 {
 	    yyHour = yyvsp[-3].Number;
 	    yyMinutes = yyvsp[-1].Number;
@@ -962,7 +953,6 @@ case 10:
 	;
     break;}
 case 11:
-#line 236 "parsedate.y"
 {
 	    yyHour = yyvsp[-3].Number;
 	    yyMinutes = yyvsp[-1].Number;
@@ -974,7 +964,6 @@ case 11:
 	;
     break;}
 case 12:
-#line 245 "parsedate.y"
 {
 	    yyHour = yyvsp[-5].Number;
 	    yyMinutes = yyvsp[-3].Number;
@@ -983,7 +972,6 @@ case 12:
 	;
     break;}
 case 13:
-#line 251 "parsedate.y"
 {
 	    yyHour = yyvsp[-5].Number;
 	    yyMinutes = yyvsp[-3].Number;
@@ -996,53 +984,45 @@ case 13:
 	;
     break;}
 case 14:
-#line 263 "parsedate.y"
 {
 	    yyTimezone = yyvsp[0].Number;
 	;
     break;}
 case 15:
-#line 266 "parsedate.y"
 {
 	    yyTimezone = yyvsp[0].Number - 60;
 	;
     break;}
 case 16:
-#line 270 "parsedate.y"
 {
 	    yyTimezone = yyvsp[-1].Number - 60;
 	;
     break;}
 case 17:
-#line 275 "parsedate.y"
 {
 	    yyDayOrdinal = 1;
 	    yyDayNumber = yyvsp[0].Number;
 	;
     break;}
 case 18:
-#line 279 "parsedate.y"
 {
 	    yyDayOrdinal = 1;
 	    yyDayNumber = yyvsp[-1].Number;
 	;
     break;}
 case 19:
-#line 283 "parsedate.y"
 {
 	    yyDayOrdinal = yyvsp[-1].Number;
 	    yyDayNumber = yyvsp[0].Number;
 	;
     break;}
 case 20:
-#line 289 "parsedate.y"
 {
 	    yyMonth = yyvsp[-2].Number;
 	    yyDay = yyvsp[0].Number;
 	;
     break;}
 case 21:
-#line 293 "parsedate.y"
 {
 	  /* Interpret as YYYY/MM/DD if $1 >= 1000, otherwise as MM/DD/YY.
 	     The goal in recognizing YYYY/MM/DD is solely to support legacy
@@ -1063,7 +1043,6 @@ case 21:
 	;
     break;}
 case 22:
-#line 311 "parsedate.y"
 {
 	    /* ISO 8601 format.  yyyy-mm-dd.  */
 	    yyYear = yyvsp[-2].Number;
@@ -1072,7 +1051,6 @@ case 22:
 	;
     break;}
 case 23:
-#line 317 "parsedate.y"
 {
 	    /* e.g. 17-JUN-1992.  */
 	    yyDay = yyvsp[-2].Number;
@@ -1081,14 +1059,12 @@ case 23:
 	;
     break;}
 case 24:
-#line 323 "parsedate.y"
 {
 	    yyMonth = yyvsp[-1].Number;
 	    yyDay = yyvsp[0].Number;
 	;
     break;}
 case 25:
-#line 327 "parsedate.y"
 {
 	    yyMonth = yyvsp[-3].Number;
 	    yyDay = yyvsp[-2].Number;
@@ -1096,14 +1072,12 @@ case 25:
 	;
     break;}
 case 26:
-#line 332 "parsedate.y"
 {
 	    yyMonth = yyvsp[0].Number;
 	    yyDay = yyvsp[-1].Number;
 	;
     break;}
 case 27:
-#line 336 "parsedate.y"
 {
 	    yyMonth = yyvsp[-1].Number;
 	    yyDay = yyvsp[-2].Number;
@@ -1111,7 +1085,6 @@ case 27:
 	;
     break;}
 case 28:
-#line 343 "parsedate.y"
 {
 	    yyRelSeconds = -yyRelSeconds;
 	    yyRelMinutes = -yyRelMinutes;
@@ -1122,115 +1095,96 @@ case 28:
 	;
     break;}
 case 30:
-#line 354 "parsedate.y"
 {
 	    yyRelYear += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 31:
-#line 357 "parsedate.y"
 {
 	    yyRelYear += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 32:
-#line 360 "parsedate.y"
 {
 	    yyRelYear += yyvsp[0].Number;
 	;
     break;}
 case 33:
-#line 363 "parsedate.y"
 {
 	    yyRelMonth += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 34:
-#line 366 "parsedate.y"
 {
 	    yyRelMonth += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 35:
-#line 369 "parsedate.y"
 {
 	    yyRelMonth += yyvsp[0].Number;
 	;
     break;}
 case 36:
-#line 372 "parsedate.y"
 {
 	    yyRelDay += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 37:
-#line 375 "parsedate.y"
 {
 	    yyRelDay += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 38:
-#line 378 "parsedate.y"
 {
 	    yyRelDay += yyvsp[0].Number;
 	;
     break;}
 case 39:
-#line 381 "parsedate.y"
 {
 	    yyRelHour += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 40:
-#line 384 "parsedate.y"
 {
 	    yyRelHour += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 41:
-#line 387 "parsedate.y"
 {
 	    yyRelHour += yyvsp[0].Number;
 	;
     break;}
 case 42:
-#line 390 "parsedate.y"
 {
 	    yyRelMinutes += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 43:
-#line 393 "parsedate.y"
 {
 	    yyRelMinutes += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 44:
-#line 396 "parsedate.y"
 {
 	    yyRelMinutes += yyvsp[0].Number;
 	;
     break;}
 case 45:
-#line 399 "parsedate.y"
 {
 	    yyRelSeconds += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 46:
-#line 402 "parsedate.y"
 {
 	    yyRelSeconds += yyvsp[-1].Number * yyvsp[0].Number;
 	;
     break;}
 case 47:
-#line 405 "parsedate.y"
 {
 	    yyRelSeconds += yyvsp[0].Number;
 	;
     break;}
 case 48:
-#line 411 "parsedate.y"
 {
 	    if (yyHaveTime && yyHaveDate && !yyHaveRel)
 	      yyYear = yyvsp[0].Number;
@@ -1263,20 +1217,18 @@ case 48:
 	  ;
     break;}
 case 49:
-#line 444 "parsedate.y"
 {
 	    yyval.Meridian = MER24;
 	  ;
     break;}
 case 50:
-#line 448 "parsedate.y"
 {
 	    yyval.Meridian = yyvsp[0].Meridian;
 	  ;
     break;}
 }
    /* the action file gets copied in in place of this dollarsign */
-#line 543 "/usr/lib/bison.simple"
+
 
   yyvsp -= yylen;
   yyssp -= yylen;
@@ -1496,7 +1448,6 @@ yyerrhandle:
     }
   return 1;
 }
-#line 453 "parsedate.y"
 
 
 time_t get_date (char *p, time_t *now);

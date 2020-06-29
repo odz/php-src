@@ -2,17 +2,13 @@
    +----------------------------------------------------------------------+
    | Thread Safe Resource Manager                                         |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998, 1999 Zeev Suraski                                |
+   | Copyright (c) 1999, 2000, Andi Gutmans, Sascha Schumann, Zeev Suraski|
+   | This source file is subject to the TSRM license, that is bundled     |
+   | with this package in the file LICENSE                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to the Zend license, that is bundled     |
-   | with this package in the file LICENSE.  If you did not receive a     |
-   | copy of the Zend license, please mail us at zend@zend.com so we can  |
-   | send you a copy immediately.                                         |
-   +----------------------------------------------------------------------+
-   | Author:  Zeev Suraski <zeev@zend.com>                                |
+   | Authors:  Zeev Suraski <zeev@zend.com>                               |
    +----------------------------------------------------------------------+
 */
-
 
 #ifndef TSRM_H
 #define TSRM_H
@@ -25,7 +21,14 @@
 # undef VERSION
 #endif
 
-#if WIN32||WINNT
+/* Only compile multi-threading functions if we're in ZTS mode */
+#ifdef ZTS
+
+#ifdef WIN32
+# define TSRM_WIN32
+#endif
+
+#ifdef TSRM_WIN32
 # include <windows.h>
 #elif defined(GNUPTH)
 # include <pth.h>
@@ -35,7 +38,7 @@
 
 typedef int ts_rsrc_id;
 
-#if WIN32||WINNT
+#ifdef TSRM_WIN32
 #	ifdef TSRM_EXPORTS
 #	define TSRM_API __declspec(dllexport)
 #	else
@@ -47,7 +50,7 @@ typedef int ts_rsrc_id;
 
 
 /* Define THREAD_T and MUTEX_T */
-#if defined(WIN32)
+#ifdef TSRM_WIN32
 # define THREAD_T DWORD
 # define MUTEX_T CRITICAL_SECTION *
 #elif defined(GNUPTH)
@@ -107,5 +110,7 @@ TSRM_API void *tsrm_set_new_thread_end_handler(void (*new_thread_end_handler)(TH
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* ZTS */
 
 #endif /* TSRM_H */

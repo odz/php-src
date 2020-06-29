@@ -16,13 +16,13 @@
 // | Authors: Sterling Hughes <sterling@php.net>                          |
 // +----------------------------------------------------------------------+
 //
-// $Id: sybase.php,v 1.5 2000/08/24 01:34:16 sterling Exp $
+// $Id: sybase.php,v 1.8 2000/09/13 11:27:59 ssb Exp $
 //
 // Database independent query interface definition for PHP's Sybase
 // extension.
 //
 
-include_once 'DB/common.php';
+require_once 'DB/common.php';
 
 class DB_sybase extends DB_common {
 
@@ -48,7 +48,7 @@ class DB_sybase extends DB_common {
 			$dsninfo = DB::parseDSN($dsn);
 		}
 		if (!$dsninfo || !$dsninfo['phptype']) {
-			return new DB_Error(); 
+			return $this->raiseError(); 
 		}
 		$dbhost = $dsninfo['hostspec'] ? $dsninfo['hostspec'] : 'localhost';
 		$connect_function = $persistent ? 'sybase_pconnect' : 'sybase_connect';
@@ -63,9 +63,10 @@ class DB_sybase extends DB_common {
 	}
 
 	function &query( $stmt ) {
+		$this->last_query = $stmt;
 		$result = @sybase_query($stmt, $this->connection);
 		if (!$result) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		// Determine which queries that should return data, and which
 		// should return an error code only.
@@ -78,27 +79,34 @@ class DB_sybase extends DB_common {
 	}
 
 	function simpleQuery($stmt) {
+		$this->last_query = $stmt;
 		$result = @sybase_query($stmt, $this->connection);
 		if (!$result) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		// Determine which queries that should return data, and which
 		// should return an error code only.
 		return preg_match('/(SELECT|SHOW|LIST|DESCRIBE)/i', $stmt) ? $result : DB_OK;
 	}
 
-	function &fetchRow($result, $getmode=DB_GETMODE_DEFAULT) {
-		$row = ($getmode & DB_GETMODE_ASSOC) ? @sybase_fetch_array($result) : @sybase_fetch_row($result);
+	function &fetchRow($result, $fetchmode=DB_FETCHMODE_DEFAULT) {
+		if ($fetchmode == DB_FETCHMODE_DEFAULT) {
+			$fetchmode = $this->fetchmode;
+		}
+		$row = ($fetchmode & DB_FETCHMODE_ASSOC) ? @sybase_fetch_array($result) : @sybase_fetch_row($result);
 		if (!$row) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		return $row;
 	}
 
-	function fetchInto($result, &$ar, $getmode=DB_GETMODE_DEFAULT) {
-		$ar = ($getmode & DB_GETMODE_ASSOC) ? @sybase_fetch_array($result) : @sybase_fetch_row($result);
+	function fetchInto($result, &$ar, $fetchmode=DB_FETCHMODE_DEFAULT) {
+		if ($fetchmode == DB_FETCHMODE_DEFAULT) {
+			$fetchmode = $this->fetchmode;
+		}
+		$ar = ($fetchmode & DB_FETCHMODE_ASSOC) ? @sybase_fetch_array($result) : @sybase_fetch_row($result);
 		if (!$ar) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		return DB_OK;
 	}
@@ -118,7 +126,7 @@ class DB_sybase extends DB_common {
 	function numCols($result) {
 		$cols = @sybase_num_fields($result);
 		if (!$cols) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		return $cols;
 	}
@@ -146,23 +154,31 @@ class DB_sybase extends DB_common {
 
 	function execute($stmt, $data = false) {
 		$realquery = $this->execute_emulate_query($stmt, $data);
+		$this->last_query = $realquery;
 		$result = @sybase_query($realquery, $this->connection);
 		if (!$result) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		return preg_match('/(SELECT|SHOW|LIST|DESCRIBE)/i', $realquery) ? $result : DB_OK;
 	}
 
 	function autoCommit($onoff=false) {
-		return new DB_Error(DB_ERROR_NOT_CAPABLE);
+		return $this->raiseError(DB_ERROR_NOT_CAPABLE);
 	}
 
 	function commit() {
-		return new DB_Error(DB_ERROR_NOT_CAPABLE);
+		return $this->raiseError(DB_ERROR_NOT_CAPABLE);
 	}
 
 	function rollback() {
-		return new DB_Error(DB_ERROR_NOT_CAPABLE);
+		return $this->raiseError(DB_ERROR_NOT_CAPABLE);
 	}
 }
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ */
 ?>

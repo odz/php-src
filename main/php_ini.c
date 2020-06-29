@@ -124,9 +124,6 @@ PHPAPI int php_register_ini_entries(php_ini_entry *ini_entry, int module_number)
 			php_unregister_ini_entries(module_number);
 			return FAILURE;
 		}
-		if (hashed_ini_entry->on_modify) {
-			hashed_ini_entry->on_modify(hashed_ini_entry, hashed_ini_entry->value, hashed_ini_entry->value_length, hashed_ini_entry->mh_arg1, hashed_ini_entry->mh_arg2, hashed_ini_entry->mh_arg3, PHP_INI_STAGE_STARTUP);
-		}
 		if ((default_value=cfg_get_entry(p->name, p->name_length))) {
 			if (!hashed_ini_entry->on_modify
 				|| hashed_ini_entry->on_modify(hashed_ini_entry, default_value->value.str.val, default_value->value.str.len, hashed_ini_entry->mh_arg1, hashed_ini_entry->mh_arg2, hashed_ini_entry->mh_arg3, PHP_INI_STAGE_STARTUP)==SUCCESS) {
@@ -138,7 +135,6 @@ PHPAPI int php_register_ini_entries(php_ini_entry *ini_entry, int module_number)
 				hashed_ini_entry->on_modify(hashed_ini_entry, hashed_ini_entry->value, hashed_ini_entry->value_length, hashed_ini_entry->mh_arg1, hashed_ini_entry->mh_arg2, hashed_ini_entry->mh_arg3, PHP_INI_STAGE_STARTUP);
 			}
 		}
-		hashed_ini_entry->modified = 0;
 		p++;
 	}
 	return SUCCESS;
@@ -413,6 +409,30 @@ PHPAPI void display_ini_entries(zend_module_entry *module)
 }
 
 
+PHPAPI int php_atoi(const char *str, int str_len)
+{
+	int retval;
+
+	if (!str_len) {
+		str_len = strlen(str);
+	}
+	retval = atoi(str);
+	if (str_len>0) {
+		switch (str[str_len-1]) {
+			case 'k':
+			case 'K':
+				retval *= 1024;
+				break;
+			case 'm':
+			case 'M':
+				retval *= 1048576;
+				break;
+		}
+	}
+	return retval;
+}
+
+
 /* Standard message handlers */
 
 PHPAPI PHP_INI_MH(OnUpdateBool)
@@ -446,7 +466,7 @@ PHPAPI PHP_INI_MH(OnUpdateInt)
 
 	p = (long *) (base+(size_t) mh_arg1);
 
-	*p = atoi(new_value);
+	*p = php_atoi(new_value, new_value_length);
 	return SUCCESS;
 }
 

@@ -17,11 +17,12 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: output.c,v 1.27 2000/08/25 03:10:42 ssb Exp $ */
+/* $Id: output.c,v 1.32 2000/09/04 22:21:10 sterling Exp $ */
 
 #include "php.h"
 #include "ext/standard/head.h"
 #include "ext/session/php_session.h"
+#include "basic_functions.h"
 #include "SAPI.h"
 
 /* output functions */
@@ -29,13 +30,12 @@ static int php_ub_body_write(const char *str, uint str_length);
 static int php_ub_body_write_no_header(const char *str, uint str_length);
 static int php_b_body_write(const char *str, uint str_length);
 
-static void php_ob_init(uint initial_size, uint block_size);
+static void php_ob_init(uint initial_size, uint block_size, zval *output_handler);
 static void php_ob_destroy(void);
 static void php_ob_append(const char *text, uint text_length);
 #if 0
 static void php_ob_prepend(const char *text, uint text_length);
 #endif
-static inline void php_ob_send(void);
 
 
 #ifdef ZTS
@@ -73,6 +73,7 @@ PHPAPI void php_output_startup()
 	OG(php_body_write) = php_ub_body_write;
 	OG(php_header_write) = sapi_module.ub_write;
 	OG(nesting_level) = 0;
+	OG(lock) = 0;
 }
 
 PHPAPI int php_body_write(const char *str, uint str_length)
@@ -88,23 +89,62 @@ PHPAPI int php_header_write(const char *str, uint str_length)
 }
 
 /* Start output buffering */
-PHPAPI void php_start_ob_buffer()
+PHPAPI int php_start_ob_buffer(zval *output_handler)
 {
 	OLS_FETCH();
 
-	php_ob_init(4096, 1024);
+	if (OG(lock)) {
+		return FAILURE;
+	}
+	php_ob_init(40*1024, 10*1024, output_handler);
 	OG(php_body_write) = php_b_body_write;
+	return SUCCESS;
 }
 
 
 /* End output buffering (one level) */
 PHPAPI void php_end_ob_buffer(int send_buffer)
 {
+	char *final_buffer=NULL;
+	int final_buffer_length=0;
+	zval *alternate_buffer=NULL;
 	SLS_FETCH();
 	OLS_FETCH();
 
 	if (OG(nesting_level)==0) {
 		return;
+	}
+
+	if (OG(active_ob_buffer).output_handler) {
+		zval **params[1];
+		zval *orig_buffer;
+		CLS_FETCH();
+
+		ALLOC_INIT_ZVAL(orig_buffer);
+		orig_buffer->value.str.val = OG(active_ob_buffer).buffer;
+		orig_buffer->value.str.len = OG(active_ob_buffer).text_length;
+		orig_buffer->type = IS_STRING;
+		orig_buffer->refcount=2;	/* don't let call_user_function() destroy our buffer */
+
+		params[0] = &orig_buffer;
+		OG(lock) = 1;
+		if (call_user_function_ex(CG(function_table), NULL, OG(active_ob_buffer).output_handler, &alternate_buffer, 1, params, 1, NULL)==SUCCESS) {
+			convert_to_string_ex(&alternate_buffer);
+			final_buffer = alternate_buffer->value.str.val;
+			final_buffer_length = alternate_buffer->value.str.len;
+		}
+		OG(lock) = 0;
+		zval_ptr_dtor(&OG(active_ob_buffer).output_handler);
+		if (orig_buffer->refcount==2) { /* free the zval */
+			FREE_ZVAL(orig_buffer);
+		} else {
+			orig_buffer->refcount--;
+		}
+	}
+
+	if (!final_buffer) {
+		final_buffer = OG(active_ob_buffer).buffer;
+		final_buffer_length = OG(active_ob_buffer).text_length;
 	}
 	if (OG(nesting_level)==1) { /* end buffering */
 		if (SG(headers_sent) && !SG(request_info).headers_only) {
@@ -112,13 +152,12 @@ PHPAPI void php_end_ob_buffer(int send_buffer)
 		} else {
 			OG(php_body_write) = php_ub_body_write;
 		}
-		if (send_buffer) {
-			php_ob_send();
-		}
-	} else { /* only flush the buffer, if necessary */
-		if (send_buffer) {
-			OG(php_body_write)(OG(active_ob_buffer).buffer, OG(active_ob_buffer).text_length);
-		}
+	}
+	if (send_buffer) {
+		OG(php_body_write)(final_buffer, final_buffer_length);
+	}
+	if (alternate_buffer) {
+		zval_ptr_dtor(&alternate_buffer);
 	}
 	php_ob_destroy();
 }
@@ -170,7 +209,7 @@ static inline void php_ob_allocate(void)
 }
 
 
-static void php_ob_init(uint initial_size, uint block_size)
+static void php_ob_init(uint initial_size, uint block_size, zval *output_handler)
 {
 	OLS_FETCH();
 
@@ -185,6 +224,7 @@ static void php_ob_init(uint initial_size, uint block_size)
 	OG(active_ob_buffer).size = initial_size;
 	OG(active_ob_buffer).buffer = (char *) emalloc(initial_size+1);
 	OG(active_ob_buffer).text_length = 0;
+	OG(active_ob_buffer).output_handler = output_handler;
 }
 
 
@@ -245,14 +285,6 @@ static void php_ob_prepend(const char *text, uint text_length)
 }
 #endif
 
-static inline void php_ob_send()
-{
-	OLS_FETCH();
-
-	/* header_write is a simple, unbuffered output function */
-	OG(php_body_write)(OG(active_ob_buffer).buffer, OG(active_ob_buffer).text_length);
-}
-
 
 /* Return the current output buffer */
 int php_ob_get_buffer(pval *p)
@@ -301,8 +333,11 @@ static int php_ub_body_write_no_header(const char *str, uint str_length)
 	uint new_length=0;
 	int result;
 	OLS_FETCH();
+	BLS_FETCH();
 
-	session_adapt_uris(str, str_length, &newstr, &new_length);
+	if (BG(use_trans_sid)) {
+		session_adapt_uris(str, str_length, &newstr, &new_length);
+	}
 		
 	if (newstr) {
 		str = newstr;
@@ -362,7 +397,32 @@ static int php_ub_body_write(const char *str, uint str_length)
    Turn on Output Buffering */
 PHP_FUNCTION(ob_start)
 {
-	php_start_ob_buffer();
+	zval *output_handler;
+
+	switch (ZEND_NUM_ARGS()) {
+		case 0:
+			output_handler = NULL;
+			break;
+		case 1: {
+				zval **output_handler_p;
+
+				if (zend_get_parameters_ex(1, &output_handler_p)==FAILURE) {
+					RETURN_FALSE;
+				}
+				SEPARATE_ZVAL(output_handler_p);
+				output_handler = *output_handler_p;
+				output_handler->refcount++;
+			}
+			break;
+		default:
+			ZEND_WRONG_PARAM_COUNT();
+			break;
+	}
+	if (php_start_ob_buffer(output_handler)==FAILURE) {
+		php_error(E_WARNING, "Cannot use output buffering in output buffering display handlers");
+		RETURN_FALSE;
+	}
+	RETURN_TRUE;
 }
 /* }}} */
 

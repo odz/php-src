@@ -207,7 +207,7 @@ ZEND_API void zend_file_handle_dtor(zend_file_handle *fh)
 #endif
 	}
 	if (fh->opened_path) {
-		free(fh->opened_path);
+		efree(fh->opened_path);
 	}
 	if (fh->free_filename && fh->filename) {
 		efree(fh->filename);
@@ -401,6 +401,10 @@ zend_op_array *compile_filename(int type, zval *filename CLS_DC ELS_DC)
 
 
 	retval = zend_compile_file(&file_handle, type CLS_CC);
+	if (retval && file_handle.opened_path) {
+		int dummy = 1;
+		zend_hash_add(&EG(included_files), file_handle.opened_path, strlen(file_handle.opened_path)+1, (void *)&dummy, sizeof(int), NULL);
+	}
 	zend_destroy_file_handle(&file_handle CLS_CC);
 
 	if (filename==&tmp) {
@@ -410,9 +414,9 @@ zend_op_array *compile_filename(int type, zval *filename CLS_DC ELS_DC)
 }
 
 #ifndef ZTS
-static inline int prepare_string_for_scanning(zval *str)
+static inline int prepare_string_for_scanning(zval *str, char *filename)
 #else
-static inline int prepare_string_for_scanning(zval *str, istrstream **input_stream CLS_DC)
+static inline int prepare_string_for_scanning(zval *str, istrstream **input_stream, char *filename CLS_DC)
 #endif
 {
 #ifndef ZTS
@@ -429,13 +433,13 @@ static inline int prepare_string_for_scanning(zval *str, istrstream **input_stre
 
 	CG(ZFL)->switch_streams(*input_stream, &cout);
 #endif
-	zend_set_compiled_filename("Eval code");
+	zend_set_compiled_filename(filename);
 	CG(zend_lineno) = 1;
 	return SUCCESS;
 }
 
 
-zend_op_array *compile_string(zval *source_string CLS_DC)
+zend_op_array *compile_string(zval *source_string, char *filename CLS_DC)
 {
 	zend_lex_state original_lex_state;
 	zend_op_array *op_array = (zend_op_array *) emalloc(sizeof(zend_op_array));
@@ -462,9 +466,9 @@ zend_op_array *compile_string(zval *source_string CLS_DC)
 
 	save_lexical_state(&original_lex_state CLS_CC);
 #ifndef ZTS
-	if (prepare_string_for_scanning(source_string)==FAILURE) {
+	if (prepare_string_for_scanning(source_string, filename)==FAILURE) {
 #else
-	if (prepare_string_for_scanning(source_string, &input_stream CLS_CC)==FAILURE) {
+	if (prepare_string_for_scanning(source_string, &input_stream, filename CLS_CC)==FAILURE) {
 #endif
 		efree(op_array);
 		retval = NULL;
@@ -521,8 +525,7 @@ int highlight_file(char *filename, zend_syntax_highlighter_ini *syntax_highlight
 	return SUCCESS;
 }
 
-
-int highlight_string(zval *str, zend_syntax_highlighter_ini *syntax_highlighter_ini)
+int highlight_string(zval *str, zend_syntax_highlighter_ini *syntax_highlighter_ini, char *str_name)
 {
 	zend_lex_state original_lex_state;
 	zval tmp = *str;
@@ -535,9 +538,9 @@ int highlight_string(zval *str, zend_syntax_highlighter_ini *syntax_highlighter_
 	zval_copy_ctor(str);
 	save_lexical_state(&original_lex_state CLS_CC);
 #ifndef ZTS
-	if (prepare_string_for_scanning(str)==FAILURE) {
+	if (prepare_string_for_scanning(str, str_name)==FAILURE) {
 #else
-	if (prepare_string_for_scanning(str, &input_stream CLS_CC)==FAILURE) {
+	if (prepare_string_for_scanning(str, &input_stream, str_name CLS_CC)==FAILURE) {
 #endif
 		return FAILURE;
 	}

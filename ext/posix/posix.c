@@ -27,7 +27,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: posix.c,v 1.22 2000/08/04 18:14:38 thies Exp $ */
+/* $Id: posix.c,v 1.26 2000/10/09 15:24:26 hholzgra Exp $ */
 
 
 #include "php.h"
@@ -138,7 +138,7 @@ ZEND_GET_MODULE(posix)
 static PHP_MINFO_FUNCTION(posix)
 {
 	php_info_print_table_start();
-	php_info_print_table_row(2, "Revision", "$Revision: 1.22 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.26 $");
 	php_info_print_table_end();
 }
 
@@ -833,6 +833,9 @@ PHP_FUNCTION(posix_getpwuid)
 
 
 #ifdef HAVE_GETRLIMIT
+
+#define UNLIMITED_STRING "unlimited"
+
 static int posix_addlimit(int limit, char *name, pval *return_value) {
 	int result;
 	struct rlimit rl;
@@ -848,15 +851,17 @@ static int posix_addlimit(int limit, char *name, pval *return_value) {
 		return FAILURE;
 	}
 
-	if (rl.rlim_cur == RLIM_INFINITY)
-		add_assoc_stringl(return_value,soft,"unlimited", 9, 0);
-	else
-		add_assoc_long(return_value,soft,rl.rlim_cur);
+	if (rl.rlim_cur == RLIM_INFINITY) {
+		add_assoc_stringl(return_value, soft, UNLIMITED_STRING, sizeof(UNLIMITED_STRING)-1, 1);
+	} else {
+		add_assoc_long(return_value, soft, rl.rlim_cur);
+	}
 
-	if (rl.rlim_max == RLIM_INFINITY)
-		add_assoc_stringl(return_value,hard,"unlimited", 9, 0);
-	else
-		add_assoc_long(return_value,hard,rl.rlim_max);
+	if (rl.rlim_max == RLIM_INFINITY) {
+		add_assoc_stringl(return_value, hard, UNLIMITED_STRING, sizeof(UNLIMITED_STRING)-1, 1);
+	} else {
+		add_assoc_long(return_value, hard, rl.rlim_max);
+	}
 
 	return SUCCESS;
 }

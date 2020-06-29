@@ -2,18 +2,18 @@
    +----------------------------------------------------------------------+
    | Thread Safe Resource Manager                                         |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998, 1999 Zeev Suraski                                |
+   | Copyright (c) 1999, 2000, Andi Gutmans, Sascha Schumann, Zeev Suraski|
+   | This source file is subject to the TSRM license, that is bundled     |
+   | with this package in the file LICENSE                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to the Zend license, that is bundled     |
-   | with this package in the file LICENSE.  If you did not receive a     |
-   | copy of the Zend license, please mail us at zend@zend.com so we can  |
-   | send you a copy immediately.                                         |
-   +----------------------------------------------------------------------+
-   | Author:  Zeev Suraski <zeev@zend.com>                                |
+   | Authors:  Zeev Suraski <zeev@zend.com>                               |
    +----------------------------------------------------------------------+
 */
 
 #include "TSRM.h"
+
+#ifdef ZTS
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -310,7 +310,7 @@ void ts_free_id(ts_rsrc_id id)
 /* Obtain the current thread id */
 TSRM_API THREAD_T tsrm_thread_id(void)
 {
-#ifdef WIN32
+#ifdef TSRM_WIN32
 	return GetCurrentThreadId();
 #elif defined(GNUPTH)
 	return pth_self();
@@ -329,7 +329,7 @@ TSRM_API MUTEX_T tsrm_mutex_alloc( void )
 {
     MUTEX_T mutexp;
 
-#ifdef WIN32
+#ifdef TSRM_WIN32
     mutexp = malloc(sizeof(CRITICAL_SECTION));
 	InitializeCriticalSection(mutexp);
 #elif defined(GNUPTH)
@@ -354,7 +354,7 @@ TSRM_API MUTEX_T tsrm_mutex_alloc( void )
 TSRM_API void tsrm_mutex_free( MUTEX_T mutexp )
 {
     if (mutexp) {
-#ifdef WIN32
+#ifdef TSRM_WIN32
 		DeleteCriticalSection(mutexp);
 #elif defined(GNUPTH)
 		free(mutexp);
@@ -379,7 +379,7 @@ TSRM_API int tsrm_mutex_lock( MUTEX_T mutexp )
 #if 0
 	tsrm_debug("Mutex locked thread: %ld\n",tsrm_thread_id());
 #endif
-#ifdef WIN32
+#ifdef TSRM_WIN32
 	EnterCriticalSection(mutexp);
 	return 1;
 #elif defined(GNUPTH)
@@ -400,7 +400,7 @@ TSRM_API int tsrm_mutex_unlock( MUTEX_T mutexp )
 #if 0
 	tsrm_debug("Mutex unlocked thread: %ld\n",tsrm_thread_id());
 #endif
-#ifdef WIN32
+#ifdef TSRM_WIN32
 	LeaveCriticalSection(mutexp);
 	return 1;
 #elif defined(GNUPTH)
@@ -458,3 +458,5 @@ void tsrm_debug_set(int status)
 {
 	tsrm_debug_status = status;
 }
+
+#endif /* ZTS */

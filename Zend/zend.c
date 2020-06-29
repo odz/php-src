@@ -143,16 +143,9 @@ ZEND_API void zend_make_printable_zval(zval *expr, zval *expr_copy, int *use_cop
 			expr_copy->value.str.len = sizeof("Array")-1;
 			expr_copy->value.str.val = estrndup("Array", expr_copy->value.str.len);
 			break;
-		case IS_OBJECT: {
-				zval function_name;
-				ZVAL_STRING(&function_name,"__string_value",1);
-
-				if (call_user_function(NULL, expr, &function_name, expr_copy, 0, NULL)==FAILURE) {
-					expr_copy->value.str.len = sizeof("Object")-1;
-					expr_copy->value.str.val = estrndup("Object", expr_copy->value.str.len);
-				}
-				efree(function_name.value.str.val);
-			}
+		case IS_OBJECT:
+			expr_copy->value.str.len = sizeof("Object")-1;
+			expr_copy->value.str.val = estrndup("Object", expr_copy->value.str.len);
 			break;
 		default:
 			*expr_copy = *expr;
@@ -221,7 +214,7 @@ ZEND_API void zend_print_zval_r_ex(zend_write_func_t write_func, zval *expr, int
 static FILE *zend_fopen_wrapper(const char *filename, char **opened_path)
 {
 	if (opened_path) {
-		*opened_path = strdup(filename);
+		*opened_path = estrdup(filename);
 	}
 	return fopen(filename, "rb");
 }
@@ -342,7 +335,9 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 		fpsetmask(mask & ~FP_X_IMP);
 	} 
 #endif
-		
+
+	zend_startup_extensions_mechanism();
+
 	/* Set up utility functions and values */
 	zend_error_cb = utility_functions->error_function;
 	zend_printf = utility_functions->printf_function;
@@ -359,8 +354,6 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 
 	zend_compile_file = compile_file;
 	zend_execute = execute;
-
-	zend_startup_extensions();
 
 	/* set up version */
 	zend_version_info = strdup(ZEND_CORE_VERSION_INFO);
@@ -502,7 +495,9 @@ void zend_deactivate_modules()
 	ELS_FETCH();
 	EG(opline_ptr) = NULL; /* we're no longer executing anything */
 
-	zend_hash_apply(&module_registry, (int (*)(void *)) module_registry_cleanup);
+	if (setjmp(EG(bailout))==0) {
+		zend_hash_apply(&module_registry, (int (*)(void *)) module_registry_cleanup);
+	}
 }
 
 void zend_deactivate(CLS_D ELS_DC)
@@ -511,9 +506,15 @@ void zend_deactivate(CLS_D ELS_DC)
 	EG(opline_ptr) = NULL; 
 	EG(active_symbol_table) = NULL;
 
-	shutdown_scanner(CLS_C);
-	shutdown_executor(ELS_C);
-	shutdown_compiler(CLS_C);
+	if (setjmp(EG(bailout))==0) {
+		shutdown_scanner(CLS_C);
+	}
+	if (setjmp(EG(bailout))==0) {
+		shutdown_executor(ELS_C);
+	}
+	if (setjmp(EG(bailout))==0) {
+		shutdown_compiler(CLS_C);
+	}
 }
 
 
@@ -614,9 +615,13 @@ ZEND_API void zend_error(int type, const char *format, ...)
 
 #ifdef HAVE_VSNPRINTF
 			z_error_message->value.str.len = vsnprintf(z_error_message->value.str.val, ZEND_ERROR_BUFFER_SIZE, format, args);
+			if (z_error_message->value.str.len > ZEND_ERROR_BUFFER_SIZE-1) {
+				z_error_message->value.str.len = ZEND_ERROR_BUFFER_SIZE-1;
+			}
 #else
+			strncpy(z_error_message->value.str.val, format, ZEND_ERROR_BUFFER_SIZE);
 			/* This is risky... */
-			z_error_message->value.str.len = vsprintf(z_error_message->value.str.val, format, args);
+			/* z_error_message->value.str.len = vsprintf(z_error_message->value.str.val, format, args); */
 #endif
 			z_error_message->type = IS_STRING;
 
@@ -723,5 +728,31 @@ ZEND_API int zend_execute_scripts(int type CLS_DC ELS_DC, int file_count, ...)
 	va_end(files);
 
 	return SUCCESS;
+}
+
+#define COMPILED_STRING_DESCRIPTION_FORMAT "%s(%d) : %s"
+
+ZEND_API char *zend_make_compiled_string_description(char *name)
+{
+	char *cur_filename;
+	int cur_lineno;
+	char *compiled_string_description;
+	CLS_FETCH();
+	ELS_FETCH();
+
+	if (zend_is_compiling()) {
+		cur_filename = zend_get_compiled_filename(CLS_C);
+		cur_lineno = zend_get_compiled_lineno(CLS_C);
+	} else if (zend_is_executing()) {
+		cur_filename = zend_get_executed_filename(ELS_C);
+		cur_lineno = zend_get_executed_lineno(ELS_C);
+	} else {
+		cur_filename = "Unknown";
+		cur_lineno = 0;
+	}
+
+	compiled_string_description = emalloc(sizeof(COMPILED_STRING_DESCRIPTION_FORMAT)+strlen(name)+strlen(cur_filename)+MAX_LENGTH_OF_LONG);
+	sprintf(compiled_string_description, COMPILED_STRING_DESCRIPTION_FORMAT, cur_filename, cur_lineno, name);
+	return compiled_string_description;
 }
 

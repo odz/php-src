@@ -28,7 +28,7 @@
 //
 
 
-include_once 'DB/common.php';
+require_once 'DB/common.php';
 
 class DB_oci8 extends DB_common {
     // {{{ properties
@@ -75,7 +75,7 @@ class DB_oci8 extends DB_common {
 			$dsninfo = DB::parseDSN($dsn);
 		}
 		if (!$dsninfo || !$dsninfo['phptype']) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		$user = $dsninfo['username'];
 		$pw = $dsninfo['password'];
@@ -90,7 +90,7 @@ class DB_oci8 extends DB_common {
 			$conn = false;
 		}
 		if ($conn == false) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		$this->connection = $conn;
 		return DB_OK;
@@ -121,9 +121,10 @@ class DB_oci8 extends DB_common {
 	 * on failure
 	 */
 	function &query($query) {
+		$this->last_query = $query;
 		$result = OCIParse($this->connection, $query);
 		if (!$result) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		if ($this->autoCommit) {
 			$success=OCIExecute($result,OCI_COMMIT_ON_SUCCESS);
@@ -132,7 +133,7 @@ class DB_oci8 extends DB_common {
 			$success=OCIExecute($result,OCI_DEFAULT);
 		}
 		if (!$success) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		$this->last_stmt=$result;
 		// Determine which queries that should return data, and which
@@ -159,9 +160,10 @@ class DB_oci8 extends DB_common {
 	 * is returned on failure.
 	 */
 	function simpleQuery($query) {
+		$this->last_query = $query;
 		$result = OCIParse($this->connection, $query);
 		if (!$result) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		if ($this->autoCommit) {
 			$success=OCIExecute($result,OCI_COMMIT_ON_SUCCESS);
@@ -170,7 +172,7 @@ class DB_oci8 extends DB_common {
 			$success=OCIExecute($result,OCI_DEFAULT);
 		}
 		if (!$success) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		$this->last_stmt=$result;
 		// Determine which queries that should return data, and which
@@ -189,19 +191,22 @@ class DB_oci8 extends DB_common {
 	 * Fetch a row and return as array.
 	 *
 	 * @param $result oci8 result identifier
-	 * @param $getmode how the resulting array should be indexed
+	 * @param $fetchmode how the resulting array should be indexed
 	 *
 	 * @return int an array on success, a DB error code on failure, NULL
 	 *             if there is no more data
 	 */
-	function &fetchRow($result, $getmode = DB_GETMODE_DEFAULT) {
-		if ($getmode & DB_GETMODE_ASSOC) {
+	function &fetchRow($result, $fetchmode = DB_FETCHMODE_DEFAULT) {
+		if ($fetchmode == DB_FETCHMODE_DEFAULT) {
+			$fetchmode = $this->fetchmode;
+		}
+		if ($fetchmode & DB_FETCHMODE_ASSOC) {
 			$moredata=OCIFetchInto($result,$row,OCI_ASSOC+OCI_RETURN_NULLS+OCI_RETURN_LOBS);
 		} else {
 			$moredata=OCIFetchInto($result,$row,OCI_RETURN_NULLS+OCI_RETURN_LOBS);
 		}
 		if (!$row) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		if ($moredata==NULL) {
 			return NULL;
@@ -217,18 +222,21 @@ class DB_oci8 extends DB_common {
 	 *
 	 * @param $result oci8 result identifier
 	 * @param $arr (reference) array where data from the row is stored
-	 * @param $getmode how the array data should be indexed
+	 * @param $fetchmode how the array data should be indexed
 	 *
 	 * @return int DB_OK on success, a DB error code on failure
 	 */
-	function fetchInto($result, &$arr, $getmode = DB_GETMODE_DEFAULT) {
-		if ($getmode & DB_GETMODE_ASSOC) {
+	function fetchInto($result, &$arr, $fetchmode = DB_FETCHMODE_DEFAULT) {
+		if ($fetchmode == DB_FETCHMODE_DEFAULT) {
+			$fetchmode = $this->fetchmode;
+		}
+		if ($fetchmode & DB_FETCHMODE_ASSOC) {
 			$moredata=OCIFetchInto($result,$arr,OCI_ASSOC+OCI_RETURN_NULLS+OCI_RETURN_LOBS);
 		} else {
 			$moredata=OCIFetchInto($result,$arr,OCI_RETURN_NULLS+OCI_RETURN_LOBS);
 		}
 		if (!($arr && $moredata)) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		return DB_OK;
 	}
@@ -268,7 +276,7 @@ class DB_oci8 extends DB_common {
 	function numCols($result) {
 		$cols = OCINumCols($result);
 		if (!$cols) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		return $cols;
 	}
@@ -321,6 +329,7 @@ class DB_oci8 extends DB_common {
 			$newquery.=$tokens[$i].":bind".$i;
 		}
 		$newquery.=$tokens[$i];
+		$this->last_query = $query;
 		$stmt=OCIParse($this->connection,$newquery);
 		$this->prepare_types[$stmt] = $types;
 		$this->select_query[$stmt] = preg_match('/(SELECT|SHOW)/i', $newquery);
@@ -343,7 +352,7 @@ class DB_oci8 extends DB_common {
 	function execute($stmt, $data = false) {
 		$types=&$this->prepare_types[$stmt];
 		if (($size=sizeof($types))!=sizeof($data)) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		for ($i=0;$i<$size;$i++) {
 			if (is_array($data)) {
@@ -362,7 +371,7 @@ class DB_oci8 extends DB_common {
 				}
 			}
 			if (!OCIBindByName($stmt,":bind".$i,$pdata[$i],-1)) {
-				return new DB_Error();
+				return $this->raiseError();
 			}
 		}
 		if ($this->autoCommit) {
@@ -372,7 +381,7 @@ class DB_oci8 extends DB_common {
 			$success=OCIExecute($stmt,OCI_DEFAULT);
 		}
 		if (!$success) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		$this->last_stmt=$stmt;
 		if ($this->select_query[$stmt]) {
@@ -412,7 +421,7 @@ class DB_oci8 extends DB_common {
 	function commit() {
 		$result = OCICommit($this->connection);
 		if (!$result) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		return DB_OK;
 	}
@@ -428,7 +437,7 @@ class DB_oci8 extends DB_common {
 	function rollback() {
 		$result = OCIRollback($this->connection);
 		if (!$result) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		return DB_OK;
 	}
@@ -444,11 +453,11 @@ class DB_oci8 extends DB_common {
 	 */
 	function affectedRows() {
 		if ($this->last_stmt === false) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		$result = OCIRowCount($this->last_stmt);
 		if ($result === false) {
- 			return new DB_Error();
+ 			return $this->raiseError();
 		}
 		return $result;
 	}

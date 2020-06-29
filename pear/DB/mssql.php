@@ -16,13 +16,13 @@
 // | Authors: Sterling Hughes <sterling@php.net>                          |
 // +----------------------------------------------------------------------+
 //
-// $Id: mssql.php,v 1.9 2000/08/24 01:34:16 sterling Exp $
+// $Id: mssql.php,v 1.12 2000/09/13 11:27:59 ssb Exp $
 //
 // Database independent query interface definition for PHP's Microsoft SQL Server
 // extension.
 //
 
-include_once 'DB/common.php';
+require_once 'DB/common.php';
 
 class DB_mssql extends DB_common {
 
@@ -48,7 +48,7 @@ class DB_mssql extends DB_common {
             $dsninfo = DB::parseDSN($dsn);
         }
         if (!$dsninfo || !$dsninfo['phptype']) {
-            return new DB_Error(); 
+            return $this->raiseError(); 
         }
 
         $user = $dsninfo['username'];
@@ -65,7 +65,7 @@ class DB_mssql extends DB_common {
         if ($dsninfo['database']) {
             @mssql_select_db($dsninfo['database'], $conn);
         } else {
-            return new DB_Error();
+            return $this->raiseError();
         }
         $this->connection = $conn;
         return DB_OK;
@@ -76,9 +76,10 @@ class DB_mssql extends DB_common {
     }
 
     function &query( $stmt ) {
+	$this->last_query = $query;
         $result = @mssql_query($stmt, $this->connection);
         if (!$result) {
-            return new DB_Error();
+            return $this->raiseError();
         }
         // Determine which queries that should return data, and which
         // should return an error code only.
@@ -91,9 +92,10 @@ class DB_mssql extends DB_common {
     }
 
     function simpleQuery($stmt) {
+	$this->last_query = $query;
         $result = @mssql_query($stmt, $this->connection);
         if (!$result) {
-            return new DB_Error();
+            return $this->raiseError();
         }
         // Determine which queries that should return data, and which
         // should return an error code only.
@@ -104,26 +106,32 @@ class DB_mssql extends DB_common {
         }
     }
 
-    function &fetchRow($result, $getmode=DB_GETMODE_DEFAULT) {
-        if ($getmode & DB_GETMODE_ASSOC) {
+    function &fetchRow($result, $fetchmode=DB_FETCHMODE_DEFAULT) {
+	if ($fetchmode == DB_FETCHMODE_DEFAULT) {
+	    $fetchmode = $this->fetchmode;
+	}
+        if ($fetchmode & DB_FETCHMODE_ASSOC) {
             $row = @mssql_fetch_array($result);
         } else {
             $row = @mssql_fetch_row($result);
         }
         if (!$row) {
-            return new DB_Error();
+            return $this->raiseError();
         }
         return $row;
     }
 
-    function fetchInto($result, &$ar, $getmode=DB_GETMODE_DEFAULT) {
-        if ($getmode & DB_GETMODE_ASSOC) {
+    function fetchInto($result, &$ar, $fetchmode=DB_FETCHMODE_DEFAULT) {
+	if ($fetchmode == DB_FETCHMODE_DEFAULT) {
+	    $fetchmode = $this->fetchmode;
+	}
+        if ($fetchmode & DB_FETCHMODE_ASSOC) {
             $ar = @mssql_fetch_array($result);
         } else {
             $ar = @mssql_fetch_row($result);
         }
         if (!$ar) {
-            return new DB_Error();
+            return $this->raiseError();
         }
         return DB_OK;
     }
@@ -143,7 +151,7 @@ class DB_mssql extends DB_common {
     function numCols($result) {
         $cols = @mssql_num_fields($result);
         if (!$cols) {
-            return new DB_Error();
+            return $this->raiseError();
         }
         return $cols;
     }
@@ -171,9 +179,10 @@ class DB_mssql extends DB_common {
 
     function execute($stmt, $data = false) {
         $realquery = $this->execute_emulate_query($stmt, $data);
+	$this->last_query = $realquery;
         $result = @mssql_query($realquery, $this->connection);
         if (!$result) {
-            return new DB_Error();
+            return $this->raiseError();
         }
         if ( preg_match('/(SELECT|SHOW|LIST|DESCRIBE)/i', $realquery) ) {
             return $result;
@@ -183,15 +192,15 @@ class DB_mssql extends DB_common {
     }
 
     function autoCommit($onoff=false) {
-        return new DB_Error(DB_ERROR_NOT_CAPABLE);
+        return $this->raiseError(DB_ERROR_NOT_CAPABLE);
     }
 
     function commit() {
-        return new DB_Error(DB_ERROR_NOT_CAPABLE);
+        return $this->raiseError(DB_ERROR_NOT_CAPABLE);
     }
 
     function rollback() {
-        return new DB_Error(DB_ERROR_NOT_CAPABLE);
+        return $this->raiseError(DB_ERROR_NOT_CAPABLE);
     }
 }
 

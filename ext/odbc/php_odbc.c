@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_odbc.c,v 1.59 2000/07/06 08:38:12 ssb Exp $ */
+/* $Id: php_odbc.c,v 1.61 2000/09/29 19:03:23 kalowsky Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -607,7 +607,17 @@ static int _close_pconn_with_id(list_entry *le, int *id)
 void odbc_column_lengths(INTERNAL_FUNCTION_PARAMETERS, int type)
 {
 	odbc_result *result;
+#if defined HAVE_SOLID
+	/* this seems to be necessary for Solid2.3 tested by tammy@synchronis.com
+	 * Solid 2.3 does not seem to declare a SQLINTEGER, but it does declare
+	 * a SQL_INTEGER which does not work (despite being the same type as a
+	 * SDWORD.  It is unknown if this is the same behavior for Solid3.0. 
+	 * Solid 3.5 does not have this problem.
+	 */
+	SDWORD len;
+#else
 	SQLINTEGER len;
+#endif
 	pval **pv_res, **pv_num;
 
 	if (zend_get_parameters_ex(2, &pv_res, &pv_num) == FAILURE) {
@@ -2438,24 +2448,22 @@ PHP_FUNCTION(odbc_tables)
 	int argc;
 
 	argc = ZEND_NUM_ARGS();
-	if (argc == 1) {
-		if (zend_get_parameters_ex(1, &pv_conn) == FAILURE) {
-            WRONG_PARAM_COUNT;
-		}
-	} else if (argc == 5) {
-		if (zend_get_parameters_ex(5, &pv_conn, &pv_cat, &pv_schema, &pv_table, &pv_type) == FAILURE) {
-			WRONG_PARAM_COUNT;
-		}
-		convert_to_string_ex(pv_cat);
-		cat = (*pv_cat)->value.str.val;
-		convert_to_string_ex(pv_schema);
-		schema = (*pv_schema)->value.str.val;
-		convert_to_string_ex(pv_table);
-		table = (*pv_table)->value.str.val;
-		convert_to_string_ex(pv_type);
-		type = (*pv_type)->value.str.val;
-	} else {
+	if (argc < 1 || argc > 5 || zend_get_parameters_ex(argc, &pv_conn, &pv_cat, &pv_schema, &pv_table, &pv_type) == FAILURE) {
 		WRONG_PARAM_COUNT;
+	}
+	switch (argc) {
+		case 5:
+			convert_to_string_ex(pv_type);
+			type = (*pv_type)->value.str.val;
+		case 4:
+			convert_to_string_ex(pv_table);
+			table = (*pv_table)->value.str.val;
+		case 3:
+			convert_to_string_ex(pv_schema);
+			schema = (*pv_schema)->value.str.val;
+		case 2:
+			convert_to_string_ex(pv_cat);
+			cat = (*pv_cat)->value.str.val;
 	}
 
 	ZEND_FETCH_RESOURCE2(conn, odbc_connection *, pv_conn, -1, "ODBC-Link", le_conn, le_pconn);
@@ -2520,24 +2528,22 @@ PHP_FUNCTION(odbc_columns)
 	int argc;
 
 	argc = ZEND_NUM_ARGS();
-	if (argc == 1) {
-        if (zend_get_parameters_ex(1, &pv_conn) == FAILURE) {
-            WRONG_PARAM_COUNT;
-		}
-	} else if (argc == 5) {
-		if (zend_get_parameters_ex(5, &pv_conn, &pv_cat, &pv_schema, &pv_table, &pv_column) == FAILURE) {
+	if (argc < 1 || argc > 5 || zend_get_parameters_ex(argc, &pv_conn, &pv_cat, &pv_schema, &pv_table, &pv_column) == FAILURE) {
 			WRONG_PARAM_COUNT;
-		}
-	    convert_to_string_ex(pv_cat);
-	    cat = (*pv_cat)->value.str.val;
-	    convert_to_string_ex(pv_schema);
-	    schema = (*pv_schema)->value.str.val;
-	    convert_to_string_ex(pv_table);
-	    table = (*pv_table)->value.str.val;
-	    convert_to_string_ex(pv_column);
-	    column = (*pv_column)->value.str.val;
-	} else {
-		WRONG_PARAM_COUNT;
+	}
+	switch (argc) {
+		case 5:
+			convert_to_string_ex(pv_column);
+			column = (*pv_column)->value.str.val;
+		case 4:
+			convert_to_string_ex(pv_table);
+			table = (*pv_table)->value.str.val;
+		case 3:
+			convert_to_string_ex(pv_schema);
+			schema = (*pv_schema)->value.str.val;
+		case 2:
+			convert_to_string_ex(pv_cat);
+			cat = (*pv_cat)->value.str.val;
 	}
 
 	ZEND_FETCH_RESOURCE2(conn, odbc_connection *, pv_conn, -1, "ODBC-Link", le_conn, le_pconn);

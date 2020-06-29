@@ -1,4 +1,4 @@
-dnl $Id: acinclude.m4,v 1.102 2000/07/26 14:53:54 sas Exp $
+dnl $Id: acinclude.m4,v 1.107 2000/10/11 14:35:45 sas Exp $
 dnl
 dnl This file contains local autoconf functions.
 
@@ -53,12 +53,13 @@ AC_DEFUN(PHP_READDIR_R_TYPE,[
 
 main() {
 	DIR *dir;
-	struct dirent entry, *pentry;
+	char entry[sizeof(struct dirent)+257];
+	struct dirent *pentry = (struct dirent *) &entry;
 
 	dir = opendir("/");
 	if (!dir) 
 		exit(1);
-	if (readdir_r(dir, &entry, &pentry) == 0)
+	if (readdir_r(dir, (struct dirent *) entry, &pentry) == 0)
 		exit(0);
 	exit(1);
 }
@@ -309,7 +310,7 @@ AC_DEFUN(PHP_GEN_CONFIG_VARS,[
 ])
 
 AC_DEFUN(PHP_GEN_MAKEFILES,[
-  $SHELL $srcdir/build/fastgen.sh $srcdir $ac_cv_mkdir_p $1
+  $SHELL $srcdir/build/fastgen.sh $srcdir $ac_cv_mkdir_p $BSD_MAKEFILE $1
 ])
 
 AC_DEFUN(PHP_TM_GMTOFF,[
@@ -416,7 +417,7 @@ dnl
 AC_DEFUN(PHP_BUILD_THREAD_SAFE,[
   enable_experimental_zts=yes
   if test "$pthreads_working" != "yes"; then
-    AC_MSG_ERROR(ZTS currently requires working POSIX threads. Your system does not support this.)
+    AC_MSG_ERROR(ZTS currently requires working POSIX threads. We were unable to verify that your system supports Pthreads.)
   fi
 ])
 

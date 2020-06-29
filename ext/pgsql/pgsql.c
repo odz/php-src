@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: pgsql.c,v 1.67 2000/08/16 01:03:20 jah Exp $ */
+/* $Id: pgsql.c,v 1.75 2000/10/11 18:00:18 zeev Exp $ */
 
 #include <stdlib.h>
 
@@ -75,9 +75,14 @@ function_entry pgsql_functions[] = {
 	PHP_FE(pg_loreadall,	NULL)
 	PHP_FE(pg_loimport,		NULL)
 	PHP_FE(pg_loexport,		NULL)
+	PHP_FE(pg_put_line,		NULL)
+	PHP_FE(pg_end_copy,		NULL)
 #if HAVE_PQCLIENTENCODING
-	PHP_FE(pg_clientencoding,	NULL)
-	PHP_FE(pg_setclientencoding,	NULL)
+	PHP_FE(pg_client_encoding,		NULL)
+	PHP_FE(pg_set_client_encoding,	NULL)
+	/* for downwards compatibility */
+	PHP_FALIAS(pg_clientencoding,		pg_client_encoding,			NULL)
+	PHP_FALIAS(pg_setclientencoding,	pg_set_client_encoding,	NULL)
 #endif
 	{NULL, NULL, NULL}
 };
@@ -104,6 +109,18 @@ int pgsql_globals_id;
 #else
 PHP_PGSQL_API php_pgsql_globals pgsql_globals;
 #endif
+
+static void php_pgsql_set_default_link(int id)
+{   
+	PGLS_FETCH();
+
+    if (PGG(default_link)!=-1) {
+        zend_list_delete(PGG(default_link));
+    }
+    PGG(default_link) = id;
+    zend_list_addref(id);
+}
+
 
 static void _close_pgsql_link(PGconn *link)
 {
@@ -369,7 +386,8 @@ void php_pgsql_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 			link = (int) (long) index_ptr->ptr;
 			ptr = zend_list_find(link,&type);   /* check if the link is still there */
 			if (ptr && (type==le_link || type==le_plink)) {
-				return_value->value.lval = PGG(default_link) = link;
+				return_value->value.lval = link;
+				php_pgsql_set_default_link(link);
 				return_value->type = IS_RESOURCE;
 				zend_list_addref(link);
 				efree(hashed_details);
@@ -407,8 +425,7 @@ void php_pgsql_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 		PGG(num_links)++;
 	}
 	efree(hashed_details);
-	PGG(default_link)=return_value->value.lval;
-	zend_list_addref(return_value->value.lval);
+	php_pgsql_set_default_link(return_value->value.lval);
 }
 
 
@@ -645,7 +662,83 @@ PHP_FUNCTION(pg_exec)
 	}
 }
 /* }}} */
+/* {{{ proto int pg_end_copy([int connection])
+   Sync with backend. Completes the Copy command */
+PHP_FUNCTION(pg_end_copy)
+{
+	zval **pgsql_link = NULL;
+	int id = -1;
+	PGconn *pgsql;
+	int result = 0;
+	PGLS_FETCH();
 
+	switch(ZEND_NUM_ARGS()) {
+		case 0:
+			id = PGG(default_link);
+			CHECK_DEFAULT_LINK(id);
+			break;
+		case 1:
+			if (zend_get_parameters_ex(1, &pgsql_link)==FAILURE) {
+				RETURN_FALSE;
+			}
+			break;
+		default:
+			WRONG_PARAM_COUNT;
+			break;
+	}
+
+	ZEND_FETCH_RESOURCE2(pgsql, PGconn *, pgsql_link, id, "PostgreSQL link", le_link, le_plink);
+
+	result = PQendcopy(pgsql);
+
+	if (result!=0) {
+		php_error(E_WARNING, "PostgreSQL query failed:  %s", PQerrorMessage(pgsql));
+		RETURN_FALSE;
+   }
+   RETURN_TRUE;
+}
+/* }}} */
+
+/* {{{ proto int pg_put_line([int connection,] string query)
+   Send null-terminated string to backend server*/
+PHP_FUNCTION(pg_put_line)
+{
+	zval **query, **pgsql_link = NULL;
+	int id = -1;
+	PGconn *pgsql;
+	int result = 0;
+	PGLS_FETCH();
+
+	switch(ZEND_NUM_ARGS()) {
+		case 1:
+			if (zend_get_parameters_ex(1, &query)==FAILURE) {
+				RETURN_FALSE;
+			}
+			id = PGG(default_link);
+			CHECK_DEFAULT_LINK(id);
+			break;
+		case 2:
+			if (zend_get_parameters_ex(2, &pgsql_link, &query)==FAILURE) {
+				RETURN_FALSE;
+			}
+			break;
+		default:
+			WRONG_PARAM_COUNT;
+			break;
+	}
+
+	ZEND_FETCH_RESOURCE2(pgsql, PGconn *, pgsql_link, id, "PostgreSQL link", le_link, le_plink);
+
+	convert_to_string_ex(query);
+	result = PQputline(pgsql, Z_STRVAL_PP(query));
+
+	if (result==EOF) {
+		php_error(E_WARNING, "PostgreSQL query failed:  %s", PQerrorMessage(pgsql));
+		RETURN_FALSE;
+	}
+	RETURN_TRUE;
+}
+/* }}} */
 #define PHP_PG_NUM_ROWS 1
 #define PHP_PG_NUM_FIELDS 2
 #define PHP_PG_CMD_TUPLES 3
@@ -940,7 +1033,8 @@ static void php_pgsql_fetch_hash(INTERNAL_FUNCTION_PARAMETERS, int result_type)
 		if (PQgetisnull(pgsql_result, Z_LVAL_PP(row), i)) {
 			if (result_type & PGSQL_NUM) {
 				add_index_unset(return_value, i);
-			} else {
+			}
+			if (result_type & PGSQL_ASSOC) {
 				field_name = PQfname(pgsql_result, i);
 				add_assoc_unset(return_value, field_name);
 			}
@@ -1627,9 +1721,9 @@ PHP_FUNCTION(pg_loexport)
 
 #if HAVE_PQCLIENTENCODING
 
-/* {{{ proto int pg_setclientencoding([int connection,] string encoding)
+/* {{{ proto int pg_set_client_encoding([int connection,] string encoding)
    Set client encoding */
-PHP_FUNCTION(pg_setclientencoding)
+PHP_FUNCTION(pg_set_client_encoding)
 {
 	zval **encoding, **pgsql_link = NULL;
 	int id = -1;
@@ -1663,9 +1757,9 @@ PHP_FUNCTION(pg_setclientencoding)
 }
 /* }}} */
 
-/* {{{ proto string pg_clientencoding([int connection])
+/* {{{ proto string pg_client_encoding([int connection])
    Get the current client encoding */
-PHP_FUNCTION(pg_clientencoding)
+PHP_FUNCTION(pg_client_encoding)
 {
 	zval **pgsql_link = NULL;
 	int id = -1;

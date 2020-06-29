@@ -68,35 +68,30 @@ CXX = @CXX@
 CXXCPP = @CXXCPP@
 DLLTOOL = @DLLTOOL@
 INLINE_CFLAGS = @INLINE_CFLAGS@
-LD = @LD@
 LEX = @LEX@
 LIBTOOL = @LIBTOOL@
 LN_S = @LN_S@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
-NM = @NM@
 OBJDUMP = @OBJDUMP@
 PACKAGE = @PACKAGE@
 PROG_SENDMAIL = @PROG_SENDMAIL@
 RANLIB = @RANLIB@
 VERSION = @VERSION@
 YACC = @YACC@
-ZEND_GCC = @ZEND_GCC@
 ZEND_SCANNER = @ZEND_SCANNER@
 
 AUTOMAKE_OPTIONS = foreign
-EXTRA_LTLIBRARIES = libZend_cc.la libZend_c.la libZend_gcc.la
-noinst_LTLIBRARIES = $(ZEND_SCANNER) $(ZEND_GCC) libZend.la
+EXTRA_LTLIBRARIES = libZend_cc.la libZend_c.la
+noinst_LTLIBRARIES = $(ZEND_SCANNER) libZend.la
 
 libZend_cc_la_SOURCES = zend-scanner-cc.cc
 libZend_c_la_SOURCES = zend-scanner.c
 
-libZend_gcc_la_SOURCES = zend_gcc_inline.c
-
 libZend_la_SOURCES =  	zend-parser.y 	zend_alloc.c zend_compile.c zend_constants.c zend_dynamic_array.c 	zend_execute.c zend_execute_API.c zend_highlight.c zend_llist.c 	zend_opcode.c zend_operators.c zend_ptr_stack.c zend_stack.c 	zend_variables.c zend.c zend_API.c zend_extensions.c zend_hash.c 	zend_list.c zend_indent.c zend_builtin_functions.c zend_sprintf.c
 
 
-libZend_la_LIBADD = $(ZEND_SCANNER) $(ZEND_GCC)
+libZend_la_LIBADD = $(ZEND_SCANNER)
 libZend_la_LDFLAGS = @EXTRA_LIBS@
 libZend_la_DEPENDENCIES = $(ZEND_SCANNER)
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
@@ -115,9 +110,6 @@ libZend_cc_la_OBJECTS =  zend-scanner-cc.lo
 libZend_c_la_LDFLAGS = 
 libZend_c_la_LIBADD = 
 libZend_c_la_OBJECTS =  zend-scanner.lo
-libZend_gcc_la_LDFLAGS = 
-libZend_gcc_la_LIBADD = 
-libZend_gcc_la_OBJECTS =  zend_gcc_inline.lo
 libZend_la_OBJECTS =  zend-parser.lo zend_alloc.lo zend_compile.lo \
 zend_constants.lo zend_dynamic_array.lo zend_execute.lo \
 zend_execute_API.lo zend_highlight.lo zend_llist.lo zend_opcode.lo \
@@ -142,8 +134,8 @@ DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
 TAR = gtar
 GZIP_ENV = --best
-SOURCES = $(libZend_cc_la_SOURCES) $(libZend_c_la_SOURCES) $(libZend_gcc_la_SOURCES) $(libZend_la_SOURCES)
-OBJECTS = $(libZend_cc_la_OBJECTS) $(libZend_c_la_OBJECTS) $(libZend_gcc_la_OBJECTS) $(libZend_la_OBJECTS)
+SOURCES = $(libZend_cc_la_SOURCES) $(libZend_c_la_SOURCES) $(libZend_la_SOURCES)
+OBJECTS = $(libZend_cc_la_OBJECTS) $(libZend_c_la_OBJECTS) $(libZend_la_OBJECTS)
 
 all: all-redirect
 .SUFFIXES:
@@ -208,9 +200,6 @@ libZend_cc.la: $(libZend_cc_la_OBJECTS) $(libZend_cc_la_DEPENDENCIES)
 
 libZend_c.la: $(libZend_c_la_OBJECTS) $(libZend_c_la_DEPENDENCIES)
 	$(LINK)  $(libZend_c_la_LDFLAGS) $(libZend_c_la_OBJECTS) $(libZend_c_la_LIBADD) $(LIBS)
-
-libZend_gcc.la: $(libZend_gcc_la_OBJECTS) $(libZend_gcc_la_DEPENDENCIES)
-	$(LINK)  $(libZend_gcc_la_LDFLAGS) $(libZend_gcc_la_OBJECTS) $(libZend_gcc_la_LIBADD) $(LIBS)
 
 libZend.la: $(libZend_la_OBJECTS) $(libZend_la_DEPENDENCIES)
 	$(LINK)  $(libZend_la_LDFLAGS) $(libZend_la_OBJECTS) $(libZend_la_LIBADD) $(LIBS)

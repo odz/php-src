@@ -85,331 +85,356 @@ Conflict in state 85 between rule 338 and token '.' resolved as shift.
 Conflict in state 85 between rule 338 and token '*' resolved as shift.
 Conflict in state 85 between rule 338 and token '/' resolved as shift.
 Conflict in state 85 between rule 338 and token '%' resolved as shift.
-Conflict in state 89 between rule 227 and token T_LOGICAL_OR resolved as reduce.
-Conflict in state 89 between rule 227 and token T_LOGICAL_XOR resolved as reduce.
-Conflict in state 89 between rule 227 and token T_LOGICAL_AND resolved as reduce.
-Conflict in state 89 between rule 227 and token '?' resolved as shift.
-Conflict in state 89 between rule 227 and token T_BOOLEAN_OR resolved as shift.
-Conflict in state 89 between rule 227 and token T_BOOLEAN_AND resolved as shift.
-Conflict in state 89 between rule 227 and token '|' resolved as shift.
-Conflict in state 89 between rule 227 and token '^' resolved as shift.
-Conflict in state 89 between rule 227 and token '&' resolved as shift.
-Conflict in state 89 between rule 227 and token T_IS_EQUAL resolved as shift.
-Conflict in state 89 between rule 227 and token T_IS_NOT_EQUAL resolved as shift.
-Conflict in state 89 between rule 227 and token T_IS_IDENTICAL resolved as shift.
-Conflict in state 89 between rule 227 and token T_IS_NOT_IDENTICAL resolved as shift.
-Conflict in state 89 between rule 227 and token '<' resolved as shift.
-Conflict in state 89 between rule 227 and token T_IS_SMALLER_OR_EQUAL resolved as shift.
-Conflict in state 89 between rule 227 and token '>' resolved as shift.
-Conflict in state 89 between rule 227 and token T_IS_GREATER_OR_EQUAL resolved as shift.
-Conflict in state 89 between rule 227 and token T_SL resolved as shift.
-Conflict in state 89 between rule 227 and token T_SR resolved as shift.
-Conflict in state 89 between rule 227 and token '+' resolved as shift.
-Conflict in state 89 between rule 227 and token '-' resolved as shift.
-Conflict in state 89 between rule 227 and token '.' resolved as shift.
-Conflict in state 89 between rule 227 and token '*' resolved as shift.
-Conflict in state 89 between rule 227 and token '/' resolved as shift.
-Conflict in state 89 between rule 227 and token '%' resolved as shift.
-Conflict in state 90 between rule 196 and token T_LOGICAL_OR resolved as reduce.
-Conflict in state 90 between rule 196 and token T_LOGICAL_XOR resolved as reduce.
-Conflict in state 90 between rule 196 and token T_LOGICAL_AND resolved as reduce.
-Conflict in state 90 between rule 196 and token '?' resolved as reduce.
-Conflict in state 90 between rule 196 and token T_BOOLEAN_OR resolved as reduce.
-Conflict in state 90 between rule 196 and token T_BOOLEAN_AND resolved as reduce.
-Conflict in state 90 between rule 196 and token '|' resolved as reduce.
-Conflict in state 90 between rule 196 and token '^' resolved as reduce.
-Conflict in state 90 between rule 196 and token '&' resolved as reduce.
-Conflict in state 90 between rule 196 and token T_IS_EQUAL resolved as reduce.
-Conflict in state 90 between rule 196 and token T_IS_NOT_EQUAL resolved as reduce.
-Conflict in state 90 between rule 196 and token T_IS_IDENTICAL resolved as reduce.
-Conflict in state 90 between rule 196 and token T_IS_NOT_IDENTICAL resolved as reduce.
-Conflict in state 90 between rule 196 and token '<' resolved as reduce.
-Conflict in state 90 between rule 196 and token T_IS_SMALLER_OR_EQUAL resolved as reduce.
-Conflict in state 90 between rule 196 and token '>' resolved as reduce.
-Conflict in state 90 between rule 196 and token T_IS_GREATER_OR_EQUAL resolved as reduce.
-Conflict in state 90 between rule 196 and token T_SL resolved as reduce.
-Conflict in state 90 between rule 196 and token T_SR resolved as reduce.
-Conflict in state 90 between rule 196 and token '+' resolved as reduce.
-Conflict in state 90 between rule 196 and token '-' resolved as reduce.
-Conflict in state 90 between rule 196 and token '.' resolved as reduce.
-Conflict in state 90 between rule 196 and token '*' resolved as shift.
-Conflict in state 90 between rule 196 and token '/' resolved as shift.
-Conflict in state 90 between rule 196 and token '%' resolved as shift.
-Conflict in state 91 between rule 197 and token T_LOGICAL_OR resolved as reduce.
-Conflict in state 91 between rule 197 and token T_LOGICAL_XOR resolved as reduce.
-Conflict in state 91 between rule 197 and token T_LOGICAL_AND resolved as reduce.
-Conflict in state 91 between rule 197 and token '?' resolved as reduce.
-Conflict in state 91 between rule 197 and token T_BOOLEAN_OR resolved as reduce.
-Conflict in state 91 between rule 197 and token T_BOOLEAN_AND resolved as reduce.
-Conflict in state 91 between rule 197 and token '|' resolved as reduce.
-Conflict in state 91 between rule 197 and token '^' resolved as reduce.
-Conflict in state 91 between rule 197 and token '&' resolved as reduce.
-Conflict in state 91 between rule 197 and token T_IS_EQUAL resolved as reduce.
-Conflict in state 91 between rule 197 and token T_IS_NOT_EQUAL resolved as reduce.
-Conflict in state 91 between rule 197 and token T_IS_IDENTICAL resolved as reduce.
-Conflict in state 91 between rule 197 and token T_IS_NOT_IDENTICAL resolved as reduce.
-Conflict in state 91 between rule 197 and token '<' resolved as reduce.
-Conflict in state 91 between rule 197 and token T_IS_SMALLER_OR_EQUAL resolved as reduce.
-Conflict in state 91 between rule 197 and token '>' resolved as reduce.
-Conflict in state 91 between rule 197 and token T_IS_GREATER_OR_EQUAL resolved as reduce.
-Conflict in state 91 between rule 197 and token T_SL resolved as reduce.
-Conflict in state 91 between rule 197 and token T_SR resolved as reduce.
-Conflict in state 91 between rule 197 and token '+' resolved as reduce.
-Conflict in state 91 between rule 197 and token '-' resolved as reduce.
-Conflict in state 91 between rule 197 and token '.' resolved as reduce.
-Conflict in state 91 between rule 197 and token '*' resolved as shift.
-Conflict in state 91 between rule 197 and token '/' resolved as shift.
-Conflict in state 91 between rule 197 and token '%' resolved as shift.
-Conflict in state 92 between rule 198 and token T_LOGICAL_OR resolved as reduce.
-Conflict in state 92 between rule 198 and token T_LOGICAL_XOR resolved as reduce.
-Conflict in state 92 between rule 198 and token T_LOGICAL_AND resolved as reduce.
-Conflict in state 92 between rule 198 and token '?' resolved as reduce.
-Conflict in state 92 between rule 198 and token T_BOOLEAN_OR resolved as reduce.
-Conflict in state 92 between rule 198 and token T_BOOLEAN_AND resolved as reduce.
-Conflict in state 92 between rule 198 and token '|' resolved as reduce.
-Conflict in state 92 between rule 198 and token '^' resolved as reduce.
-Conflict in state 92 between rule 198 and token '&' resolved as reduce.
-Conflict in state 92 between rule 198 and token T_IS_EQUAL resolved as reduce.
-Conflict in state 92 between rule 198 and token T_IS_NOT_EQUAL resolved as reduce.
-Conflict in state 92 between rule 198 and token T_IS_IDENTICAL resolved as reduce.
-Conflict in state 92 between rule 198 and token T_IS_NOT_IDENTICAL resolved as reduce.
-Conflict in state 92 between rule 198 and token '<' resolved as reduce.
-Conflict in state 92 between rule 198 and token T_IS_SMALLER_OR_EQUAL resolved as reduce.
-Conflict in state 92 between rule 198 and token '>' resolved as reduce.
-Conflict in state 92 between rule 198 and token T_IS_GREATER_OR_EQUAL resolved as reduce.
-Conflict in state 92 between rule 198 and token T_SL resolved as reduce.
-Conflict in state 92 between rule 198 and token T_SR resolved as reduce.
-Conflict in state 92 between rule 198 and token '+' resolved as reduce.
-Conflict in state 92 between rule 198 and token '-' resolved as reduce.
-Conflict in state 92 between rule 198 and token '.' resolved as reduce.
-Conflict in state 92 between rule 198 and token '*' resolved as reduce.
-Conflict in state 92 between rule 198 and token '/' resolved as reduce.
-Conflict in state 92 between rule 198 and token '%' resolved as reduce.
-Conflict in state 93 between rule 199 and token T_LOGICAL_OR resolved as reduce.
-Conflict in state 93 between rule 199 and token T_LOGICAL_XOR resolved as reduce.
-Conflict in state 93 between rule 199 and token T_LOGICAL_AND resolved as reduce.
-Conflict in state 93 between rule 199 and token '?' resolved as reduce.
-Conflict in state 93 between rule 199 and token T_BOOLEAN_OR resolved as reduce.
-Conflict in state 93 between rule 199 and token T_BOOLEAN_AND resolved as reduce.
-Conflict in state 93 between rule 199 and token '|' resolved as reduce.
-Conflict in state 93 between rule 199 and token '^' resolved as reduce.
-Conflict in state 93 between rule 199 and token '&' resolved as reduce.
-Conflict in state 93 between rule 199 and token T_IS_EQUAL resolved as reduce.
-Conflict in state 93 between rule 199 and token T_IS_NOT_EQUAL resolved as reduce.
-Conflict in state 93 between rule 199 and token T_IS_IDENTICAL resolved as reduce.
-Conflict in state 93 between rule 199 and token T_IS_NOT_IDENTICAL resolved as reduce.
-Conflict in state 93 between rule 199 and token '<' resolved as reduce.
-Conflict in state 93 between rule 199 and token T_IS_SMALLER_OR_EQUAL resolved as reduce.
-Conflict in state 93 between rule 199 and token '>' resolved as reduce.
-Conflict in state 93 between rule 199 and token T_IS_GREATER_OR_EQUAL resolved as reduce.
-Conflict in state 93 between rule 199 and token T_SL resolved as reduce.
-Conflict in state 93 between rule 199 and token T_SR resolved as reduce.
-Conflict in state 93 between rule 199 and token '+' resolved as reduce.
-Conflict in state 93 between rule 199 and token '-' resolved as reduce.
-Conflict in state 93 between rule 199 and token '.' resolved as reduce.
-Conflict in state 93 between rule 199 and token '*' resolved as reduce.
-Conflict in state 93 between rule 199 and token '/' resolved as reduce.
-Conflict in state 93 between rule 199 and token '%' resolved as reduce.
-Conflict in state 97 between rule 214 and token T_LOGICAL_OR resolved as reduce.
-Conflict in state 97 between rule 214 and token T_LOGICAL_XOR resolved as reduce.
-Conflict in state 97 between rule 214 and token T_LOGICAL_AND resolved as reduce.
-Conflict in state 97 between rule 214 and token '?' resolved as reduce.
-Conflict in state 97 between rule 214 and token T_BOOLEAN_OR resolved as reduce.
-Conflict in state 97 between rule 214 and token T_BOOLEAN_AND resolved as reduce.
-Conflict in state 97 between rule 214 and token '|' resolved as reduce.
-Conflict in state 97 between rule 214 and token '^' resolved as reduce.
-Conflict in state 97 between rule 214 and token '&' resolved as reduce.
-Conflict in state 97 between rule 214 and token T_IS_EQUAL resolved as reduce.
-Conflict in state 97 between rule 214 and token T_IS_NOT_EQUAL resolved as reduce.
-Conflict in state 97 between rule 214 and token T_IS_IDENTICAL resolved as reduce.
-Conflict in state 97 between rule 214 and token T_IS_NOT_IDENTICAL resolved as reduce.
-Conflict in state 97 between rule 214 and token '<' resolved as reduce.
-Conflict in state 97 between rule 214 and token T_IS_SMALLER_OR_EQUAL resolved as reduce.
-Conflict in state 97 between rule 214 and token '>' resolved as reduce.
-Conflict in state 97 between rule 214 and token T_IS_GREATER_OR_EQUAL resolved as reduce.
-Conflict in state 97 between rule 214 and token T_SL resolved as reduce.
-Conflict in state 97 between rule 214 and token T_SR resolved as reduce.
-Conflict in state 97 between rule 214 and token '+' resolved as reduce.
-Conflict in state 97 between rule 214 and token '-' resolved as reduce.
-Conflict in state 97 between rule 214 and token '.' resolved as reduce.
-Conflict in state 97 between rule 214 and token '*' resolved as reduce.
-Conflict in state 97 between rule 214 and token '/' resolved as reduce.
-Conflict in state 97 between rule 214 and token '%' resolved as reduce.
-Conflict in state 98 between rule 215 and token T_LOGICAL_OR resolved as reduce.
-Conflict in state 98 between rule 215 and token T_LOGICAL_XOR resolved as reduce.
-Conflict in state 98 between rule 215 and token T_LOGICAL_AND resolved as reduce.
-Conflict in state 98 between rule 215 and token '?' resolved as reduce.
-Conflict in state 98 between rule 215 and token T_BOOLEAN_OR resolved as reduce.
-Conflict in state 98 between rule 215 and token T_BOOLEAN_AND resolved as reduce.
-Conflict in state 98 between rule 215 and token '|' resolved as reduce.
-Conflict in state 98 between rule 215 and token '^' resolved as reduce.
-Conflict in state 98 between rule 215 and token '&' resolved as reduce.
-Conflict in state 98 between rule 215 and token T_IS_EQUAL resolved as reduce.
-Conflict in state 98 between rule 215 and token T_IS_NOT_EQUAL resolved as reduce.
-Conflict in state 98 between rule 215 and token T_IS_IDENTICAL resolved as reduce.
-Conflict in state 98 between rule 215 and token T_IS_NOT_IDENTICAL resolved as reduce.
-Conflict in state 98 between rule 215 and token '<' resolved as reduce.
-Conflict in state 98 between rule 215 and token T_IS_SMALLER_OR_EQUAL resolved as reduce.
-Conflict in state 98 between rule 215 and token '>' resolved as reduce.
-Conflict in state 98 between rule 215 and token T_IS_GREATER_OR_EQUAL resolved as reduce.
-Conflict in state 98 between rule 215 and token T_SL resolved as reduce.
-Conflict in state 98 between rule 215 and token T_SR resolved as reduce.
-Conflict in state 98 between rule 215 and token '+' resolved as reduce.
-Conflict in state 98 between rule 215 and token '-' resolved as reduce.
-Conflict in state 98 between rule 215 and token '.' resolved as reduce.
-Conflict in state 98 between rule 215 and token '*' resolved as reduce.
-Conflict in state 98 between rule 215 and token '/' resolved as reduce.
-Conflict in state 98 between rule 215 and token '%' resolved as reduce.
-Conflict in state 99 between rule 216 and token T_LOGICAL_OR resolved as reduce.
-Conflict in state 99 between rule 216 and token T_LOGICAL_XOR resolved as reduce.
-Conflict in state 99 between rule 216 and token T_LOGICAL_AND resolved as reduce.
-Conflict in state 99 between rule 216 and token '?' resolved as reduce.
-Conflict in state 99 between rule 216 and token T_BOOLEAN_OR resolved as reduce.
-Conflict in state 99 between rule 216 and token T_BOOLEAN_AND resolved as reduce.
-Conflict in state 99 between rule 216 and token '|' resolved as reduce.
-Conflict in state 99 between rule 216 and token '^' resolved as reduce.
-Conflict in state 99 between rule 216 and token '&' resolved as reduce.
-Conflict in state 99 between rule 216 and token T_IS_EQUAL resolved as reduce.
-Conflict in state 99 between rule 216 and token T_IS_NOT_EQUAL resolved as reduce.
-Conflict in state 99 between rule 216 and token T_IS_IDENTICAL resolved as reduce.
-Conflict in state 99 between rule 216 and token T_IS_NOT_IDENTICAL resolved as reduce.
-Conflict in state 99 between rule 216 and token '<' resolved as reduce.
-Conflict in state 99 between rule 216 and token T_IS_SMALLER_OR_EQUAL resolved as reduce.
-Conflict in state 99 between rule 216 and token '>' resolved as reduce.
-Conflict in state 99 between rule 216 and token T_IS_GREATER_OR_EQUAL resolved as reduce.
-Conflict in state 99 between rule 216 and token T_SL resolved as reduce.
-Conflict in state 99 between rule 216 and token T_SR resolved as reduce.
-Conflict in state 99 between rule 216 and token '+' resolved as reduce.
-Conflict in state 99 between rule 216 and token '-' resolved as reduce.
-Conflict in state 99 between rule 216 and token '.' resolved as reduce.
-Conflict in state 99 between rule 216 and token '*' resolved as reduce.
-Conflict in state 99 between rule 216 and token '/' resolved as reduce.
-Conflict in state 99 between rule 216 and token '%' resolved as reduce.
-Conflict in state 100 between rule 217 and token T_LOGICAL_OR resolved as reduce.
-Conflict in state 100 between rule 217 and token T_LOGICAL_XOR resolved as reduce.
-Conflict in state 100 between rule 217 and token T_LOGICAL_AND resolved as reduce.
-Conflict in state 100 between rule 217 and token '?' resolved as reduce.
-Conflict in state 100 between rule 217 and token T_BOOLEAN_OR resolved as reduce.
-Conflict in state 100 between rule 217 and token T_BOOLEAN_AND resolved as reduce.
-Conflict in state 100 between rule 217 and token '|' resolved as reduce.
-Conflict in state 100 between rule 217 and token '^' resolved as reduce.
-Conflict in state 100 between rule 217 and token '&' resolved as reduce.
-Conflict in state 100 between rule 217 and token T_IS_EQUAL resolved as reduce.
-Conflict in state 100 between rule 217 and token T_IS_NOT_EQUAL resolved as reduce.
-Conflict in state 100 between rule 217 and token T_IS_IDENTICAL resolved as reduce.
-Conflict in state 100 between rule 217 and token T_IS_NOT_IDENTICAL resolved as reduce.
-Conflict in state 100 between rule 217 and token '<' resolved as reduce.
-Conflict in state 100 between rule 217 and token T_IS_SMALLER_OR_EQUAL resolved as reduce.
-Conflict in state 100 between rule 217 and token '>' resolved as reduce.
-Conflict in state 100 between rule 217 and token T_IS_GREATER_OR_EQUAL resolved as reduce.
-Conflict in state 100 between rule 217 and token T_SL resolved as reduce.
-Conflict in state 100 between rule 217 and token T_SR resolved as reduce.
-Conflict in state 100 between rule 217 and token '+' resolved as reduce.
-Conflict in state 100 between rule 217 and token '-' resolved as reduce.
-Conflict in state 100 between rule 217 and token '.' resolved as reduce.
-Conflict in state 100 between rule 217 and token '*' resolved as reduce.
-Conflict in state 100 between rule 217 and token '/' resolved as reduce.
-Conflict in state 100 between rule 217 and token '%' resolved as reduce.
-Conflict in state 101 between rule 218 and token T_LOGICAL_OR resolved as reduce.
-Conflict in state 101 between rule 218 and token T_LOGICAL_XOR resolved as reduce.
-Conflict in state 101 between rule 218 and token T_LOGICAL_AND resolved as reduce.
-Conflict in state 101 between rule 218 and token '?' resolved as reduce.
-Conflict in state 101 between rule 218 and token T_BOOLEAN_OR resolved as reduce.
-Conflict in state 101 between rule 218 and token T_BOOLEAN_AND resolved as reduce.
-Conflict in state 101 between rule 218 and token '|' resolved as reduce.
-Conflict in state 101 between rule 218 and token '^' resolved as reduce.
-Conflict in state 101 between rule 218 and token '&' resolved as reduce.
-Conflict in state 101 between rule 218 and token T_IS_EQUAL resolved as reduce.
-Conflict in state 101 between rule 218 and token T_IS_NOT_EQUAL resolved as reduce.
-Conflict in state 101 between rule 218 and token T_IS_IDENTICAL resolved as reduce.
-Conflict in state 101 between rule 218 and token T_IS_NOT_IDENTICAL resolved as reduce.
-Conflict in state 101 between rule 218 and token '<' resolved as reduce.
-Conflict in state 101 between rule 218 and token T_IS_SMALLER_OR_EQUAL resolved as reduce.
-Conflict in state 101 between rule 218 and token '>' resolved as reduce.
-Conflict in state 101 between rule 218 and token T_IS_GREATER_OR_EQUAL resolved as reduce.
-Conflict in state 101 between rule 218 and token T_SL resolved as reduce.
-Conflict in state 101 between rule 218 and token T_SR resolved as reduce.
-Conflict in state 101 between rule 218 and token '+' resolved as reduce.
-Conflict in state 101 between rule 218 and token '-' resolved as reduce.
-Conflict in state 101 between rule 218 and token '.' resolved as reduce.
-Conflict in state 101 between rule 218 and token '*' resolved as reduce.
-Conflict in state 101 between rule 218 and token '/' resolved as reduce.
-Conflict in state 101 between rule 218 and token '%' resolved as reduce.
-Conflict in state 102 between rule 219 and token T_LOGICAL_OR resolved as reduce.
-Conflict in state 102 between rule 219 and token T_LOGICAL_XOR resolved as reduce.
-Conflict in state 102 between rule 219 and token T_LOGICAL_AND resolved as reduce.
-Conflict in state 102 between rule 219 and token '?' resolved as reduce.
-Conflict in state 102 between rule 219 and token T_BOOLEAN_OR resolved as reduce.
-Conflict in state 102 between rule 219 and token T_BOOLEAN_AND resolved as reduce.
-Conflict in state 102 between rule 219 and token '|' resolved as reduce.
-Conflict in state 102 between rule 219 and token '^' resolved as reduce.
-Conflict in state 102 between rule 219 and token '&' resolved as reduce.
-Conflict in state 102 between rule 219 and token T_IS_EQUAL resolved as reduce.
-Conflict in state 102 between rule 219 and token T_IS_NOT_EQUAL resolved as reduce.
-Conflict in state 102 between rule 219 and token T_IS_IDENTICAL resolved as reduce.
-Conflict in state 102 between rule 219 and token T_IS_NOT_IDENTICAL resolved as reduce.
-Conflict in state 102 between rule 219 and token '<' resolved as reduce.
-Conflict in state 102 between rule 219 and token T_IS_SMALLER_OR_EQUAL resolved as reduce.
-Conflict in state 102 between rule 219 and token '>' resolved as reduce.
-Conflict in state 102 between rule 219 and token T_IS_GREATER_OR_EQUAL resolved as reduce.
-Conflict in state 102 between rule 219 and token T_SL resolved as reduce.
-Conflict in state 102 between rule 219 and token T_SR resolved as reduce.
-Conflict in state 102 between rule 219 and token '+' resolved as reduce.
-Conflict in state 102 between rule 219 and token '-' resolved as reduce.
-Conflict in state 102 between rule 219 and token '.' resolved as reduce.
-Conflict in state 102 between rule 219 and token '*' resolved as reduce.
-Conflict in state 102 between rule 219 and token '/' resolved as reduce.
-Conflict in state 102 between rule 219 and token '%' resolved as reduce.
-Conflict in state 103 between rule 220 and token T_LOGICAL_OR resolved as reduce.
-Conflict in state 103 between rule 220 and token T_LOGICAL_XOR resolved as reduce.
-Conflict in state 103 between rule 220 and token T_LOGICAL_AND resolved as reduce.
-Conflict in state 103 between rule 220 and token '?' resolved as reduce.
-Conflict in state 103 between rule 220 and token T_BOOLEAN_OR resolved as reduce.
-Conflict in state 103 between rule 220 and token T_BOOLEAN_AND resolved as reduce.
-Conflict in state 103 between rule 220 and token '|' resolved as reduce.
-Conflict in state 103 between rule 220 and token '^' resolved as reduce.
-Conflict in state 103 between rule 220 and token '&' resolved as reduce.
-Conflict in state 103 between rule 220 and token T_IS_EQUAL resolved as reduce.
-Conflict in state 103 between rule 220 and token T_IS_NOT_EQUAL resolved as reduce.
-Conflict in state 103 between rule 220 and token T_IS_IDENTICAL resolved as reduce.
-Conflict in state 103 between rule 220 and token T_IS_NOT_IDENTICAL resolved as reduce.
-Conflict in state 103 between rule 220 and token '<' resolved as reduce.
-Conflict in state 103 between rule 220 and token T_IS_SMALLER_OR_EQUAL resolved as reduce.
-Conflict in state 103 between rule 220 and token '>' resolved as reduce.
-Conflict in state 103 between rule 220 and token T_IS_GREATER_OR_EQUAL resolved as reduce.
-Conflict in state 103 between rule 220 and token T_SL resolved as reduce.
-Conflict in state 103 between rule 220 and token T_SR resolved as reduce.
-Conflict in state 103 between rule 220 and token '+' resolved as reduce.
-Conflict in state 103 between rule 220 and token '-' resolved as reduce.
-Conflict in state 103 between rule 220 and token '.' resolved as reduce.
-Conflict in state 103 between rule 220 and token '*' resolved as reduce.
-Conflict in state 103 between rule 220 and token '/' resolved as reduce.
-Conflict in state 103 between rule 220 and token '%' resolved as reduce.
-Conflict in state 200 between rule 223 and token T_LOGICAL_OR resolved as reduce.
-Conflict in state 200 between rule 223 and token T_LOGICAL_XOR resolved as reduce.
-Conflict in state 200 between rule 223 and token T_LOGICAL_AND resolved as reduce.
-Conflict in state 200 between rule 223 and token '?' resolved as reduce.
-Conflict in state 200 between rule 223 and token T_BOOLEAN_OR resolved as reduce.
-Conflict in state 200 between rule 223 and token T_BOOLEAN_AND resolved as reduce.
-Conflict in state 200 between rule 223 and token '|' resolved as reduce.
-Conflict in state 200 between rule 223 and token '^' resolved as reduce.
-Conflict in state 200 between rule 223 and token '&' resolved as reduce.
-Conflict in state 200 between rule 223 and token T_IS_EQUAL resolved as reduce.
-Conflict in state 200 between rule 223 and token T_IS_NOT_EQUAL resolved as reduce.
-Conflict in state 200 between rule 223 and token T_IS_IDENTICAL resolved as reduce.
-Conflict in state 200 between rule 223 and token T_IS_NOT_IDENTICAL resolved as reduce.
-Conflict in state 200 between rule 223 and token '<' resolved as reduce.
-Conflict in state 200 between rule 223 and token T_IS_SMALLER_OR_EQUAL resolved as reduce.
-Conflict in state 200 between rule 223 and token '>' resolved as reduce.
-Conflict in state 200 between rule 223 and token T_IS_GREATER_OR_EQUAL resolved as reduce.
-Conflict in state 200 between rule 223 and token T_SL resolved as reduce.
-Conflict in state 200 between rule 223 and token T_SR resolved as reduce.
-Conflict in state 200 between rule 223 and token '+' resolved as reduce.
-Conflict in state 200 between rule 223 and token '-' resolved as reduce.
-Conflict in state 200 between rule 223 and token '.' resolved as reduce.
-Conflict in state 200 between rule 223 and token '*' resolved as reduce.
-Conflict in state 200 between rule 223 and token '/' resolved as reduce.
-Conflict in state 200 between rule 223 and token '%' resolved as reduce.
+Conflict in state 86 between rule 339 and token T_LOGICAL_OR resolved as shift.
+Conflict in state 86 between rule 339 and token T_LOGICAL_XOR resolved as shift.
+Conflict in state 86 between rule 339 and token T_LOGICAL_AND resolved as shift.
+Conflict in state 86 between rule 339 and token '?' resolved as shift.
+Conflict in state 86 between rule 339 and token T_BOOLEAN_OR resolved as shift.
+Conflict in state 86 between rule 339 and token T_BOOLEAN_AND resolved as shift.
+Conflict in state 86 between rule 339 and token '|' resolved as shift.
+Conflict in state 86 between rule 339 and token '^' resolved as shift.
+Conflict in state 86 between rule 339 and token '&' resolved as shift.
+Conflict in state 86 between rule 339 and token T_IS_EQUAL resolved as shift.
+Conflict in state 86 between rule 339 and token T_IS_NOT_EQUAL resolved as shift.
+Conflict in state 86 between rule 339 and token T_IS_IDENTICAL resolved as shift.
+Conflict in state 86 between rule 339 and token T_IS_NOT_IDENTICAL resolved as shift.
+Conflict in state 86 between rule 339 and token '<' resolved as shift.
+Conflict in state 86 between rule 339 and token T_IS_SMALLER_OR_EQUAL resolved as shift.
+Conflict in state 86 between rule 339 and token '>' resolved as shift.
+Conflict in state 86 between rule 339 and token T_IS_GREATER_OR_EQUAL resolved as shift.
+Conflict in state 86 between rule 339 and token T_SL resolved as shift.
+Conflict in state 86 between rule 339 and token T_SR resolved as shift.
+Conflict in state 86 between rule 339 and token '+' resolved as shift.
+Conflict in state 86 between rule 339 and token '-' resolved as shift.
+Conflict in state 86 between rule 339 and token '.' resolved as shift.
+Conflict in state 86 between rule 339 and token '*' resolved as shift.
+Conflict in state 86 between rule 339 and token '/' resolved as shift.
+Conflict in state 86 between rule 339 and token '%' resolved as shift.
+Conflict in state 87 between rule 227 and token T_LOGICAL_OR resolved as reduce.
+Conflict in state 87 between rule 227 and token T_LOGICAL_XOR resolved as reduce.
+Conflict in state 87 between rule 227 and token T_LOGICAL_AND resolved as reduce.
+Conflict in state 87 between rule 227 and token '?' resolved as shift.
+Conflict in state 87 between rule 227 and token T_BOOLEAN_OR resolved as shift.
+Conflict in state 87 between rule 227 and token T_BOOLEAN_AND resolved as shift.
+Conflict in state 87 between rule 227 and token '|' resolved as shift.
+Conflict in state 87 between rule 227 and token '^' resolved as shift.
+Conflict in state 87 between rule 227 and token '&' resolved as shift.
+Conflict in state 87 between rule 227 and token T_IS_EQUAL resolved as shift.
+Conflict in state 87 between rule 227 and token T_IS_NOT_EQUAL resolved as shift.
+Conflict in state 87 between rule 227 and token T_IS_IDENTICAL resolved as shift.
+Conflict in state 87 between rule 227 and token T_IS_NOT_IDENTICAL resolved as shift.
+Conflict in state 87 between rule 227 and token '<' resolved as shift.
+Conflict in state 87 between rule 227 and token T_IS_SMALLER_OR_EQUAL resolved as shift.
+Conflict in state 87 between rule 227 and token '>' resolved as shift.
+Conflict in state 87 between rule 227 and token T_IS_GREATER_OR_EQUAL resolved as shift.
+Conflict in state 87 between rule 227 and token T_SL resolved as shift.
+Conflict in state 87 between rule 227 and token T_SR resolved as shift.
+Conflict in state 87 between rule 227 and token '+' resolved as shift.
+Conflict in state 87 between rule 227 and token '-' resolved as shift.
+Conflict in state 87 between rule 227 and token '.' resolved as shift.
+Conflict in state 87 between rule 227 and token '*' resolved as shift.
+Conflict in state 87 between rule 227 and token '/' resolved as shift.
+Conflict in state 87 between rule 227 and token '%' resolved as shift.
+Conflict in state 88 between rule 196 and token T_LOGICAL_OR resolved as reduce.
+Conflict in state 88 between rule 196 and token T_LOGICAL_XOR resolved as reduce.
+Conflict in state 88 between rule 196 and token T_LOGICAL_AND resolved as reduce.
+Conflict in state 88 between rule 196 and token '?' resolved as reduce.
+Conflict in state 88 between rule 196 and token T_BOOLEAN_OR resolved as reduce.
+Conflict in state 88 between rule 196 and token T_BOOLEAN_AND resolved as reduce.
+Conflict in state 88 between rule 196 and token '|' resolved as reduce.
+Conflict in state 88 between rule 196 and token '^' resolved as reduce.
+Conflict in state 88 between rule 196 and token '&' resolved as reduce.
+Conflict in state 88 between rule 196 and token T_IS_EQUAL resolved as reduce.
+Conflict in state 88 between rule 196 and token T_IS_NOT_EQUAL resolved as reduce.
+Conflict in state 88 between rule 196 and token T_IS_IDENTICAL resolved as reduce.
+Conflict in state 88 between rule 196 and token T_IS_NOT_IDENTICAL resolved as reduce.
+Conflict in state 88 between rule 196 and token '<' resolved as reduce.
+Conflict in state 88 between rule 196 and token T_IS_SMALLER_OR_EQUAL resolved as reduce.
+Conflict in state 88 between rule 196 and token '>' resolved as reduce.
+Conflict in state 88 between rule 196 and token T_IS_GREATER_OR_EQUAL resolved as reduce.
+Conflict in state 88 between rule 196 and token T_SL resolved as reduce.
+Conflict in state 88 between rule 196 and token T_SR resolved as reduce.
+Conflict in state 88 between rule 196 and token '+' resolved as reduce.
+Conflict in state 88 between rule 196 and token '-' resolved as reduce.
+Conflict in state 88 between rule 196 and token '.' resolved as reduce.
+Conflict in state 88 between rule 196 and token '*' resolved as shift.
+Conflict in state 88 between rule 196 and token '/' resolved as shift.
+Conflict in state 88 between rule 196 and token '%' resolved as shift.
+Conflict in state 89 between rule 197 and token T_LOGICAL_OR resolved as reduce.
+Conflict in state 89 between rule 197 and token T_LOGICAL_XOR resolved as reduce.
+Conflict in state 89 between rule 197 and token T_LOGICAL_AND resolved as reduce.
+Conflict in state 89 between rule 197 and token '?' resolved as reduce.
+Conflict in state 89 between rule 197 and token T_BOOLEAN_OR resolved as reduce.
+Conflict in state 89 between rule 197 and token T_BOOLEAN_AND resolved as reduce.
+Conflict in state 89 between rule 197 and token '|' resolved as reduce.
+Conflict in state 89 between rule 197 and token '^' resolved as reduce.
+Conflict in state 89 between rule 197 and token '&' resolved as reduce.
+Conflict in state 89 between rule 197 and token T_IS_EQUAL resolved as reduce.
+Conflict in state 89 between rule 197 and token T_IS_NOT_EQUAL resolved as reduce.
+Conflict in state 89 between rule 197 and token T_IS_IDENTICAL resolved as reduce.
+Conflict in state 89 between rule 197 and token T_IS_NOT_IDENTICAL resolved as reduce.
+Conflict in state 89 between rule 197 and token '<' resolved as reduce.
+Conflict in state 89 between rule 197 and token T_IS_SMALLER_OR_EQUAL resolved as reduce.
+Conflict in state 89 between rule 197 and token '>' resolved as reduce.
+Conflict in state 89 between rule 197 and token T_IS_GREATER_OR_EQUAL resolved as reduce.
+Conflict in state 89 between rule 197 and token T_SL resolved as reduce.
+Conflict in state 89 between rule 197 and token T_SR resolved as reduce.
+Conflict in state 89 between rule 197 and token '+' resolved as reduce.
+Conflict in state 89 between rule 197 and token '-' resolved as reduce.
+Conflict in state 89 between rule 197 and token '.' resolved as reduce.
+Conflict in state 89 between rule 197 and token '*' resolved as shift.
+Conflict in state 89 between rule 197 and token '/' resolved as shift.
+Conflict in state 89 between rule 197 and token '%' resolved as shift.
+Conflict in state 90 between rule 198 and token T_LOGICAL_OR resolved as reduce.
+Conflict in state 90 between rule 198 and token T_LOGICAL_XOR resolved as reduce.
+Conflict in state 90 between rule 198 and token T_LOGICAL_AND resolved as reduce.
+Conflict in state 90 between rule 198 and token '?' resolved as reduce.
+Conflict in state 90 between rule 198 and token T_BOOLEAN_OR resolved as reduce.
+Conflict in state 90 between rule 198 and token T_BOOLEAN_AND resolved as reduce.
+Conflict in state 90 between rule 198 and token '|' resolved as reduce.
+Conflict in state 90 between rule 198 and token '^' resolved as reduce.
+Conflict in state 90 between rule 198 and token '&' resolved as reduce.
+Conflict in state 90 between rule 198 and token T_IS_EQUAL resolved as reduce.
+Conflict in state 90 between rule 198 and token T_IS_NOT_EQUAL resolved as reduce.
+Conflict in state 90 between rule 198 and token T_IS_IDENTICAL resolved as reduce.
+Conflict in state 90 between rule 198 and token T_IS_NOT_IDENTICAL resolved as reduce.
+Conflict in state 90 between rule 198 and token '<' resolved as reduce.
+Conflict in state 90 between rule 198 and token T_IS_SMALLER_OR_EQUAL resolved as reduce.
+Conflict in state 90 between rule 198 and token '>' resolved as reduce.
+Conflict in state 90 between rule 198 and token T_IS_GREATER_OR_EQUAL resolved as reduce.
+Conflict in state 90 between rule 198 and token T_SL resolved as reduce.
+Conflict in state 90 between rule 198 and token T_SR resolved as reduce.
+Conflict in state 90 between rule 198 and token '+' resolved as reduce.
+Conflict in state 90 between rule 198 and token '-' resolved as reduce.
+Conflict in state 90 between rule 198 and token '.' resolved as reduce.
+Conflict in state 90 between rule 198 and token '*' resolved as reduce.
+Conflict in state 90 between rule 198 and token '/' resolved as reduce.
+Conflict in state 90 between rule 198 and token '%' resolved as reduce.
+Conflict in state 91 between rule 199 and token T_LOGICAL_OR resolved as reduce.
+Conflict in state 91 between rule 199 and token T_LOGICAL_XOR resolved as reduce.
+Conflict in state 91 between rule 199 and token T_LOGICAL_AND resolved as reduce.
+Conflict in state 91 between rule 199 and token '?' resolved as reduce.
+Conflict in state 91 between rule 199 and token T_BOOLEAN_OR resolved as reduce.
+Conflict in state 91 between rule 199 and token T_BOOLEAN_AND resolved as reduce.
+Conflict in state 91 between rule 199 and token '|' resolved as reduce.
+Conflict in state 91 between rule 199 and token '^' resolved as reduce.
+Conflict in state 91 between rule 199 and token '&' resolved as reduce.
+Conflict in state 91 between rule 199 and token T_IS_EQUAL resolved as reduce.
+Conflict in state 91 between rule 199 and token T_IS_NOT_EQUAL resolved as reduce.
+Conflict in state 91 between rule 199 and token T_IS_IDENTICAL resolved as reduce.
+Conflict in state 91 between rule 199 and token T_IS_NOT_IDENTICAL resolved as reduce.
+Conflict in state 91 between rule 199 and token '<' resolved as reduce.
+Conflict in state 91 between rule 199 and token T_IS_SMALLER_OR_EQUAL resolved as reduce.
+Conflict in state 91 between rule 199 and token '>' resolved as reduce.
+Conflict in state 91 between rule 199 and token T_IS_GREATER_OR_EQUAL resolved as reduce.
+Conflict in state 91 between rule 199 and token T_SL resolved as reduce.
+Conflict in state 91 between rule 199 and token T_SR resolved as reduce.
+Conflict in state 91 between rule 199 and token '+' resolved as reduce.
+Conflict in state 91 between rule 199 and token '-' resolved as reduce.
+Conflict in state 91 between rule 199 and token '.' resolved as reduce.
+Conflict in state 91 between rule 199 and token '*' resolved as reduce.
+Conflict in state 91 between rule 199 and token '/' resolved as reduce.
+Conflict in state 91 between rule 199 and token '%' resolved as reduce.
+Conflict in state 95 between rule 214 and token T_LOGICAL_OR resolved as reduce.
+Conflict in state 95 between rule 214 and token T_LOGICAL_XOR resolved as reduce.
+Conflict in state 95 between rule 214 and token T_LOGICAL_AND resolved as reduce.
+Conflict in state 95 between rule 214 and token '?' resolved as reduce.
+Conflict in state 95 between rule 214 and token T_BOOLEAN_OR resolved as reduce.
+Conflict in state 95 between rule 214 and token T_BOOLEAN_AND resolved as reduce.
+Conflict in state 95 between rule 214 and token '|' resolved as reduce.
+Conflict in state 95 between rule 214 and token '^' resolved as reduce.
+Conflict in state 95 between rule 214 and token '&' resolved as reduce.
+Conflict in state 95 between rule 214 and token T_IS_EQUAL resolved as reduce.
+Conflict in state 95 between rule 214 and token T_IS_NOT_EQUAL resolved as reduce.
+Conflict in state 95 between rule 214 and token T_IS_IDENTICAL resolved as reduce.
+Conflict in state 95 between rule 214 and token T_IS_NOT_IDENTICAL resolved as reduce.
+Conflict in state 95 between rule 214 and token '<' resolved as reduce.
+Conflict in state 95 between rule 214 and token T_IS_SMALLER_OR_EQUAL resolved as reduce.
+Conflict in state 95 between rule 214 and token '>' resolved as reduce.
+Conflict in state 95 between rule 214 and token T_IS_GREATER_OR_EQUAL resolved as reduce.
+Conflict in state 95 between rule 214 and token T_SL resolved as reduce.
+Conflict in state 95 between rule 214 and token T_SR resolved as reduce.
+Conflict in state 95 between rule 214 and token '+' resolved as reduce.
+Conflict in state 95 between rule 214 and token '-' resolved as reduce.
+Conflict in state 95 between rule 214 and token '.' resolved as reduce.
+Conflict in state 95 between rule 214 and token '*' resolved as reduce.
+Conflict in state 95 between rule 214 and token '/' resolved as reduce.
+Conflict in state 95 between rule 214 and token '%' resolved as reduce.
+Conflict in state 96 between rule 215 and token T_LOGICAL_OR resolved as reduce.
+Conflict in state 96 between rule 215 and token T_LOGICAL_XOR resolved as reduce.
+Conflict in state 96 between rule 215 and token T_LOGICAL_AND resolved as reduce.
+Conflict in state 96 between rule 215 and token '?' resolved as reduce.
+Conflict in state 96 between rule 215 and token T_BOOLEAN_OR resolved as reduce.
+Conflict in state 96 between rule 215 and token T_BOOLEAN_AND resolved as reduce.
+Conflict in state 96 between rule 215 and token '|' resolved as reduce.
+Conflict in state 96 between rule 215 and token '^' resolved as reduce.
+Conflict in state 96 between rule 215 and token '&' resolved as reduce.
+Conflict in state 96 between rule 215 and token T_IS_EQUAL resolved as reduce.
+Conflict in state 96 between rule 215 and token T_IS_NOT_EQUAL resolved as reduce.
+Conflict in state 96 between rule 215 and token T_IS_IDENTICAL resolved as reduce.
+Conflict in state 96 between rule 215 and token T_IS_NOT_IDENTICAL resolved as reduce.
+Conflict in state 96 between rule 215 and token '<' resolved as reduce.
+Conflict in state 96 between rule 215 and token T_IS_SMALLER_OR_EQUAL resolved as reduce.
+Conflict in state 96 between rule 215 and token '>' resolved as reduce.
+Conflict in state 96 between rule 215 and token T_IS_GREATER_OR_EQUAL resolved as reduce.
+Conflict in state 96 between rule 215 and token T_SL resolved as reduce.
+Conflict in state 96 between rule 215 and token T_SR resolved as reduce.
+Conflict in state 96 between rule 215 and token '+' resolved as reduce.
+Conflict in state 96 between rule 215 and token '-' resolved as reduce.
+Conflict in state 96 between rule 215 and token '.' resolved as reduce.
+Conflict in state 96 between rule 215 and token '*' resolved as reduce.
+Conflict in state 96 between rule 215 and token '/' resolved as reduce.
+Conflict in state 96 between rule 215 and token '%' resolved as reduce.
+Conflict in state 97 between rule 216 and token T_LOGICAL_OR resolved as reduce.
+Conflict in state 97 between rule 216 and token T_LOGICAL_XOR resolved as reduce.
+Conflict in state 97 between rule 216 and token T_LOGICAL_AND resolved as reduce.
+Conflict in state 97 between rule 216 and token '?' resolved as reduce.
+Conflict in state 97 between rule 216 and token T_BOOLEAN_OR resolved as reduce.
+Conflict in state 97 between rule 216 and token T_BOOLEAN_AND resolved as reduce.
+Conflict in state 97 between rule 216 and token '|' resolved as reduce.
+Conflict in state 97 between rule 216 and token '^' resolved as reduce.
+Conflict in state 97 between rule 216 and token '&' resolved as reduce.
+Conflict in state 97 between rule 216 and token T_IS_EQUAL resolved as reduce.
+Conflict in state 97 between rule 216 and token T_IS_NOT_EQUAL resolved as reduce.
+Conflict in state 97 between rule 216 and token T_IS_IDENTICAL resolved as reduce.
+Conflict in state 97 between rule 216 and token T_IS_NOT_IDENTICAL resolved as reduce.
+Conflict in state 97 between rule 216 and token '<' resolved as reduce.
+Conflict in state 97 between rule 216 and token T_IS_SMALLER_OR_EQUAL resolved as reduce.
+Conflict in state 97 between rule 216 and token '>' resolved as reduce.
+Conflict in state 97 between rule 216 and token T_IS_GREATER_OR_EQUAL resolved as reduce.
+Conflict in state 97 between rule 216 and token T_SL resolved as reduce.
+Conflict in state 97 between rule 216 and token T_SR resolved as reduce.
+Conflict in state 97 between rule 216 and token '+' resolved as reduce.
+Conflict in state 97 between rule 216 and token '-' resolved as reduce.
+Conflict in state 97 between rule 216 and token '.' resolved as reduce.
+Conflict in state 97 between rule 216 and token '*' resolved as reduce.
+Conflict in state 97 between rule 216 and token '/' resolved as reduce.
+Conflict in state 97 between rule 216 and token '%' resolved as reduce.
+Conflict in state 98 between rule 217 and token T_LOGICAL_OR resolved as reduce.
+Conflict in state 98 between rule 217 and token T_LOGICAL_XOR resolved as reduce.
+Conflict in state 98 between rule 217 and token T_LOGICAL_AND resolved as reduce.
+Conflict in state 98 between rule 217 and token '?' resolved as reduce.
+Conflict in state 98 between rule 217 and token T_BOOLEAN_OR resolved as reduce.
+Conflict in state 98 between rule 217 and token T_BOOLEAN_AND resolved as reduce.
+Conflict in state 98 between rule 217 and token '|' resolved as reduce.
+Conflict in state 98 between rule 217 and token '^' resolved as reduce.
+Conflict in state 98 between rule 217 and token '&' resolved as reduce.
+Conflict in state 98 between rule 217 and token T_IS_EQUAL resolved as reduce.
+Conflict in state 98 between rule 217 and token T_IS_NOT_EQUAL resolved as reduce.
+Conflict in state 98 between rule 217 and token T_IS_IDENTICAL resolved as reduce.
+Conflict in state 98 between rule 217 and token T_IS_NOT_IDENTICAL resolved as reduce.
+Conflict in state 98 between rule 217 and token '<' resolved as reduce.
+Conflict in state 98 between rule 217 and token T_IS_SMALLER_OR_EQUAL resolved as reduce.
+Conflict in state 98 between rule 217 and token '>' resolved as reduce.
+Conflict in state 98 between rule 217 and token T_IS_GREATER_OR_EQUAL resolved as reduce.
+Conflict in state 98 between rule 217 and token T_SL resolved as reduce.
+Conflict in state 98 between rule 217 and token T_SR resolved as reduce.
+Conflict in state 98 between rule 217 and token '+' resolved as reduce.
+Conflict in state 98 between rule 217 and token '-' resolved as reduce.
+Conflict in state 98 between rule 217 and token '.' resolved as reduce.
+Conflict in state 98 between rule 217 and token '*' resolved as reduce.
+Conflict in state 98 between rule 217 and token '/' resolved as reduce.
+Conflict in state 98 between rule 217 and token '%' resolved as reduce.
+Conflict in state 99 between rule 218 and token T_LOGICAL_OR resolved as reduce.
+Conflict in state 99 between rule 218 and token T_LOGICAL_XOR resolved as reduce.
+Conflict in state 99 between rule 218 and token T_LOGICAL_AND resolved as reduce.
+Conflict in state 99 between rule 218 and token '?' resolved as reduce.
+Conflict in state 99 between rule 218 and token T_BOOLEAN_OR resolved as reduce.
+Conflict in state 99 between rule 218 and token T_BOOLEAN_AND resolved as reduce.
+Conflict in state 99 between rule 218 and token '|' resolved as reduce.
+Conflict in state 99 between rule 218 and token '^' resolved as reduce.
+Conflict in state 99 between rule 218 and token '&' resolved as reduce.
+Conflict in state 99 between rule 218 and token T_IS_EQUAL resolved as reduce.
+Conflict in state 99 between rule 218 and token T_IS_NOT_EQUAL resolved as reduce.
+Conflict in state 99 between rule 218 and token T_IS_IDENTICAL resolved as reduce.
+Conflict in state 99 between rule 218 and token T_IS_NOT_IDENTICAL resolved as reduce.
+Conflict in state 99 between rule 218 and token '<' resolved as reduce.
+Conflict in state 99 between rule 218 and token T_IS_SMALLER_OR_EQUAL resolved as reduce.
+Conflict in state 99 between rule 218 and token '>' resolved as reduce.
+Conflict in state 99 between rule 218 and token T_IS_GREATER_OR_EQUAL resolved as reduce.
+Conflict in state 99 between rule 218 and token T_SL resolved as reduce.
+Conflict in state 99 between rule 218 and token T_SR resolved as reduce.
+Conflict in state 99 between rule 218 and token '+' resolved as reduce.
+Conflict in state 99 between rule 218 and token '-' resolved as reduce.
+Conflict in state 99 between rule 218 and token '.' resolved as reduce.
+Conflict in state 99 between rule 218 and token '*' resolved as reduce.
+Conflict in state 99 between rule 218 and token '/' resolved as reduce.
+Conflict in state 99 between rule 218 and token '%' resolved as reduce.
+Conflict in state 100 between rule 219 and token T_LOGICAL_OR resolved as reduce.
+Conflict in state 100 between rule 219 and token T_LOGICAL_XOR resolved as reduce.
+Conflict in state 100 between rule 219 and token T_LOGICAL_AND resolved as reduce.
+Conflict in state 100 between rule 219 and token '?' resolved as reduce.
+Conflict in state 100 between rule 219 and token T_BOOLEAN_OR resolved as reduce.
+Conflict in state 100 between rule 219 and token T_BOOLEAN_AND resolved as reduce.
+Conflict in state 100 between rule 219 and token '|' resolved as reduce.
+Conflict in state 100 between rule 219 and token '^' resolved as reduce.
+Conflict in state 100 between rule 219 and token '&' resolved as reduce.
+Conflict in state 100 between rule 219 and token T_IS_EQUAL resolved as reduce.
+Conflict in state 100 between rule 219 and token T_IS_NOT_EQUAL resolved as reduce.
+Conflict in state 100 between rule 219 and token T_IS_IDENTICAL resolved as reduce.
+Conflict in state 100 between rule 219 and token T_IS_NOT_IDENTICAL resolved as reduce.
+Conflict in state 100 between rule 219 and token '<' resolved as reduce.
+Conflict in state 100 between rule 219 and token T_IS_SMALLER_OR_EQUAL resolved as reduce.
+Conflict in state 100 between rule 219 and token '>' resolved as reduce.
+Conflict in state 100 between rule 219 and token T_IS_GREATER_OR_EQUAL resolved as reduce.
+Conflict in state 100 between rule 219 and token T_SL resolved as reduce.
+Conflict in state 100 between rule 219 and token T_SR resolved as reduce.
+Conflict in state 100 between rule 219 and token '+' resolved as reduce.
+Conflict in state 100 between rule 219 and token '-' resolved as reduce.
+Conflict in state 100 between rule 219 and token '.' resolved as reduce.
+Conflict in state 100 between rule 219 and token '*' resolved as reduce.
+Conflict in state 100 between rule 219 and token '/' resolved as reduce.
+Conflict in state 100 between rule 219 and token '%' resolved as reduce.
+Conflict in state 101 between rule 220 and token T_LOGICAL_OR resolved as reduce.
+Conflict in state 101 between rule 220 and token T_LOGICAL_XOR resolved as reduce.
+Conflict in state 101 between rule 220 and token T_LOGICAL_AND resolved as reduce.
+Conflict in state 101 between rule 220 and token '?' resolved as reduce.
+Conflict in state 101 between rule 220 and token T_BOOLEAN_OR resolved as reduce.
+Conflict in state 101 between rule 220 and token T_BOOLEAN_AND resolved as reduce.
+Conflict in state 101 between rule 220 and token '|' resolved as reduce.
+Conflict in state 101 between rule 220 and token '^' resolved as reduce.
+Conflict in state 101 between rule 220 and token '&' resolved as reduce.
+Conflict in state 101 between rule 220 and token T_IS_EQUAL resolved as reduce.
+Conflict in state 101 between rule 220 and token T_IS_NOT_EQUAL resolved as reduce.
+Conflict in state 101 between rule 220 and token T_IS_IDENTICAL resolved as reduce.
+Conflict in state 101 between rule 220 and token T_IS_NOT_IDENTICAL resolved as reduce.
+Conflict in state 101 between rule 220 and token '<' resolved as reduce.
+Conflict in state 101 between rule 220 and token T_IS_SMALLER_OR_EQUAL resolved as reduce.
+Conflict in state 101 between rule 220 and token '>' resolved as reduce.
+Conflict in state 101 between rule 220 and token T_IS_GREATER_OR_EQUAL resolved as reduce.
+Conflict in state 101 between rule 220 and token T_SL resolved as reduce.
+Conflict in state 101 between rule 220 and token T_SR resolved as reduce.
+Conflict in state 101 between rule 220 and token '+' resolved as reduce.
+Conflict in state 101 between rule 220 and token '-' resolved as reduce.
+Conflict in state 101 between rule 220 and token '.' resolved as reduce.
+Conflict in state 101 between rule 220 and token '*' resolved as reduce.
+Conflict in state 101 between rule 220 and token '/' resolved as reduce.
+Conflict in state 101 between rule 220 and token '%' resolved as reduce.
+Conflict in state 199 between rule 223 and token T_LOGICAL_OR resolved as reduce.
+Conflict in state 199 between rule 223 and token T_LOGICAL_XOR resolved as reduce.
+Conflict in state 199 between rule 223 and token T_LOGICAL_AND resolved as reduce.
+Conflict in state 199 between rule 223 and token '?' resolved as reduce.
+Conflict in state 199 between rule 223 and token T_BOOLEAN_OR resolved as reduce.
+Conflict in state 199 between rule 223 and token T_BOOLEAN_AND resolved as reduce.
+Conflict in state 199 between rule 223 and token '|' resolved as reduce.
+Conflict in state 199 between rule 223 and token '^' resolved as reduce.
+Conflict in state 199 between rule 223 and token '&' resolved as reduce.
+Conflict in state 199 between rule 223 and token T_IS_EQUAL resolved as reduce.
+Conflict in state 199 between rule 223 and token T_IS_NOT_EQUAL resolved as reduce.
+Conflict in state 199 between rule 223 and token T_IS_IDENTICAL resolved as reduce.
+Conflict in state 199 between rule 223 and token T_IS_NOT_IDENTICAL resolved as reduce.
+Conflict in state 199 between rule 223 and token '<' resolved as reduce.
+Conflict in state 199 between rule 223 and token T_IS_SMALLER_OR_EQUAL resolved as reduce.
+Conflict in state 199 between rule 223 and token '>' resolved as reduce.
+Conflict in state 199 between rule 223 and token T_IS_GREATER_OR_EQUAL resolved as reduce.
+Conflict in state 199 between rule 223 and token T_SL resolved as reduce.
+Conflict in state 199 between rule 223 and token T_SR resolved as reduce.
+Conflict in state 199 between rule 223 and token '+' resolved as reduce.
+Conflict in state 199 between rule 223 and token '-' resolved as reduce.
+Conflict in state 199 between rule 223 and token '.' resolved as reduce.
+Conflict in state 199 between rule 223 and token '*' resolved as reduce.
+Conflict in state 199 between rule 223 and token '/' resolved as reduce.
+Conflict in state 199 between rule 223 and token '%' resolved as reduce.
 Conflict in state 269 between rule 184 and token T_LOGICAL_OR resolved as reduce.
 Conflict in state 269 between rule 184 and token T_LOGICAL_XOR resolved as reduce.
 Conflict in state 269 between rule 184 and token T_LOGICAL_AND resolved as shift.
@@ -1702,7 +1727,7 @@ rule 335  internal_functions_in_yacc -> T_INCLUDE expr
 rule 336  internal_functions_in_yacc -> T_INCLUDE_ONCE expr
 rule 337  internal_functions_in_yacc -> T_EVAL '(' expr ')'
 rule 338  internal_functions_in_yacc -> T_REQUIRE expr
-rule 339  internal_functions_in_yacc -> T_REQUIRE_ONCE use_filename
+rule 339  internal_functions_in_yacc -> T_REQUIRE_ONCE expr
 
 Terminals, with rules where they appear
 
@@ -1908,7 +1933,7 @@ unset_variables (161)
 unset_variable (162)
     on left: 57, on right: 55 56
 use_filename (163)
-    on left: 58 59, on right: 44 339
+    on left: 58 59, on right: 44
 declaration_statement (164)
     on left: 60, on right: 6 11
 unticked_declaration_statement (165)
@@ -2055,7 +2080,7 @@ expr (231)
     171 177 179 181 183 184 185 186 187 188 189 190 191 192 193 194
     195 196 197 198 199 200 201 202 203 204 205 206 207 208 211 214
     215 216 217 218 219 220 223 227 236 276 279 281 289 292 303 304
-    305 306 307 309 327 328 335 336 337 338
+    305 306 307 309 327 328 335 336 337 338 339
 r_cvar (232)
     on left: 267, on right: 125 240 265
 w_cvar (233)
@@ -2415,12 +2440,62 @@ state 6
 
 state 7
 
-    internal_functions_in_yacc  ->  T_REQUIRE_ONCE . use_filename   (rule 339)
+    internal_functions_in_yacc  ->  T_REQUIRE_ONCE . expr   (rule 339)
 
-    T_CONSTANT_ENCAPSED_STRING	shift, and go to state 86
-    '(' 	shift, and go to state 87
+    T_INCLUDE	shift, and go to state 3
+    T_INCLUDE_ONCE	shift, and go to state 4
+    T_EVAL	shift, and go to state 5
+    T_REQUIRE	shift, and go to state 6
+    T_REQUIRE_ONCE	shift, and go to state 7
+    T_PRINT	shift, and go to state 8
+    '+' 	shift, and go to state 9
+    '-' 	shift, and go to state 10
+    '!' 	shift, and go to state 11
+    '~' 	shift, and go to state 12
+    T_INC	shift, and go to state 13
+    T_DEC	shift, and go to state 14
+    T_INT_CAST	shift, and go to state 15
+    T_DOUBLE_CAST	shift, and go to state 16
+    T_STRING_CAST	shift, and go to state 17
+    T_ARRAY_CAST	shift, and go to state 18
+    T_OBJECT_CAST	shift, and go to state 19
+    T_BOOL_CAST	shift, and go to state 20
+    T_UNSET_CAST	shift, and go to state 21
+    '@' 	shift, and go to state 22
+    T_NEW	shift, and go to state 23
+    T_EXIT	shift, and go to state 24
+    T_LNUMBER	shift, and go to state 26
+    T_DNUMBER	shift, and go to state 27
+    T_STRING	shift, and go to state 28
+    T_STRING_VARNAME	shift, and go to state 29
+    T_VARIABLE	shift, and go to state 30
+    T_CONSTANT_ENCAPSED_STRING	shift, and go to state 32
+    T_ISSET	shift, and go to state 49
+    T_EMPTY	shift, and go to state 50
+    T_LIST	shift, and go to state 52
+    T_ARRAY	shift, and go to state 53
+    T_LINE	shift, and go to state 54
+    T_FILE	shift, and go to state 55
+    T_START_HEREDOC	shift, and go to state 56
+    '(' 	shift, and go to state 58
+    '$' 	shift, and go to state 60
+    '`' 	shift, and go to state 61
+    '\"'	shift, and go to state 62
+    '\''	shift, and go to state 63
 
-    use_filename	go to state 88
+    expr_without_variable	go to state 69
+    function_call	go to state 70
+    common_scalar	go to state 71
+    scalar	go to state 72
+    expr	go to state 86
+    r_cvar	go to state 74
+    rw_cvar	go to state 75
+    cvar	go to state 76
+    cvar_without_objects	go to state 77
+    reference_variable	go to state 78
+    compound_variable	go to state 79
+    simple_indirect_reference	go to state 80
+    internal_functions_in_yacc	go to state 81
 
 
 
@@ -2473,7 +2548,7 @@ state 8
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 89
+    expr	go to state 87
     r_cvar	go to state 74
     rw_cvar	go to state 75
     cvar	go to state 76
@@ -2534,7 +2609,7 @@ state 9
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 90
+    expr	go to state 88
     r_cvar	go to state 74
     rw_cvar	go to state 75
     cvar	go to state 76
@@ -2595,7 +2670,7 @@ state 10
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 91
+    expr	go to state 89
     r_cvar	go to state 74
     rw_cvar	go to state 75
     cvar	go to state 76
@@ -2656,7 +2731,7 @@ state 11
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 92
+    expr	go to state 90
     r_cvar	go to state 74
     rw_cvar	go to state 75
     cvar	go to state 76
@@ -2717,7 +2792,7 @@ state 12
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 93
+    expr	go to state 91
     r_cvar	go to state 74
     rw_cvar	go to state 75
     cvar	go to state 76
@@ -2736,8 +2811,8 @@ state 13
     T_VARIABLE	shift, and go to state 30
     '$' 	shift, and go to state 60
 
-    rw_cvar	go to state 94
-    cvar	go to state 95
+    rw_cvar	go to state 92
+    cvar	go to state 93
     cvar_without_objects	go to state 77
     reference_variable	go to state 78
     compound_variable	go to state 79
@@ -2752,8 +2827,8 @@ state 14
     T_VARIABLE	shift, and go to state 30
     '$' 	shift, and go to state 60
 
-    rw_cvar	go to state 96
-    cvar	go to state 95
+    rw_cvar	go to state 94
+    cvar	go to state 93
     cvar_without_objects	go to state 77
     reference_variable	go to state 78
     compound_variable	go to state 79
@@ -2810,7 +2885,7 @@ state 15
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 97
+    expr	go to state 95
     r_cvar	go to state 74
     rw_cvar	go to state 75
     cvar	go to state 76
@@ -2871,7 +2946,7 @@ state 16
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 98
+    expr	go to state 96
     r_cvar	go to state 74
     rw_cvar	go to state 75
     cvar	go to state 76
@@ -2932,7 +3007,7 @@ state 17
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 99
+    expr	go to state 97
     r_cvar	go to state 74
     rw_cvar	go to state 75
     cvar	go to state 76
@@ -2993,7 +3068,7 @@ state 18
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 100
+    expr	go to state 98
     r_cvar	go to state 74
     rw_cvar	go to state 75
     cvar	go to state 76
@@ -3054,7 +3129,7 @@ state 19
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 101
+    expr	go to state 99
     r_cvar	go to state 74
     rw_cvar	go to state 75
     cvar	go to state 76
@@ -3115,7 +3190,7 @@ state 20
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 102
+    expr	go to state 100
     r_cvar	go to state 74
     rw_cvar	go to state 75
     cvar	go to state 76
@@ -3176,7 +3251,7 @@ state 21
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 103
+    expr	go to state 101
     r_cvar	go to state 74
     rw_cvar	go to state 75
     cvar	go to state 76
@@ -3194,7 +3269,7 @@ state 22
 
     $default	reduce using rule 222 (@43)
 
-    @43 	go to state 104
+    @43 	go to state 102
 
 
 
@@ -3202,13 +3277,13 @@ state 23
 
     expr_without_variable  ->  T_NEW . class_name @36 ctor_arguments   (rule 160)
 
-    T_STRING	shift, and go to state 105
+    T_STRING	shift, and go to state 103
     T_VARIABLE	shift, and go to state 30
     '$' 	shift, and go to state 60
 
-    class_name	go to state 106
-    r_cvar	go to state 107
-    cvar	go to state 108
+    class_name	go to state 104
+    r_cvar	go to state 105
+    cvar	go to state 106
     cvar_without_objects	go to state 77
     reference_variable	go to state 78
     compound_variable	go to state 79
@@ -3220,11 +3295,11 @@ state 24
 
     expr_without_variable  ->  T_EXIT . exit_expr   (rule 221)
 
-    '(' 	shift, and go to state 109
+    '(' 	shift, and go to state 107
 
     $default	reduce using rule 234 (exit_expr)
 
-    exit_expr	go to state 110
+    exit_expr	go to state 108
 
 
 
@@ -3233,7 +3308,7 @@ state 25
     unticked_statement  ->  T_IF . '(' expr ')' @3 statement @4 elseif_list else_single   (rule 16)
     unticked_statement  ->  T_IF . '(' expr ')' ':' @5 inner_statement_list @6 new_elseif_list new_else_single T_ENDIF ';'   (rule 19)
 
-    '(' 	shift, and go to state 111
+    '(' 	shift, and go to state 109
 
 
 
@@ -3259,8 +3334,8 @@ state 28
     function_call  ->  T_STRING . T_PAAMAYIM_NEKUDOTAYIM T_STRING '(' @46 function_call_parameter_list ')'   (rule 233)
     scalar  ->  T_STRING .   (rule 251)
 
-    T_PAAMAYIM_NEKUDOTAYIM	shift, and go to state 112
-    '(' 	shift, and go to state 113
+    T_PAAMAYIM_NEKUDOTAYIM	shift, and go to state 110
+    '(' 	shift, and go to state 111
 
     $default	reduce using rule 251 (scalar)
 
@@ -3345,12 +3420,12 @@ state 33
 
     $default	reduce using rule 146 (echo_expr_list)
 
-    echo_expr_list	go to state 114
+    echo_expr_list	go to state 112
     expr_without_variable	go to state 69
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 115
+    expr	go to state 113
     r_cvar	go to state 74
     rw_cvar	go to state 75
     cvar	go to state 76
@@ -3368,7 +3443,7 @@ state 34
 
     $default	reduce using rule 23 (@9)
 
-    @9  	go to state 116
+    @9  	go to state 114
 
 
 
@@ -3376,7 +3451,7 @@ state 35
 
     unticked_statement  ->  T_WHILE . '(' @7 expr ')' @8 while_statement   (rule 22)
 
-    '(' 	shift, and go to state 117
+    '(' 	shift, and go to state 115
 
 
 
@@ -3384,7 +3459,7 @@ state 36
 
     unticked_statement  ->  T_FOR . '(' for_expr ';' @11 for_expr ';' @12 for_expr ')' @13 for_statement   (rule 29)
 
-    '(' 	shift, and go to state 118
+    '(' 	shift, and go to state 116
 
 
 
@@ -3393,7 +3468,7 @@ state 37
     unticked_statement  ->  T_FOREACH . '(' w_cvar T_AS @15 w_cvar foreach_optional_arg ')' @16 foreach_statement   (rule 48)
     unticked_statement  ->  T_FOREACH . '(' expr_without_variable T_AS @17 w_cvar foreach_optional_arg ')' @18 foreach_statement   (rule 51)
 
-    '(' 	shift, and go to state 119
+    '(' 	shift, and go to state 117
 
 
 
@@ -3403,7 +3478,7 @@ state 38
 
     $default	reduce using rule 52 (@19)
 
-    @19 	go to state 120
+    @19 	go to state 118
 
 
 
@@ -3411,7 +3486,7 @@ state 39
 
     unticked_statement  ->  T_SWITCH . '(' expr ')' @14 switch_case_list   (rule 31)
 
-    '(' 	shift, and go to state 121
+    '(' 	shift, and go to state 119
 
 
 
@@ -3419,6 +3494,69 @@ state 40
 
     unticked_statement  ->  T_BREAK . ';'   (rule 32)
     unticked_statement  ->  T_BREAK . expr ';'   (rule 33)
+
+    T_INCLUDE	shift, and go to state 3
+    T_INCLUDE_ONCE	shift, and go to state 4
+    T_EVAL	shift, and go to state 5
+    T_REQUIRE	shift, and go to state 6
+    T_REQUIRE_ONCE	shift, and go to state 7
+    T_PRINT	shift, and go to state 8
+    '+' 	shift, and go to state 9
+    '-' 	shift, and go to state 10
+    '!' 	shift, and go to state 11
+    '~' 	shift, and go to state 12
+    T_INC	shift, and go to state 13
+    T_DEC	shift, and go to state 14
+    T_INT_CAST	shift, and go to state 15
+    T_DOUBLE_CAST	shift, and go to state 16
+    T_STRING_CAST	shift, and go to state 17
+    T_ARRAY_CAST	shift, and go to state 18
+    T_OBJECT_CAST	shift, and go to state 19
+    T_BOOL_CAST	shift, and go to state 20
+    T_UNSET_CAST	shift, and go to state 21
+    '@' 	shift, and go to state 22
+    T_NEW	shift, and go to state 23
+    T_EXIT	shift, and go to state 24
+    T_LNUMBER	shift, and go to state 26
+    T_DNUMBER	shift, and go to state 27
+    T_STRING	shift, and go to state 28
+    T_STRING_VARNAME	shift, and go to state 29
+    T_VARIABLE	shift, and go to state 30
+    T_CONSTANT_ENCAPSED_STRING	shift, and go to state 32
+    T_ISSET	shift, and go to state 49
+    T_EMPTY	shift, and go to state 50
+    T_LIST	shift, and go to state 52
+    T_ARRAY	shift, and go to state 53
+    T_LINE	shift, and go to state 54
+    T_FILE	shift, and go to state 55
+    T_START_HEREDOC	shift, and go to state 56
+    '(' 	shift, and go to state 58
+    ';' 	shift, and go to state 120
+    '$' 	shift, and go to state 60
+    '`' 	shift, and go to state 61
+    '\"'	shift, and go to state 62
+    '\''	shift, and go to state 63
+
+    expr_without_variable	go to state 69
+    function_call	go to state 70
+    common_scalar	go to state 71
+    scalar	go to state 72
+    expr	go to state 121
+    r_cvar	go to state 74
+    rw_cvar	go to state 75
+    cvar	go to state 76
+    cvar_without_objects	go to state 77
+    reference_variable	go to state 78
+    compound_variable	go to state 79
+    simple_indirect_reference	go to state 80
+    internal_functions_in_yacc	go to state 81
+
+
+
+state 41
+
+    unticked_statement  ->  T_CONTINUE . ';'   (rule 34)
+    unticked_statement  ->  T_CONTINUE . expr ';'   (rule 35)
 
     T_INCLUDE	shift, and go to state 3
     T_INCLUDE_ONCE	shift, and go to state 4
@@ -3478,76 +3616,13 @@ state 40
 
 
 
-state 41
-
-    unticked_statement  ->  T_CONTINUE . ';'   (rule 34)
-    unticked_statement  ->  T_CONTINUE . expr ';'   (rule 35)
-
-    T_INCLUDE	shift, and go to state 3
-    T_INCLUDE_ONCE	shift, and go to state 4
-    T_EVAL	shift, and go to state 5
-    T_REQUIRE	shift, and go to state 6
-    T_REQUIRE_ONCE	shift, and go to state 7
-    T_PRINT	shift, and go to state 8
-    '+' 	shift, and go to state 9
-    '-' 	shift, and go to state 10
-    '!' 	shift, and go to state 11
-    '~' 	shift, and go to state 12
-    T_INC	shift, and go to state 13
-    T_DEC	shift, and go to state 14
-    T_INT_CAST	shift, and go to state 15
-    T_DOUBLE_CAST	shift, and go to state 16
-    T_STRING_CAST	shift, and go to state 17
-    T_ARRAY_CAST	shift, and go to state 18
-    T_OBJECT_CAST	shift, and go to state 19
-    T_BOOL_CAST	shift, and go to state 20
-    T_UNSET_CAST	shift, and go to state 21
-    '@' 	shift, and go to state 22
-    T_NEW	shift, and go to state 23
-    T_EXIT	shift, and go to state 24
-    T_LNUMBER	shift, and go to state 26
-    T_DNUMBER	shift, and go to state 27
-    T_STRING	shift, and go to state 28
-    T_STRING_VARNAME	shift, and go to state 29
-    T_VARIABLE	shift, and go to state 30
-    T_CONSTANT_ENCAPSED_STRING	shift, and go to state 32
-    T_ISSET	shift, and go to state 49
-    T_EMPTY	shift, and go to state 50
-    T_LIST	shift, and go to state 52
-    T_ARRAY	shift, and go to state 53
-    T_LINE	shift, and go to state 54
-    T_FILE	shift, and go to state 55
-    T_START_HEREDOC	shift, and go to state 56
-    '(' 	shift, and go to state 58
-    ';' 	shift, and go to state 124
-    '$' 	shift, and go to state 60
-    '`' 	shift, and go to state 61
-    '\"'	shift, and go to state 62
-    '\''	shift, and go to state 63
-
-    expr_without_variable	go to state 69
-    function_call	go to state 70
-    common_scalar	go to state 71
-    scalar	go to state 72
-    expr	go to state 125
-    r_cvar	go to state 74
-    rw_cvar	go to state 75
-    cvar	go to state 76
-    cvar_without_objects	go to state 77
-    reference_variable	go to state 78
-    compound_variable	go to state 79
-    simple_indirect_reference	go to state 80
-    internal_functions_in_yacc	go to state 81
-
-
-
 state 42
 
     unticked_declaration_statement  ->  T_OLD_FUNCTION . @22 is_reference T_STRING @23 parameter_list '(' inner_statement_list ')' ';'   (rule 66)
 
     $default	reduce using rule 64 (@22)
 
-    @22 	go to state 126
+    @22 	go to state 124
 
 
 
@@ -3557,7 +3632,7 @@ state 43
 
     $default	reduce using rule 61 (@20)
 
-    @20 	go to state 127
+    @20 	go to state 125
 
 
 
@@ -3603,20 +3678,20 @@ state 44
     T_FILE	shift, and go to state 55
     T_START_HEREDOC	shift, and go to state 56
     '(' 	shift, and go to state 58
-    ';' 	shift, and go to state 128
+    ';' 	shift, and go to state 126
     '$' 	shift, and go to state 60
     '`' 	shift, and go to state 61
     '\"'	shift, and go to state 62
     '\''	shift, and go to state 63
 
-    expr_without_variable	go to state 129
+    expr_without_variable	go to state 127
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 130
+    expr	go to state 128
     r_cvar	go to state 74
     rw_cvar	go to state 75
-    cvar	go to state 131
+    cvar	go to state 129
     cvar_without_objects	go to state 77
     reference_variable	go to state 78
     compound_variable	go to state 79
@@ -3629,8 +3704,8 @@ state 45
 
     unticked_statement  ->  T_USE . use_filename ';'   (rule 44)
 
-    T_CONSTANT_ENCAPSED_STRING	shift, and go to state 86
-    '(' 	shift, and go to state 87
+    T_CONSTANT_ENCAPSED_STRING	shift, and go to state 130
+    '(' 	shift, and go to state 131
 
     use_filename	go to state 132
 
@@ -4334,29 +4409,64 @@ state 85
 
 state 86
 
-    use_filename  ->  T_CONSTANT_ENCAPSED_STRING .   (rule 58)
+    expr_without_variable  ->  expr . T_BOOLEAN_OR @37 expr   (rule 177)
+    expr_without_variable  ->  expr . T_BOOLEAN_AND @38 expr   (rule 179)
+    expr_without_variable  ->  expr . T_LOGICAL_OR @39 expr   (rule 181)
+    expr_without_variable  ->  expr . T_LOGICAL_AND @40 expr   (rule 183)
+    expr_without_variable  ->  expr . T_LOGICAL_XOR expr   (rule 184)
+    expr_without_variable  ->  expr . '|' expr   (rule 185)
+    expr_without_variable  ->  expr . '&' expr   (rule 186)
+    expr_without_variable  ->  expr . '^' expr   (rule 187)
+    expr_without_variable  ->  expr . '.' expr   (rule 188)
+    expr_without_variable  ->  expr . '+' expr   (rule 189)
+    expr_without_variable  ->  expr . '-' expr   (rule 190)
+    expr_without_variable  ->  expr . '*' expr   (rule 191)
+    expr_without_variable  ->  expr . '/' expr   (rule 192)
+    expr_without_variable  ->  expr . '%' expr   (rule 193)
+    expr_without_variable  ->  expr . T_SL expr   (rule 194)
+    expr_without_variable  ->  expr . T_SR expr   (rule 195)
+    expr_without_variable  ->  expr . T_IS_IDENTICAL expr   (rule 200)
+    expr_without_variable  ->  expr . T_IS_NOT_IDENTICAL expr   (rule 201)
+    expr_without_variable  ->  expr . T_IS_EQUAL expr   (rule 202)
+    expr_without_variable  ->  expr . T_IS_NOT_EQUAL expr   (rule 203)
+    expr_without_variable  ->  expr . '<' expr   (rule 204)
+    expr_without_variable  ->  expr . T_IS_SMALLER_OR_EQUAL expr   (rule 205)
+    expr_without_variable  ->  expr . '>' expr   (rule 206)
+    expr_without_variable  ->  expr . T_IS_GREATER_OR_EQUAL expr   (rule 207)
+    expr_without_variable  ->  expr . '?' @41 expr ':' @42 expr   (rule 211)
+    internal_functions_in_yacc  ->  T_REQUIRE_ONCE expr .   (rule 339)
 
-    $default	reduce using rule 58 (use_filename)
-
-
-
-state 87
-
-    use_filename  ->  '(' . T_CONSTANT_ENCAPSED_STRING ')'   (rule 59)
-
-    T_CONSTANT_ENCAPSED_STRING	shift, and go to state 199
-
-
-
-state 88
-
-    internal_functions_in_yacc  ->  T_REQUIRE_ONCE use_filename .   (rule 339)
+    T_LOGICAL_OR	shift, and go to state 152
+    T_LOGICAL_XOR	shift, and go to state 153
+    T_LOGICAL_AND	shift, and go to state 154
+    '?' 	shift, and go to state 155
+    T_BOOLEAN_OR	shift, and go to state 156
+    T_BOOLEAN_AND	shift, and go to state 157
+    '|' 	shift, and go to state 158
+    '^' 	shift, and go to state 159
+    '&' 	shift, and go to state 160
+    T_IS_EQUAL	shift, and go to state 161
+    T_IS_NOT_EQUAL	shift, and go to state 162
+    T_IS_IDENTICAL	shift, and go to state 163
+    T_IS_NOT_IDENTICAL	shift, and go to state 164
+    '<' 	shift, and go to state 165
+    T_IS_SMALLER_OR_EQUAL	shift, and go to state 166
+    '>' 	shift, and go to state 167
+    T_IS_GREATER_OR_EQUAL	shift, and go to state 168
+    T_SL	shift, and go to state 169
+    T_SR	shift, and go to state 170
+    '+' 	shift, and go to state 171
+    '-' 	shift, and go to state 172
+    '.' 	shift, and go to state 173
+    '*' 	shift, and go to state 174
+    '/' 	shift, and go to state 175
+    '%' 	shift, and go to state 176
 
     $default	reduce using rule 339 (internal_functions_in_yacc)
 
 
 
-state 89
+state 87
 
     expr_without_variable  ->  expr . T_BOOLEAN_OR @37 expr   (rule 177)
     expr_without_variable  ->  expr . T_BOOLEAN_AND @38 expr   (rule 179)
@@ -4412,7 +4522,7 @@ state 89
 
 
 
-state 90
+state 88
 
     expr_without_variable  ->  expr . T_BOOLEAN_OR @37 expr   (rule 177)
     expr_without_variable  ->  expr . T_BOOLEAN_AND @38 expr   (rule 179)
@@ -4449,7 +4559,7 @@ state 90
 
 
 
-state 91
+state 89
 
     expr_without_variable  ->  expr . T_BOOLEAN_OR @37 expr   (rule 177)
     expr_without_variable  ->  expr . T_BOOLEAN_AND @38 expr   (rule 179)
@@ -4486,7 +4596,7 @@ state 91
 
 
 
-state 92
+state 90
 
     expr_without_variable  ->  expr . T_BOOLEAN_OR @37 expr   (rule 177)
     expr_without_variable  ->  expr . T_BOOLEAN_AND @38 expr   (rule 179)
@@ -4520,7 +4630,7 @@ state 92
 
 
 
-state 93
+state 91
 
     expr_without_variable  ->  expr . T_BOOLEAN_OR @37 expr   (rule 177)
     expr_without_variable  ->  expr . T_BOOLEAN_AND @38 expr   (rule 179)
@@ -4554,7 +4664,7 @@ state 93
 
 
 
-state 94
+state 92
 
     expr_without_variable  ->  T_INC rw_cvar .   (rule 173)
 
@@ -4562,7 +4672,7 @@ state 94
 
 
 
-state 95
+state 93
 
     rw_cvar  ->  cvar .   (rule 269)
 
@@ -4570,7 +4680,7 @@ state 95
 
 
 
-state 96
+state 94
 
     expr_without_variable  ->  T_DEC rw_cvar .   (rule 175)
 
@@ -4578,7 +4688,7 @@ state 96
 
 
 
-state 97
+state 95
 
     expr_without_variable  ->  expr . T_BOOLEAN_OR @37 expr   (rule 177)
     expr_without_variable  ->  expr . T_BOOLEAN_AND @38 expr   (rule 179)
@@ -4612,7 +4722,7 @@ state 97
 
 
 
-state 98
+state 96
 
     expr_without_variable  ->  expr . T_BOOLEAN_OR @37 expr   (rule 177)
     expr_without_variable  ->  expr . T_BOOLEAN_AND @38 expr   (rule 179)
@@ -4646,7 +4756,7 @@ state 98
 
 
 
-state 99
+state 97
 
     expr_without_variable  ->  expr . T_BOOLEAN_OR @37 expr   (rule 177)
     expr_without_variable  ->  expr . T_BOOLEAN_AND @38 expr   (rule 179)
@@ -4680,7 +4790,7 @@ state 99
 
 
 
-state 100
+state 98
 
     expr_without_variable  ->  expr . T_BOOLEAN_OR @37 expr   (rule 177)
     expr_without_variable  ->  expr . T_BOOLEAN_AND @38 expr   (rule 179)
@@ -4714,7 +4824,7 @@ state 100
 
 
 
-state 101
+state 99
 
     expr_without_variable  ->  expr . T_BOOLEAN_OR @37 expr   (rule 177)
     expr_without_variable  ->  expr . T_BOOLEAN_AND @38 expr   (rule 179)
@@ -4748,7 +4858,7 @@ state 101
 
 
 
-state 102
+state 100
 
     expr_without_variable  ->  expr . T_BOOLEAN_OR @37 expr   (rule 177)
     expr_without_variable  ->  expr . T_BOOLEAN_AND @38 expr   (rule 179)
@@ -4782,7 +4892,7 @@ state 102
 
 
 
-state 103
+state 101
 
     expr_without_variable  ->  expr . T_BOOLEAN_OR @37 expr   (rule 177)
     expr_without_variable  ->  expr . T_BOOLEAN_AND @38 expr   (rule 179)
@@ -4816,7 +4926,7 @@ state 103
 
 
 
-state 104
+state 102
 
     expr_without_variable  ->  '@' @43 . expr   (rule 223)
 
@@ -4865,7 +4975,7 @@ state 104
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 200
+    expr	go to state 199
     r_cvar	go to state 74
     rw_cvar	go to state 75
     cvar	go to state 76
@@ -4877,7 +4987,7 @@ state 104
 
 
 
-state 105
+state 103
 
     class_name  ->  T_STRING .   (rule 239)
 
@@ -4885,17 +4995,17 @@ state 105
 
 
 
-state 106
+state 104
 
     expr_without_variable  ->  T_NEW class_name . @36 ctor_arguments   (rule 160)
 
     $default	reduce using rule 159 (@36)
 
-    @36 	go to state 201
+    @36 	go to state 200
 
 
 
-state 107
+state 105
 
     class_name  ->  r_cvar .   (rule 240)
 
@@ -4903,7 +5013,7 @@ state 107
 
 
 
-state 108
+state 106
 
     r_cvar  ->  cvar .   (rule 267)
 
@@ -4911,7 +5021,7 @@ state 108
 
 
 
-state 109
+state 107
 
     exit_expr  ->  '(' . ')'   (rule 235)
     exit_expr  ->  '(' . expr ')'   (rule 236)
@@ -4952,7 +5062,7 @@ state 109
     T_FILE	shift, and go to state 55
     T_START_HEREDOC	shift, and go to state 56
     '(' 	shift, and go to state 58
-    ')' 	shift, and go to state 202
+    ')' 	shift, and go to state 201
     '$' 	shift, and go to state 60
     '`' 	shift, and go to state 61
     '\"'	shift, and go to state 62
@@ -4962,7 +5072,7 @@ state 109
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 203
+    expr	go to state 202
     r_cvar	go to state 74
     rw_cvar	go to state 75
     cvar	go to state 76
@@ -4974,7 +5084,7 @@ state 109
 
 
 
-state 110
+state 108
 
     expr_without_variable  ->  T_EXIT exit_expr .   (rule 221)
 
@@ -4982,7 +5092,7 @@ state 110
 
 
 
-state 111
+state 109
 
     unticked_statement  ->  T_IF '(' . expr ')' @3 statement @4 elseif_list else_single   (rule 16)
     unticked_statement  ->  T_IF '(' . expr ')' ':' @5 inner_statement_list @6 new_elseif_list new_else_single T_ENDIF ';'   (rule 19)
@@ -5032,7 +5142,7 @@ state 111
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 204
+    expr	go to state 203
     r_cvar	go to state 74
     rw_cvar	go to state 75
     cvar	go to state 76
@@ -5044,35 +5154,35 @@ state 111
 
 
 
-state 112
+state 110
 
     function_call  ->  T_STRING T_PAAMAYIM_NEKUDOTAYIM . T_STRING '(' @46 function_call_parameter_list ')'   (rule 233)
 
-    T_STRING	shift, and go to state 205
+    T_STRING	shift, and go to state 204
 
 
 
-state 113
+state 111
 
     function_call  ->  T_STRING '(' . @44 function_call_parameter_list ')'   (rule 229)
 
     $default	reduce using rule 228 (@44)
 
-    @44 	go to state 206
+    @44 	go to state 205
 
 
 
-state 114
+state 112
 
     unticked_statement  ->  T_ECHO echo_expr_list . ';'   (rule 41)
     echo_expr_list  ->  echo_expr_list . ',' expr   (rule 147)
 
-    ',' 	shift, and go to state 207
-    ';' 	shift, and go to state 208
+    ',' 	shift, and go to state 206
+    ';' 	shift, and go to state 207
 
 
 
-state 115
+state 113
 
     echo_expr_list  ->  expr .   (rule 148)
     expr_without_variable  ->  expr . T_BOOLEAN_OR @37 expr   (rule 177)
@@ -5131,7 +5241,7 @@ state 115
 
 
 
-state 116
+state 114
 
     unticked_statement  ->  T_DO @9 . statement T_WHILE '(' @10 expr ')' ';'   (rule 25)
 
@@ -5194,7 +5304,7 @@ state 116
     '\"'	shift, and go to state 62
     '\''	shift, and go to state 63
 
-    statement	go to state 209
+    statement	go to state 208
     unticked_statement	go to state 66
     expr_without_variable	go to state 69
     function_call	go to state 70
@@ -5212,17 +5322,17 @@ state 116
 
 
 
-state 117
+state 115
 
     unticked_statement  ->  T_WHILE '(' . @7 expr ')' @8 while_statement   (rule 22)
 
     $default	reduce using rule 20 (@7)
 
-    @7  	go to state 210
+    @7  	go to state 209
 
 
 
-state 118
+state 116
 
     unticked_statement  ->  T_FOR '(' . for_expr ';' @11 for_expr ';' @12 for_expr ')' @13 for_statement   (rule 29)
 
@@ -5269,13 +5379,13 @@ state 118
 
     $default	reduce using rule 149 (for_expr)
 
-    for_expr	go to state 211
-    non_empty_for_expr	go to state 212
+    for_expr	go to state 210
+    non_empty_for_expr	go to state 211
     expr_without_variable	go to state 69
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 213
+    expr	go to state 212
     r_cvar	go to state 74
     rw_cvar	go to state 75
     cvar	go to state 76
@@ -5287,7 +5397,7 @@ state 118
 
 
 
-state 119
+state 117
 
     unticked_statement  ->  T_FOREACH '(' . w_cvar T_AS @15 w_cvar foreach_optional_arg ')' @16 foreach_statement   (rule 48)
     unticked_statement  ->  T_FOREACH '(' . expr_without_variable T_AS @17 w_cvar foreach_optional_arg ')' @18 foreach_statement   (rule 51)
@@ -5333,15 +5443,15 @@ state 119
     '\"'	shift, and go to state 62
     '\''	shift, and go to state 63
 
-    expr_without_variable	go to state 214
+    expr_without_variable	go to state 213
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 130
+    expr	go to state 128
     r_cvar	go to state 74
-    w_cvar	go to state 215
+    w_cvar	go to state 214
     rw_cvar	go to state 75
-    cvar	go to state 216
+    cvar	go to state 215
     cvar_without_objects	go to state 77
     reference_variable	go to state 78
     compound_variable	go to state 79
@@ -5350,15 +5460,15 @@ state 119
 
 
 
-state 120
+state 118
 
     unticked_statement  ->  T_DECLARE @19 . '(' declare_list ')' declare_statement   (rule 53)
 
-    '(' 	shift, and go to state 217
+    '(' 	shift, and go to state 216
 
 
 
-state 121
+state 119
 
     unticked_statement  ->  T_SWITCH '(' . expr ')' @14 switch_case_list   (rule 31)
 
@@ -5407,7 +5517,7 @@ state 121
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 218
+    expr	go to state 217
     r_cvar	go to state 74
     rw_cvar	go to state 75
     cvar	go to state 76
@@ -5419,7 +5529,7 @@ state 121
 
 
 
-state 122
+state 120
 
     unticked_statement  ->  T_BREAK ';' .   (rule 32)
 
@@ -5427,9 +5537,75 @@ state 122
 
 
 
-state 123
+state 121
 
     unticked_statement  ->  T_BREAK expr . ';'   (rule 33)
+    expr_without_variable  ->  expr . T_BOOLEAN_OR @37 expr   (rule 177)
+    expr_without_variable  ->  expr . T_BOOLEAN_AND @38 expr   (rule 179)
+    expr_without_variable  ->  expr . T_LOGICAL_OR @39 expr   (rule 181)
+    expr_without_variable  ->  expr . T_LOGICAL_AND @40 expr   (rule 183)
+    expr_without_variable  ->  expr . T_LOGICAL_XOR expr   (rule 184)
+    expr_without_variable  ->  expr . '|' expr   (rule 185)
+    expr_without_variable  ->  expr . '&' expr   (rule 186)
+    expr_without_variable  ->  expr . '^' expr   (rule 187)
+    expr_without_variable  ->  expr . '.' expr   (rule 188)
+    expr_without_variable  ->  expr . '+' expr   (rule 189)
+    expr_without_variable  ->  expr . '-' expr   (rule 190)
+    expr_without_variable  ->  expr . '*' expr   (rule 191)
+    expr_without_variable  ->  expr . '/' expr   (rule 192)
+    expr_without_variable  ->  expr . '%' expr   (rule 193)
+    expr_without_variable  ->  expr . T_SL expr   (rule 194)
+    expr_without_variable  ->  expr . T_SR expr   (rule 195)
+    expr_without_variable  ->  expr . T_IS_IDENTICAL expr   (rule 200)
+    expr_without_variable  ->  expr . T_IS_NOT_IDENTICAL expr   (rule 201)
+    expr_without_variable  ->  expr . T_IS_EQUAL expr   (rule 202)
+    expr_without_variable  ->  expr . T_IS_NOT_EQUAL expr   (rule 203)
+    expr_without_variable  ->  expr . '<' expr   (rule 204)
+    expr_without_variable  ->  expr . T_IS_SMALLER_OR_EQUAL expr   (rule 205)
+    expr_without_variable  ->  expr . '>' expr   (rule 206)
+    expr_without_variable  ->  expr . T_IS_GREATER_OR_EQUAL expr   (rule 207)
+    expr_without_variable  ->  expr . '?' @41 expr ':' @42 expr   (rule 211)
+
+    T_LOGICAL_OR	shift, and go to state 152
+    T_LOGICAL_XOR	shift, and go to state 153
+    T_LOGICAL_AND	shift, and go to state 154
+    '?' 	shift, and go to state 155
+    T_BOOLEAN_OR	shift, and go to state 156
+    T_BOOLEAN_AND	shift, and go to state 157
+    '|' 	shift, and go to state 158
+    '^' 	shift, and go to state 159
+    '&' 	shift, and go to state 160
+    T_IS_EQUAL	shift, and go to state 161
+    T_IS_NOT_EQUAL	shift, and go to state 162
+    T_IS_IDENTICAL	shift, and go to state 163
+    T_IS_NOT_IDENTICAL	shift, and go to state 164
+    '<' 	shift, and go to state 165
+    T_IS_SMALLER_OR_EQUAL	shift, and go to state 166
+    '>' 	shift, and go to state 167
+    T_IS_GREATER_OR_EQUAL	shift, and go to state 168
+    T_SL	shift, and go to state 169
+    T_SR	shift, and go to state 170
+    '+' 	shift, and go to state 171
+    '-' 	shift, and go to state 172
+    '.' 	shift, and go to state 173
+    '*' 	shift, and go to state 174
+    '/' 	shift, and go to state 175
+    '%' 	shift, and go to state 176
+    ';' 	shift, and go to state 218
+
+
+
+state 122
+
+    unticked_statement  ->  T_CONTINUE ';' .   (rule 34)
+
+    $default	reduce using rule 34 (unticked_statement)
+
+
+
+state 123
+
+    unticked_statement  ->  T_CONTINUE expr . ';'   (rule 35)
     expr_without_variable  ->  expr . T_BOOLEAN_OR @37 expr   (rule 177)
     expr_without_variable  ->  expr . T_BOOLEAN_AND @38 expr   (rule 179)
     expr_without_variable  ->  expr . T_LOGICAL_OR @39 expr   (rule 181)
@@ -5487,75 +5663,21 @@ state 123
 
 state 124
 
-    unticked_statement  ->  T_CONTINUE ';' .   (rule 34)
+    unticked_declaration_statement  ->  T_OLD_FUNCTION @22 . is_reference T_STRING @23 parameter_list '(' inner_statement_list ')' ';'   (rule 66)
 
-    $default	reduce using rule 34 (unticked_statement)
+    '&' 	shift, and go to state 220
+
+    $default	reduce using rule 140 (is_reference)
+
+    is_reference	go to state 221
 
 
 
 state 125
 
-    unticked_statement  ->  T_CONTINUE expr . ';'   (rule 35)
-    expr_without_variable  ->  expr . T_BOOLEAN_OR @37 expr   (rule 177)
-    expr_without_variable  ->  expr . T_BOOLEAN_AND @38 expr   (rule 179)
-    expr_without_variable  ->  expr . T_LOGICAL_OR @39 expr   (rule 181)
-    expr_without_variable  ->  expr . T_LOGICAL_AND @40 expr   (rule 183)
-    expr_without_variable  ->  expr . T_LOGICAL_XOR expr   (rule 184)
-    expr_without_variable  ->  expr . '|' expr   (rule 185)
-    expr_without_variable  ->  expr . '&' expr   (rule 186)
-    expr_without_variable  ->  expr . '^' expr   (rule 187)
-    expr_without_variable  ->  expr . '.' expr   (rule 188)
-    expr_without_variable  ->  expr . '+' expr   (rule 189)
-    expr_without_variable  ->  expr . '-' expr   (rule 190)
-    expr_without_variable  ->  expr . '*' expr   (rule 191)
-    expr_without_variable  ->  expr . '/' expr   (rule 192)
-    expr_without_variable  ->  expr . '%' expr   (rule 193)
-    expr_without_variable  ->  expr . T_SL expr   (rule 194)
-    expr_without_variable  ->  expr . T_SR expr   (rule 195)
-    expr_without_variable  ->  expr . T_IS_IDENTICAL expr   (rule 200)
-    expr_without_variable  ->  expr . T_IS_NOT_IDENTICAL expr   (rule 201)
-    expr_without_variable  ->  expr . T_IS_EQUAL expr   (rule 202)
-    expr_without_variable  ->  expr . T_IS_NOT_EQUAL expr   (rule 203)
-    expr_without_variable  ->  expr . '<' expr   (rule 204)
-    expr_without_variable  ->  expr . T_IS_SMALLER_OR_EQUAL expr   (rule 205)
-    expr_without_variable  ->  expr . '>' expr   (rule 206)
-    expr_without_variable  ->  expr . T_IS_GREATER_OR_EQUAL expr   (rule 207)
-    expr_without_variable  ->  expr . '?' @41 expr ':' @42 expr   (rule 211)
+    unticked_declaration_statement  ->  T_FUNCTION @20 . is_reference T_STRING @21 '(' parameter_list ')' '{' inner_statement_list '}'   (rule 63)
 
-    T_LOGICAL_OR	shift, and go to state 152
-    T_LOGICAL_XOR	shift, and go to state 153
-    T_LOGICAL_AND	shift, and go to state 154
-    '?' 	shift, and go to state 155
-    T_BOOLEAN_OR	shift, and go to state 156
-    T_BOOLEAN_AND	shift, and go to state 157
-    '|' 	shift, and go to state 158
-    '^' 	shift, and go to state 159
-    '&' 	shift, and go to state 160
-    T_IS_EQUAL	shift, and go to state 161
-    T_IS_NOT_EQUAL	shift, and go to state 162
-    T_IS_IDENTICAL	shift, and go to state 163
-    T_IS_NOT_IDENTICAL	shift, and go to state 164
-    '<' 	shift, and go to state 165
-    T_IS_SMALLER_OR_EQUAL	shift, and go to state 166
-    '>' 	shift, and go to state 167
-    T_IS_GREATER_OR_EQUAL	shift, and go to state 168
-    T_SL	shift, and go to state 169
-    T_SR	shift, and go to state 170
-    '+' 	shift, and go to state 171
-    '-' 	shift, and go to state 172
-    '.' 	shift, and go to state 173
-    '*' 	shift, and go to state 174
-    '/' 	shift, and go to state 175
-    '%' 	shift, and go to state 176
-    ';' 	shift, and go to state 220
-
-
-
-state 126
-
-    unticked_declaration_statement  ->  T_OLD_FUNCTION @22 . is_reference T_STRING @23 parameter_list '(' inner_statement_list ')' ';'   (rule 66)
-
-    '&' 	shift, and go to state 221
+    '&' 	shift, and go to state 220
 
     $default	reduce using rule 140 (is_reference)
 
@@ -5563,19 +5685,7 @@ state 126
 
 
 
-state 127
-
-    unticked_declaration_statement  ->  T_FUNCTION @20 . is_reference T_STRING @21 '(' parameter_list ')' '{' inner_statement_list '}'   (rule 63)
-
-    '&' 	shift, and go to state 221
-
-    $default	reduce using rule 140 (is_reference)
-
-    is_reference	go to state 223
-
-
-
-state 128
+state 126
 
     unticked_statement  ->  T_RETURN ';' .   (rule 36)
 
@@ -5583,18 +5693,18 @@ state 128
 
 
 
-state 129
+state 127
 
     unticked_statement  ->  T_RETURN expr_without_variable . ';'   (rule 37)
     expr  ->  expr_without_variable .   (rule 266)
 
-    ';' 	shift, and go to state 224
+    ';' 	shift, and go to state 223
 
     $default	reduce using rule 266 (expr)
 
 
 
-state 130
+state 128
 
     expr_without_variable  ->  expr . T_BOOLEAN_OR @37 expr   (rule 177)
     expr_without_variable  ->  expr . T_BOOLEAN_AND @38 expr   (rule 179)
@@ -5650,7 +5760,7 @@ state 130
 
 
 
-state 131
+state 129
 
     unticked_statement  ->  T_RETURN cvar . ';'   (rule 38)
     expr_without_variable  ->  cvar . '=' expr   (rule 156)
@@ -5684,11 +5794,27 @@ state 131
     T_SL_EQUAL	shift, and go to state 190
     T_SR_EQUAL	shift, and go to state 191
     '(' 	shift, and go to state 192
-    ';' 	shift, and go to state 225
+    ';' 	shift, and go to state 224
 
     T_INC	reduce using rule 269 (rw_cvar)
     T_DEC	reduce using rule 269 (rw_cvar)
     $default	reduce using rule 267 (r_cvar)
+
+
+
+state 130
+
+    use_filename  ->  T_CONSTANT_ENCAPSED_STRING .   (rule 58)
+
+    $default	reduce using rule 58 (use_filename)
+
+
+
+state 131
+
+    use_filename  ->  '(' . T_CONSTANT_ENCAPSED_STRING ')'   (rule 59)
+
+    T_CONSTANT_ENCAPSED_STRING	shift, and go to state 225
 
 
 
@@ -5718,7 +5844,7 @@ state 134
     '$' 	shift, and go to state 60
 
     r_cvar	go to state 228
-    cvar	go to state 108
+    cvar	go to state 106
     cvar_without_objects	go to state 77
     reference_variable	go to state 78
     compound_variable	go to state 79
@@ -8428,14 +8554,6 @@ state 198
 
 state 199
 
-    use_filename  ->  '(' T_CONSTANT_ENCAPSED_STRING . ')'   (rule 59)
-
-    ')' 	shift, and go to state 312
-
-
-
-state 200
-
     expr_without_variable  ->  expr . T_BOOLEAN_OR @37 expr   (rule 177)
     expr_without_variable  ->  expr . T_BOOLEAN_AND @38 expr   (rule 179)
     expr_without_variable  ->  expr . T_LOGICAL_OR @39 expr   (rule 181)
@@ -8468,19 +8586,19 @@ state 200
 
 
 
-state 201
+state 200
 
     expr_without_variable  ->  T_NEW class_name @36 . ctor_arguments   (rule 160)
 
-    '(' 	shift, and go to state 313
+    '(' 	shift, and go to state 312
 
     $default	reduce using rule 237 (ctor_arguments)
 
-    ctor_arguments	go to state 314
+    ctor_arguments	go to state 313
 
 
 
-state 202
+state 201
 
     exit_expr  ->  '(' ')' .   (rule 235)
 
@@ -8488,7 +8606,7 @@ state 202
 
 
 
-state 203
+state 202
 
     expr_without_variable  ->  expr . T_BOOLEAN_OR @37 expr   (rule 177)
     expr_without_variable  ->  expr . T_BOOLEAN_AND @38 expr   (rule 179)
@@ -8542,11 +8660,11 @@ state 203
     '*' 	shift, and go to state 174
     '/' 	shift, and go to state 175
     '%' 	shift, and go to state 176
-    ')' 	shift, and go to state 315
+    ')' 	shift, and go to state 314
 
 
 
-state 204
+state 203
 
     unticked_statement  ->  T_IF '(' expr . ')' @3 statement @4 elseif_list else_single   (rule 16)
     unticked_statement  ->  T_IF '(' expr . ')' ':' @5 inner_statement_list @6 new_elseif_list new_else_single T_ENDIF ';'   (rule 19)
@@ -8601,19 +8719,19 @@ state 204
     '*' 	shift, and go to state 174
     '/' 	shift, and go to state 175
     '%' 	shift, and go to state 176
-    ')' 	shift, and go to state 316
+    ')' 	shift, and go to state 315
+
+
+
+state 204
+
+    function_call  ->  T_STRING T_PAAMAYIM_NEKUDOTAYIM T_STRING . '(' @46 function_call_parameter_list ')'   (rule 233)
+
+    '(' 	shift, and go to state 316
 
 
 
 state 205
-
-    function_call  ->  T_STRING T_PAAMAYIM_NEKUDOTAYIM T_STRING . '(' @46 function_call_parameter_list ')'   (rule 233)
-
-    '(' 	shift, and go to state 317
-
-
-
-state 206
 
     function_call  ->  T_STRING '(' @44 . function_call_parameter_list ')'   (rule 229)
 
@@ -8623,7 +8741,7 @@ state 206
     T_REQUIRE	shift, and go to state 6
     T_REQUIRE_ONCE	shift, and go to state 7
     T_PRINT	shift, and go to state 8
-    '&' 	shift, and go to state 318
+    '&' 	shift, and go to state 317
     '+' 	shift, and go to state 9
     '-' 	shift, and go to state 10
     '!' 	shift, and go to state 11
@@ -8661,16 +8779,16 @@ state 206
 
     $default	reduce using rule 115 (function_call_parameter_list)
 
-    function_call_parameter_list	go to state 319
-    non_empty_function_call_parameter_list	go to state 320
-    expr_without_variable	go to state 321
+    function_call_parameter_list	go to state 318
+    non_empty_function_call_parameter_list	go to state 319
+    expr_without_variable	go to state 320
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 130
+    expr	go to state 128
     r_cvar	go to state 74
     rw_cvar	go to state 75
-    cvar	go to state 322
+    cvar	go to state 321
     cvar_without_objects	go to state 77
     reference_variable	go to state 78
     compound_variable	go to state 79
@@ -8679,7 +8797,7 @@ state 206
 
 
 
-state 207
+state 206
 
     echo_expr_list  ->  echo_expr_list ',' . expr   (rule 147)
 
@@ -8728,7 +8846,7 @@ state 207
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 323
+    expr	go to state 322
     r_cvar	go to state 74
     rw_cvar	go to state 75
     cvar	go to state 76
@@ -8740,7 +8858,7 @@ state 207
 
 
 
-state 208
+state 207
 
     unticked_statement  ->  T_ECHO echo_expr_list ';' .   (rule 41)
 
@@ -8748,15 +8866,15 @@ state 208
 
 
 
-state 209
+state 208
 
     unticked_statement  ->  T_DO @9 statement . T_WHILE '(' @10 expr ')' ';'   (rule 25)
 
-    T_WHILE	shift, and go to state 324
+    T_WHILE	shift, and go to state 323
 
 
 
-state 210
+state 209
 
     unticked_statement  ->  T_WHILE '(' @7 . expr ')' @8 while_statement   (rule 22)
 
@@ -8805,7 +8923,7 @@ state 210
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 325
+    expr	go to state 324
     r_cvar	go to state 74
     rw_cvar	go to state 75
     cvar	go to state 76
@@ -8817,26 +8935,26 @@ state 210
 
 
 
-state 211
+state 210
 
     unticked_statement  ->  T_FOR '(' for_expr . ';' @11 for_expr ';' @12 for_expr ')' @13 for_statement   (rule 29)
 
-    ';' 	shift, and go to state 326
+    ';' 	shift, and go to state 325
 
 
 
-state 212
+state 211
 
     for_expr  ->  non_empty_for_expr .   (rule 150)
     non_empty_for_expr  ->  non_empty_for_expr . ',' @34 expr   (rule 152)
 
-    ',' 	shift, and go to state 327
+    ',' 	shift, and go to state 326
 
     $default	reduce using rule 150 (for_expr)
 
 
 
-state 213
+state 212
 
     non_empty_for_expr  ->  expr .   (rule 153)
     expr_without_variable  ->  expr . T_BOOLEAN_OR @37 expr   (rule 177)
@@ -8895,26 +9013,26 @@ state 213
 
 
 
-state 214
+state 213
 
     unticked_statement  ->  T_FOREACH '(' expr_without_variable . T_AS @17 w_cvar foreach_optional_arg ')' @18 foreach_statement   (rule 51)
     expr  ->  expr_without_variable .   (rule 266)
 
-    T_AS	shift, and go to state 328
+    T_AS	shift, and go to state 327
 
     $default	reduce using rule 266 (expr)
 
 
 
-state 215
+state 214
 
     unticked_statement  ->  T_FOREACH '(' w_cvar . T_AS @15 w_cvar foreach_optional_arg ')' @16 foreach_statement   (rule 48)
 
-    T_AS	shift, and go to state 329
+    T_AS	shift, and go to state 328
 
 
 
-state 216
+state 215
 
     expr_without_variable  ->  cvar . '=' expr   (rule 156)
     expr_without_variable  ->  cvar . '=' '&' w_cvar   (rule 157)
@@ -8956,17 +9074,17 @@ state 216
 
 
 
-state 217
+state 216
 
     unticked_statement  ->  T_DECLARE @19 '(' . declare_list ')' declare_statement   (rule 53)
 
-    T_STRING	shift, and go to state 330
+    T_STRING	shift, and go to state 329
 
-    declare_list	go to state 331
+    declare_list	go to state 330
 
 
 
-state 218
+state 217
 
     unticked_statement  ->  T_SWITCH '(' expr . ')' @14 switch_case_list   (rule 31)
     expr_without_variable  ->  expr . T_BOOLEAN_OR @37 expr   (rule 177)
@@ -9020,11 +9138,11 @@ state 218
     '*' 	shift, and go to state 174
     '/' 	shift, and go to state 175
     '%' 	shift, and go to state 176
-    ')' 	shift, and go to state 332
+    ')' 	shift, and go to state 331
 
 
 
-state 219
+state 218
 
     unticked_statement  ->  T_BREAK expr ';' .   (rule 33)
 
@@ -9032,7 +9150,7 @@ state 219
 
 
 
-state 220
+state 219
 
     unticked_statement  ->  T_CONTINUE expr ';' .   (rule 35)
 
@@ -9040,7 +9158,7 @@ state 220
 
 
 
-state 221
+state 220
 
     is_reference  ->  '&' .   (rule 141)
 
@@ -9048,9 +9166,17 @@ state 221
 
 
 
-state 222
+state 221
 
     unticked_declaration_statement  ->  T_OLD_FUNCTION @22 is_reference . T_STRING @23 parameter_list '(' inner_statement_list ')' ';'   (rule 66)
+
+    T_STRING	shift, and go to state 332
+
+
+
+state 222
+
+    unticked_declaration_statement  ->  T_FUNCTION @20 is_reference . T_STRING @21 '(' parameter_list ')' '{' inner_statement_list '}'   (rule 63)
 
     T_STRING	shift, and go to state 333
 
@@ -9058,25 +9184,25 @@ state 222
 
 state 223
 
-    unticked_declaration_statement  ->  T_FUNCTION @20 is_reference . T_STRING @21 '(' parameter_list ')' '{' inner_statement_list '}'   (rule 63)
-
-    T_STRING	shift, and go to state 334
-
-
-
-state 224
-
     unticked_statement  ->  T_RETURN expr_without_variable ';' .   (rule 37)
 
     $default	reduce using rule 37 (unticked_statement)
 
 
 
-state 225
+state 224
 
     unticked_statement  ->  T_RETURN cvar ';' .   (rule 38)
 
     $default	reduce using rule 38 (unticked_statement)
+
+
+
+state 225
+
+    use_filename  ->  '(' T_CONSTANT_ENCAPSED_STRING . ')'   (rule 59)
+
+    ')' 	shift, and go to state 334
 
 
 
@@ -11666,7 +11792,7 @@ state 306
     T_REQUIRE	shift, and go to state 6
     T_REQUIRE_ONCE	shift, and go to state 7
     T_PRINT	shift, and go to state 8
-    '&' 	shift, and go to state 318
+    '&' 	shift, and go to state 317
     '+' 	shift, and go to state 9
     '-' 	shift, and go to state 10
     '!' 	shift, and go to state 11
@@ -11705,15 +11831,15 @@ state 306
     $default	reduce using rule 115 (function_call_parameter_list)
 
     function_call_parameter_list	go to state 378
-    non_empty_function_call_parameter_list	go to state 320
-    expr_without_variable	go to state 321
+    non_empty_function_call_parameter_list	go to state 319
+    expr_without_variable	go to state 320
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 130
+    expr	go to state 128
     r_cvar	go to state 74
     rw_cvar	go to state 75
-    cvar	go to state 322
+    cvar	go to state 321
     cvar_without_objects	go to state 77
     reference_variable	go to state 78
     compound_variable	go to state 79
@@ -11877,14 +12003,6 @@ state 311
 
 state 312
 
-    use_filename  ->  '(' T_CONSTANT_ENCAPSED_STRING ')' .   (rule 59)
-
-    $default	reduce using rule 59 (use_filename)
-
-
-
-state 313
-
     ctor_arguments  ->  '(' . function_call_parameter_list ')'   (rule 238)
 
     T_INCLUDE	shift, and go to state 3
@@ -11893,7 +12011,7 @@ state 313
     T_REQUIRE	shift, and go to state 6
     T_REQUIRE_ONCE	shift, and go to state 7
     T_PRINT	shift, and go to state 8
-    '&' 	shift, and go to state 318
+    '&' 	shift, and go to state 317
     '+' 	shift, and go to state 9
     '-' 	shift, and go to state 10
     '!' 	shift, and go to state 11
@@ -11932,15 +12050,15 @@ state 313
     $default	reduce using rule 115 (function_call_parameter_list)
 
     function_call_parameter_list	go to state 388
-    non_empty_function_call_parameter_list	go to state 320
-    expr_without_variable	go to state 321
+    non_empty_function_call_parameter_list	go to state 319
+    expr_without_variable	go to state 320
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 130
+    expr	go to state 128
     r_cvar	go to state 74
     rw_cvar	go to state 75
-    cvar	go to state 322
+    cvar	go to state 321
     cvar_without_objects	go to state 77
     reference_variable	go to state 78
     compound_variable	go to state 79
@@ -11949,7 +12067,7 @@ state 313
 
 
 
-state 314
+state 313
 
     expr_without_variable  ->  T_NEW class_name @36 ctor_arguments .   (rule 160)
 
@@ -11957,7 +12075,7 @@ state 314
 
 
 
-state 315
+state 314
 
     exit_expr  ->  '(' expr ')' .   (rule 236)
 
@@ -11965,7 +12083,7 @@ state 315
 
 
 
-state 316
+state 315
 
     unticked_statement  ->  T_IF '(' expr ')' . @3 statement @4 elseif_list else_single   (rule 16)
     unticked_statement  ->  T_IF '(' expr ')' . ':' @5 inner_statement_list @6 new_elseif_list new_else_single T_ENDIF ';'   (rule 19)
@@ -11978,7 +12096,7 @@ state 316
 
 
 
-state 317
+state 316
 
     function_call  ->  T_STRING T_PAAMAYIM_NEKUDOTAYIM T_STRING '(' . @46 function_call_parameter_list ')'   (rule 233)
 
@@ -11988,7 +12106,7 @@ state 317
 
 
 
-state 318
+state 317
 
     non_empty_function_call_parameter_list  ->  '&' . w_cvar   (rule 118)
 
@@ -12004,7 +12122,7 @@ state 318
 
 
 
-state 319
+state 318
 
     function_call  ->  T_STRING '(' @44 function_call_parameter_list . ')'   (rule 229)
 
@@ -12012,7 +12130,7 @@ state 319
 
 
 
-state 320
+state 319
 
     function_call_parameter_list  ->  non_empty_function_call_parameter_list .   (rule 114)
     non_empty_function_call_parameter_list  ->  non_empty_function_call_parameter_list . ',' expr_without_variable   (rule 119)
@@ -12025,7 +12143,7 @@ state 320
 
 
 
-state 321
+state 320
 
     non_empty_function_call_parameter_list  ->  expr_without_variable .   (rule 116)
     expr  ->  expr_without_variable .   (rule 266)
@@ -12036,7 +12154,7 @@ state 321
 
 
 
-state 322
+state 321
 
     non_empty_function_call_parameter_list  ->  cvar .   (rule 117)
     expr_without_variable  ->  cvar . '=' expr   (rule 156)
@@ -12079,7 +12197,7 @@ state 322
 
 
 
-state 323
+state 322
 
     echo_expr_list  ->  echo_expr_list ',' expr .   (rule 147)
     expr_without_variable  ->  expr . T_BOOLEAN_OR @37 expr   (rule 177)
@@ -12138,7 +12256,7 @@ state 323
 
 
 
-state 324
+state 323
 
     unticked_statement  ->  T_DO @9 statement T_WHILE . '(' @10 expr ')' ';'   (rule 25)
 
@@ -12146,7 +12264,7 @@ state 324
 
 
 
-state 325
+state 324
 
     unticked_statement  ->  T_WHILE '(' @7 expr . ')' @8 while_statement   (rule 22)
     expr_without_variable  ->  expr . T_BOOLEAN_OR @37 expr   (rule 177)
@@ -12204,7 +12322,7 @@ state 325
 
 
 
-state 326
+state 325
 
     unticked_statement  ->  T_FOR '(' for_expr ';' . @11 for_expr ';' @12 for_expr ')' @13 for_statement   (rule 29)
 
@@ -12214,7 +12332,7 @@ state 326
 
 
 
-state 327
+state 326
 
     non_empty_for_expr  ->  non_empty_for_expr ',' . @34 expr   (rule 152)
 
@@ -12224,7 +12342,7 @@ state 327
 
 
 
-state 328
+state 327
 
     unticked_statement  ->  T_FOREACH '(' expr_without_variable T_AS . @17 w_cvar foreach_optional_arg ')' @18 foreach_statement   (rule 51)
 
@@ -12234,7 +12352,7 @@ state 328
 
 
 
-state 329
+state 328
 
     unticked_statement  ->  T_FOREACH '(' w_cvar T_AS . @15 w_cvar foreach_optional_arg ')' @16 foreach_statement   (rule 48)
 
@@ -12244,7 +12362,7 @@ state 329
 
 
 
-state 330
+state 329
 
     declare_list  ->  T_STRING . '=' static_scalar   (rule 79)
 
@@ -12252,7 +12370,7 @@ state 330
 
 
 
-state 331
+state 330
 
     unticked_statement  ->  T_DECLARE @19 '(' declare_list . ')' declare_statement   (rule 53)
     declare_list  ->  declare_list . ',' T_STRING '=' static_scalar   (rule 80)
@@ -12262,7 +12380,7 @@ state 331
 
 
 
-state 332
+state 331
 
     unticked_statement  ->  T_SWITCH '(' expr ')' . @14 switch_case_list   (rule 31)
 
@@ -12272,7 +12390,7 @@ state 332
 
 
 
-state 333
+state 332
 
     unticked_declaration_statement  ->  T_OLD_FUNCTION @22 is_reference T_STRING . @23 parameter_list '(' inner_statement_list ')' ';'   (rule 66)
 
@@ -12282,13 +12400,21 @@ state 333
 
 
 
-state 334
+state 333
 
     unticked_declaration_statement  ->  T_FUNCTION @20 is_reference T_STRING . @21 '(' parameter_list ')' '{' inner_statement_list '}'   (rule 63)
 
     $default	reduce using rule 62 (@21)
 
     @21 	go to state 406
+
+
+
+state 334
+
+    use_filename  ->  '(' T_CONSTANT_ENCAPSED_STRING ')' .   (rule 59)
+
+    $default	reduce using rule 59 (use_filename)
 
 
 
@@ -13107,8 +13233,8 @@ state 374
     function_call  ->  T_STRING . '(' @44 function_call_parameter_list ')'   (rule 229)
     function_call  ->  T_STRING . T_PAAMAYIM_NEKUDOTAYIM T_STRING '(' @46 function_call_parameter_list ')'   (rule 233)
 
-    T_PAAMAYIM_NEKUDOTAYIM	shift, and go to state 112
-    '(' 	shift, and go to state 113
+    T_PAAMAYIM_NEKUDOTAYIM	shift, and go to state 110
+    '(' 	shift, and go to state 111
 
 
 
@@ -13391,7 +13517,7 @@ state 391
     T_REQUIRE	shift, and go to state 6
     T_REQUIRE_ONCE	shift, and go to state 7
     T_PRINT	shift, and go to state 8
-    '&' 	shift, and go to state 318
+    '&' 	shift, and go to state 317
     '+' 	shift, and go to state 9
     '-' 	shift, and go to state 10
     '!' 	shift, and go to state 11
@@ -13430,15 +13556,15 @@ state 391
     $default	reduce using rule 115 (function_call_parameter_list)
 
     function_call_parameter_list	go to state 438
-    non_empty_function_call_parameter_list	go to state 320
-    expr_without_variable	go to state 321
+    non_empty_function_call_parameter_list	go to state 319
+    expr_without_variable	go to state 320
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 130
+    expr	go to state 128
     r_cvar	go to state 74
     rw_cvar	go to state 75
-    cvar	go to state 322
+    cvar	go to state 321
     cvar_without_objects	go to state 77
     reference_variable	go to state 78
     compound_variable	go to state 79
@@ -13515,7 +13641,7 @@ state 394
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 130
+    expr	go to state 128
     r_cvar	go to state 74
     rw_cvar	go to state 75
     cvar	go to state 441
@@ -13595,12 +13721,12 @@ state 397
     $default	reduce using rule 149 (for_expr)
 
     for_expr	go to state 444
-    non_empty_for_expr	go to state 212
+    non_empty_for_expr	go to state 211
     expr_without_variable	go to state 69
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 213
+    expr	go to state 212
     r_cvar	go to state 74
     rw_cvar	go to state 75
     cvar	go to state 76
@@ -15834,7 +15960,7 @@ state 517
 
     class_statement  ->  T_OLD_FUNCTION @32 . is_reference T_STRING @33 parameter_list '(' inner_statement_list ')' ';'   (rule 139)
 
-    '&' 	shift, and go to state 221
+    '&' 	shift, and go to state 220
 
     $default	reduce using rule 140 (is_reference)
 
@@ -15846,7 +15972,7 @@ state 518
 
     class_statement  ->  T_FUNCTION @30 . is_reference T_STRING @31 '(' parameter_list ')' '{' inner_statement_list '}'   (rule 136)
 
-    '&' 	shift, and go to state 221
+    '&' 	shift, and go to state 220
 
     $default	reduce using rule 140 (is_reference)
 
@@ -16207,12 +16333,12 @@ state 535
     $default	reduce using rule 149 (for_expr)
 
     for_expr	go to state 570
-    non_empty_for_expr	go to state 212
+    non_empty_for_expr	go to state 211
     expr_without_variable	go to state 69
     function_call	go to state 70
     common_scalar	go to state 71
     scalar	go to state 72
-    expr	go to state 213
+    expr	go to state 212
     r_cvar	go to state 74
     rw_cvar	go to state 75
     cvar	go to state 76

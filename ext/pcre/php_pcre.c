@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_pcre.c,v 1.67 2000/08/25 13:51:07 andrei Exp $ */
+/* $Id: php_pcre.c,v 1.69 2000/09/14 15:44:36 andrei Exp $ */
 
 /*
 	TODO:
@@ -544,6 +544,7 @@ static int preg_do_eval(char *eval_str, int eval_str_len, char *subject,
 	int			 esc_match_len;		/* Length of the quote-escaped match */
 	int			 result_len;		/* Length of the result of the evaluation */
 	int			 backref;			/* Current backref */
+	char        *compiled_string_description;
 	CLS_FETCH();
 	ELS_FETCH();
 	
@@ -559,7 +560,12 @@ static int preg_do_eval(char *eval_str, int eval_str_len, char *subject,
 			   in instead of the backref */
 			match = subject + offsets[backref<<1];
 			match_len = offsets[(backref<<1)+1] - offsets[backref<<1];
-			esc_match = php_addslashes(match, match_len, &esc_match_len, 0);
+			if (match_len)
+				esc_match = php_addslashes(match, match_len, &esc_match_len, 0);
+			else {
+				esc_match = match;
+				esc_match_len = 0;
+			}
 			sprintf(backref_buf, "\\%d", backref);
 			new_code = php_str_to_str(code, code_len,
 									  backref_buf, (backref > 9) ? 3 : 2,
@@ -569,7 +575,8 @@ static int preg_do_eval(char *eval_str, int eval_str_len, char *subject,
 			walk = new_code + (walk - code) + match_len;
 			
 			/* Clean up and reassign */
-			efree(esc_match);
+			if (esc_match_len)
+				efree(esc_match);
 			efree(code);
 			code = new_code;
 			code_len = new_code_len;
@@ -578,11 +585,14 @@ static int preg_do_eval(char *eval_str, int eval_str_len, char *subject,
 		}
 	}
 
+	compiled_string_description = zend_make_compiled_string_description("regexp code");
 	/* Run the code */
-	if (zend_eval_string(code, &retval CLS_CC ELS_CC) == FAILURE) {
+	if (zend_eval_string(code, &retval, compiled_string_description CLS_CC ELS_CC) == FAILURE) {
+		efree(compiled_string_description);
 		zend_error(E_ERROR, "Failed evaluating code:\n%s\n", code);
 		/* zend_error() does not return in this case */
 	}
+	efree(compiled_string_description);
 	convert_to_string(&retval);
 	
 	/* Save the return value and its length */

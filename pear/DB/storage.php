@@ -90,7 +90,7 @@ class DB_storage {
 	if (DB::isError($sth)) {
 	    return $sth;
 	}
-	while ($row = $sth->fetchRow(DB_GETMODE_ASSOC)) {
+	while ($row = $sth->fetchRow(DB_FETCHMODE_ASSOC)) {
 	    reset($row);
 	    while (list($key, $value) = each($row)) {
 		$this->_properties[$key] = true;
@@ -124,7 +124,7 @@ class DB_storage {
      * Output a simple description of this DB_storage object.
      * @return string object description
      */
-    function __string_value() {
+    function toString() {
 	$info = get_class(&$this);
 	$info .= " (table=";
 	$info .= $this->_table;
@@ -132,7 +132,7 @@ class DB_storage {
 	$info .= $this->_keycolumn;
 	$info .= ", dbh=";
 	if (is_object($this->_dbh)) {
-	    $info .= $this->_dbh->__string_value();
+	    $info .= $this->_dbh->toString();
 	} else {
 	    $info .= "null";
 	}
@@ -200,7 +200,7 @@ class DB_storage {
 	    }
 	    $this->_properties = array();
 	}
-	$rowdata = $this->_dbh->getRow($query, DB_GETMODE_ASSOC, $params);
+	$rowdata = $this->_dbh->getRow($query, DB_FETCHMODE_ASSOC, $params);
 	if (DB::isError($rowdata)) {
 	    return $rowdata;
 	}

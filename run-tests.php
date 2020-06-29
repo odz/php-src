@@ -32,7 +32,7 @@ if ($opts['help']) {
     exit;
 }
 */
-do_testing($argc, &$argv);
+do_testing($argc, $argv);
 
 exit;
 
@@ -119,7 +119,7 @@ function &parse_options(&$argc, &$argv) {
     return $options;
 }
 
-function do_testing($argc, $argv) {
+function do_testing($argc, &$argv) {
     global $term, $windows_p, $php, $skip, $testdirs, $tmpfile, $opts,
 	$skipped, $failed, $passed, $total, $term_bold, $term_norm;
 
@@ -154,14 +154,17 @@ function do_testing($argc, $argv) {
 	}
     }
 
-    if ($total == 0) {
+    $counting = $total - $skipped;
+
+    if ($counting <= 0) {
 	writeln("No tests were run.");
 	return;
     }
 
     $total_d = (double)$total;
-    $passed_p  = 100 * ($passed / $total_d);
-    $failed_p  = 100 * ($failed / $total_d);
+    $counting_d = (double)$counting;
+    $passed_p  = 100 * ($passed / $counting_d);
+    $failed_p  = 100 * ($failed / $counting_d);
     $skipped_p = 100 * ($skipped / $total_d);
     $passed_pstr = sprintf($passed_p < 10.0 ? "%1.1f" : "%3.0f", $passed_p);
     $failed_pstr = sprintf($failed_p < 10.0 ? "%1.1f" : "%3.0f", $failed_p);
@@ -277,9 +280,11 @@ function compare_results($file1, $file2) {
     }
     while (!(feof($fp1) || feof($fp2))) {
 	if (!feof($fp1) && trim($line1 = fgets($fp1, 10240)) != "") {
+	    //print "adding line1 $line1\n";
 	    $data1 .= $line1;
 	}
 	if (!feof($fp2) && trim($line2 = fgets($fp2, 10240)) != "") {
+	    //print "adding line2 $line2\n";
 	    $data2 .= $line2;
 	}
     }
@@ -375,7 +380,11 @@ function run_test($file) {
     putenv("b=");
     putenv("c=");
     putenv("d=");
-    $cmd = "$php -f $tmpfile[FILE] < $tmpfile[POST]";
+    if (isset($fps["POST"])) {
+	$cmd = "$php -f $tmpfile[FILE] < $tmpfile[POST]";
+    } else {
+	$cmd = "$php -f $tmpfile[FILE]";
+    }
     $ofp = @fopen($tmpfile["OUTPUT"], "w");
     if (!$ofp) {
 	writeln("Error: could not write to output file");

@@ -28,12 +28,13 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_ftp.c,v 1.26 2000/08/08 20:28:18 eschmid Exp $ */
+/* $Id: php_ftp.c,v 1.28 2000/10/08 11:45:17 dbeu Exp $ */
 
 #include "php.h"
 
 #if HAVE_FTP
 
+#include "ext/standard/info.h"
 #include "ext/standard/file.h"
 
 #include "php_ftp.h"
@@ -48,6 +49,7 @@ function_entry php_ftp_functions[] = {
 	PHP_FE(ftp_pwd,				NULL)
 	PHP_FE(ftp_cdup,			NULL)
 	PHP_FE(ftp_chdir,			NULL)
+	PHP_FE(ftp_exec,			NULL)
 	PHP_FE(ftp_mkdir,			NULL)
 	PHP_FE(ftp_rmdir,			NULL)
 	PHP_FE(ftp_nlist,			NULL)
@@ -74,7 +76,7 @@ zend_module_entry php_ftp_module_entry = {
 	NULL,
 	NULL,
 	NULL,
-	NULL,
+	PHP_MINFO(ftp),
 	STANDARD_MODULE_PROPERTIES
 };
 
@@ -99,6 +101,13 @@ PHP_MINIT_FUNCTION(ftp)
 	REGISTER_MAIN_LONG_CONSTANT("FTP_TEXT", FTPTYPE_ASCII,
 		CONST_PERSISTENT | CONST_CS);
 	return SUCCESS;
+}
+
+PHP_MINFO_FUNCTION(ftp)
+{
+  php_info_print_table_start();
+  php_info_print_table_row(2, "FTP support", "enabled");
+  php_info_print_table_end();
 }
 
 
@@ -272,6 +281,36 @@ PHP_FUNCTION(ftp_chdir)
 	/* change directories */
 	if (!ftp_chdir(ftp, arg2->value.str.val)) {
 		php_error(E_WARNING, "ftp_chdir: %s", ftp->inbuf);
+			RETURN_FALSE;
+	}
+
+	RETURN_TRUE;
+}
+/* }}} */
+
+/* {{{ proto int ftp_exec(int stream, string command)
+   Changes directories */
+PHP_FUNCTION(ftp_exec)
+{
+	pval		*arg1, *arg2;
+	ftpbuf_t	*ftp;
+
+	/* arg1 - ftp
+	 * arg2 - command
+	 */
+	if (ARG_COUNT(ht) != 2 ||
+		getParameters(ht, 2, &arg1, &arg2) == FAILURE)
+	{
+		WRONG_PARAM_COUNT;
+	}
+
+	convert_to_string(arg2);
+	
+	FTPBUF(ftp, arg1);
+
+	/* change directories */
+	if (!ftp_exec(ftp, arg2->value.str.val)) {
+		php_error(E_WARNING, "ftp_exec: %s", ftp->inbuf);
 		RETURN_FALSE;
 	}
 

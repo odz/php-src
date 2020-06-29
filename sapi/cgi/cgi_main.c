@@ -183,7 +183,7 @@ static void sapi_cgi_register_variables(zval *track_vars_array ELS_DC SLS_DC PLS
 static void sapi_cgi_log_message(char *message)
 {
 	if (php_header()) {
-		fprintf(stderr, message);
+		fprintf(stderr, "%s", message);
 		fprintf(stderr, "\n");
 	}
 }
@@ -312,15 +312,13 @@ static void init_request_info(SLS_D)
 	SG(request_info).request_method = getenv("REQUEST_METHOD");
 	SG(request_info).query_string = getenv("QUERY_STRING");
 	SG(request_info).request_uri = getenv("PATH_INFO");
+	if (!SG(request_info).request_uri) {
+		SG(request_info).request_uri = getenv("SCRIPT_NAME");
+	}
 	SG(request_info).path_translated = NULL; /* we have to update it later, when we have that information */
 	SG(request_info).content_type = getenv("CONTENT_TYPE");
 	SG(request_info).content_length = (content_length?atoi(content_length):0);
 	SG(sapi_headers).http_response_code = 200;
-	if (SG(request_info).request_method && !strcmp(SG(request_info).request_method, "HEAD")) {
-		SG(request_info).headers_only = 1;
-	} else {
-		SG(request_info).headers_only = 0;
-	}
 	/* CGI does not support HTTP authentication */
 	SG(request_info).auth_user = NULL;
 	SG(request_info).auth_password = NULL;
@@ -435,7 +433,13 @@ int main(int argc, char *argv[])
 			argv0 = NULL;
 		}
 #if FORCE_CGI_REDIRECT
-		if (!getenv("REDIRECT_STATUS")) {
+		/* Apache will generate REDIRECT_STATUS,
+		 * Netscape and redirect.so will generate HTTP_REDIRECT_STATUS.
+		 * redirect.so and installation instructions available from
+		 * http://www.koehntopp.de/php.
+		 *   -- kk@netuse.de
+		 */
+		if (!getenv("REDIRECT_STATUS") && !getenv ("HTTP_REDIRECT_STATUS")) {
 			PUTS("<b>Security Alert!</b>  PHP CGI cannot be accessed directly.\n\
 \n\
 <P>This PHP CGI binary was compiled with force-cgi-redirect enabled.  This\n\

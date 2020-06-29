@@ -1,11 +1,13 @@
 <?php
+  require_once "XML/Parser.php";
+
 //
 // This file contains PEAR-ifications of XML-RPC code written by Edd
 // Dumbill.
 //
 // by Edd Dumbill (C) 1999-2000
 // <edd@usefulinc.com>
-// $Id: RPC.php,v 1.1 2000/07/30 17:41:31 ssb Exp $
+// $Id: RPC.php,v 1.2 2000/09/26 07:33:19 sbergmann Exp $
 
 // License is granted to use or modify this software ("XML-RPC for PHP")
 // for commercial or non-commercial use provided the copyright of the author
@@ -106,7 +108,7 @@ class XML_RPC_Parser extends XML_Parser {
     var $params; /* used to store parameters in method calls */
     var $method; /* used to store method name */
 
-    class XML_RPC_Parser {
+    function XML_RPC_Parser() {
 	$this->XML_Parser();
     }
 
@@ -314,10 +316,10 @@ class xmlrpc_client {
 														 $username="", $password="") {
 		if($timeout>0)
 			$fp=fsockopen($server, $port,
-										&$this->errno, &$this->errstr, $timeout);
+										$this->errno, $this->errstr, $timeout);
 		else
 			$fp=fsockopen($server, $port,
-										&$this->errno, &$this->errstr);
+										$this->errno, $this->errstr);
 		if (!$fp) {   
 			return 0;
 		}

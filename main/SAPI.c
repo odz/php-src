@@ -115,8 +115,10 @@ SAPI_API void sapi_handle_post(void *arg SLS_DC)
 {
 	if (SG(request_info).post_entry) {
 		SG(request_info).post_entry->post_handler(SG(request_info).content_type_dup, arg SLS_CC);
-		efree(SG(request_info).post_data);
-		SG(request_info).post_data = NULL;
+		if (SG(request_info).post_data) {
+			efree(SG(request_info).post_data);
+			SG(request_info).post_data = NULL;
+		}
 		efree(SG(request_info).content_type_dup);
 		SG(request_info).content_type_dup = NULL;
 	}
@@ -156,7 +158,7 @@ static void sapi_read_post_data(SLS_D)
 		post_reader_func = post_entry->post_reader;
 	} else {
 		if (!sapi_module.default_post_reader) {
-			sapi_module.sapi_error(E_ERROR, "Unsupported content type:  '%s'", content_type);
+			sapi_module.sapi_error(E_WARNING, "Unsupported content type:  '%s'", content_type);
 			return;
 		}
 		SG(request_info).post_entry = NULL;
@@ -175,6 +177,11 @@ SAPI_POST_READER_FUNC(sapi_read_standard_form_data)
 	int read_bytes;
 	int allocated_bytes=SAPI_POST_BLOCK_SIZE+1;
 
+	if (SG(request_info).content_length > SG(post_max_size)) {
+		php_error(E_WARNING, "POST Content-Length of %d bytes exceeds the limit of %d bytes",
+					SG(request_info).content_length, SG(post_max_size));
+		return;
+	}
 	SG(request_info).post_data = emalloc(allocated_bytes);
 
 	for (;;) {
@@ -183,6 +190,10 @@ SAPI_POST_READER_FUNC(sapi_read_standard_form_data)
 			break;
 		}
 		SG(read_post_bytes) += read_bytes;
+		if (SG(read_post_bytes) > SG(post_max_size)) {
+			php_error(E_WARNING, "Actual POST length does not match Content-Length, and exceeds %d bytes", SG(post_max_size));
+			return;
+		}
 		if (read_bytes < SAPI_POST_BLOCK_SIZE) {
 			break;
 		}
@@ -247,7 +258,7 @@ SAPI_API size_t sapi_apply_default_charset(char **mimetype, size_t len SLS_DC)
 	if (*charset && strncmp(*mimetype, "text/", 5) == 0 && strstr(*mimetype, "charset=") == NULL) {
 		newlen = len + (sizeof(";charset=")-1) + strlen(charset);
 		newtype = emalloc(newlen + 1);
-		PHP_STRLCPY(newtype, *mimetype, newlen + 1, len);
+ 		PHP_STRLCPY(newtype, *mimetype, newlen + 1, len);
 		strlcat(newtype, ";charset=", newlen + 1);
 		if (*mimetype != NULL) {
 			efree(*mimetype);
@@ -277,25 +288,25 @@ SAPI_API void sapi_activate(SLS_D)
 	SG(request_info).current_user = NULL;
 	SG(request_info).current_user_length = 0;
 
-#if 0
-	/* This can't be done here.  We need to do that in the individual SAPI
-	 * modules because you can actually have a GET request that is only
-	 * allowed to send back headers. 
+	/* It's possible to override this general case in the activate() callback, if
+	 * necessary.
 	 */
 	if (SG(request_info).request_method && !strcmp(SG(request_info).request_method, "HEAD")) {
 		SG(request_info).headers_only = 1;
 	} else {
 		SG(request_info).headers_only = 0;
 	}
-#endif
+	SG(rfc1867_uploaded_files) = NULL;
 
 	if (SG(server_context)) {
 		if (SG(request_info).request_method 
 			&& !strcmp(SG(request_info).request_method, "POST")) {
 			if (!SG(request_info).content_type) {
-				sapi_module.sapi_error(E_ERROR, "No content-type in POST request");
+				sapi_module.sapi_error(E_WARNING, "No content-type in POST request");
+				SG(request_info).content_type_dup = NULL;
+			} else {
+				sapi_read_post_data(SLS_C);
 			}
-			sapi_read_post_data(SLS_C);
 		} else {
 			SG(request_info).content_type_dup = NULL;
 		}
@@ -327,6 +338,9 @@ SAPI_API void sapi_deactivate(SLS_D)
 	}
 	if (sapi_module.deactivate) {
 		sapi_module.deactivate(SLS_C);
+	}
+	if (SG(rfc1867_uploaded_files)) {
+		destroy_uploaded_files_hash(SLS_C);
 	}
 }
 

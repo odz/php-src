@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: info.c,v 1.113 2000/08/27 22:46:40 rasmus Exp $ */
+/* $Id: info.c,v 1.116 2000/10/11 13:51:32 hholzgra Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -51,7 +51,7 @@ static int _display_module_info(zend_module_entry *module, void *arg)
 	} else if (!show_info_func && !module->info_func) {
 		php_printf("<TR VALIGN=\"baseline\" BGCOLOR=\"" PHP_CONTENTS_COLOR "\">");
 		php_printf("<TD>");
-		php_printf(module->name);
+		php_printf("%s", module->name);
 		php_printf("</TD></TR>\n");
 	}
 	return 0;
@@ -630,21 +630,30 @@ PHP_FUNCTION(phpcredits)
 /* }}} */
 
 
+/* {{{ proto string php_logo_guid(void)
+   Return the special ID used to request the PHP logo in phpinfo screens*/
 PHP_FUNCTION(php_logo_guid)
 {
 	RETURN_STRINGL(PHP_LOGO_GUID, sizeof(PHP_LOGO_GUID)-1, 1);
 }
+/* }}} */
 
+/* {{{ proto string php_egg_logo_guid(void)
+   Return the special ID used to request the PHP logo in phpinfo screens*/
 PHP_FUNCTION(php_egg_logo_guid)
 {
 	RETURN_STRINGL(PHP_EGG_LOGO_GUID, sizeof(PHP_EGG_LOGO_GUID)-1, 1);
 }
+/* }}} */
 
 
+/* {{{ proto string zend_logo_guid(void)
+   Return the special ID used to request the Zend logo in phpinfo screens*/
 PHP_FUNCTION(zend_logo_guid)
 {
 	RETURN_STRINGL(ZEND_LOGO_GUID, sizeof(ZEND_LOGO_GUID)-1, 1);
 }
+/* }}} */
 
 /* {{{ proto string php_sapi_name(void)
    Return the current SAPI module name */

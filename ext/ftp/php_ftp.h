@@ -28,7 +28,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_ftp.h,v 1.10 2000/06/10 08:47:56 andi Exp $ */
+/* $Id: php_ftp.h,v 1.12 2000/10/08 11:45:17 dbeu Exp $ */
 
 #ifndef	_INCLUDED_FTP_H
 #define	_INCLUDED_FTP_H
@@ -39,12 +39,14 @@ extern zend_module_entry php_ftp_module_entry;
 #define php_ftp_module_ptr &php_ftp_module_entry
 
 PHP_MINIT_FUNCTION(ftp);
+PHP_MINFO_FUNCTION(ftp);
 
 PHP_FUNCTION(ftp_connect);
 PHP_FUNCTION(ftp_login);
 PHP_FUNCTION(ftp_pwd);
 PHP_FUNCTION(ftp_cdup);
 PHP_FUNCTION(ftp_chdir);
+PHP_FUNCTION(ftp_exec);
 PHP_FUNCTION(ftp_mkdir);
 PHP_FUNCTION(ftp_rmdir);
 PHP_FUNCTION(ftp_nlist);

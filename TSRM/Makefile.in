@@ -66,25 +66,22 @@ CXX = @CXX@
 CXXCPP = @CXXCPP@
 DLLTOOL = @DLLTOOL@
 INLINE_CFLAGS = @INLINE_CFLAGS@
-LD = @LD@
 LEX = @LEX@
 LIBTOOL = @LIBTOOL@
 LN_S = @LN_S@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
-NM = @NM@
 OBJDUMP = @OBJDUMP@
 PACKAGE = @PACKAGE@
 PROG_SENDMAIL = @PROG_SENDMAIL@
 RANLIB = @RANLIB@
 VERSION = @VERSION@
 YACC = @YACC@
-ZEND_GCC = @ZEND_GCC@
 ZEND_SCANNER = @ZEND_SCANNER@
 
 AUTOMAKE_OPTIONS = foreign
 noinst_LTLIBRARIES = libtsrm.la
-libtsrm_la_SOURCES = TSRM.c
+libtsrm_la_SOURCES = TSRM.c tsrm_strtok_r.c tsrm_virtual_cwd.c
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = ../php_config.h
 CONFIG_CLEAN_FILES = 
@@ -97,13 +94,13 @@ LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 libtsrm_la_LDFLAGS = 
 libtsrm_la_LIBADD = 
-libtsrm_la_OBJECTS =  TSRM.lo
+libtsrm_la_OBJECTS =  TSRM.lo tsrm_strtok_r.lo tsrm_virtual_cwd.lo
 CFLAGS = @CFLAGS@
 COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(LIBTOOL) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
-DIST_COMMON =  Makefile.am Makefile.in acinclude.m4 configure.in
+DIST_COMMON =  Makefile.am Makefile.in TODO acinclude.m4 configure.in
 
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)

@@ -52,31 +52,11 @@ static zend_bool bTerminateThreadsOnError=0;
 
 static char *isapi_server_variables[] = {
 	"ALL_HTTP",
-	"APPL_MD_PATH",
-	"APPL_PHYSICAL_PATH",
 	"AUTH_PASSWORD",
 	"AUTH_TYPE",
-	"AUTH_USER",
-	"CERT_COOKIE",
-	"CERT_FLAGS",
-	"CERT_ISSUER",
-	"CERT_KEYSIZE",
-	"CERT_SECRETKEYSIZE",
-	"CERT_SERIALNUMBER",
-	"CERT_SERVER_ISSUER",
-	"CERT_SERVER_SUBJECT",
-	"CERT_SUBJECT",
 	"CONTENT_LENGTH",
 	"CONTENT_TYPE",
-	"LOGON_USER",
-	"HTTP_COOKIE",
 	"HTTPS",
-	"HTTPS_KEYSIZE",
-	"HTTPS_SECRETKEYSIZE",
-	"HTTPS_SERVER_ISSUER",
-	"HTTPS_SERVER_SUBJECT",
-	"INSTANCE_ID",
-	"INSTANCE_META_PATH",
 	"PATH_INFO",
 	"PATH_TRANSLATED",
 	"QUERY_STRING",
@@ -92,6 +72,28 @@ static char *isapi_server_variables[] = {
 	"SERVER_PROTOCOL",
 	"SERVER_SOFTWARE",
 	"URL",
+#ifndef WITH_ZEUS
+	"APPL_MD_PATH",
+	"APPL_PHYSICAL_PATH",
+	"AUTH_USER",
+	"CERT_COOKIE",
+	"CERT_FLAGS",
+	"CERT_ISSUER",
+	"CERT_KEYSIZE",
+	"CERT_SECRETKEYSIZE",
+	"CERT_SERIALNUMBER",
+	"CERT_SERVER_ISSUER",
+	"CERT_SERVER_SUBJECT",
+	"CERT_SUBJECT",
+	"HTTP_COOKIE",
+	"HTTPS_KEYSIZE",
+	"HTTPS_SECRETKEYSIZE",
+	"HTTPS_SERVER_ISSUER",
+	"HTTPS_SERVER_SUBJECT",
+	"INSTANCE_ID",
+	"INSTANCE_META_PATH",
+	"LOGON_USER",
+#endif
 	NULL
 };
 
@@ -330,6 +332,7 @@ static void sapi_isapi_register_server_variables(zval *track_vars_array ELS_DC S
 	}
 
 	/* PHP_SELF support */
+	variable_len = ISAPI_SERVER_VAR_BUF_SIZE;
 #ifdef WITH_ZEUS
 	if (lpECB->GetServerVariable(lpECB->ConnID, "PATH_INFO", static_variable_buf, &variable_len)
 #else
@@ -475,11 +478,6 @@ static void init_request_info(sapi_globals_struct *sapi_globals, LPEXTENSION_CON
 	SG(request_info).content_type = lpECB->lpszContentType;
 	SG(request_info).content_length = lpECB->cbTotalBytes;
 	SG(sapi_headers).http_response_code = 200;  /* I think dwHttpStatusCode is invalid at this stage -RL */
-	if (!strcmp(lpECB->lpszMethod, "HEAD")) {
-		SG(request_info).headers_only = 1;
-	} else {
-		SG(request_info).headers_only = 0;
-	}
 	if (!bFilterLoaded) { /* we don't have valid ISAPI Filter information */
 		SG(request_info).auth_user = SG(request_info).auth_password = NULL;
 	}

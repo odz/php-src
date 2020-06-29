@@ -12,11 +12,10 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Sascha Schumann    <sascha@schumann.cx>                      |
-   |         Hartmut Holzgraefe <hartmut@six.de>                          |
+   | Author: Hartmut Holzgraefe <hartmut@six.de>                          |
    +----------------------------------------------------------------------+
  */
-/* $Id: url_scanner.c,v 1.25 2000/08/18 13:50:04 sas Exp $ */
+/* $Id: url_scanner.c,v 1.28 2000/09/19 17:45:44 sas Exp $ */
 
 #include "php.h"
 
@@ -35,20 +34,26 @@
 #define BUFSIZE 256
 #endif
 
-PHP_RINIT_FUNCTION(url_scanner) {
+PHP_RINIT_FUNCTION(url_scanner)
+{
 	url_adapt(NULL,0,NULL,NULL);
+	return SUCCESS;
 }
 
-PHP_RSHUTDOWN_FUNCTION(url_scanner) {
+
+PHP_RSHUTDOWN_FUNCTION(url_scanner)
+{
 	url_adapt(NULL,0,NULL,NULL);
+	return SUCCESS;
 }
 
 
-static char *url_attr_addon(const char *tag,const char *attr,const char *val,const char *buf) {
+static char *url_attr_addon(const char *tag,const char *attr,const char *val,const char *buf)
+{
 	int flag = 0;
 	PLS_FETCH();
 
-	if(!strcasecmp(tag,"a")&&!strcasecmp(attr,"href")) {
+	if(!strcasecmp(tag,"a") && !strcasecmp(attr,"href")) {
 		flag = 1;
 	} else if(!strcasecmp(tag,"area" ) && !strcasecmp(attr,"href"   )) {
 		flag = 1;
@@ -81,6 +86,15 @@ static char *url_attr_addon(const char *tag,const char *attr,const char *val,con
 
 #define US BG(url_adapt_state)
 
+char *url_adapt_ext(const char *src, size_t srclen, const char *name, const char *val, size_t *newlen)
+{
+	char buf[1024];
+
+	snprintf(buf, sizeof(buf)-1, "%s=%s", name, val);
+
+	return url_adapt(src, srclen, buf, newlen);
+}
+
 char *url_adapt(const char *src, size_t srclen, const char *data, size_t *newlen)
 {
 	char *out,*outp;
@@ -89,9 +103,9 @@ char *url_adapt(const char *src, size_t srclen, const char *data, size_t *newlen
 
 	if(src==NULL) {
 		US.state=STATE_NORMAL;
-		if(US.tag)  {efree(US.tag);  US.tag =NULL; }
-		if(US.attr) {efree(US.attr); US.attr=NULL; }
-		if(US.val)  {efree(US.val);  US.val =NULL; }
+		if(US.tag)  { efree(US.tag);  US.tag =NULL; }
+		if(US.attr) { efree(US.attr); US.attr=NULL; }
+		if(US.val)  { efree(US.val);  US.val =NULL; }
 		return NULL;
 	}
 

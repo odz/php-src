@@ -42,14 +42,13 @@ extern PHPAPI int core_globals_id;
 extern ZEND_API struct _php_core_globals core_globals;
 #endif
 
-typedef struct _php_http_globals {
-	zval *post;
-	zval *get;
-	zval *cookie;
-	zval *server;
-	zval *environment;
-	zval *post_files;
-} php_http_globals;
+
+#define TRACK_VARS_POST		0
+#define TRACK_VARS_GET		1
+#define TRACK_VARS_COOKIE	2
+#define TRACK_VARS_SERVER	3
+#define TRACK_VARS_ENV		4
+#define TRACK_VARS_FILES	5
 
 struct _php_tick_function_entry;
 
@@ -72,6 +71,7 @@ struct _php_core_globals {
 
 	zend_bool track_errors;
 	zend_bool display_errors;
+	zend_bool display_startup_errors;
 	zend_bool log_errors;
 	char *error_log;
 
@@ -94,6 +94,8 @@ struct _php_core_globals {
 	char *gpc_order;
 	char *variables_order;
 
+	HashTable rfc1867_protected_variables;
+
 	short connection_status;
 	short ignore_user_abort;
 
@@ -101,11 +103,10 @@ struct _php_core_globals {
 
 	zend_llist tick_functions;
 
-	php_http_globals http_globals;
+	zval *http_globals[6];
 
 	zend_bool expose_php;
 
-	zend_bool track_vars;
 	zend_bool register_globals;
 	zend_bool register_argc_argv;
 
@@ -114,6 +115,10 @@ struct _php_core_globals {
 	zend_bool html_errors;
 
 	zend_bool modules_activated;
+
+	zend_bool file_uploads;
+
+	zend_bool during_request_startup;
 };
 
 

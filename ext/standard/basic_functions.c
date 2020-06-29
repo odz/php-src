@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: basic_functions.c,v 1.243 2000/08/27 22:46:40 rasmus Exp $ */
+/* $Id: basic_functions.c,v 1.262 2000/10/11 11:25:13 hholzgra Exp $ */
 
 #include "php.h"
 #include "php_main.h"
@@ -54,6 +54,8 @@
 #include "php_globals.h"
 #include "SAPI.h"
 
+#include "php_ticks.h"
+
 #ifdef ZTS
 int basic_globals_id;
 #else
@@ -71,8 +73,14 @@ typedef struct _php_shutdown_function_entry {
 	int arg_count;
 } php_shutdown_function_entry;
 
+typedef struct _user_tick_function_entry {
+	zval **arguments;
+	int arg_count;
+} user_tick_function_entry;
+
 /* some prototypes for local functions */
 static void user_shutdown_function_dtor(php_shutdown_function_entry *shutdown_function_entry);
+static void user_tick_function_dtor(user_tick_function_entry *tick_function_entry);
 pval test_class_get_property(zend_property_reference *property_reference);
 int test_class_set_property(zend_property_reference *property_reference, pval *value);
 void test_class_call_function(INTERNAL_FUNCTION_PARAMETERS, zend_property_reference *property_reference);
@@ -144,6 +152,7 @@ function_entry basic_functions[] = {
 	PHP_FE(nl2br,									NULL)
 	PHP_FE(basename,								NULL)
 	PHP_FE(dirname,									NULL)
+	PHP_FE(pathinfo,								NULL)
 	PHP_FE(stripslashes,							NULL)
 	PHP_FE(stripcslashes,							NULL)
 	PHP_FE(strstr,									NULL)
@@ -173,7 +182,7 @@ function_entry basic_functions[] = {
 	PHP_FE(levenshtein,									NULL)
 	PHP_FE(chr,										NULL)
 	PHP_FE(ord,										NULL)
-	PHP_FE(parse_str,								NULL)
+	PHP_FE(parse_str,								second_arg_force_ref)
 	PHP_FE(str_pad,									NULL)
 	PHP_FALIAS(rtrim,			chop,				NULL)
 	PHP_FALIAS(strchr,			strstr,				NULL)
@@ -204,6 +213,7 @@ function_entry basic_functions[] = {
 	PHP_FE(exec, 									second_and_third_args_force_ref)
 	PHP_FE(system, 									second_arg_force_ref)
 	PHP_FE(escapeshellcmd, 							NULL)
+	PHP_FE(escapeshellarg, 							NULL)
 	PHP_FE(passthru, 								second_arg_force_ref)
 	PHP_FE(shell_exec, 								NULL)
 
@@ -318,6 +328,9 @@ function_entry basic_functions[] = {
 	
 	PHP_FE(register_shutdown_function,	NULL)
 
+	PHP_FE(register_tick_function,		NULL)
+	PHP_FE(unregister_tick_function,	NULL)
+
 	PHP_FE(highlight_file,				NULL)	
 	PHP_FALIAS(show_source, highlight_file , NULL)
 	PHP_FE(highlight_string,			NULL)
@@ -343,6 +356,9 @@ function_entry basic_functions[] = {
 	PHP_FE(get_extension_funcs,			NULL)
 
 	PHP_FE(parse_ini_file,				NULL)
+
+	PHP_FE(is_uploaded_file,			NULL)
+	PHP_FE(move_uploaded_file,			NULL)
 
 	/* functions from reg.c */
 	PHP_FE(ereg,									third_argument_force_ref)
@@ -577,6 +593,7 @@ static PHP_INI_MH(OnUpdateSafeModeAllowedEnvVars)
 PHP_INI_BEGIN()
 	PHP_INI_ENTRY_EX("safe_mode_protected_env_vars",	SAFE_MODE_PROTECTED_ENV_VARS,	PHP_INI_SYSTEM,		OnUpdateSafeModeProtectedEnvVars,		NULL)
 	PHP_INI_ENTRY_EX("safe_mode_allowed_env_vars",		SAFE_MODE_ALLOWED_ENV_VARS,		PHP_INI_SYSTEM,		OnUpdateSafeModeAllowedEnvVars,			NULL)
+	STD_PHP_INI_ENTRY("session.use_trans_sid",          "1",							PHP_INI_ALL,			OnUpdateBool,			use_trans_sid,			php_basic_globals,			basic_globals)
 PHP_INI_END()
 
 
@@ -625,8 +642,14 @@ static void basic_globals_ctor(BLS_D)
 {
 	BG(next) = NULL;
 	BG(left) = -1;
+	BG(user_tick_functions) = NULL;
 	zend_hash_init(&BG(sm_protected_env_vars), 5, NULL, NULL, 1);
 	BG(sm_allowed_env_vars) = NULL;
+
+#ifdef TRANS_SID
+	memset(&BG(url_adapt_state), 0, sizeof(BG(url_adapt_state)));
+#endif
+
 #ifdef PHP_WIN32
 	CoInitialize(NULL);
 #endif
@@ -743,7 +766,10 @@ PHP_RINIT_FUNCTION(basic)
 	PHP_RINIT(dir)(INIT_FUNC_ARGS_PASSTHRU);
 
 #ifdef TRANS_SID
-	PHP_RINIT(url_scanner)(INIT_FUNC_ARGS_PASSTHRU);
+	if (BG(use_trans_sid)) {
+		PHP_RINIT(url_scanner)(INIT_FUNC_ARGS_PASSTHRU);
+		PHP_RINIT(url_scanner_ex)(INIT_FUNC_ARGS_PASSTHRU);
+	}
 #endif
 	
 	return SUCCESS;
@@ -772,9 +798,16 @@ PHP_RSHUTDOWN_FUNCTION(basic)
 	PHP_RSHUTDOWN(assert)(SHUTDOWN_FUNC_ARGS_PASSTHRU);
 
 #ifdef TRANS_SID
+	PHP_RSHUTDOWN(url_scanner_ex)(SHUTDOWN_FUNC_ARGS_PASSTHRU);
 	PHP_RSHUTDOWN(url_scanner)(SHUTDOWN_FUNC_ARGS_PASSTHRU);
 #endif
 
+	if (BG(user_tick_functions)) {
+		zend_llist_destroy(BG(user_tick_functions));
+		efree(BG(user_tick_functions));
+		BG(user_tick_functions) = NULL;
+	}
+	
 	return SUCCESS;
 }
 
@@ -1499,6 +1532,15 @@ void user_shutdown_function_dtor(php_shutdown_function_entry *shutdown_function_
 	efree(shutdown_function_entry->arguments);
 }
 
+void user_tick_function_dtor(user_tick_function_entry *tick_function_entry)
+{
+	int i;
+
+	for (i = 0; i < tick_function_entry->arg_count; i++) {
+		zval_ptr_dtor(&tick_function_entry->arguments[i]);
+	}
+	efree(tick_function_entry->arguments);
+}
 
 static int user_shutdown_function_call(php_shutdown_function_entry *shutdown_function_entry)
 {
@@ -1514,6 +1556,55 @@ static int user_shutdown_function_call(php_shutdown_function_entry *shutdown_fun
 	return 0;
 }
 
+static void user_tick_function_call(user_tick_function_entry *tick_fe)
+{
+	zval retval;
+	zval *function = tick_fe->arguments[0];
+	CLS_FETCH();
+
+	if (call_user_function(CG(function_table), NULL, function, &retval,
+						   tick_fe->arg_count - 1, tick_fe->arguments + 1) == SUCCESS) {
+		zval_dtor(&retval);
+	} else {
+		zval **obj, **method;
+
+		if (Z_TYPE_P(function) == IS_STRING) {
+			php_error(E_WARNING, "Unable to call %s() - function does not exist",
+					  Z_STRVAL_P(function));
+		} else if (Z_TYPE_P(function) == IS_ARRAY &&
+				   zend_hash_index_find(function->value.ht, 0, (void **) &obj) == SUCCESS &&
+				   zend_hash_index_find(function->value.ht, 1, (void **) &method) == SUCCESS &&
+				   Z_TYPE_PP(obj) == IS_OBJECT &&
+				   Z_TYPE_PP(method) == IS_STRING) {
+			php_error(E_WARNING, "Unable to call %s::%s() - function does not exist",
+					  (*obj)->value.obj.ce->name, Z_STRVAL_PP(method));
+		} else
+			php_error(E_WARNING, "Unable to call tick function");
+	}
+}
+
+static void run_user_tick_functions(int tick_count)
+{
+	BLS_FETCH();
+
+	zend_llist_apply(BG(user_tick_functions), (llist_apply_func_t)user_tick_function_call);
+}
+
+static int user_tick_function_compare(user_tick_function_entry *tick_fe1,
+									  user_tick_function_entry *tick_fe2)
+{
+	zval *func1 = tick_fe1->arguments[0];
+	zval *func2 = tick_fe2->arguments[0];
+	
+	if (Z_TYPE_P(func1) == IS_STRING && Z_TYPE_P(func2) == IS_STRING) {
+		return (zend_binary_zval_strcmp(func1, func2) == 0);
+	} else if (Z_TYPE_P(func1) == IS_ARRAY && Z_TYPE_P(func2) == IS_ARRAY) {
+		zval result;
+		zend_compare_arrays(&result, func1, func2);
+		return (Z_LVAL(result) == 0);
+	} else
+		return 0;
+}
 
 void php_call_shutdown_functions(void)
 {
@@ -1607,6 +1698,7 @@ PHP_FUNCTION(highlight_string)
 {
 	pval **expr;
 	zend_syntax_highlighter_ini syntax_highlighter_ini;
+	char *hicompiled_string_description;
 	
 	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &expr)==FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -1615,10 +1707,14 @@ PHP_FUNCTION(highlight_string)
 	convert_to_string_ex(expr);
 
 	php_get_highlight_struct(&syntax_highlighter_ini);
+	
+	hicompiled_string_description = zend_make_compiled_string_description("highlighted code");
 
-	if (highlight_string(*expr, &syntax_highlighter_ini)==FAILURE) {
+	if (highlight_string(*expr, &syntax_highlighter_ini, hicompiled_string_description)==FAILURE) {
+		efree(hicompiled_string_description);
 		RETURN_FALSE;
 	}
+	efree(hicompiled_string_description);
 	RETURN_TRUE;
 }
 /* }}} */
@@ -1752,6 +1848,7 @@ void test_class_startup()
 PHP_FUNCTION(ini_get)
 {
 	pval **varname;
+	char *str;
 
 	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &varname)==FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -1759,15 +1856,13 @@ PHP_FUNCTION(ini_get)
 
 	convert_to_string_ex(varname);
 
-	return_value->value.str.val = php_ini_string((*varname)->value.str.val, (*varname)->value.str.len+1, 0);
+	str = php_ini_string((*varname)->value.str.val, (*varname)->value.str.len+1, 0);
 
-	if (!return_value->value.str.val) {
+	if (!str) {
 		RETURN_FALSE;
 	}
 
-	return_value->value.str.len = strlen(return_value->value.str.val);
-	return_value->type = IS_STRING;
-	pval_copy_constructor(return_value);
+	RETURN_STRING(str,1);
 }
 /* }}} */
 
@@ -1786,13 +1881,14 @@ PHP_FUNCTION(ini_set)
 	convert_to_string_ex(new_value);
 
 	old_value = php_ini_string((*varname)->value.str.val, (*varname)->value.str.len+1, 0);
+	/* copy to return here, because alter might free it! */
+	if (old_value) {
+		RETVAL_STRING(old_value, 1);
+	} else {
+		RETVAL_FALSE;
+	}
 
 	if (php_alter_ini_entry((*varname)->value.str.val, (*varname)->value.str.len+1, (*new_value)->value.str.val, (*new_value)->value.str.len, PHP_INI_USER, PHP_INI_STAGE_RUNTIME)==FAILURE) {
-		RETURN_FALSE;
-	}
-	if (old_value) {
-		RETURN_STRING(old_value, 1);
-	} else {
 		RETURN_FALSE;
 	}
 }
@@ -1810,7 +1906,7 @@ PHP_FUNCTION(ini_restore)
 
 	convert_to_string_ex(varname);
 
-	php_restore_ini_entry((*varname)->value.str.val, (*varname)->value.str.len, PHP_INI_STAGE_RUNTIME);
+	php_restore_ini_entry((*varname)->value.str.val, (*varname)->value.str.len+1, PHP_INI_STAGE_RUNTIME);
 }
 /* }}} */
 
@@ -2053,6 +2149,68 @@ PHP_FUNCTION(get_extension_funcs)
 }
 /* }}} */
 
+/* {{{ proto void register_tick_function(string function_name [, mixed arg [, ... ]])
+   Registers a tick callback function */
+PHP_FUNCTION(register_tick_function)
+{
+	user_tick_function_entry tick_fe;
+	int i;
+	BLS_FETCH();
+
+	tick_fe.arg_count = ZEND_NUM_ARGS();
+	if (tick_fe.arg_count < 1) {
+		WRONG_PARAM_COUNT;
+	}
+
+	tick_fe.arguments = (zval **)emalloc(sizeof(zval *) * tick_fe.arg_count);
+	if (zend_get_parameters_array(ht, tick_fe.arg_count, tick_fe.arguments) == FAILURE) {
+		RETURN_FALSE;
+	}
+	
+	if (Z_TYPE_P(tick_fe.arguments[0]) != IS_ARRAY)
+		convert_to_string_ex(&tick_fe.arguments[0]);
+	
+	if (!BG(user_tick_functions)) {
+		BG(user_tick_functions) = (zend_llist *)emalloc(sizeof(zend_llist));
+		zend_llist_init(BG(user_tick_functions), sizeof(user_tick_function_entry),
+						(void (*)(void *))user_tick_function_dtor, 0);
+		php_add_tick_function(run_user_tick_functions);
+	}
+
+	for (i = 0; i < tick_fe.arg_count; i++) {
+		tick_fe.arguments[i]->refcount++;
+	}
+
+	zend_llist_add_element(BG(user_tick_functions), &tick_fe);
+
+	RETURN_TRUE;
+}
+/* }}} */
+
+
+/* {{{ proto void unregister_tick_function(string function_name)
+   Unregisters a tick callback function */
+PHP_FUNCTION(unregister_tick_function)
+{
+	zval **function;
+	user_tick_function_entry tick_fe;
+	BLS_FETCH();
+
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(ZEND_NUM_ARGS(), &function)) {
+		WRONG_PARAM_COUNT;
+	}
+
+	if (Z_TYPE_PP(function) != IS_ARRAY)
+		convert_to_string_ex(function);
+
+	tick_fe.arguments = (zval **)emalloc(sizeof(zval *));
+	tick_fe.arguments[0] = *function;
+	tick_fe.arg_count = 1;
+	zend_llist_del_element(BG(user_tick_functions), &tick_fe,
+						   (int(*)(void*,void*))user_tick_function_compare);
+	efree(tick_fe.arguments);
+}
+/* }}} */
 
 
 /* This function is not directly accessible to end users */
@@ -2061,6 +2219,71 @@ PHPAPI PHP_FUNCTION(warn_not_available)
 	php_error(E_WARNING, "%s() is  not supported in this PHP build", get_active_function_name());
     RETURN_FALSE;
 }
+
+
+/* {{{ proto boolean is_uploaded_file(string path)
+   check if file was created by rfc1867 upload  */
+PHP_FUNCTION(is_uploaded_file)
+{
+	zval **path;
+	SLS_FETCH();
+
+	if (!SG(rfc1867_uploaded_files)) {
+		RETURN_FALSE;
+	}
+
+	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &path)!=SUCCESS) {
+		ZEND_WRONG_PARAM_COUNT();
+	}
+	convert_to_string_ex(path);
+
+	if (zend_hash_exists(SG(rfc1867_uploaded_files), Z_STRVAL_PP(path), Z_STRLEN_PP(path)+1)) {
+		RETURN_TRUE;
+	} else {
+		RETURN_FALSE;
+	}
+}
+/* }}} */
+
+
+/* {{{ proto boolean move_uploaded_file(string path, string new_path)
+   move a file if and only if it was created by an upload */
+PHP_FUNCTION(move_uploaded_file)
+{
+	zval **path, **new_path;
+	zend_bool successful=0;
+	SLS_FETCH();
+
+	if (!SG(rfc1867_uploaded_files)) {
+		RETURN_FALSE;
+	}
+
+	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2, &path, &new_path)!=SUCCESS) {
+		ZEND_WRONG_PARAM_COUNT();
+	}
+	convert_to_string_ex(path);
+	convert_to_string_ex(new_path);
+
+	if (!zend_hash_exists(SG(rfc1867_uploaded_files), Z_STRVAL_PP(path), Z_STRLEN_PP(path)+1)) {
+		RETURN_FALSE;
+	}
+
+	V_UNLINK(Z_STRVAL_PP(new_path));
+	if (rename(Z_STRVAL_PP(path), Z_STRVAL_PP(new_path))==0) {
+		successful=1;
+	} else if (php_copy_file(Z_STRVAL_PP(path), Z_STRVAL_PP(new_path))==SUCCESS) {
+		V_UNLINK(Z_STRVAL_PP(path));
+		successful=1;
+	}
+
+	if (successful) {
+		zend_hash_del(SG(rfc1867_uploaded_files), Z_STRVAL_PP(path), Z_STRLEN_PP(path)+1);
+	} else {
+		php_error(E_WARNING, "Unable to move '%s' to '%s'", Z_STRVAL_PP(path), Z_STRVAL_PP(new_path));
+	}
+	RETURN_BOOL(successful);
+}
+/* }}} */
 
 
 /*

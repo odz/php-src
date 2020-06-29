@@ -44,7 +44,7 @@ RSC=rc.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MT /W3 /GX /O2 /I "..\.." /I "..\..\..\Zend" /I "..\..\..\bindlib_w32" /I "..\..\..\TSRM" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "COMPILE_DL_GD" /D ZTS=1 /YX /FD /c
-# ADD CPP /nologo /MD /W3 /GX /O2 /I "..\.." /I "..\..\main" /I "..\..\Zend" /I "..\..\..\bindlib_w32" /I "..\..\TSRM" /D ZEND_DEBUG=0 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "GD_EXPORTS" /D "COMPILE_DL_GD" /D ZTS=1 /D "ZEND_WIN32" /D "PHP_WIN32" /D HAVE_GDIMAGECOLORRESOLVE=1 /D HAVE_LIBTTF=1 /D "HAVE_GD_PNG" /D "HAVE_GD_JPG" /D "HAVE_GD_WBMP" /D HAVE_LIBGD13=1 /FR /YX /FD /c
+# ADD CPP /nologo /MD /W3 /GX /O2 /I "..\.." /I "..\..\main" /I "..\..\Zend" /I "..\..\..\bindlib_w32" /I "..\..\TSRM" /D ZEND_DEBUG=0 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "PHP_EXPORTS" /D "COMPILE_DL_GD" /D ZTS=1 /D "ZEND_WIN32" /D "PHP_WIN32" /D HAVE_GDIMAGECOLORRESOLVE=1 /D HAVE_LIBTTF=1 /D "HAVE_GD_PNG" /D "HAVE_GD_JPG" /D "HAVE_GD_WBMP" /D HAVE_LIBGD13=1 /D HAVE_LIBGD=1 /FR /YX /FD /c
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x406 /d "NDEBUG"
@@ -54,7 +54,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib php4ts.lib /nologo /dll /machine:I386
-# ADD LINK32 php4ts.lib freetype.lib gd.lib libjpeg.lib libtiff.lib libpng.lib zlib.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386 /nodefaultlib:"libcmt.lib" /nodefaultlib:"libc.lib" /out:"..\..\Release_TS/php_gd.dll" /libpath:"..\..\Release_TS" /libpath:"..\..\Release_TS_Inline"
+# ADD LINK32 php4ts.lib freetype.lib gd.lib libjpeg.lib libtiff.lib libpng.lib zlib.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386 /out:"..\..\Release_TS/php_gd.dll" /libpath:"..\..\Release_TS" /libpath:"..\..\Release_TS_Inline"
 # SUBTRACT LINK32 /pdb:none
 
 !ELSEIF  "$(CFG)" == "gd - Win32 Debug_TS"
@@ -72,7 +72,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MT /W3 /GX /O2 /I "..\.." /I "..\..\Zend" /I "..\..\..\bindlib_w32" /I "..\..\TSRM" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "COMPILE_DL_GD" /D "DBNTWIN32" /D ZTS=1 /YX /FD /c
-# ADD CPP /nologo /MDd /W3 /GX /ZI /Od /I "..\.." /I "..\..\main" /I "..\..\Zend" /I "..\..\..\bindlib_w32" /I "..\..\TSRM" /D ZEND_DEBUG=1 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "GD_EXPORTS" /D "COMPILE_DL_GD" /D ZTS=1 /D "ZEND_WIN32" /D "PHP_WIN32" /D HAVE_GDIMAGECOLORRESOLVE=1 /D HAVE_LIBTTF=1 /D "HAVE_GD_PNG" /D "HAVE_GD_JPG" /D "HAVE_GD_WBMP" /D HAVE_LIBGD13=1 /FR /YX /FD /c
+# ADD CPP /nologo /MDd /W3 /GX /ZI /Od /I "..\.." /I "..\..\main" /I "..\..\Zend" /I "..\..\..\bindlib_w32" /I "..\..\TSRM" /D ZEND_DEBUG=1 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "PHP_EXPORTS" /D "COMPILE_DL_GD" /D ZTS=1 /D "ZEND_WIN32" /D "PHP_WIN32" /D HAVE_GDIMAGECOLORRESOLVE=1 /D HAVE_LIBTTF=1 /D "HAVE_GD_PNG" /D "HAVE_GD_JPG" /D "HAVE_GD_WBMP" /D HAVE_LIBGD13=1 /D HAVE_LIBGD=1 /FR /YX /FD /c
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x406 /d "NDEBUG"
@@ -82,7 +82,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib php4ts_debug.lib /nologo /dll /machine:I386
-# ADD LINK32 php4ts_debug.lib gd.lib libjpeg.lib freetype.lib libtiff.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /incremental:yes /debug /machine:I386 /nodefaultlib:"libc.lib" /nodefaultlib:"libcmt.lib" /out:"..\..\Debug_TS/php_gd.dll" /libpath:"..\..\Debug_TS"
+# ADD LINK32 php4ts_debug.lib gd.lib libjpeg.lib freetype.lib libtiff.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /incremental:yes /debug /machine:I386 /out:"..\..\Debug_TS/php_gd.dll" /libpath:"..\..\Debug_TS"
 # SUBTRACT LINK32 /pdb:none
 
 !ENDIF 

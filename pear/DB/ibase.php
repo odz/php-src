@@ -16,13 +16,13 @@
 // | Authors: Sterling Hughes <sterling@php.net>                          |
 // +----------------------------------------------------------------------+
 //
-// $Id: ibase.php,v 1.5 2000/08/24 01:34:16 sterling Exp $
+// $Id: ibase.php,v 1.8 2000/09/13 11:27:59 ssb Exp $
 //
 // Database independent query interface definition for PHP's Interbase
 // extension.
 //
 
-include_once 'DB/common.php';
+require_once 'DB/common.php';
 
 class DB_ibase extends DB_common {
 
@@ -48,7 +48,7 @@ class DB_ibase extends DB_common {
 			$dsninfo = DB::parseDSN($dsn);
 		}
 		if (!$dsninfo || !$dsninfo['phptype']) {
-			return new DB_Error(); 
+			return $this->raiseError(); 
 		}
 		$user = $dsninfo['username'];
 		$pw = $dsninfo['password'];
@@ -61,7 +61,7 @@ class DB_ibase extends DB_common {
 		} elseif ($dbhost) {
 			$conn = $connect_function($dbhost);
 		} else {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		$this->connection = $conn;
 		return DB_OK;
@@ -72,9 +72,10 @@ class DB_ibase extends DB_common {
 	}
 
 	function &query( $stmt ) {
+		$this->last_query = $query;
 		$result = @ibase_query($this->connection, $stmt);
 		if (!$result) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		// Determine which queries that should return data, and which
 		// should return an error code only.
@@ -87,41 +88,48 @@ class DB_ibase extends DB_common {
 	}
 
 	function simpleQuery($stmt) {
+		$this->last_query = $query;
 		$result = @ibase_query($this->connection, $stmt);
 		if (!$result) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		// Determine which queries that should return data, and which
 		// should return an error code only.
 		return preg_match('/(SELECT|SHOW|LIST|DESCRIBE)/i', $stmt) ? $result : DB_OK;
 	}
 
-	function &fetchRow($result, $getmode=DB_GETMODE_DEFAULT) {
-		if ($getmode & DB_GETMODE_ASSOC) {
+	function &fetchRow($result, $fetchmode=DB_FETCHMODE_DEFAULT) {
+		if ($fetchmode == DB_FETCHMODE_DEFAULT) {
+			$fetchmode = $this->fetchmode;
+		}
+		if ($fetchmode & DB_FETCHMODE_ASSOC) {
 			$row = (array)ibase_fetch_object($result);
 		} else {
 			$row = ibase_fetch_row($result);
 		}
 		if (!$row) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		return $row;
 	}
 
-	function fetchInto($result, &$ar, $getmode=DB_GETMODE_DEFAULT) {
-		if ($getmode & DB_GETMODE_ASSOC) {
-			return new DB_Error(DB_ERROR_NOT_CAPABLE);
+	function fetchInto($result, &$ar, $fetchmode=DB_FETCHMODE_DEFAULT) {
+		if ($fetchmode == DB_FETCHMODE_DEFAULT) {
+			$fetchmode = $this->fetchmode;
+		}
+		if ($fetchmode & DB_FETCHMODE_ASSOC) {
+			return $this->raiseError(DB_ERROR_NOT_CAPABLE);
 		} else {
 			$ar = ibase_fetch_row($result);
 		}
 		if (!$ar) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		return DB_OK;
 	}
 
 	function freeResult() {
-		return new DB_Error(DB_ERROR_NOT_CAPABLE);
+		return $this->raiseError(DB_ERROR_NOT_CAPABLE);
 	}
 
 	function freeQuery($query) {
@@ -132,25 +140,26 @@ class DB_ibase extends DB_common {
 	function numCols($result) {
 		$cols = ibase_num_fields($result);
 		if (!$cols) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		return $cols;
 	}
 
 	function prepare($query) {
+		$this->last_query = $query;
 		return ibase_prepare($query);
 	}
 
 	function execute($stmt, $data = false) {
 		$result = ibase_execute($stmt, $data);
 		if (!$result) {
-			return new DB_Error();
+			return $this->raiseError();
 		}
 		return preg_match('/(SELECT|SHOW|LIST|DESCRIBE)/i', $stmt) ? $result : DB_OK;
 	}
 
 	function autoCommit($onoff=false) {
-		return new DB_Error(DB_ERROR_NOT_CAPABLE);
+		return $this->raiseError(DB_ERROR_NOT_CAPABLE);
 	}
 
 	function commit() {
@@ -165,4 +174,12 @@ class DB_ibase extends DB_common {
 		return $trans_args ? ibase_trans($trans_args, $this->connection) : ibase_trans();
 	}
 }
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ */
+
 ?>

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
  
-/* $Id: php_mysql.c,v 1.51 2000/07/05 20:41:06 zeev Exp $ */
+/* $Id: php_mysql.c,v 1.54 2000/10/11 18:27:21 zeev Exp $ */
 
 
 /* TODO:
@@ -108,6 +108,7 @@ function_entry mysql_functions[] = {
 	PHP_FE(mysql_num_fields,							NULL)
 	PHP_FE(mysql_fetch_row,								NULL)
 	PHP_FE(mysql_fetch_array,							NULL)
+	PHP_FE(mysql_fetch_assoc,							NULL)
 	PHP_FE(mysql_fetch_object,							NULL)
 	PHP_FE(mysql_data_seek,								NULL)
 	PHP_FE(mysql_fetch_lengths,							NULL)
@@ -119,6 +120,7 @@ function_entry mysql_functions[] = {
 	PHP_FE(mysql_field_len,								NULL)
 	PHP_FE(mysql_field_type,							NULL)
 	PHP_FE(mysql_field_flags,							NULL)
+	PHP_FE(mysql_escape_string,							NULL)
 	 
 	/* for downwards compatability */
 	PHP_FALIAS(mysql,				mysql_db_query,		NULL)
@@ -436,7 +438,7 @@ static void php_mysql_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 #else
 		if (mysql_connect(mysql,host,user,passwd)==NULL) {
 #endif
-				php_error(E_WARNING,mysql_error(mysql));
+				php_error(E_WARNING, "%s", mysql_error(mysql));
 				free(mysql);
 				efree(hashed_details);
 				RETURN_FALSE;
@@ -1072,6 +1074,27 @@ PHP_FUNCTION(mysql_affected_rows)
 /* }}} */
 
 
+/* {{{ proto char mysql_escape_string([char string])
+   Escape string for mysql query */
+PHP_FUNCTION(mysql_escape_string)
+{
+	zval **str;
+
+	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &str) == FAILURE) {
+		ZEND_WRONG_PARAM_COUNT();
+	}
+	convert_to_string_ex(str);
+	/* assume worst case situation, which is 2x of the original string.
+	 * we don't realloc() down to the real size since it'd most probably not
+	 * be worth it
+	 */
+	Z_STRVAL_P(return_value) = (char *) emalloc(Z_STRLEN_PP(str)*2+1);
+	Z_STRLEN_P(return_value) = mysql_escape_string(Z_STRVAL_P(return_value), Z_STRVAL_PP(str), Z_STRLEN_PP(str));
+	return_value->type = IS_STRING;
+}
+/* }}} */
+
+
 /* {{{ proto int mysql_insert_id([int link_identifier])
    Get the id generated from the previous INSERT operation */
 PHP_FUNCTION(mysql_insert_id)
@@ -1352,13 +1375,21 @@ PHP_FUNCTION(mysql_fetch_object)
 
 
 /* {{{ proto array mysql_fetch_array(int result [, int result_type])
-   Fetch a result row as an associative array */
+   Fetch a result row as an array (associative, numeric or both)*/
 PHP_FUNCTION(mysql_fetch_array)
 {
 	php_mysql_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0);
 }
 /* }}} */
 
+
+/* {{{ proto array mysql_fetch_assoc(int result)
+   Fetch a result row as an associative array */
+PHP_FUNCTION(mysql_fetch_assoc)
+{
+	php_mysql_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU, MYSQL_ASSOC);
+}
+/* }}} */
 
 /* {{{ proto int mysql_data_seek(int result, int row_number)
    Move internal result pointer */

@@ -1911,7 +1911,11 @@ send_by_ref:
 							case IS_STRING:
 								zend_hash_update(array_ptr->value.ht, offset->value.str.val, offset->value.str.len+1, &expr_ptr, sizeof(zval *), NULL);
 								break;
+							case IS_NULL:
+								zend_hash_update(array_ptr->value.ht, "", sizeof(""), &expr_ptr, sizeof(zval *), NULL);
+								break;
 							default:
+								zval_ptr_dtor(&expr_ptr);
 								/* do nothing */
 								break;
 						}
@@ -2000,19 +2004,21 @@ send_by_ref:
 									}
 								}
 								if (opened_path) {
-									free(opened_path);
+									efree(opened_path);
 								}
 								break;
 							}
 							break;
 						case ZEND_INCLUDE:
 						case ZEND_REQUIRE:
-						{
 							new_op_array = compile_filename(opline->op2.u.constant.value.lval, inc_filename CLS_CC ELS_CC);
 							break;
-						}
-						case ZEND_EVAL:
-							new_op_array = compile_string(inc_filename CLS_CC);
+						case ZEND_EVAL: {
+								char *eval_desc = zend_make_compiled_string_description("eval()'d code");
+
+								new_op_array = compile_string(inc_filename, eval_desc CLS_CC);
+								efree(eval_desc);
+							}
 							break;
 						EMPTY_SWITCH_DEFAULT_CASE()
 					}
@@ -2320,7 +2326,9 @@ send_by_ref:
 		}
 	}
 #if SUPPORT_INTERACTIVE
+	ALLOC_INIT_ZVAL(*(EG(return_value_ptr_ptr)));
 	op_array->last_executed_op_number = opline-op_array->opcodes;
+	EG(in_execution) = original_in_execution;
 	free_alloca(Ts);
 #else
 	zend_error(E_ERROR,"Arrived at end of main loop which shouldn't happen");

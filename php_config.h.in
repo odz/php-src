@@ -281,6 +281,9 @@
 /* Define if you have the mkfifo function.  */
 #undef HAVE_MKFIFO
 
+/* Define if you have the mkstemp function.  */
+#undef HAVE_MKSTEMP
+
 /* Define if you have the mmap function.  */
 #undef HAVE_MMAP
 
@@ -488,9 +491,6 @@
 /* Define if you have the <crypt.h> header file.  */
 #undef HAVE_CRYPT_H
 
-/* Define if you have the <db1/ndbm.h> header file.  */
-#undef HAVE_DB1_NDBM_H
-
 /* Define if you have the <default_store.h> header file.  */
 #undef HAVE_DEFAULT_STORE_H
 
@@ -683,6 +683,9 @@
 /* Define if you have the resolv library (-lresolv).  */
 #undef HAVE_LIBRESOLV
 
+/* Define if you have the sqlcli library (-lsqlcli).  */
+#undef HAVE_LIBSQLCLI
+
 /* Define if you have the stdc++ library (-lstdc++).  */
 #undef HAVE_LIBSTDC__
 
@@ -751,12 +754,6 @@
 
 /*   */
 #undef FORCE_CGI_REDIRECT
-
-/*   */
-#undef FORCE_CGI_REDIRECT
-
-/*   */
-#undef DISCARD_PATH
 
 /*   */
 #undef DISCARD_PATH
@@ -841,6 +838,12 @@
 
 /* Whether you have socklen_t */
 #undef HAVE_SOCKLEN_T
+
+/* Whether you have struct sockaddr_in6 */
+#undef HAVE_STRUCT_SOCKADDR_IN6
+
+/* Define if you have the getaddrinfo function */
+#undef HAVE_GETADDRINFO
 
 /*   */
 #undef PHP_BROKEN_SPRINTF
@@ -1242,6 +1245,9 @@
 #undef HAVE_NSLDAP
 
 /*   */
+#undef HAVE_NSLDAP
+
+/*   */
 #undef HAVE_ORALDAP
 
 /*   */
@@ -1391,6 +1397,12 @@
 /*   */
 #undef HAVE_ORACLE
 
+/*   */
+#undef HAVE_LIBSQLCLI
+
+/* Whether to build ovrimos as dynamic module */
+#undef COMPILE_DL_OVRIMOS
+
 /* Whether to build pcre as dynamic module */
 #undef COMPILE_DL_PCRE
 
@@ -1463,6 +1475,18 @@
 /* Whether to build recode as dynamic module */
 #undef COMPILE_DL_RECODE
 
+/*   */
+#undef HAVE_SABLOT
+
+/* Whether to build sablot as dynamic module */
+#undef COMPILE_DL_SABLOT
+
+/* CORBA support enabled via Satellite */
+#undef HAVE_SATELLITE
+
+/* Whether to build satellite as dynamic module */
+#undef COMPILE_DL_SATELLITE
+
 /* Whether you have libmm */
 #undef HAVE_LIBMM
 
@@ -1471,6 +1495,12 @@
 
 /* Whether to build session as dynamic module */
 #undef COMPILE_DL_SESSION
+
+/*   */
+#undef HAVE_SHMOP
+
+/* Whether to build shmop as dynamic module */
+#undef COMPILE_DL_SHMOP
 
 /*   */
 #undef HAVE_SNMP
@@ -1524,7 +1554,7 @@
 #undef HAVE_SYBASE
 
 /* Whether to build sybase_ct as dynamic module */
-#undef COMPILE_DL_SYBASECT
+#undef COMPILE_DL_SYBASE_CT
 
 /*   */
 #undef HAVE_SYBASE_CT
@@ -1612,9 +1642,6 @@
 
 /* Whether you have class istdiostream */
 #undef HAVE_CLASS_ISTDIOSTREAM
-
-/* whether to enable C9x-inline semantics */
-#undef C9X_INLINE_SEMANTICS
 
 /* Memory limit */
 #undef MEMORY_LIMIT

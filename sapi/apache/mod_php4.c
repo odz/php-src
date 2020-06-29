@@ -17,7 +17,7 @@
    | PHP 4.0 patches by Zeev Suraski <zeev@zend.com>                      |
    +----------------------------------------------------------------------+
  */
-/* $Id: mod_php4.c,v 1.65 2000/08/20 14:29:00 sas Exp $ */
+/* $Id: mod_php4.c,v 1.71 2000/10/11 16:24:35 zeev Exp $ */
 
 #define NO_REGEX_EXTRA_H
 #ifdef WIN32
@@ -28,7 +28,6 @@
 #include "zend.h"
 #include "php.h"
 #include "php_variables.h"
-#include "SAPI.h"
 
 #include "httpd.h"
 #include "http_config.h"
@@ -63,6 +62,8 @@
 #if HAVE_MOD_DAV
 # include "mod_dav.h"
 #endif
+
+#undef shutdown
 
 int apache_php_module_main(request_rec *r, int display_source_mode CLS_DC ELS_DC PLS_DC SLS_DC);
 void php_save_umask(void);
@@ -277,7 +278,7 @@ static void php_apache_log_message(char *message)
 		log_error(message, ((request_rec *) SG(server_context))->server);
 #endif
 	} else {
-		fprintf(stderr, message);
+		fprintf(stderr, "%s", message);
 		fprintf(stderr, "\n");
 	}
 }
@@ -294,6 +295,8 @@ static void php_apache_request_shutdown(void *dummy)
 
 static int php_apache_sapi_activate(SLS_D)
 {
+	request_rec *r = ((request_rec *) SG(server_context));
+
 	/*
 	 * For the Apache module version, this bit of code registers a cleanup
 	 * function that gets triggered when our request pool is destroyed.
@@ -305,6 +308,11 @@ static int php_apache_sapi_activate(SLS_D)
 	block_alarms();
 	register_cleanup(((request_rec *) SG(server_context))->pool, NULL, php_apache_request_shutdown, php_request_shutdown_for_exec);
 	unblock_alarms();
+
+	/* Override the default headers_only value - sometimes "GET" requests should actually only
+	 * send headers.
+	 */
+	SG(request_info).headers_only = r->header_only;
 	return SUCCESS;
 }
 
@@ -379,7 +387,6 @@ static void init_request_info(SLS_D)
 	SG(request_info).request_method = (char *)r->method;
 	SG(request_info).content_type = (char *) table_get(r->subprocess_env, "CONTENT_TYPE");
 	SG(request_info).content_length = (content_length ? atoi(content_length) : 0);
-	SG(request_info).headers_only = r->header_only;
 	SG(sapi_headers).http_response_code = r->status;
 
 	if (r->headers_in) {
@@ -541,11 +548,23 @@ static void copy_per_dir_entry(php_per_dir_entry *per_dir_entry)
 }
 
 
+static zend_bool should_overwrite_per_dir_entry(php_per_dir_entry *orig_per_dir_entry, php_per_dir_entry *new_per_dir_entry)
+{
+	if (orig_per_dir_entry->type==PHP_INI_SYSTEM
+		&& new_per_dir_entry->type!=PHP_INI_SYSTEM) {
+		return 0;
+	} else {
+		return 1;
+	}
+}
+
+
 static void php_destroy_per_dir_info(HashTable *per_dir_info)
 {
 	zend_hash_destroy(per_dir_info);
 	free(per_dir_info);
 }
+
 
 static void *php_create_dir(pool *p, char *dummy)
 {
@@ -563,8 +582,9 @@ static void *php_merge_dir(pool *p, void *basev, void *addv)
 {
 	php_per_dir_entry tmp;
 
-	zend_hash_merge((HashTable *) addv, (HashTable *) basev, (void (*)(void *)) copy_per_dir_entry, &tmp, sizeof(php_per_dir_entry), 0);
-	return addv;
+	zend_hash_merge_ex((HashTable *) basev, (HashTable *) addv, (copy_ctor_func_t) copy_per_dir_entry, sizeof(php_per_dir_entry), (zend_bool (*)(void *, void *)) should_overwrite_per_dir_entry);
+	/*zend_hash_merge((HashTable *) addv, (HashTable *) basev, (void (*)(void *)) copy_per_dir_entry, &tmp, sizeof(php_per_dir_entry), 0);*/
+	return basev;
 }
 
 

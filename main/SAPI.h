@@ -64,7 +64,7 @@ typedef struct {
 	char *query_string;
 	char *post_data;
 	char *cookie_data;
-	uint content_length;
+	long content_length;
 	uint post_data_length;
 
 	char *path_translated;
@@ -100,6 +100,8 @@ typedef struct {
 	struct stat global_stat;
 	char *default_mimetype;
 	char *default_charset;
+	HashTable *rfc1867_uploaded_files;
+	long post_max_size;
 } sapi_globals_struct;
 
 

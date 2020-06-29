@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dir.c,v 1.41 2000/06/29 21:51:39 zeev Exp $ */
+/* $Id: dir.c,v 1.44 2000/09/07 17:55:53 stas Exp $ */
 
 /* {{{ includes/startup/misc */
 
@@ -289,13 +289,13 @@ PHP_FUNCTION(readdir)
 {
 	pval **id, **tmp, *myself;
 	php_dir *dirp;
-	struct dirent entry;
-	struct dirent *result;
+	char entry[sizeof(struct dirent)+MAXPATHLEN+1];
+	struct dirent *result = (struct dirent *)&entry; /* patch for libc5 readdir problems */
 	DIRLS_FETCH();
 
 	FETCH_DIRP();
 
-	if (php_readdir_r(dirp->dir, &entry, &result) == 0 && result) {
+	if (php_readdir_r(dirp->dir, (struct dirent *) entry, &result) == 0 && result) {
 		RETURN_STRINGL(result->d_name, strlen(result->d_name), 1);
 	}
 	RETURN_FALSE;
