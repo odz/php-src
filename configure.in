@@ -1,4 +1,4 @@
-dnl ## $Id: configure.in,v 1.396.2.101 2004/03/25 13:57:00 iliaa Exp $ -*- sh -*-
+dnl ## $Id: configure.in,v 1.396.2.112 2004/04/14 15:00:35 iliaa Exp $ -*- sh -*-
 dnl ## Process this file with autoconf to produce a configure script.
 
 divert(1)
@@ -40,7 +40,7 @@ AC_CONFIG_HEADER(main/php_config.h)
 
 MAJOR_VERSION=4
 MINOR_VERSION=3
-RELEASE_VERSION=5
+RELEASE_VERSION=6
 EXTRA_VERSION=""
 VERSION="$MAJOR_VERSION.$MINOR_VERSION.$RELEASE_VERSION$EXTRA_VERSION"
 
@@ -857,15 +857,15 @@ if test "$PHP_PEAR" != "no"; then
   dnl
   if test "$PHP_SAPI_CLI" = "no"; then
     pear_error_msg="$pear_error_msg 
-                    PEAR requires CLI to be enabled.     Add --enable-cli to the configure line."
+                    PEAR requires CLI to be enabled.     Add --enable-cli to the configure line. (or --disable-pear)"
   fi
   if test "$PHP_PCRE_REGEX" = "no"; then
     pear_error_msg="$pear_error_msg 
-                    PEAR requires PCRE to be enabled.    Add --with-pcre-regex to the configure line."
+                    PEAR requires PCRE to be enabled.    Add --with-pcre-regex to the configure line. (or --disable-pear)"
   fi
   if test "$PHP_XML" = "no"; then
     pear_error_msg="$pear_error_msg 
-                    PEAR requires XML to be enabled.     Add --enable-xml to the configure line."
+                    PEAR requires XML to be enabled.     Add --enable-xml to the configure line. (or --disable-pear)"
   fi
 
 dnl
@@ -873,7 +873,7 @@ dnl ext/xmlrpc is not really there yet to be a requirement..
 dnl
 dnl  if test "$PHP_XMLRPC" = "no"; then
 dnl    pear_error_msg="$pear_error_msg 
-dnl                    PEAR requires XML-RPC to be enabled. Add --with-xmlrpc to the configure line."
+dnl                    PEAR requires XML-RPC to be enabled. Add --with-xmlrpc to the configure line. (or --disable-pear)"
 dnl fi
 dnl
 

@@ -621,15 +621,17 @@ ZEND_API int add_function(zval *result, zval *op1, zval *op2 TSRMLS_DC)
 	zendi_convert_scalar_to_number(op1, op1_copy, result);
 	zendi_convert_scalar_to_number(op2, op2_copy, result);
 
-
 	if (op1->type == IS_LONG && op2->type == IS_LONG) {
-		double dval = (double) op1->value.lval + (double) op2->value.lval;
+		long lval = op1->value.lval + op2->value.lval;
 
-		if ((dval > (double) LONG_MAX) || (dval < (double) LONG_MIN)) {
-			result->value.dval = dval;
+		/* check for overflow by comparing sign bits */
+		if ( (op1->value.lval & LONG_MIN) == (op2->value.lval & LONG_MIN)
+			&& (op1->value.lval & LONG_MIN) != (lval & LONG_MIN)) {
+
+			result->value.dval = (double) op1->value.lval + (double) op2->value.lval;
 			result->type = IS_DOUBLE;
 		} else {
-			result->value.lval = op1->value.lval + op2->value.lval;
+			result->value.lval = lval;
 			result->type = IS_LONG;
 		}
 		return SUCCESS;
@@ -655,18 +657,21 @@ ZEND_API int add_function(zval *result, zval *op1, zval *op2 TSRMLS_DC)
 ZEND_API int sub_function(zval *result, zval *op1, zval *op2 TSRMLS_DC)
 {
 	zval op1_copy, op2_copy;
-	
+
 	zendi_convert_scalar_to_number(op1, op1_copy, result);
 	zendi_convert_scalar_to_number(op2, op2_copy, result);
 
 	if (op1->type == IS_LONG && op2->type == IS_LONG) {
-		double dval = (double) op1->value.lval - (double) op2->value.lval;
+		long lval = op1->value.lval - op2->value.lval;
 
-		if ((dval < (double) LONG_MIN) || (dval > (double) LONG_MAX)) {
-			result->value.dval = dval;
+		/* check for overflow by comparing sign bits */
+		if ( (op1->value.lval & LONG_MIN) != (op2->value.lval & LONG_MIN)
+			&& (op1->value.lval & LONG_MIN) != (lval & LONG_MIN)) {
+
+			result->value.dval = (double) op1->value.lval - (double) op2->value.lval;
 			result->type = IS_DOUBLE;
 		} else {
-			result->value.lval = op1->value.lval - op2->value.lval;
+			result->value.lval = lval;
 			result->type = IS_LONG;
 		}
 		return SUCCESS;

@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: basic_functions.c,v 1.543.2.32 2004/03/12 17:42:09 rasmus Exp $ */
+/* $Id: basic_functions.c,v 1.543.2.36 2004/04/02 09:33:49 derick Exp $ */
 
 #include "php.h"
 #include "php_streams.h"
@@ -996,6 +996,41 @@ static void basic_globals_dtor(php_basic_globals *basic_globals_p TSRMLS_DC)
 }
 
 
+#define PHP_DOUBLE_INFINITY_HIGH       0x7ff00000
+#define PHP_DOUBLE_QUIET_NAN_HIGH      0xfff80000
+
+PHPAPI double php_get_nan(void)
+{
+#if HAVE_HUGE_VAL_NAN
+	return HUGE_VAL + -HUGE_VAL;
+#elif defined(__i386__) || defined(_X86_) || defined(ALPHA) || defined(_ALPHA) || defined(__alpha)
+	double val = 0;
+	((php_uint32*)&val)[1] = PHP_DOUBLE_QUIET_NAN_HIGH;
+	((php_uint32*)&val)[0] = 0;
+	return val;
+#elif HAVE_ATOF_ACCEPTS_NAN
+	return atof("NAN");
+#else
+	return 0.0/0.0;
+#endif
+}
+
+PHPAPI double php_get_inf(void)
+{
+#if HAVE_HUGE_VAL_NAN
+	return HUGE_VAL;
+#elif defined(__i386__) || defined(_X86_) || defined(ALPHA) || defined(_ALPHA) || defined(__alpha)
+	double val = 0;
+	((php_uint32*)&val)[1] = PHP_DOUBLE_INFINITY_HIGH;
+	((php_uint32*)&val)[0] = 0;
+	return val;
+#elif HAVE_ATOF_ACCEPTS_INF
+	return atof("INF");
+#else
+	return 1.0/0.0;
+#endif
+}
+
 PHP_MINIT_FUNCTION(basic)
 {
 #ifdef ZTS
@@ -1027,6 +1062,8 @@ PHP_MINIT_FUNCTION(basic)
 	REGISTER_MATH_CONSTANT(M_2_SQRTPI);
 	REGISTER_MATH_CONSTANT(M_SQRT2);
 	REGISTER_MATH_CONSTANT(M_SQRT1_2);
+	REGISTER_DOUBLE_CONSTANT("INF", php_get_inf(), CONST_CS | CONST_PERSISTENT);
+	REGISTER_DOUBLE_CONSTANT("NAN", php_get_nan(), CONST_CS | CONST_PERSISTENT);
 
 #if ENABLE_TEST_CLASS
 	test_class_startup();

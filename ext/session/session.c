@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: session.c,v 1.336.2.35 2004/03/16 18:21:02 stas Exp $ */
+/* $Id: session.c,v 1.336.2.38 2004/04/13 18:23:10 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -120,7 +120,11 @@ static PHP_INI_MH(OnUpdateSerializer)
 PHP_INI_BEGIN()
 	STD_PHP_INI_BOOLEAN("session.bug_compat_42",    "1",         PHP_INI_ALL, OnUpdateBool,   bug_compat,         php_ps_globals,    ps_globals)
 	STD_PHP_INI_BOOLEAN("session.bug_compat_warn",  "1",         PHP_INI_ALL, OnUpdateBool,   bug_compat_warn,    php_ps_globals,    ps_globals)
+#ifdef PHP_WIN32
+	STD_PHP_INI_ENTRY("session.save_path",          "",      PHP_INI_ALL, OnUpdateString, save_path,          php_ps_globals,    ps_globals)
+#else
 	STD_PHP_INI_ENTRY("session.save_path",          "/tmp",      PHP_INI_ALL, OnUpdateString, save_path,          php_ps_globals,    ps_globals)
+#endif
 	STD_PHP_INI_ENTRY("session.name",               "PHPSESSID", PHP_INI_ALL, OnUpdateString, session_name,       php_ps_globals,    ps_globals)
 	PHP_INI_ENTRY("session.save_handler",           "files",     PHP_INI_ALL, OnUpdateSaveHandler)
 	STD_PHP_INI_BOOLEAN("session.auto_start",       "0",         PHP_INI_ALL, OnUpdateBool,   auto_start,         php_ps_globals,    ps_globals)
@@ -863,7 +867,7 @@ static void php_session_send_cookie(TSRMLS_D)
 		t = tv.tv_sec + PS(cookie_lifetime);
 		
 		if (t > 0) {
-			date_fmt = php_std_date(t);
+			date_fmt = php_std_date(t TSRMLS_CC);
 			smart_str_appends(&ncookie, COOKIE_EXPIRES);
 			smart_str_appends(&ncookie, date_fmt);
 			efree(date_fmt);
@@ -1106,8 +1110,8 @@ PHP_FUNCTION(session_set_cookie_params)
 		zend_get_parameters_ex(ZEND_NUM_ARGS(), &lifetime, &path, &domain, &secure) == FAILURE)
 		WRONG_PARAM_COUNT;
 
-	convert_to_long_ex(lifetime);
-	PS(cookie_lifetime) = Z_LVAL_PP(lifetime);
+	convert_to_string_ex(lifetime);
+	zend_alter_ini_entry("session.cookie_lifetime", sizeof("session.cookie_lifetime"), Z_STRVAL_PP(lifetime), Z_STRLEN_PP(lifetime), PHP_INI_USER, PHP_INI_STAGE_RUNTIME);
 
 	if (ZEND_NUM_ARGS() > 1) {
 		convert_to_string_ex(path);
@@ -1170,32 +1174,28 @@ PHP_FUNCTION(session_module_name)
 {
 	zval **p_name;
 	int ac = ZEND_NUM_ARGS();
-	char *old;
 
 	if (ac < 0 || ac > 1 || zend_get_parameters_ex(ac, &p_name) == FAILURE)
 		WRONG_PARAM_COUNT;
-	
-	old = safe_estrdup(PS(mod)->s_name);
 
 	if (ac == 1) {
-		ps_module *tempmod;
-
 		convert_to_string_ex(p_name);
-		tempmod = _php_find_ps_module(Z_STRVAL_PP(p_name) TSRMLS_CC);
-		if (tempmod) {
-			if (PS(mod_data))
-				PS(mod)->s_close(&PS(mod_data) TSRMLS_CC);
-			PS(mod) = tempmod;
-			PS(mod_data) = NULL;
-		} else {
-			efree(old);
+		if (!_php_find_ps_module(Z_STRVAL_PP(p_name) TSRMLS_CC)) {
 			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Cannot find named PHP session module (%s)",
 					Z_STRVAL_PP(p_name));
 			RETURN_FALSE;
 		}
-	}
+		if (PS(mod_data)) {
+			PS(mod)->s_close(&PS(mod_data) TSRMLS_CC);
+		}
+		PS(mod_data) = NULL;
 
-	RETVAL_STRING(old, 0);
+		RETVAL_STRING(safe_estrdup(PS(mod)->s_name), 0);
+
+		zend_alter_ini_entry("session.save_handler", sizeof("session.save_handler"), Z_STRVAL_PP(p_name), Z_STRLEN_PP(p_name), PHP_INI_USER, PHP_INI_STAGE_RUNTIME);
+	} else {
+		RETURN_STRING(safe_estrdup(PS(mod)->s_name), 0);
+	}
 }
 /* }}} */
 

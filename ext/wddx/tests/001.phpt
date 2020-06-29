@@ -6,19 +6,13 @@ wddx deserialization test
 	var_dump(wddx_deserialize(file_get_contents("{$path}/wddx.xml")));
 ?>
 --EXPECT--
-array(11) {
+array(8) {
   ["aNull"]=>
   NULL
   ["aString"]=>
   string(8) "a string"
   ["aNumber"]=>
   float(-12.456)
-  ["aDateTime"]=>
-  int(897600732)
-  ["aDateTime2"]=>
-  int(329607132)
-  ["aDateTime3"]=>
-  string(19) "2040-06-12T04:32:12"
   ["aBoolean"]=>
   bool(true)
   ["anArray"]=>

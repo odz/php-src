@@ -11,7 +11,7 @@ extern "C" {
 #define PATHSEPARATOR ":"
 #else
 /* default fontpath for windows systems */
-#define DEFAULT_FONTPATH "c:\\winnt\\fonts;."
+#define DEFAULT_FONTPATH "c:\\winnt\\fonts;c:\\windows\\fonts;."
 #define PATHSEPARATOR ";"
 #endif
 
@@ -578,6 +578,7 @@ void gdImageSaveAlpha(gdImagePtr im, int saveAlphaArg);
 
 gdIOCtx* gdNewFileCtx(FILE*);
 gdIOCtx* gdNewDynamicCtx(int, void*);
+gdIOCtx *gdNewDynamicCtxEx(int size, void *data, int freeFlag);
 gdIOCtx* gdNewSSCtx(gdSourcePtr in, gdSinkPtr out);
 void* gdDPExtractData(struct gdIOCtx* ctx, int *size);
 

@@ -1,11 +1,50 @@
 PHP 4                                                                      NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-?? Mar 2004, Version 4.3.5
+15 Apr 2004, Version 4.3.6
+- Updated bundled PDFLib library to version 5.0.3p1 in Windows distribution.
+  (Edin)
+- Fixed a crash in multi-threaded environments when a thread is shutdown by
+  the web server. (Stas)
+- Fixed a bug that prevented building of the GD extension against external GD
+  lib 1.X. (Ilia, Edin, Nick Talbott).
+- Synchronized bundled GD library with GD 2.0.22. (Ilia)
+- Fixed bug #27963 (Session lifetime setting may leak between requests). (Ilia)
+- Fixed bug #27849 (configure craps out on trivial syntax error). (Derick)
+- Fixed bug #27822 (is_resource() returns TRUE for closed resources). (Derick)
+- Fixed bug #27819 (problems returning reference to a reference parameter).
+  (Ilia)
+- Fixed bug #27809 (ftp_systype returns null on some ftp servers). (Ilia)
+- Fixed bug #27802 (default number of children to 8 when PHP_FCGI_CHILDREN is
+  not defined). (Ilia)
+- Fixed bug #27780 (strtotime(+1 xxx) returns a wrong date/time). (Derick)
+- Fixed bug #27769 (domxml_xmltree crashes). (Rob)
+- Fixed bug #27764 (Get return value from a stored procedure not returning any
+  result sets). (Frank)
+- Fixed bug #27762 (SCO Openserver doesn't have S_ISSOCK). (Wez)
+- Fixed bug #27743 (Make sure Money types are converted and returned
+  correctly). (Frank)
+- Fixed bug #27732 (Fixed compilation bug inside php_sab_info.h). (Ilia)
+- Fixed bug #27731 (error_reporting() inside @ block fails to set
+  error_reporting level). (Ilia)
+- Fixed bug #27719 (mktime issues on and around DST changeover). (Rasmus)
+- Fixed bug #27717 (Test Failures when compiled on 64-bit mode). (Ard, Derick)
+- Fixed bug #27687 (Bug Adding Default Charset to 'text/*' Content-Type 
+  Header). (Marcus)
+- Fixed bug #27663 (compile failure with cURL 7.11.1). (Ilia)
+- Fixed bug #27646 (Cannot serialize/unserialize non-finite numeric values).
+  (Marcus)
+- Fixed bug #26757 (session.save_path default is bogus for win32). (Wez)
+- Fixed bug #26589 (Crash inside mssql extension when selecting many columns 
+  of type money). (Frank)
+- Fixed bug #25547 (error_handler and array index with function call). 
+  (cschneid at cschneid dot com)
+
+26 Mar 2004, Version 4.3.5
 - Fixed possible crash using an invalid color index with a palette image in
-  imagecolortransparent (Pierre)
+  imagecolortransparent. (Pierre)
 - Fixed php-cgi to not ignore command-line switches when run in a web context.
-  This fixes our test cases allowing INI with GET sections to work (Rasmus)
-- Fixed getopt() so it works without $_SERVER (Rasmus, bfrance)
+  This fixes our test cases allowing INI with GET sections to work. (Rasmus)
+- Fixed getopt() so it works without $_SERVER. (Rasmus, bfrance)
 - Fixed crash in php_ini_scanned_files() when no additional INI files were
   actually parsed. (Jon)
 - Fixed possible crashes inside socket extension, due to missing check inside
@@ -19,7 +58,7 @@ PHP 4                                                                      NEWS
   . Added "sybct.packet_size" php.ini option.
   . Changed "sybct.login_timeout" php.ini option changeable at runtime.
   . Fixed memory leak in sybase_set_message_handler().
-- Synchronized bundled GD library with GD 2.0.17
+- Synchronized bundled GD library with GD 2.0.17. (Ilia)
 - Upgraded PCRE library to version 4.5. (Andrei)
 - Updated bundled PostgreSQL library to version 7.4 in Windows distribution.
   (Edin)

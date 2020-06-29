@@ -264,7 +264,7 @@ void zend_assign_to_variable_reference(znode *result, zval **variable_ptr_ptr, z
 	if (variable_ptr == EG(error_zval_ptr) || value_ptr==EG(error_zval_ptr)) {
 		variable_ptr_ptr = &EG(uninitialized_zval_ptr);
 /*	} else if (variable_ptr==&EG(uninitialized_zval) || variable_ptr!=value_ptr) { */
-	} else if (variable_ptr_ptr != value_ptr_ptr) {
+	} else if (variable_ptr != value_ptr) {
 		variable_ptr->refcount--;
 		if (variable_ptr->refcount==0) {
 			zendi_zval_dtor(*variable_ptr);
@@ -286,9 +286,18 @@ void zend_assign_to_variable_reference(znode *result, zval **variable_ptr_ptr, z
 
 		*variable_ptr_ptr = value_ptr;
 		value_ptr->refcount++;
-	} else {
-		if (variable_ptr->refcount>1) { /* we need to break away */
+	} else if (!variable_ptr->is_ref) {
+		if (variable_ptr_ptr == value_ptr_ptr) {
 			SEPARATE_ZVAL(variable_ptr_ptr);
+		} else if (variable_ptr==EG(uninitialized_zval_ptr)
+			|| variable_ptr->refcount>2) {
+			/* we need to separate */
+			variable_ptr->refcount -= 2;
+			ALLOC_ZVAL(*variable_ptr_ptr);
+			**variable_ptr_ptr = *variable_ptr;
+			zval_copy_ctor(*variable_ptr_ptr);
+			*value_ptr_ptr = *variable_ptr_ptr;
+			(*variable_ptr_ptr)->refcount = 2;
 		}
 		(*variable_ptr_ptr)->is_ref = 1;
 	}
@@ -638,9 +647,14 @@ fetch_string_dim:
 					case BP_VAR_IS:
 						retval = &EG(uninitialized_zval_ptr);
 						break;
-					case BP_VAR_RW:
-						zend_error(E_NOTICE,"Undefined index:  %s", offset_key);
-						/* break missing intentionally */
+					case BP_VAR_RW: {
+							zval *new_zval = &EG(uninitialized_zval);
+
+							new_zval->refcount++;
+							zend_hash_update(ht, offset_key, offset_key_length+1, &new_zval, sizeof(zval *), (void **) &retval);
+							zend_error(E_NOTICE,"Undefined index:  %s", offset_key);
+						}
+						break;
 					case BP_VAR_W: {
 							zval *new_zval = &EG(uninitialized_zval);
 
@@ -2473,12 +2487,13 @@ send_by_ref:
 				NEXT_OPCODE();
 			case ZEND_END_SILENCE: {
 					zval restored_error_reporting;
-
-					restored_error_reporting.type = IS_LONG;
-					restored_error_reporting.value.lval = EX(Ts)[EX(opline)->op1.u.var].tmp_var.value.lval;
-					convert_to_string(&restored_error_reporting);
-					zend_alter_ini_entry("error_reporting", sizeof("error_reporting"), Z_STRVAL(restored_error_reporting), Z_STRLEN(restored_error_reporting), ZEND_INI_USER, ZEND_INI_STAGE_RUNTIME);
-					zendi_zval_dtor(restored_error_reporting);
+					if (!EG(error_reporting)) {
+						restored_error_reporting.type = IS_LONG;
+						restored_error_reporting.value.lval = EX(Ts)[EX(opline)->op1.u.var].tmp_var.value.lval;
+						convert_to_string(&restored_error_reporting);
+						zend_alter_ini_entry("error_reporting", sizeof("error_reporting"), Z_STRVAL(restored_error_reporting), Z_STRLEN(restored_error_reporting), ZEND_INI_USER, ZEND_INI_STAGE_RUNTIME);
+						zendi_zval_dtor(restored_error_reporting);
+					}
 				}
 				NEXT_OPCODE();
 			case ZEND_QM_ASSIGN: {
