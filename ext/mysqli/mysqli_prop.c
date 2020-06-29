@@ -15,7 +15,7 @@
   | Author: Georg Richter <georg@php.net>                                |
   +----------------------------------------------------------------------+
 
-  $Id: mysqli_prop.c 321634 2012-01-01 13:15:04Z felipe $
+  $Id$
 */
 
 #ifdef HAVE_CONFIG_H
@@ -211,7 +211,11 @@ static int link_stat_read(mysqli_object *obj, zval **retval TSRMLS_DC)\
 	MAKE_STD_ZVAL(*retval);
 	ZVAL_NULL(*retval);
 
+#if defined(MYSQLI_USE_MYSQLND)
 	CHECK_STATUS(MYSQLI_STATUS_INITIALIZED);
+#else
+	CHECK_STATUS(MYSQLI_STATUS_VALID);
+#endif
 
  	mysql = (MY_MYSQL *)((MYSQLI_RESOURCE *)(obj->ptr))->ptr;
 

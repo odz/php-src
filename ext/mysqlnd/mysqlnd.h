@@ -17,12 +17,12 @@
   |          Ulf Wendel <uwendel@mysql.com>                              |
   +----------------------------------------------------------------------+
 */
-/* $Id: mysqlnd.h 321634 2012-01-01 13:15:04Z felipe $ */
+/* $Id$ */
 
 #ifndef MYSQLND_H
 #define MYSQLND_H
 
-#define MYSQLND_VERSION "mysqlnd 5.0.8-dev - 20102224 - $Revision: 321634 $"
+#define MYSQLND_VERSION "mysqlnd 5.0.8-dev - 20102224 - $Id$"
 #define MYSQLND_VERSION_ID 50008
 
 /* This forces inlining of some accessor functions */

@@ -95,7 +95,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_language_parser.y 321634 2012-01-01 13:15:04Z felipe $ */
+/* $Id$ */
 
 /*
  * LALR shift/reduce conflicts and how they are resolved:

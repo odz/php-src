@@ -1,5 +1,5 @@
 
-	/* $Id: fpm_status.c 317901 2011-10-08 14:04:09Z fat $ */
+	/* $Id$ */
 	/* (c) 2009 Jerome Loyet */
 
 #include "php.h"

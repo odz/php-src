@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_API.c 321634 2012-01-01 13:15:04Z felipe $ */
+/* $Id$ */
 
 #include "zend.h"
 #include "zend_execute.h"
@@ -33,7 +33,6 @@
 #endif
 
 /* these variables are true statics/globals, and have to be mutex'ed on every access */
-static int module_count=0;
 ZEND_API HashTable module_registry;
 
 /* this function doesn't check for too many parameters */
@@ -254,10 +253,14 @@ ZEND_API int zend_get_object_classname(const zval *object, char **class_name, ze
 static int parse_arg_object_to_string(zval **arg TSRMLS_DC) /* {{{ */
 {
 	if (Z_OBJ_HANDLER_PP(arg, cast_object)) {
-		SEPARATE_ZVAL_IF_NOT_REF(arg);
-		if (Z_OBJ_HANDLER_PP(arg, cast_object)(*arg, *arg, IS_STRING TSRMLS_CC) == SUCCESS) {
+		zval *obj;
+		MAKE_STD_ZVAL(obj);
+		if (Z_OBJ_HANDLER_P(*arg, cast_object)(*arg, obj, IS_STRING TSRMLS_CC) == SUCCESS) {
+			zval_ptr_dtor(arg);
+			*arg = obj;
 			return SUCCESS;
 		}
+		efree(obj);
 	}
 	/* Standard PHP objects */
 	if (Z_OBJ_HT_PP(arg) == &std_object_handlers || !Z_OBJ_HANDLER_PP(arg, cast_object)) {
@@ -2134,7 +2137,7 @@ void module_destructor(zend_module_entry *module) /* {{{ */
 
 #if HAVE_LIBDL
 #if !(defined(NETWARE) && defined(APACHE_1_BUILD))
-	if (module->handle) {
+	if (module->handle && !getenv("ZEND_DONT_UNLOAD_MODULES")) {
 		DL_UNLOAD(module->handle);
 	}
 #endif
@@ -2180,7 +2183,7 @@ int module_registry_unload_temp(const zend_module_entry *module TSRMLS_DC) /* {{
 /* return the next free module number */
 int zend_next_free_module(void) /* {{{ */
 {
-	return ++module_count;
+	return zend_hash_num_elements(&module_registry) + 1;
 }
 /* }}} */
 

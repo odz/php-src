@@ -15,7 +15,7 @@
   | Author: Georg Richter <georg@php.net>                                |
   +----------------------------------------------------------------------+
 
-  $Id: php_mysqli_structs.h 321634 2012-01-01 13:15:04Z felipe $
+  $Id$
 */
 
 #ifndef PHP_MYSQLI_STRUCTS_H

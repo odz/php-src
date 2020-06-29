@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_fast_cache.h 321634 2012-01-01 13:15:04Z felipe $ */
+/* $Id$ */
 #if 0
 #ifndef ZEND_FAST_CACHE_H
 #define ZEND_FAST_CACHE_H
