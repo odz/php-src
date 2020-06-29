@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dir.c,v 1.109.2.16 2004/05/11 13:34:31 iliaa Exp $ */
+/* $Id: dir.c,v 1.109.2.18 2004/06/07 18:31:15 iliaa Exp $ */
 
 /* {{{ includes/startup/misc */
 
@@ -371,13 +371,12 @@ PHP_FUNCTION(glob)
 			cwd[0] = '\0';
 		}
 #ifdef PHP_WIN32
-		if (!IS_SLASH(cwd[0])) {
+		if (IS_SLASH(*pattern)) {
 			cwd[2] = '\0';
-			cwd_skip = 3;
 		}
-#else
-		cwd_skip = strlen(cwd)+1;
 #endif
+		cwd_skip = strlen(cwd)+1;
+
 		snprintf(work_pattern, MAXPATHLEN, "%s%c%s", cwd, DEFAULT_SLASH, pattern);
 		pattern = work_pattern;
 	} 
@@ -391,7 +390,7 @@ PHP_FUNCTION(glob)
 			 * doesn't. This ensure that if no match is found, an empty array
 			 * is always returned so it can be used without worrying in e.g.
 			 * foreach() */
-#if __linux__
+#ifndef __linux__
 			RETURN_FALSE;
 #else
 			array_init(return_value);

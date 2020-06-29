@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: SAPI.c,v 1.155.2.19 2004/05/25 22:13:10 sesser Exp $ */
+/* $Id: SAPI.c,v 1.155.2.22 2004/08/19 20:35:36 bfrance Exp $ */
 
 #include <ctype.h>
 #include <sys/stat.h>
@@ -331,6 +331,7 @@ SAPI_API void sapi_activate(TSRMLS_D)
 	SG(request_info).current_user = NULL;
 	SG(request_info).current_user_length = 0;
 	SG(request_info).no_headers = 0;
+	SG(request_info).post_entry = NULL;
 
 	/* It's possible to override this general case in the activate() callback, if
 	 * necessary.
@@ -596,6 +597,11 @@ SAPI_API int sapi_header_op(sapi_header_op_enum op, void *arg TSRMLS_DC)
 					char *ptr = colon_offset+1;
 					int ptr_len=0, result_len = 0;
 
+					/* skip white space */
+					while (isspace(*ptr)) {
+						ptr++;
+					}
+
 					myuid = php_getuid();
 
 					ptr_len = strlen(ptr);
@@ -635,7 +641,7 @@ SAPI_API int sapi_header_op(sapi_header_op_enum op, void *arg TSRMLS_DC)
 							efree(lower_temp);
 						}
 					}
-					newlen = sizeof("WWW-Authenticate: ") + result_len;
+					newlen = sizeof("WWW-Authenticate: ") - 1  + result_len;
 					newheader = emalloc(newlen+1);
 					sprintf(newheader,"WWW-Authenticate: %s", result);
 					efree(header_line);

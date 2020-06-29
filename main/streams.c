@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: streams.c,v 1.125.2.89 2004/05/12 10:46:30 wez Exp $ */
+/* $Id: streams.c,v 1.125.2.93 2004/08/31 15:32:09 stas Exp $ */
 
 #define _GNU_SOURCE
 #include "php.h"
@@ -55,8 +55,11 @@
 
 #define PHP_STDIOP_GET_FD(anfd, data)   anfd = (data)->file ? fileno((data)->file) : (data)->fd
 
+static php_stream_wrapper php_plain_files_wrapper;
+
 /* {{{ some macros to help track leaks */
 #if ZEND_DEBUG
+#if USE_ZEND_ALLOC
 #define emalloc_rel_orig(size)	\
 		( __php_stream_call_depth == 0 \
 		? _emalloc((size) ZEND_FILE_LINE_CC ZEND_FILE_LINE_RELAY_CC) \
@@ -66,7 +69,10 @@
 		( __php_stream_call_depth == 0 \
 		? _erealloc((ptr), (size), 0 ZEND_FILE_LINE_CC ZEND_FILE_LINE_RELAY_CC) \
 		: _erealloc((ptr), (size), 0 ZEND_FILE_LINE_CC ZEND_FILE_LINE_ORIG_RELAY_CC) )
-
+#else
+#define emalloc_rel_orig(size) emalloc(size)
+#define erealloc_rel_orig(ptr, size) erealloc(ptr, size)
+#endif
 
 #define pemalloc_rel_orig(size, persistent)	((persistent) ? malloc((size)) : emalloc_rel_orig((size)))
 #define perealloc_rel_orig(ptr, size, persistent)	((persistent) ? realloc((ptr), (size)) : erealloc_rel_orig((ptr), (size)))
@@ -96,6 +102,7 @@ FILE *fopencookie(void *cookie, const char *mode, COOKIE_IO_FUNCTIONS_T *funcs)
 # define PHP_STREAM_COOKIE_FUNCTIONS	stream_cookie_functions
 #endif
 	
+/* Global wrapper hash, copied to FG(stream_wrappers) on registration of volatile wrapper */
 static HashTable url_stream_wrappers_hash;
 static int le_stream = FAILURE; /* true global */
 static int le_pstream = FAILURE; /* true global */
@@ -645,6 +652,10 @@ PHPAPI size_t _php_stream_read(php_stream *stream, char *buf, size_t size TSRMLS
 		if (stream->flags & PHP_STREAM_FLAG_AVOID_BLOCKING) {
 			break;
 		}
+
+		/* just break anyway, to avoid greedy read */
+		if (stream->wrapper != &php_plain_files_wrapper)
+			break;
 	}
 
 	if (didread > 0)
@@ -2335,6 +2346,7 @@ int php_shutdown_stream_wrappers(int module_number TSRMLS_DC)
 	return SUCCESS;
 }
 
+/* API for registering GLOBAL wrappers */
 PHPAPI int php_register_url_stream_wrapper(char *protocol, php_stream_wrapper *wrapper TSRMLS_DC)
 {
 	return zend_hash_add(&url_stream_wrappers_hash, protocol, strlen(protocol), wrapper, sizeof(*wrapper), NULL);
@@ -2343,6 +2355,20 @@ PHPAPI int php_register_url_stream_wrapper(char *protocol, php_stream_wrapper *w
 PHPAPI int php_unregister_url_stream_wrapper(char *protocol TSRMLS_DC)
 {
 	return zend_hash_del(&url_stream_wrappers_hash, protocol, strlen(protocol));
+}
+
+/* API for registering VOLATILE wrappers */
+PHPAPI int php_register_url_stream_wrapper_volatile(char *protocol, php_stream_wrapper *wrapper TSRMLS_DC)
+{
+	if (!FG(stream_wrappers)) {
+		php_stream_wrapper tmpwrapper;
+
+		FG(stream_wrappers) = emalloc(sizeof(HashTable));
+		zend_hash_init(FG(stream_wrappers), 0, NULL, NULL, 1);
+		zend_hash_copy(FG(stream_wrappers), &url_stream_wrappers_hash, NULL, &tmpwrapper, sizeof(php_stream_wrapper));
+	}
+
+	return zend_hash_add(FG(stream_wrappers), protocol, strlen(protocol), wrapper, sizeof(*wrapper), NULL);
 }
 /* }}} */
 
@@ -2459,6 +2485,7 @@ static php_stream_wrapper php_plain_files_wrapper = {
 
 PHPAPI php_stream_wrapper *php_stream_locate_url_wrapper(const char *path, char **path_for_open, int options TSRMLS_DC)
 {
+	HashTable *wrapper_hash = (FG(stream_wrappers) ? FG(stream_wrappers) : &url_stream_wrappers_hash);
 	php_stream_wrapper *wrapper = NULL;
 	const char *p, *protocol = NULL;
 	int n = 0;
@@ -2485,7 +2512,7 @@ PHPAPI php_stream_wrapper *php_stream_locate_url_wrapper(const char *path, char 
 	}
 
 	if (protocol)	{
-		if (FAILURE == zend_hash_find(&url_stream_wrappers_hash, (char*)protocol, n, (void**)&wrapper))	{
+		if (FAILURE == zend_hash_find(wrapper_hash, (char*)protocol, n, (void**)&wrapper))	{
 			char wrapper_name[32];
 
 			if (options & REPORT_ERRORS) {
@@ -2911,9 +2938,9 @@ PHPAPI int php_stream_context_set_option(php_stream_context *context,
 	return zend_hash_update(Z_ARRVAL_PP(wrapperhash), (char*)optionname, strlen(optionname)+1, (void**)&copied_val, sizeof(zval *), NULL);
 }
 
-PHPAPI HashTable *php_stream_get_url_stream_wrappers_hash()
+PHPAPI HashTable *_php_stream_get_url_stream_wrappers_hash(TSRMLS_D)
 {
-	return &url_stream_wrappers_hash;
+	return (FG(stream_wrappers) ? FG(stream_wrappers) : &url_stream_wrappers_hash);
 }
 
 /*

@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sapi_apache2.c,v 1.1.2.30 2004/03/16 22:38:17 iliaa Exp $ */
+/* $Id: sapi_apache2.c,v 1.1.2.33 2004/07/20 20:48:01 moriyoshi Exp $ */
 
 #include <fcntl.h>
 
@@ -67,30 +67,15 @@ char *apache2_php_ini_path_override = NULL;
 static int
 php_apache_sapi_ub_write(const char *str, uint str_length TSRMLS_DC)
 {
-	apr_bucket *bucket;
-	apr_bucket_brigade *brigade;
 	request_rec *r;
 	php_struct *ctx;
-	char *copy_str;
-
-	if (str_length == 0) {
-		return 0;
-	}
 
 	ctx = SG(server_context);
 	r = ctx->r;
-	brigade = ctx->brigade;
 	
-	copy_str = apr_pmemdup( r->pool, str, str_length);
-	bucket = apr_bucket_pool_create(copy_str, str_length, r->pool, r->connection->bucket_alloc);
-						 
-	APR_BRIGADE_INSERT_TAIL(brigade, bucket);
-
-	if (ap_pass_brigade(r->output_filters, brigade) != APR_SUCCESS || r->connection->aborted) {
+	if (ap_rwrite(str, str_length, r) < 0) {
 		php_handle_aborted_connection();
 	}
-	/* Ensure this brigade is empty for the next usage. */
-	apr_brigade_cleanup(brigade);
 	
 	return str_length; /* we always consume all the data passed to us. */
 }
@@ -179,6 +164,7 @@ php_apache_sapi_get_stat(TSRMLS_D)
 
 	ctx->finfo.st_uid = ctx->r->finfo.user;
 	ctx->finfo.st_gid = ctx->r->finfo.group;
+	ctx->finfo.st_dev = ctx->r->finfo.device;
 	ctx->finfo.st_ino = ctx->r->finfo.inode;
 #if defined(NETWARE) && defined(CLIB_STAT_PATCH)
 	ctx->finfo.st_atime.tv_sec = ctx->r->finfo.atime/1000000;
@@ -245,8 +231,6 @@ static void
 php_apache_sapi_flush(void *server_context)
 {
 	php_struct *ctx;
-	apr_bucket_brigade *brigade;
-	apr_bucket *bucket;
 	request_rec *r;
 	TSRMLS_FETCH();
 
@@ -259,20 +243,15 @@ php_apache_sapi_flush(void *server_context)
 	}
 
 	r = ctx->r;
-	brigade = ctx->brigade;
 
 	sapi_send_headers(TSRMLS_C);
 
 	r->status = SG(sapi_headers).http_response_code;
 	SG(headers_sent) = 1;
 
-	/* Send a flush bucket down the filter chain. */
-	bucket = apr_bucket_flush_create(r->connection->bucket_alloc);
-	APR_BRIGADE_INSERT_TAIL(brigade, bucket);
-	if (ap_pass_brigade(r->output_filters, brigade) != APR_SUCCESS || r->connection->aborted) {
+	if (ap_rflush(r) < 0 || r->connection->aborted) {
 		php_handle_aborted_connection();
 	}
-	apr_brigade_cleanup(brigade);
 }
 
 static void php_apache_sapi_log_message(char *msg)
@@ -573,6 +552,8 @@ zend_first_try {
 #endif
 	}
 
+} zend_end_try();
+
 	if (!parent_req) {
 		php_apache_request_dtor(r TSRMLS_CC);
 		ctx->request_processed = 1;
@@ -587,8 +568,6 @@ zend_first_try {
 	} else {
 		ctx->r = parent_req;
 	}
-
-} zend_end_try();
 
 	return OK;
 }

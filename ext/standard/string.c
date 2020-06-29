@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: string.c,v 1.333.2.39.2.1 2004/07/13 13:15:30 iliaa Exp $ */
+/* $Id: string.c,v 1.333.2.44 2004/07/11 21:24:47 andrey Exp $ */
 
 /* Synced with php 3.0 revision 1.193 1999-06-16 [ssb] */
 
@@ -203,10 +203,10 @@ static void php_spn_common_handler(INTERNAL_FUNCTION_PARAMETERS, int behavior)
 {
 	char *s11, *s22;
 	int len1, len2;
-	long start, len;
-	
-	start = 0;
-	len = 0;
+	long start = 0, len = 0;
+	unsigned char match[256] = {0};
+	char *rs, *s, *e;
+
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|ll", &s11, &len1,
 				&s22, &len2, &start, &len) == FAILURE) {
 		return;
@@ -234,22 +234,21 @@ static void php_spn_common_handler(INTERNAL_FUNCTION_PARAMETERS, int behavior)
 		}
 	}
 	
-	if ((start + len) > len1) {
+	if (((unsigned) start + (unsigned) len) > len1) {
 		len = len1 - start;
 	}
 
-	if (behavior == STR_STRSPN) {
-		RETURN_LONG(php_strspn(s11 + start /*str1_start*/,
-						s22 /*str2_start*/,
-						s11 + start + len /*str1_end*/,
-						s22 + len2 /*str2_end*/));
-	} else if (behavior == STR_STRCSPN) {
-		RETURN_LONG(php_strcspn(s11 + start /*str1_start*/,
-						s22 /*str2_start*/,
-						s11 + start + len /*str1_end*/,
-						s22 + len2 /*str2_end*/));
+	s = s22;
+	e = s22 + len2;
+	while (s < e) {
+		match[(int)(unsigned char)*s++] = 1;
 	}
-	
+
+	rs = s = s11 + start;
+	e = s11 + start + len;
+	while (s <= e && match[(int)(unsigned char)*s++] != behavior);
+
+	RETURN_LONG((s - rs) < 1 ? 0 : s - rs - 1);
 }
 
 /* {{{ proto int strspn(string str, string mask [, start [, len]])
@@ -638,8 +637,9 @@ PHP_FUNCTION(wordwrap)
 		return;
 	}
 
-	if (textlen == 0)
-		RETURN_FALSE;
+	if (textlen == 0) {
+		RETURN_EMPTY_STRING();
+	}
 
 	if (linelength == 0 && docut) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Can't force cut when width is zero.");
@@ -1292,42 +1292,6 @@ PHPAPI char *php_stristr(unsigned char *s, unsigned char *t, size_t s_len, size_
 }
 /* }}} */
 
-/* {{{ php_strspn
- */
-PHPAPI size_t php_strspn(char *s1, char *s2, char *s1_end, char *s2_end)
-{
-	register const char *p = s1, *spanp;
-	register char c = *p;
-
-cont:
-	for (spanp = s2; p != s1_end && spanp != s2_end;)
-		if (*spanp++ == c) {
-			c = *(++p);
-			goto cont;
-		}
-	return (p - s1);
-}
-/* }}} */
-
-/* {{{ php_strcspn
- */
-PHPAPI size_t php_strcspn(char *s1, char *s2, char *s1_end, char *s2_end)
-{
-	register const char *p, *spanp;
-	register char c = *s1;
-
-	for (p = s1;;) {
-		spanp = s2;
-		do {
-			if (*spanp == c || p == s1_end)
-				return p - s1;
-		} while (spanp++ < s2_end);
-		c = *++p;
-	}
-	/* NOTREACHED */
-}
-/* }}} */
-
 /* {{{ proto string stristr(string haystack, string needle)
    Finds first occurrence of a string within another, case insensitive */
 PHP_FUNCTION(stristr)
@@ -1672,7 +1636,7 @@ PHP_FUNCTION(substr)
 		RETURN_FALSE;
 	}
 
-	if ((f + l) > Z_STRLEN_PP(str)) {
+	if (((unsigned) f + (unsigned) l) > Z_STRLEN_PP(str)) {
 		l = Z_STRLEN_PP(str) - f;
 	}
 
@@ -1734,7 +1698,7 @@ PHP_FUNCTION(substr_replace)
 		}
 	}
 
-	if ((f + l) > Z_STRLEN_PP(str)) {
+	if (((unsigned) f + (unsigned) l) > Z_STRLEN_PP(str)) {
 		l = Z_STRLEN_PP(str) - f;
 	}
 
@@ -2269,10 +2233,8 @@ PHP_FUNCTION(addslashes)
 		RETURN_EMPTY_STRING();
 	}
 
-	RETURN_STRING(php_addslashes(Z_STRVAL_PP(str),
-	                             Z_STRLEN_PP(str), 
-	                             &Z_STRLEN_P(return_value), 0 
-	                             TSRMLS_CC), 0);
+	Z_TYPE_P(return_value) = IS_STRING;
+	Z_STRVAL_P(return_value) = php_addslashes(Z_STRVAL_PP(str), Z_STRLEN_PP(str), &Z_STRLEN_P(return_value), 0 TSRMLS_CC);
 }
 /* }}} */
 
@@ -2441,72 +2403,80 @@ PHPAPI char *php_addcslashes(char *str, int length, int *new_length, int should_
 }
 /* }}} */
 
+/* true static */
+const unsigned char php_esc_list[256] = {2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+
 /* {{{ php_addslashes
  */
 PHPAPI char *php_addslashes(char *str, int length, int *new_length, int should_free TSRMLS_DC)
 {
-	/* maximum string length, worst case situation */
-	char *new_str;
-	char *source, *target;
-	char *end;
-	int local_new_length;
- 	        
+	char *e = str + (length ? length : (length = strlen(str)));
+	char *p = str;
+	char *new_str, *ps;
+	int local_new_length = length;
+	int type = PG(magic_quotes_sybase) ? 1 : 0;
+
 	if (!new_length) {
 		new_length = &local_new_length;
 	}
+
 	if (!str) {
 		*new_length = 0;
 		return str;
 	}
-	new_str = (char *) emalloc((length?length:(length=strlen(str)))*2+1);
-	source = str;
-	end = source + length;
-	target = new_str;
-	
-	if (PG(magic_quotes_sybase)) {
-		while (source < end) {
-			switch (*source) {
-				case '\0':
-					*target++ = '\\';
-					*target++ = '0';
-					break;
-				case '\'':
-					*target++ = '\'';
-					*target++ = '\'';
-					break;
-				default:
-					*target++ = *source;
-					break;
-			}
-			source++;
-		}
-	} else {
-		while (source < end) {
-			switch (*source) {
-				case '\0':
-					*target++ = '\\';
-					*target++ = '0';
-					break;
-				case '\'':
-				case '\"':
-				case '\\':
-					*target++ = '\\';
-					/* break is missing *intentionally* */
-				default:
-					*target++ = *source;
-					break;	
-			}
-		
-			source++;
+
+	/* determine the number of the characters that need to be escaped */
+	while (p < e) {
+		if (php_esc_list[(int)(unsigned char)*p++] > type) {
+			local_new_length++;
 		}
 	}
-	
-	*target = 0;
-	*new_length = target - new_str;
+
+	/* string does not have any escapable characters */
+	if (local_new_length == length) {
+		new_str = estrndup(str, length);
+		goto done;
+	}
+
+	/* create escaped string */
+	ps = new_str = emalloc(local_new_length + 1);
+	p = str;
+	if (!type) {
+		while (p < e) {
+			if (php_esc_list[(int)(unsigned char)*p]) {
+				*ps++ = '\\';
+			}
+			*ps++ = *p++;
+		}
+	} else {
+		while (p < e) {
+			switch (php_esc_list[(int)(unsigned char)*p]) {
+				case 2:
+					*ps++ = '\\';
+					*ps++ = '0';
+					p++;
+					break;
+			
+				case 3:
+					*ps++ = '\'';
+					*ps++ = '\'';
+					p++;
+					break;
+
+				default:
+					*ps++ = *p++;
+					break;
+			}
+		}
+	}
+	*ps = '\0';
+
+done:
 	if (should_free) {
 		STR_FREE(str);
 	}
-	new_str = (char *) erealloc(new_str, *new_length+1);
+	*new_length = local_new_length;
+
 	return new_str;
 }
 /* }}} */

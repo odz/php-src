@@ -53,6 +53,7 @@
 
 /* These globals don't have to be thread safe since they're never modified */
 
+#define TEMP_VAR_STACK_LIMIT 2000
 
 /* Prototypes */
 static zval get_overloaded_property(temp_variable *T TSRMLS_DC);
@@ -665,8 +666,8 @@ fetch_string_dim:
 				}
 			}
 			break;
-		case IS_DOUBLE:
 		case IS_RESOURCE:
+		case IS_DOUBLE:
 		case IS_BOOL:
 		case IS_LONG: {
 				long index;
@@ -1038,7 +1039,11 @@ ZEND_API void execute(zend_op_array *op_array TSRMLS_DC)
 	EX(ce) = NULL;
 	EX(object).ptr = NULL;
 	EX(op_array) = op_array;
-	EX(Ts) = (temp_variable *) safe_emalloc(sizeof(temp_variable), op_array->T, 0);
+ 	if (op_array->T < TEMP_VAR_STACK_LIMIT) {
+ 		EX(Ts) = (temp_variable *) do_alloca(sizeof(temp_variable) * op_array->T);
+ 	} else {
+ 		EX(Ts) = (temp_variable *) safe_emalloc(sizeof(temp_variable), op_array->T, 0);
+ 	}
 	EX(prev_execute_data) = EG(current_execute_data);
 	EX(original_in_execution)=EG(in_execution);
 
@@ -1757,7 +1762,11 @@ do_fcall_common:
 							(*EG(return_value_ptr_ptr))->is_ref = 0;
 						}
 					}
-					efree(EX(Ts));
+					if (EX(op_array)->T < TEMP_VAR_STACK_LIMIT) {
+						free_alloca(EX(Ts));
+					} else {
+						efree(EX(Ts));
+					}
 					EG(in_execution) = EX(original_in_execution);
 					EG(current_execute_data) = EX(prev_execute_data);
 					return;
@@ -2071,6 +2080,7 @@ send_by_ref:
 								zend_hash_update(array_ptr->value.ht, "", sizeof(""), &expr_ptr, sizeof(zval *), NULL);
 								break;
 							default:
+								zend_error(E_WARNING, "Illegal offset type");
 								zval_ptr_dtor(&expr_ptr);
 								/* do nothing */
 								break;
@@ -2277,7 +2287,7 @@ send_by_ref:
 										long index;
 
 										if (offset->type == IS_DOUBLE) {
-											index = (long) offset->value.lval;
+											index = (long) offset->value.dval;
 										} else {
 											index = offset->value.lval;
 										}

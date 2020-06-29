@@ -16,7 +16,7 @@
    |          Jani Taskinen <sniper@php.net>                              |
    +----------------------------------------------------------------------+
  */
-/* $Id: rfc1867.c,v 1.122.2.21.2.1 2004/07/13 13:15:31 iliaa Exp $ */
+/* $Id: rfc1867.c,v 1.122.2.26 2004/09/13 16:00:50 sesser Exp $ */
 
 /*
  *  This product includes software developed by the Apache Group
@@ -628,6 +628,7 @@ static char *php_ap_getword_conf(char **line TSRMLS_DC)
 
 	if ((quote = *str) == '"' || quote == '\'') {
 		strend = str + 1;
+look_for_quote:
 		while (*strend && *strend != quote) {
 			if (*strend == '\\' && strend[1] && strend[1] == quote) {
 				strend += 2;
@@ -635,6 +636,14 @@ static char *php_ap_getword_conf(char **line TSRMLS_DC)
 				++strend;
 			}
 		}
+		if (*strend && *strend == quote) {
+			char p = *(strend + 1);
+			if (p != '\r' && p != '\n' && p != '\0') {
+				strend++;
+				goto look_for_quote;
+			}
+		}
+
 		res = substring_conf(str + 1, strend - str - 1, quote TSRMLS_CC);
 
 		if (*strend == quote) {
@@ -772,7 +781,7 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 	zend_llist header;
 
 	if (SG(request_info).content_length > SG(post_max_size)) {
-		sapi_module.sapi_error(E_WARNING, "POST Content-Length of %d bytes exceeds the limit of %d bytes", SG(request_info).content_length, SG(post_max_size));
+		sapi_module.sapi_error(E_WARNING, "POST Content-Length of %ld bytes exceeds the limit of %ld bytes", SG(request_info).content_length, SG(post_max_size));
 		return;
 	}
 
@@ -923,6 +932,29 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 				}
 				SAFE_RETURN;
 			}
+			
+			/* New Rule: never repair potential malicious user input */
+			if (!skip_upload) {
+				char *tmp = param;
+				long c = 0;
+				
+				while (*tmp) {
+					if (*tmp == '[') {
+						c++;
+					} else if (*tmp == ']') {
+						c--;
+						if (tmp[1] && tmp[1] != '[') {
+							skip_upload = 1;
+							break;
+						}
+					}
+					if (c < 0) {
+						skip_upload = 1;
+						break;
+					}
+					tmp++;				
+				}
+			}
 
 			if (!skip_upload) {
 				/* Handle file */
@@ -960,7 +992,7 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 					wlen = fwrite(buff, 1, blen, fp);
 			
 					if (wlen < blen) {
-						sapi_module.sapi_error(E_WARNING, "Only %d bytes were written, expected to write %ld", wlen, blen);
+						sapi_module.sapi_error(E_WARNING, "Only %d bytes were written, expected to write %d", wlen, blen);
 						cancel_upload = UPLOAD_ERROR_C;
 					} else {
 						total_bytes += wlen;
@@ -991,10 +1023,6 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 			 * start_arr is set to point to 1st [
 			 */
 			is_arr_upload =	(start_arr = strchr(param,'[')) && (param[strlen(param)-1] == ']');
-			/* handle unterminated [ */
-			if (!is_arr_upload && start_arr) {
-				*start_arr = '_';
-			}
 
 			if (is_arr_upload) {
 				array_len = strlen(start_arr);

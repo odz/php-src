@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: pdf.c,v 1.112.2.9 2004/02/28 22:58:56 iliaa Exp $ */
+/* $Id: pdf.c,v 1.112.2.11 2004/09/13 17:12:13 rjs Exp $ */
 
 /* pdflib 2.02 ... 3.0x is subject to the ALADDIN FREE PUBLIC LICENSE.
    Copyright (C) 1997-1999 Thomas Merz. 2000-2001 PDFlib GmbH */
@@ -331,7 +331,7 @@ PHP_MINFO_FUNCTION(pdf)
 #else
 	php_info_print_table_row(2, "PDFlib GmbH Version", tmp );
 #endif
-	php_info_print_table_row(2, "Revision", "$Revision: 1.112.2.9 $" );
+	php_info_print_table_row(2, "Revision", "$Revision: 1.112.2.11 $" );
 	php_info_print_table_end();
 
 }

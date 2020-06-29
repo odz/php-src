@@ -389,8 +389,8 @@ static void alloc_globals_ctor(zend_alloc_globals *alloc_globals_p TSRMLS_DC)
 }
 
 
-#ifdef __FreeBSD__
-/* FreeBSD floating point precision fix */
+#if defined(__FreeBSD__) || defined(__DragonFly__)
+/* FreeBSD and DragonFly floating point precision fix */
 #include <floatingpoint.h>
 #endif
 
@@ -430,8 +430,8 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 	alloc_globals_ctor(&alloc_globals TSRMLS_CC);
 #endif
 
-#ifdef __FreeBSD__
-	/* FreeBSD floating point precision fix */
+#if defined(__FreeBSD__) || defined(__DragonFly__)
+	/* FreeBSD and DragonFly floating point precision fix */
 	fpsetmask(0);
 #endif
 
@@ -889,7 +889,7 @@ ZEND_API int zend_execute_scripts(int type TSRMLS_DC, zval **retval, int file_co
 		if (EG(active_op_array)) {
 			EG(return_value_ptr_ptr) = retval ? retval : &local_retval;
 			zend_execute(EG(active_op_array) TSRMLS_CC);
-			if (!retval) {
+			if (retval == NULL && *EG(return_value_ptr_ptr) != NULL) {
 				zval_ptr_dtor(EG(return_value_ptr_ptr));
 				local_retval = NULL;
 			}

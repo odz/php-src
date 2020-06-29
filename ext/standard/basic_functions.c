@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: basic_functions.c,v 1.543.2.38 2004/05/24 17:02:31 iliaa Exp $ */
+/* $Id: basic_functions.c,v 1.543.2.41 2004/07/30 16:52:35 fmk Exp $ */
 
 #include "php.h"
 #include "php_streams.h"
@@ -31,6 +31,10 @@
 #include "ext/standard/info.h"
 #include "ext/session/php_session.h"
 #include "zend_operators.h"
+
+#ifdef PHP_WIN32
+#include "win32/php_win32_globals.h"
+#endif
 
 #include <stdarg.h>
 #include <stdlib.h>
@@ -1037,8 +1041,14 @@ PHP_MINIT_FUNCTION(basic)
 {
 #ifdef ZTS
 	ts_allocate_id(&basic_globals_id, sizeof(php_basic_globals), (ts_allocate_ctor) basic_globals_ctor, (ts_allocate_dtor) basic_globals_dtor);
+#ifdef PHP_WIN32
+	ts_allocate_id(&php_win32_core_globals_id, sizeof(php_win32_core_globals), (ts_allocate_ctor)php_win32_core_globals_ctor, NULL);
+#endif
 #else
 	basic_globals_ctor(&basic_globals TSRMLS_CC);
+#ifdef PHP_WIN32
+	php_win32_core_globals_ctor(&php_win32_core_globals TSRMLS_CC);
+#endif
 #endif
 
 	REGISTER_LONG_CONSTANT("CONNECTION_ABORTED", PHP_CONNECTION_ABORTED, CONST_CS | CONST_PERSISTENT);
@@ -1125,6 +1135,9 @@ PHP_MSHUTDOWN_FUNCTION(basic)
 {
 #ifdef ZTS
 	ts_free_id(basic_globals_id);
+#ifdef PHP_WIN32
+	ts_free_id(php_win32_core_globals_id);
+#endif
 #else
 	basic_globals_dtor(&basic_globals TSRMLS_CC);
 #endif
@@ -1188,6 +1201,9 @@ PHP_RINIT_FUNCTION(basic)
 	/* Reset magic_quotes_runtime */
 	PG(magic_quotes_runtime) = INI_BOOL("magic_quotes_runtime");
 
+	/* Default to global wrappers only */
+	FG(stream_wrappers) = NULL;
+
 	return SUCCESS;
 }
 
@@ -1210,6 +1226,12 @@ PHP_RSHUTDOWN_FUNCTION(basic)
 		setlocale(LC_CTYPE, "");
 	}
 	STR_FREE(BG(locale_string));
+
+	if (FG(stream_wrappers)) {
+		zend_hash_destroy(FG(stream_wrappers));
+		efree(FG(stream_wrappers));
+		FG(stream_wrappers) = NULL;
+ 	}
 
 	PHP_RSHUTDOWN(fsock) (SHUTDOWN_FUNC_ARGS_PASSTHRU);
 	PHP_RSHUTDOWN(filestat) (SHUTDOWN_FUNC_ARGS_PASSTHRU);

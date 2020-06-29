@@ -199,6 +199,11 @@ PHP_FUNCTION(dio_read)
 	}
 	ZEND_FETCH_RESOURCE(f, php_fd_t *, &r_fd, -1, le_fd_name, le_fd);
 
+	if (bytes <= 0) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Length parameter must be greater than 0.");
+		RETURN_FALSE;
+	}
+
 	data = emalloc(bytes + 1);
 	res = read(f->fd, data, bytes);
 	if (res <= 0) {
@@ -227,6 +232,12 @@ PHP_FUNCTION(dio_write)
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs|l", &r_fd, &data, &data_len, &trunc_len) == FAILURE) {
 		return;
 	}
+
+	if (trunc_len < 0 || trunc_len > data_len) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "length must be greater or equal to zero and less then the length of the specified string.");
+		RETURN_FALSE;
+ 	}
+
 	ZEND_FETCH_RESOURCE(f, php_fd_t *, &r_fd, -1, le_fd_name, le_fd);
 
 	res = write(f->fd, data, trunc_len ? trunc_len : data_len);

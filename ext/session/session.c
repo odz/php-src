@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: session.c,v 1.336.2.39.2.1 2004/07/13 13:15:29 iliaa Exp $ */
+/* $Id: session.c,v 1.336.2.42 2004/09/03 00:53:46 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -436,6 +436,11 @@ PS_SERIALIZER_ENCODE_FUNC(php)
 
 	PS_ENCODE_LOOP(
 			smart_str_appendl(&buf, key, (unsigned char) key_length);
+			if (memchr(key, PS_DELIMITER, key_length)) {
+				PHP_VAR_SERIALIZE_DESTROY(var_hash);
+				smart_str_free(&buf);				
+				return FAILURE;
+			}
 			smart_str_appendc(&buf, PS_DELIMITER);
 			
 			php_var_serialize(&buf, struc, &var_hash TSRMLS_CC);
@@ -933,8 +938,9 @@ static void php_session_reset_id(TSRMLS_D)
 {
 	int module_number = PS(module_number);
 	
-	if (PS(use_cookies)) {
+	if (PS(use_cookies) && PS(send_cookie)) {
 		php_session_send_cookie(TSRMLS_C);
+		PS(send_cookie) = 0;
 	}
 
 	/* if the SID constant exists, destroy it. */
@@ -1286,6 +1292,7 @@ PHP_FUNCTION(session_regenerate_id)
 	
 		PS(id) = PS(mod)->s_create_sid(&PS(mod_data), NULL TSRMLS_CC);
 
+		PS(send_cookie) = 1;
 		php_session_reset_id(TSRMLS_C);
 		
 		RETURN_TRUE;

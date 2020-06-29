@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: gd.c,v 1.221.2.42 2004/05/20 23:38:05 iliaa Exp $ */
+/* $Id: gd.c,v 1.221.2.45 2004/08/16 23:08:54 iliaa Exp $ */
 
 /* gd 1.2 is copyright 1994, 1995, Quest Protein Database Center, 
    Cold Spring Harbor Labs. */
@@ -35,6 +35,7 @@
 #include "SAPI.h"
 #include "php_gd.h"
 #include "ext/standard/info.h"
+#include "php_open_temporary_file.h"
 
 #if HAVE_SYS_WAIT_H
 # include <sys/wait.h>
@@ -105,6 +106,10 @@ extern int gdImageColorResolve(gdImagePtr, int, int, int);
 
 #if HAVE_COLORCLOSESTHWB
 int gdImageColorClosestHWB(gdImagePtr im, int r, int g, int b);
+#endif
+
+#ifndef HAVE_GD_DYNAMIC_CTX_EX
+#define gdNewDynamicCtxEx(len, data, val) gdNewDynamicCtx(len, data)
 #endif
 
 static gdImagePtr _php_image_create_from_string (zval **Data, char *tn, gdImagePtr (*ioctx_func_p)() TSRMLS_DC);
@@ -390,7 +395,7 @@ PHP_RSHUTDOWN_FUNCTION(gd)
 /* }}} */
 
 #if HAVE_GD_BUNDLED
-#define PHP_GD_VERSION_STRING "bundled (2.0.23 compatible)"
+#define PHP_GD_VERSION_STRING "bundled (2.0.28 compatible)"
 #elif HAVE_LIBGD20
 #define PHP_GD_VERSION_STRING "2.0 or higher"
 #elif HAVE_GDIMAGECOLORRESOLVE
@@ -1242,7 +1247,7 @@ static int _php_image_type (char data[8])
 #ifdef HAVE_GD_WBMP
 	else {
 		gdIOCtx *io_ctx;
-		io_ctx = gdNewDynamicCtx (8, data);
+		io_ctx = gdNewDynamicCtxEx (8, data, 0);
 		if (io_ctx) {
 			if (getmbi((int(*)(void*))gdGetC, io_ctx) == 0 && skipheader((int(*)(void*))gdGetC, io_ctx) == 0 ) {
 #if HAVE_LIBGD204
@@ -1274,7 +1279,7 @@ gdImagePtr _php_image_create_from_string(zval **data, char *tn, gdImagePtr (*ioc
 	gdImagePtr im;
 	gdIOCtx *io_ctx;
 
-	io_ctx = gdNewDynamicCtx (Z_STRLEN_PP(data), Z_STRVAL_PP(data));
+	io_ctx = gdNewDynamicCtxEx(Z_STRLEN_PP(data), Z_STRVAL_PP(data), 0);
 
 	if (!io_ctx) {
 		return NULL;
@@ -1428,7 +1433,7 @@ static void _php_image_create_from(INTERNAL_FUNCTION_PARAMETERS, int image_type,
 			goto out_err;
 		}
 
-		io_ctx = gdNewDynamicCtx(buff_size, buff);
+		io_ctx = gdNewDynamicCtxEx(buff_size, buff, 0);
 		if(!io_ctx) {
 			php_error_docref(NULL TSRMLS_CC, E_WARNING,"Cannot allocate GD IO context");
 			goto out_err;
@@ -1659,7 +1664,7 @@ static void _php_image_output(INTERNAL_FUNCTION_PARAMETERS, int image_type, char
 		FILE *tmp;
 		char  buf[4096];
 
-		tmp = tmpfile();
+		tmp = php_open_temporary_file("", "", NULL TSRMLS_CC);
 		if (tmp == NULL) {
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to open temporary file");
 			RETURN_FALSE;

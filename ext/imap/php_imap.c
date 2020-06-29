@@ -26,7 +26,7 @@
    | PHP 4.0 updates:  Zeev Suraski <zeev@zend.com>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_imap.c,v 1.142.2.23.2.1 2004/07/13 13:15:27 iliaa Exp $ */
+/* $Id: php_imap.c,v 1.142.2.28 2004/08/12 19:32:59 chagenbu Exp $ */
 
 #define IMAP41
 
@@ -112,7 +112,7 @@ function_entry imap_functions[] = {
 	PHP_FE(imap_qprint,								NULL)
 	PHP_FE(imap_8bit,								NULL)
 	PHP_FE(imap_binary,								NULL)
-	PHP_FE(imap_utf8,      						 	NULL)
+	PHP_FE(imap_utf8,								NULL)
 	PHP_FE(imap_status,								NULL)
 	PHP_FE(imap_mailboxmsginfo,						NULL)
 	PHP_FE(imap_setflag_full,						NULL)
@@ -131,7 +131,7 @@ function_entry imap_functions[] = {
 	PHP_FE(imap_utf7_encode,						NULL)
 	PHP_FE(imap_mime_header_decode,					NULL)
 	PHP_FE(imap_thread,								NULL)
-	PHP_FE(imap_timeout,								NULL)
+	PHP_FE(imap_timeout,							NULL)
 
 #if defined(HAVE_IMAP2000) || defined(HAVE_IMAP2001)
 	PHP_FE(imap_get_quota,							NULL)
@@ -142,12 +142,12 @@ function_entry imap_functions[] = {
 
 	PHP_FE(imap_mail,								NULL)
 
-	PHP_FALIAS(imap_header, 		imap_headerinfo,	NULL)
-	PHP_FALIAS(imap_listmailbox, 	imap_list,			NULL)
-	PHP_FALIAS(imap_getmailboxes, 	imap_list_full,		NULL)
-	PHP_FALIAS(imap_scanmailbox, 	imap_listscan,		NULL)
-	PHP_FALIAS(imap_listsubscribed, imap_lsub,			NULL)
-	PHP_FALIAS(imap_getsubscribed, 	imap_lsub_full,		NULL)
+	PHP_FALIAS(imap_header,			imap_headerinfo,	NULL)
+	PHP_FALIAS(imap_listmailbox,	imap_list,			NULL)
+	PHP_FALIAS(imap_getmailboxes,	imap_list_full,		NULL)
+	PHP_FALIAS(imap_scanmailbox,	imap_listscan,		NULL)
+	PHP_FALIAS(imap_listsubscribed,	imap_lsub,			NULL)
+	PHP_FALIAS(imap_getsubscribed,	imap_lsub_full,		NULL)
 	PHP_FALIAS(imap_fetchtext,		imap_body,			NULL)
 	PHP_FALIAS(imap_scan,			imap_listscan,		NULL)
 	PHP_FALIAS(imap_create,			imap_createmailbox,	NULL)
@@ -180,6 +180,12 @@ ZEND_GET_MODULE(imap)
 
 /* True globals, no need for thread safety */
 static int le_imap;
+
+#define PHP_IMAP_CHECK_MSGNO(msgindex)	\
+	if ((msgindex < 1) || ((unsigned) msgindex > imap_le_struct->imap_stream->nmsgs)) {	\
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Bad message number");	\
+		RETURN_FALSE;	\
+	}	\
 
 /* {{{ mail_close_it
  */
@@ -1485,10 +1491,7 @@ PHP_FUNCTION(imap_headerinfo)
 		convert_to_string_ex(defaulthost);
 	}
 	
-	if (!Z_LVAL_PP(msgno) || Z_LVAL_PP(msgno) < 1 || (unsigned) Z_LVAL_PP(msgno) > imap_le_struct->imap_stream->nmsgs) {
-		php_error(E_WARNING, "%s(): Bad message number", get_active_function_name(TSRMLS_C));
-		RETURN_FALSE;
-	}
+	PHP_IMAP_CHECK_MSGNO(Z_LVAL_PP(msgno));
 	
 	if (mail_fetchstructure(imap_le_struct->imap_stream, Z_LVAL_PP(msgno), NIL)) {
 		cache = mail_elt(imap_le_struct->imap_stream, Z_LVAL_PP(msgno));
@@ -1737,10 +1740,8 @@ PHP_FUNCTION(imap_fetchstructure)
 	} else {
 		msgindex = Z_LVAL_PP(msgno);
 	}
-	if ((msgindex < 1) || ((unsigned) msgindex > imap_le_struct->imap_stream->nmsgs)) {
-		php_error(E_WARNING, "%s(): Bad message number", get_active_function_name(TSRMLS_C));
-		RETURN_FALSE;
-	}
+
+	PHP_IMAP_CHECK_MSGNO(msgindex);
 
 	mail_fetchstructure_full(imap_le_struct->imap_stream, Z_LVAL_PP(msgno), &body , myargc == 3 ? Z_LVAL_PP(flags) : NIL);
 	
@@ -1774,7 +1775,12 @@ PHP_FUNCTION(imap_fetchbody)
 	if (myargc == 4) {
 		convert_to_long_ex(flags);
 	}
- 
+
+	if (myargc < 4 || !(Z_LVAL_PP(flags) & FT_UID)) {
+		/* only perform the check if the msgno is a message number and not a UID */
+		PHP_IMAP_CHECK_MSGNO(Z_LVAL_PP(msgno));
+	}
+
 	body = mail_fetchbody_full(imap_le_struct->imap_stream, Z_LVAL_PP(msgno), Z_STRVAL_PP(sec), &len, myargc==4 ? Z_LVAL_PP(flags) : NIL);
 
 	if (!body) {
@@ -2478,10 +2484,7 @@ PHP_FUNCTION(imap_fetchheader)
 		msgindex = Z_LVAL_PP(msgno);
 	}
 
-	if ((msgindex < 1) || ((unsigned) msgindex > imap_le_struct->imap_stream->nmsgs)) {
-		php_error(E_WARNING, "%s(): Bad message number", get_active_function_name(TSRMLS_C));
-		RETURN_FALSE;
-	}
+	PHP_IMAP_CHECK_MSGNO(msgindex);
 
 	RETVAL_STRING(mail_fetchheader_full(imap_le_struct->imap_stream, Z_LVAL_PP(msgno), NIL, NIL, (myargc == 3 ? Z_LVAL_PP(flags) : NIL)), 1);
 }

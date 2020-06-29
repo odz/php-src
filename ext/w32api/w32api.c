@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: w32api.c,v 1.5.2.2.4.1 2004/07/13 13:15:30 iliaa Exp $ */
+/* $Id: w32api.c,v 1.5.2.4 2004/07/21 16:25:27 sesser Exp $ */
 
 /*
  * Win32 API Extension for PHP 4
@@ -1516,7 +1516,7 @@ W32API_CLASS_FUNCTION(win32, unregisterfunction)
 	int function_name_len;
 	w32api_func_handle **fh = NULL;
 	
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|l",
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s",
 							 &function_name,
 							 &function_name_len) == FAILURE)
 	{
@@ -1542,7 +1542,7 @@ W32API_CLASS_FUNCTION(win32, registercallback)
 	int function_definition_len;
 	w32api_func_handle **fh = NULL;
 	
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|l",
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s",
 							 &function_definition,
 							 &function_definition_len) == FAILURE)
 	{

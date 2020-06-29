@@ -1478,7 +1478,13 @@
 #undef HAVE_GD_GIF_READ
 
 /*   */
+#undef HAVE_GD_GIF_CREATE
+
+/*   */
 #undef HAVE_GD_IMAGEELLIPSE
+
+/*   */
+#undef HAVE_GD_DYNAMIC_CTX_EX
 
 /*   */
 #undef HAVE_GD_JPG
@@ -1575,6 +1581,9 @@
 
 /*   */
 #undef HAVE_GD_THREAD_SAFE
+
+/*   */
+#undef HAVE_GD_DYNAMIC_CTX_EX
 
 /*   */
 #undef HAVE_LIBGD204

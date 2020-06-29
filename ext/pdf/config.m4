@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.35.2.2 2003/07/14 03:58:47 sniper Exp $
+dnl $Id: config.m4,v 1.35.2.4 2004/09/13 17:12:13 rjs Exp $
 dnl
 
 PHP_ARG_WITH(pdflib,for PDFlib support,
