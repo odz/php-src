@@ -16,7 +16,7 @@
 // |          Sebastian Bergmann <sb@sebastian-bergmann.de>               |
 // +----------------------------------------------------------------------+
 //
-// $Id: phplib.php,v 1.10 2001/03/08 20:39:16 uw Exp $
+// $Id: phplib.php,v 1.13 2001/05/05 17:22:20 chregu Exp $
 
 require_once 'Cache/Container.php';
 
@@ -30,9 +30,8 @@ require_once 'Cache/Container.php';
 * about other databases. Please add sugestions for other databases to 
 * the inline docs.
 *
-* The field 'changed' has no meaning for the Cache itself. It's just there 
-* because it's a good idea to have an automatically updated timestamp
-* field for debugging in all of your tables.
+* The field 'changed' is used by the garbage collection. Depending on 
+* your databasesystem you might have to subclass fetch() and garbageCollection().
 *
 * For _MySQL_ you need this DB table:
 *
@@ -51,7 +50,7 @@ require_once 'Cache/Container.php';
 *
 * 
 * @author   Ulf Wendel  <ulf.wendel@phpdoc.de>, Sebastian Bergmann <sb@sebastian-bergmann.de>
-* @version  $Id: phplib.php,v 1.10 2001/03/08 20:39:16 uw Exp $
+* @version  $Id: phplib.php,v 1.13 2001/05/05 17:22:20 chregu Exp $
 * @package  Cache
 * @see      save()
 */
@@ -119,7 +118,7 @@ class Cache_Container_phplib extends Cache_Container {
     */
     function Cache_Container_phplib($options = "") {
         if (is_array($options))
-            $this->setOptions($options, array("db_class", "db_file", "db_path", "local_file", "local_path"));
+            $this->setOptions($options,  array_merge($this->allowed_options, array("db_class", "db_file", "db_path", "local_file", "local_path")));
 
         if (!$this->db_class)
             return new Cache_Error("No database class specified.", __FILE__, __LINE__);
@@ -145,6 +144,14 @@ class Cache_Container_phplib extends Cache_Container {
         if (!$this->db->Next_Record())
             return array(NULL, NULL, NULL);
 
+        // last used required by the garbage collection   
+        // WARNING: might be MySQL specific         
+        $query = sprintf("UPDATE %s SET changed = (NOW() + 0) WHERE id = '%s' AND cachegroup = '%s'",
+                            $this->cache_table,
+                            $id,
+                            $group
+                          );
+        $this->db->query($query);
         return array($this->db->f("expires"), $this->decode($this->db->f("cachedata")), $this->db->f("userdata"));
     } // end func fetch
 
@@ -207,16 +214,46 @@ class Cache_Container_phplib extends Cache_Container {
         return (boolean)$this->db->nf();                         
     } // end func isExists
 
-    function garbageCollection() {
+    function garbageCollection($maxlifetime) {
         $this->flushPreload();
 
         $this->db->query( 
-                        sprintf("DELETE FORM %s WHERE expires <= %d AND expires > 0", 
+                        sprintf("DELETE FROM %s WHERE (expires <= %d AND expires > 0) OR changed <= (NOW() - %d)",
                             $this->cache_table, 
-                            time()
+                            time(),
+                            $maxlifetime
                         )
                     );
 
+        //check for total size of cache
+        $query = sprintf('select sum(length(cachedata)) as CacheSize from %s',
+                         $this->cache_table
+                       );
+
+        $this->db->query($query);
+        $this->db->Next_Record();
+        $cachesize = $this->db->f("CacheSize");
+        //if cache is to big.
+        if ($cachesize > $this->highwater)
+        {
+            //find the lowwater mark.
+            $query = sprintf('select length(cachedata) as size, changed from %s order by changed DESC',
+                                     $this->cache_table
+                       );
+            $this->db->query($query);
+
+            $keep_size=0;
+            while ($keep_size < $this->lowwater && $this->db->Next_Record() )
+            {
+                $keep_size += $this->db->f("size");
+            }
+            //delete all entries, which were changed before the "lowwwater mark"
+            $query = sprintf('delete from %s where changed <= '.$this->db->f("changed"),
+                                     $this->cache_table
+                                   );
+
+            $this->db->query($query);
+        }
     } // end func garbageCollection
 }
 ?>

@@ -1,29 +1,32 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0													  |
+   | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group				                  |
+   | Copyright (c) 1997-2001 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,	  |
-   | that is bundled with this package in the file LICENSE, and is		  |
-   | available at through the world-wide-web at						      |
-   | http://www.php.net/license/2_02.txt.								  |
+   | This source file is subject to version 2.02 of the PHP license,      |
+   | that is bundled with this package in the file LICENSE, and is        |
+   | available at through the world-wide-web at                           |
+   | http://www.php.net/license/2_02.txt.                                 |
    | If you did not receive a copy of the PHP license and are unable to   |
-   | obtain it through the world-wide-web, please send a note to		  |
-   | license@php.net so we can mail you a copy immediately.			      |
+   | obtain it through the world-wide-web, please send a note to          |
+   | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Zeev Suraski <zeev@zend.com>								  |
+   | Author: Zeev Suraski <zeev@zend.com>                                 |
    +----------------------------------------------------------------------+
  */
 
 
 #include "php.h"
+#ifndef PHP_WIN32
+#include "build-defs.h"
+#endif
 #include "ext/standard/info.h"
 #include "zend_ini.h"
 #include "php_ini.h"
 #include "ext/standard/dl.h"
 #include "zend_extensions.h"
-
+#include "zend_highlight.h"
 
 typedef struct _php_extension_lists {
 	zend_llist engine;
@@ -43,12 +46,13 @@ static void php_ini_displayer_cb(zend_ini_entry *ini_entry, int type)
 		ini_entry->displayer(ini_entry, type);
 	} else {
 		char *display_string;
-		uint display_string_length;
+		uint display_string_length, esc_html=0;
 
 		if (type==ZEND_INI_DISPLAY_ORIG && ini_entry->modified) {
 			if (ini_entry->orig_value) {
 				display_string = ini_entry->orig_value;
 				display_string_length = ini_entry->orig_value_length;
+				esc_html=1;
 			} else {
 				display_string = "<i>no value</i>";
 				display_string_length = sizeof("<i>no value</i>")-1;
@@ -56,11 +60,16 @@ static void php_ini_displayer_cb(zend_ini_entry *ini_entry, int type)
 		} else if (ini_entry->value && ini_entry->value[0]) {
 			display_string = ini_entry->value;
 			display_string_length = ini_entry->value_length;
+			esc_html=1;
 		} else {
 			display_string = "<i>no value</i>";
 			display_string_length = sizeof("<i>no value</i>")-1;
 		}
-		PHPWRITE(display_string, display_string_length);
+		if(esc_html) {
+			zend_html_puts(display_string, display_string_length);
+		} else {
+			PHPWRITE(display_string, display_string_length);
+		}
 	}
 }
 
@@ -185,8 +194,8 @@ int php_init_config(char *php_ini_path_override)
 		return FAILURE;
 	}
 
-	zend_llist_init(&extension_lists.engine, sizeof(zval), free_estring, 1);
-	zend_llist_init(&extension_lists.functions, sizeof(zval), ZVAL_DESTRUCTOR, 1);
+	zend_llist_init(&extension_lists.engine, sizeof(zval), (llist_dtor_func_t) free_estring, 1);
+	zend_llist_init(&extension_lists.functions, sizeof(zval), (llist_dtor_func_t)  ZVAL_DESTRUCTOR, 1);
 	
 	safe_mode_state = PG(safe_mode);
 	open_basedir = PG(open_basedir);
@@ -210,7 +219,7 @@ int php_init_config(char *php_ini_path_override)
 		}
 		free_default_location=1;
 #else
-		default_location = CONFIGURATION_FILE_PATH;
+		default_location = PHP_CONFIG_FILE_PATH;
 		free_default_location=0;
 #endif
 		php_ini_search_path = (char *) emalloc(sizeof(".")+strlen(env_location)+strlen(default_location)+2+1);
@@ -332,3 +341,11 @@ PHPAPI int cfg_get_string(char *varname, char **result)
 	*result = tmp->value.str.val;
 	return SUCCESS;
 }
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * indent-tabs-mode: t
+ * End:
+ */

@@ -17,7 +17,7 @@
    | PHP 4.0 patches by Zeev Suraski <zeev@zend.com>                      |
    +----------------------------------------------------------------------+
  */
-/* $Id: mod_php4.c,v 1.91 2001/03/06 15:10:53 zeev Exp $ */
+/* $Id: mod_php4.c,v 1.94.2.4 2001/05/16 18:26:08 sterling Exp $ */
 
 #define NO_REGEX_EXTRA_H
 #ifdef WIN32
@@ -69,9 +69,9 @@ int sapi_apache_read_post(char *buffer, uint count_bytes SLS_DC);
 char *sapi_apache_read_cookies(SLS_D);
 int sapi_apache_header_handler(sapi_header_struct *sapi_header, sapi_headers_struct *sapi_headers SLS_DC);
 int sapi_apache_send_headers(sapi_headers_struct *sapi_headers SLS_DC);
-int send_php(request_rec *r, int display_source_mode, char *filename);
-int send_parsed_php(request_rec * r);
-int send_parsed_php_source(request_rec * r);
+static int send_php(request_rec *r, int display_source_mode, char *filename);
+static int send_parsed_php(request_rec * r);
+static int send_parsed_php_source(request_rec * r);
 int php_xbithack_handler(request_rec * r);
 void php_init_handler(server_rec *s, pool *p);
 
@@ -256,8 +256,8 @@ static void sapi_apache_register_server_variables(zval *track_vars_array ELS_DC 
 
 static int php_apache_startup(sapi_module_struct *sapi_module)
 {
-	if(php_module_startup(sapi_module) == FAILURE
-	|| zend_startup_module(&apache_module_entry) == FAILURE) {
+	if (php_module_startup(sapi_module) == FAILURE
+		|| zend_startup_module(&apache_module_entry) == FAILURE) {
 		return FAILURE;
 	} else {
 		return SUCCESS;
@@ -285,7 +285,9 @@ static void php_apache_log_message(char *message)
 static void php_apache_request_shutdown(void *dummy)
 {
 	SLS_FETCH();
+	APLS_FETCH();
 
+	AP(in_request)=0;
 	SG(server_context) = NULL; /* The server context (request) is invalid by the time run_cleanups() is called */
 	php_request_shutdown(dummy);
 }
@@ -293,7 +295,8 @@ static void php_apache_request_shutdown(void *dummy)
 
 static int php_apache_sapi_activate(SLS_D)
 {
-	request_rec *r = ((request_rec *) SG(server_context));
+	request_rec *r = (request_rec *) SG(server_context);
+	APLS_FETCH();
 
 	/*
 	 * For the Apache module version, this bit of code registers a cleanup
@@ -304,7 +307,8 @@ static int php_apache_sapi_activate(SLS_D)
 	 * memory.  
 	 */
 	block_alarms();
-	register_cleanup(((request_rec *) SG(server_context))->pool, NULL, php_apache_request_shutdown, php_request_shutdown_for_exec);
+	register_cleanup(r->pool, NULL, php_apache_request_shutdown, php_request_shutdown_for_exec);
+	AP(in_request)=1;
 	unblock_alarms();
 
 	/* Override the default headers_only value - sometimes "GET" requests should actually only
@@ -415,7 +419,7 @@ static void init_request_info(SLS_D)
 
 static int php_apache_alter_ini_entries(php_per_dir_entry *per_dir_entry)
 {
-	zend_alter_ini_entry(per_dir_entry->key, per_dir_entry->key_length+1, per_dir_entry->value, per_dir_entry->value_length+1, per_dir_entry->type, PHP_INI_STAGE_ACTIVATE);
+	zend_alter_ini_entry(per_dir_entry->key, per_dir_entry->key_length+1, per_dir_entry->value, per_dir_entry->value_length, per_dir_entry->type, PHP_INI_STAGE_ACTIVATE);
 	return 0;
 }
 
@@ -436,7 +440,7 @@ static char *php_apache_get_default_mimetype(request_rec *r SLS_DC)
 	return mimetype;
 }
 
-int send_php(request_rec *r, int display_source_mode, char *filename)
+static int send_php(request_rec *r, int display_source_mode, char *filename)
 {
 	int retval;
 	HashTable *per_dir_conf;
@@ -445,6 +449,17 @@ int send_php(request_rec *r, int display_source_mode, char *filename)
 	CLS_FETCH();
 	PLS_FETCH();
 	APLS_FETCH();
+
+	if (AP(in_request)) {
+		zend_file_handle fh;
+
+		fh.filename = r->filename;
+		fh.opened_path = NULL;
+		fh.free_filename = 0;
+		fh.type = ZEND_HANDLE_FILENAME;
+		zend_execute_scripts(ZEND_INCLUDE CLS_CC ELS_CC, 1, &fh);
+		return OK;
+	}
 
 	if (setjmp(EG(bailout))!=0) {
 		return OK;
@@ -527,13 +542,13 @@ int send_php(request_rec *r, int display_source_mode, char *filename)
 }
 
 
-int send_parsed_php(request_rec * r)
+static int send_parsed_php(request_rec * r)
 {
 	return send_php(r, 0, NULL);
 }
 
 
-int send_parsed_php_source(request_rec * r)
+static int send_parsed_php_source(request_rec * r)
 {
 	return send_php(r, 1, NULL);
 }

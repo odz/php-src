@@ -10,7 +10,7 @@ if (!extension_loaded("oci8")) {
 if (!extension_loaded("oci8")) {
     die("skip\n");
 }
-$conn = @OCILogon("test", "test", "test");
+$conn = @OCILogon("system", "manager", "test");
 if (!is_resource($conn)) {
     die("skip\n");
 }

@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: basic_functions.c,v 1.315.2.3 2001/03/28 22:51:34 zeev Exp $ */
+/* $Id: basic_functions.c,v 1.331.2.3 2001/05/20 00:31:45 derick Exp $ */
 
 #include "php.h"
 #include "php_main.h"
@@ -47,6 +47,9 @@
 #endif
 #if HAVE_LOCALE_H
 #include <locale.h>
+#endif
+#if HAVE_SYS_MMAN_H
+#include <sys/mman.h>
 #endif
 #include "safe_mode.h"
 #ifdef PHP_WIN32
@@ -234,7 +237,10 @@ function_entry basic_functions[] = {
 	PHP_FE(mt_rand,									NULL)
 	PHP_FE(mt_srand,								NULL)
 	PHP_FE(mt_getrandmax,							NULL)
+
+#if HAVE_GETSERVBYNAME
 	PHP_FE(getservbyname, NULL)
+#endif
 #if HAVE_GETSERVBYPORT
 	PHP_FE(getservbyport, NULL)
 #endif
@@ -244,6 +250,7 @@ function_entry basic_functions[] = {
 #if HAVE_GETPROTOBYNUMBER
 	PHP_FE(getprotobynumber, NULL)
 #endif
+
 	PHP_FE(gethostbyaddr,							NULL)
 	PHP_FE(gethostbyname,							NULL)
 	PHP_FE(gethostbynamel,							NULL)
@@ -336,6 +343,7 @@ function_entry basic_functions[] = {
 	PHP_FE(is_array,								first_arg_allow_ref)
 	PHP_FE(is_object,								first_arg_allow_ref)
     PHP_FE(is_scalar,                               NULL)
+	PHP_FE(is_callable,								third_argument_force_ref)
 
 	PHP_FE(error_log,								NULL)
 	PHP_FE(call_user_func,							NULL)
@@ -430,6 +438,11 @@ function_entry basic_functions[] = {
 	   use socket_set_blocking() instead */
 	PHP_FE(set_socket_blocking,	NULL)
 	PHP_FE(socket_set_blocking,	NULL)
+#if HAVE_PHP_STREAM
+	PHP_FE(fopenstream,			NULL)
+#else
+	PHP_FALIAS(fopenstream, warn_not_available,      NULL)
+#endif
 #if HAVE_SYS_TIME_H
 	PHP_FE(socket_set_timeout,	NULL)
 #else
@@ -581,6 +594,9 @@ function_entry basic_functions[] = {
 	PHP_FE(array_intersect,							NULL)
 	PHP_FE(array_diff,							    NULL)
 	PHP_FE(array_sum,							    NULL)
+	PHP_FE(array_filter,						    NULL)
+	PHP_FE(array_map,							    NULL)
+	PHP_FE(key_exists,								NULL)
 
 	/* aliases from array.c */
 	PHP_FALIAS(pos,				current,			first_arg_force_ref)
@@ -739,13 +755,16 @@ PHP_MINIT_FUNCTION(basic)
 	PHP_MINIT(file)(INIT_FUNC_ARGS_PASSTHRU);
 	PHP_MINIT(pack)(INIT_FUNC_ARGS_PASSTHRU);
 	PHP_MINIT(browscap)(INIT_FUNC_ARGS_PASSTHRU);
-	PHP_MINIT(lcg)(INIT_FUNC_ARGS_PASSTHRU);
 #if defined(HAVE_LOCALECONV) && defined(ZTS)
 	PHP_MINIT(localeconv)(INIT_FUNC_ARGS_PASSTHRU);
 #endif
 
 #if HAVE_CRYPT
 	PHP_MINIT(crypt)(INIT_FUNC_ARGS_PASSTHRU);
+#endif
+
+#ifdef ZTS
+	PHP_MINIT(lcg)(INIT_FUNC_ARGS_PASSTHRU);
 #endif
 
 	PHP_MINIT(dir)(INIT_FUNC_ARGS_PASSTHRU);
@@ -816,6 +835,9 @@ PHP_RINIT_FUNCTION(basic)
 	BG(user_compare_func_name) = NULL;
 	BG(array_walk_func_name) = NULL;
 	BG(incomplete_class) = NULL;
+#ifdef HAVE_MMAP
+	BG(mmap_file) = NULL;
+#endif
 	BG(page_uid) = -1;
 	BG(page_inode) = -1;
 	BG(page_mtime) = -1;
@@ -825,6 +847,14 @@ PHP_RINIT_FUNCTION(basic)
 	}
 #endif
 	BG(user_shutdown_function_names)=NULL;
+
+#if HAVE_CRYPT
+	PHP_RINIT(crypt)(INIT_FUNC_ARGS_PASSTHRU);
+#endif
+
+#ifndef ZTS
+	PHP_RINIT(lcg)(INIT_FUNC_ARGS_PASSTHRU);
+#endif
 
 	PHP_RINIT(head)(INIT_FUNC_ARGS_PASSTHRU);
 	PHP_RINIT(filestat)(INIT_FUNC_ARGS_PASSTHRU);
@@ -875,6 +905,12 @@ PHP_RSHUTDOWN_FUNCTION(basic)
 		BG(user_tick_functions) = NULL;
 	}
 
+#ifdef HAVE_MMAP
+	if (BG(mmap_file)) {
+		munmap(BG(mmap_file), BG(mmap_len));
+	}
+#endif
+
 	return SUCCESS;
 }
 
@@ -917,7 +953,7 @@ PHP_FUNCTION(constant)
 /* }}} */
 
 
-/* {{{ proto int ip2long(string ip_address)
+/* {{{ proto string ip2long(string ip_address)
    Converts a string containing an (IPv4) Internet Protocol dotted address into a proper address */
 PHP_FUNCTION(ip2long)
 {
@@ -1225,7 +1261,7 @@ PHP_FUNCTION(gettype)
 }
 /* }}} */
 
-/* {{{ proto int settype(string var, string type)
+/* {{{ proto int settype(mixed var, string type)
    Set the type of the variable */
 PHP_FUNCTION(settype)
 {
@@ -2200,6 +2236,7 @@ PHP_FUNCTION(ignore_user_abort)
 
 /* {{{ proto int getservbyname(string service, string protocol)
    Returns port associated with service. Protocol must be "tcp" or "udp". */
+#if HAVE_GETSERVBYNAME
 PHP_FUNCTION(getservbyname)
 {
 	pval **name,**proto;
@@ -2218,6 +2255,7 @@ PHP_FUNCTION(getservbyname)
 
 	RETURN_LONG(ntohs(serv->s_port));
 }
+#endif
 /* }}} */
 
 
@@ -2486,16 +2524,16 @@ PHP_FUNCTION(move_uploaded_file)
 	if (!zend_hash_exists(SG(rfc1867_uploaded_files), Z_STRVAL_PP(path), Z_STRLEN_PP(path)+1)) {
 		RETURN_FALSE;
 	}
-	
-	if (PG(safe_mode) && (!php_checkuid(Z_STRVAL_PP(new_path), NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
-		RETURN_FALSE;
-	}
-	
-	V_UNLINK(Z_STRVAL_PP(new_path));
+
+	if (PG(safe_mode) &&(!php_checkuid(Z_STRVAL_PP(new_path), NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
+ 		RETURN_FALSE;
+ 	}
+
+	VCWD_UNLINK(Z_STRVAL_PP(new_path));
 	if (rename(Z_STRVAL_PP(path), Z_STRVAL_PP(new_path))==0) {
 		successful=1;
 	} else if (php_copy_file(Z_STRVAL_PP(path), Z_STRVAL_PP(new_path))==SUCCESS) {
-		V_UNLINK(Z_STRVAL_PP(path));
+		VCWD_UNLINK(Z_STRVAL_PP(path));
 		successful=1;
 	}
 
@@ -2593,7 +2631,7 @@ PHP_FUNCTION(parse_ini_file)
 	}
 
 	convert_to_string_ex(filename);
-	fh.handle.fp = V_FOPEN(Z_STRVAL_PP(filename), "r");
+	fh.handle.fp = VCWD_FOPEN(Z_STRVAL_PP(filename), "r");
 	if (!fh.handle.fp) {
 		php_error(E_WARNING,"Cannot open '%s' for reading", Z_STRVAL_PP(filename));
 		return;
@@ -2602,6 +2640,36 @@ PHP_FUNCTION(parse_ini_file)
 	fh.filename = Z_STRVAL_PP(filename);
 	array_init(return_value);
 	zend_parse_ini_file(&fh, 0, ini_parser_cb, return_value);
+}
+/* }}} */
+
+
+/* {{{ proto bool is_callable(mixed var [, bool syntax_only [, string callable_name ]]) */
+PHP_FUNCTION(is_callable)
+{
+	zval **var, **syntax_only, **callable_name;
+	char *name;
+	zend_bool retval;
+	zend_bool syntax = 0;
+
+	if (ZEND_NUM_ARGS() < 1 || ZEND_NUM_ARGS() > 3 ||
+		zend_get_parameters_ex(ZEND_NUM_ARGS(), &var, &syntax_only, &callable_name) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	if (ZEND_NUM_ARGS() > 1) {
+		convert_to_boolean_ex(syntax_only);
+		syntax = Z_BVAL_PP(syntax_only);
+	}
+
+	if (ZEND_NUM_ARGS() > 2) {
+		retval = zend_is_callable(*var, syntax, &name);
+		zval_dtor(*callable_name);
+		ZVAL_STRING(*callable_name, name, 0);
+	} else
+		retval = zend_is_callable(*var, syntax, NULL);
+
+	RETURN_BOOL(retval);
 }
 /* }}} */
 

@@ -302,6 +302,9 @@ static void executor_globals_ctor(zend_executor_globals *executor_globals)
 	zend_init_rsrc_plist(ELS_C);
 	EG(lambda_count)=0;
 	EG(user_error_handler) = NULL;
+#if SUPPORT_INTERACTIVE
+	EG(interactive) = 0;
+#endif
 }
 
 
@@ -467,6 +470,7 @@ ZEND_API void zend_bailout()
 	ELS_FETCH();
 
 	CG(unclean_shutdown) = 1;
+	CG(in_compilation) = EG(in_execution) = 0;
 	longjmp(EG(bailout), FAILURE);
 }
 END_EXTERN_C()
@@ -696,6 +700,10 @@ ZEND_API void zend_error(int type, const char *format, ...)
 	}
 
 	va_end(args);
+
+	if (type==E_PARSE) {
+		zend_init_compiler_data_structures(CLS_C);
+	}
 }
 
 
@@ -730,6 +738,7 @@ ZEND_API int zend_execute_scripts(int type CLS_DC ELS_DC, int file_count, ...)
 	va_list files;
 	int i;
 	zend_file_handle *file_handle;
+	zend_op_array *orig_op_array = EG(active_op_array);
 
 	va_start(files, file_count);
 	for (i=0; i<file_count; i++) {
@@ -748,10 +757,12 @@ ZEND_API int zend_execute_scripts(int type CLS_DC ELS_DC, int file_count, ...)
 			efree(EG(active_op_array));
 		} else if (type==ZEND_REQUIRE) {
 			va_end(files);
+			EG(active_op_array) = orig_op_array;
 			return FAILURE;
 		}
 	}
 	va_end(files);
+	EG(active_op_array) = orig_op_array;
 
 	return SUCCESS;
 }

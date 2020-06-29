@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: string.c,v 1.193.2.1 2001/04/13 18:23:07 thies Exp $ */
+/* $Id: string.c,v 1.197 2001/04/29 13:30:56 elixer Exp $ */
 
 /* Synced with php 3.0 revision 1.193 1999-06-16 [ssb] */
 
@@ -2768,6 +2768,8 @@ PHPAPI void php_strip_tags(char *rbuf, int len, int state, char *allow, int allo
 						lc = '(';
 						br++;
 					}
+				} else if (allow && state == 1) {
+					*(tp++) = c;
 				} else if (state == 0) {
 					*(rp++) = c;
 				}
@@ -2779,6 +2781,8 @@ PHPAPI void php_strip_tags(char *rbuf, int len, int state, char *allow, int allo
 						lc = ')';
 						br--;
 					}
+				} else if (allow && state == 1) {
+					*(tp++) = c;
 				} else if (state == 0) {
 					*(rp++) = c;
 				}
@@ -2999,8 +3003,7 @@ PHP_FUNCTION(strnatcmp)
 /* }}} */
 
 /* {{{ proto array localeconv( void )
-   Returns all the information stored in the lconv struct defined
-   in locale.h based on the currently selected locale */
+   Returns numeric formatting information based on the current locale */
 PHP_FUNCTION(localeconv)
 {
 	zval *grouping, *mon_grouping;

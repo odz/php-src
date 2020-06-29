@@ -48,6 +48,8 @@ PHP_FUNCTION(ircg_disconnect);
 PHP_FUNCTION(ircg_is_conn_alive);
 PHP_FUNCTION(ircg_lookup_format_messages);
 PHP_FUNCTION(ircg_register_format_messages);
+PHP_FUNCTION(ircg_nickname_escape);
+PHP_FUNCTION(ircg_nickname_unescape);
 
 PHP_MINIT_FUNCTION(ircg);
 PHP_MSHUTDOWN_FUNCTION(ircg);

@@ -15,12 +15,16 @@
    | Authors: Frank M. Kromann <fmk@swwwing.com>                          |
    +----------------------------------------------------------------------+
 */
-/* $Id: setup.c,v 1.3 2001/02/26 06:06:58 andi Exp $ */
+/* $Id: setup.c,v 1.3.4.1 2001/05/24 12:41:53 ssb Exp $ */
 
 #ifdef COMPILE_DL_IISFUNC
 #define HAVE_IISFUNC 1
 #endif
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+ 
 #include "php.h"
 #include "php_globals.h"
 #include "ext/standard/info.h"

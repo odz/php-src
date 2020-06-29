@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_domxml.h,v 1.22 2001/02/26 06:06:54 andi Exp $ */
+/* $Id: php_domxml.h,v 1.25.2.1 2001/05/24 12:33:43 andi Exp $ */
 
 #ifndef PHP_DOMXML_H
 #define PHP_DOMXML_H

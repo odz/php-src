@@ -15,7 +15,7 @@
 // | Authors: Ulf Wendel <ulf.wendel@phpdoc.de>                           |
 // +----------------------------------------------------------------------+
 //
-// $Id: Graphics.php,v 1.5 2001/03/06 15:27:30 sbergmann Exp $
+// $Id: Graphics.php,v 1.6 2001/03/28 12:50:19 uw Exp $
 
 require_once 'Cache.php';
 
@@ -66,10 +66,11 @@ require_once 'Cache.php';
 * the output buffer. Modify it if required!
 *
 * @author   Ulf Wendel <ulf.wendel@phpdoc.de>
-* @version  $Id: Graphics.php,v 1.5 2001/03/06 15:27:30 sbergmann Exp $
+* @version  $Id: Graphics.php,v 1.6 2001/03/28 12:50:19 uw Exp $
 * @package  Cache
 */
 class Cache_Graphics extends Cache {
+
 
     /**
     * Cache URL prefix.
@@ -104,7 +105,16 @@ class Cache_Graphics extends Cache {
     * @var      string
     */
     var $cache_file_prefix = "graphics_";
+    
+    
+    /**
+    * Cache container group.
+    *
+    * @var      string
+    */
+    var $cache_group = "graphics";
 
+    
     /**
     * Mapping from supported image type to a ImageType() constant.
     * 
@@ -120,13 +130,18 @@ class Cache_Graphics extends Cache {
                                 "wbmp"  => IMG_WBMP
                             );
 
+                            
     /**
-    * TODO: add docs
+    * Instantiates a cache file container.
+    *
     */
-    function graphics_cache() {
-        $this->cache("cache_container_file", array("cache_dir" => $this->cache_dir, "filename_prefix" => $this->cache_file_prefix));
+    function Cache_Graphics() {
+    
+        $this->Cache("file", array("cache_dir" => $this->cache_dir, "filename_prefix" => $this->cache_file_prefix));
+        
     } // end constructor
 
+    
     /**
     * Returns the content of a cached image file.
     * 
@@ -144,9 +159,10 @@ class Cache_Graphics extends Cache {
     function getImage($id, $format = "png") {
         $id = $this->generateID(array("id" => $id, "format" => strtolower($format)));
         
-        return $this->get($id);
+        return $this->get($id, $this->cache_group);
     } // end func getImage
 
+    
     /**
     * Returns an array with a link to the cached image and the image file path.
     * 
@@ -156,18 +172,19 @@ class Cache_Graphics extends Cache {
     * @param    string  Image-ID
     * @param    string  Image type: gif, jpg, png, wbmp
     * @return   array   [ full path to the image file, image url ]
-    * @throw    gerror
+    * @throw    Cache_Error
     * @see      cacheImageLink()
     */
     function getImageLink($id, $format = "png") {
         $id = $this->generateID(array("id" => $id, "format" => strtolower($format)));
-        if (!$this->container->idExists($id)) 
+        if (!$this->container->idExists($id, $this->cache_group)) 
             return array();
 
         $file = $this->cache_url . $this->cache_file_prefix . $id;
 
-        return array($this->container->getFilename($id), $file);
+        return array($this->container->getFilename($id, $this->cache_group), $file);
     } // end func getImageLink
+    
 
     /**
     * Create an image from the given image handler, cache it and return the file content.
@@ -185,13 +202,13 @@ class Cache_Graphics extends Cache {
     *                   If an unsupported type is requested the functions tries to 
     *                   fallback to a supported type before throwing an exeption.
     * @return   string  Image content returned by ImageGIF/... 
-    * @throws   gerror
+    * @throws   Cache_Error
     * @access   public
     * @see      getImage()
     */
-    function cacheImage($id, &$img, $format = "png") {
+    function cacheImage($id, $img, $format = "png") {
         if (!$id)
-            return new gerror("You must provide an ID for and image to be cached!");
+            return new Cache_Error("You must provide an ID for and image to be cached!", __FILE__, __LINE__);
 
         $id = $this->generateID(array("id" => $id, "format" => strtolower($format)));
         
@@ -200,12 +217,12 @@ class Cache_Graphics extends Cache {
         if (!isset($this->imagetypes[$format]) || !(ImageTypes() & $this->imagetypes[$format])) {
             foreach ($this->imagetypes as $supported => $bitmask) 
                 if (ImageTypes() & $bitmask)
-                    new gerror("The build in GD lib does not support the image type $format. Fallback to $supported.");
+                    new Cache_Error("The build in GD lib does not support the image type $format. Fallback to $supported.", __FILE__, __LINE__);
                 else
-                    return new gerror("Hmm, is you PHP build with GD support? Can't find any supported types.");
+                    return new Cache_Error("Hmm, is you PHP build with GD support? Can't find any supported types.", __FILE__; __LINE__);
         }
 
-        if ($image = $this->get($id))
+        if ($image = $this->get($id, $this->cache_group))
             return $image;
 
         // save the image to the output buffer, write it to disk and 
@@ -223,10 +240,11 @@ class Cache_Graphics extends Cache {
         ob_end_clean();
 
         // save the generated image to disk
-        $this->save($id, $image, 0);
+        $this->save($id, $image, 0, $this->cache_group);
 
         return $image;
     } // end func cacheImage
+    
 
     /**
     * Create an image from the given image handler, cache it and return a url and the file path of the image.
@@ -241,31 +259,30 @@ class Cache_Graphics extends Cache {
     *                   If an unsupported type is requested the functions tries to 
     *                   fallback to a supported type before throwing an exeption.
     * @return   array  [ full path to the image file, image url ]
-    * @throws   gerror
+    * @throws   Cache_Error
     * @access   public
     */
-
     function cacheImageLink($id, &$img, $format = "png") {
         if (!$id)
-            return new gerror("You must provide an ID for and image to be cached!");
+            return new Cache_Error ("You must provide an ID for and image to be cached!", __FILE__, __LINE__);
 
-        $id = $this->generateID(array("id" => $id, "format" => strtolower($format));
+        $id = $this->generateID( array("id" => $id, "format" => strtolower($format)) );
 
         // Check if the requested image type is supported by the GD lib.
         // If not, try a callback to the first available image type.
         if (!isset($this->imagetypes[$format]) || !(ImageTypes() & $this->imagetypes[$format])) {
             foreach ($this->imagetypes as $supported => $bitmask) 
                 if (ImageTypes() & $bitmask)
-                    new gerror("The build in GD lib does not support the image type $format. Fallback to $supported.");
+                    new Cache_Error("The build in GD lib does not support the image type $format. Fallback to $supported.", __FILE__, __LINE__);
                 else
-                    return new gerror("Hmm, is you PHP build with GD support? Can't find any supported types.");
+                    return new Cache_Error("Hmm, is you PHP build with GD support? Can't find any supported types.", __FILE__, __LINE__);
         }
 
         $url = $this->cache_url . $this->cache_file_prefix . $id;
-        $ffile = $this->container->getFilename($id);
+        $ffile = $this->container->getFilename($id, $this->cache_group);
 
-        if ($this->isCached($id) && !isExpired($id))
-            return array($ffile, $url)
+        if ($this->isCached($id, $this->cache_group) && !isExpired($id, $this->cache_group))
+            return array($ffile, $url);
 
         $func = "Image" . strtoupper($format);    
         $func($img, $ffile);
@@ -275,6 +292,7 @@ class Cache_Graphics extends Cache {
         return array($ffile, $url);
     } // end func cacheImageLink
 
+    
     /**
     * Sets the URL prefix used when rendering HTML Tags. 
     * 
@@ -293,6 +311,7 @@ class Cache_Graphics extends Cache {
         
     } // end func setCacheURL
 
+    
     /**
     * Sets the directory where to cache generated Images
     * 
@@ -307,5 +326,7 @@ class Cache_Graphics extends Cache {
         $this->cache_dir = $cache_dir;
         $this->container->cache_dir = $cache_dir;
     } // end func setCacheDir
+    
+    
 } // end class Cache_Graphics
 ?>

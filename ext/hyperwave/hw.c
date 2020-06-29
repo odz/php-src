@@ -16,11 +16,15 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: hw.c,v 1.79 2001/02/26 06:06:57 andi Exp $ */
+/* $Id: hw.c,v 1.81.2.1 2001/05/24 12:41:52 ssb Exp $ */
 
 #include <stdlib.h>
 #include <errno.h>
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+ 
 #include "php.h"
 #include "php_globals.h"
 #include "ext/standard/php_standard.h"
@@ -146,8 +150,9 @@ void print_msg(hg_msg *msg, char *str, int txt);
 
 void _close_hw_link(zend_rsrc_list_entry *rsrc)
 {
-/*	HwSLS_FETCH(); */
 	hw_connection *conn = (hw_connection *)rsrc->ptr;
+	HwSLS_FETCH();
+
 	if(conn->hostname)
 		free(conn->hostname);
 	if(conn->username)
@@ -159,8 +164,9 @@ void _close_hw_link(zend_rsrc_list_entry *rsrc)
 
 void _close_hw_plink(zend_rsrc_list_entry *rsrc)
 {
-/*	HwSLS_FETCH(); */
 	hw_connection *conn = (hw_connection *)rsrc->ptr;
+	HwSLS_FETCH();
+
 	if(conn->hostname)
 		free(conn->hostname);
 	if(conn->username)
@@ -244,7 +250,7 @@ int make_return_objrec(pval **return_value, char **objrecs, int count)
 	}
 
 	hidden = collhead = fullcollhead = total = 0;
-        collheadnr = fullcollheadnr = -1;
+	collheadnr = fullcollheadnr = -1;
 	for(i=0; i<count; i++) {
 		/* Fill the array with entries. No need to free objrecs[i], since
 		 * it is not duplicated in add_next_index_string().
@@ -1326,7 +1332,7 @@ php_printf("%s", object);
 }
 /* }}} */
 
-/* {{{ proto string hw_getobject(int link, int objid [, string linkroot])
+/* {{{ proto string hw_getobject(int link, int objid [, string query])
    Returns object record  */
 PHP_FUNCTION(hw_getobject) {
 	pval **argv[3];
@@ -1370,8 +1376,9 @@ PHP_FUNCTION(hw_getobject) {
 		zval **keydata;
 
 		lht = (*argv[1])->value.ht;
-        	if(0 == (count = zend_hash_num_elements(lht)))
+		if(0 == (count = zend_hash_num_elements(lht))) {
 			RETURN_FALSE;
+		}
 		ids = emalloc(count * sizeof(hw_objectID));
 
 		zend_hash_internal_pointer_reset(lht);

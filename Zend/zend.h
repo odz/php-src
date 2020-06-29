@@ -21,7 +21,7 @@
 #ifndef ZEND_H
 #define ZEND_H
 
-#define ZEND_VERSION "1.0.5"
+#define ZEND_VERSION "1.0.6"
 
 #ifdef __cplusplus
 #define BEGIN_EXTERN_C() extern "C" {
@@ -139,6 +139,18 @@ typedef unsigned char zend_uchar;
 typedef unsigned int zend_uint;
 typedef unsigned long zend_ulong;
 typedef unsigned short zend_ushort;
+
+#ifdef HAVE_LIMITS_H
+# include <limits.h>
+#endif
+
+#ifndef LONG_MAX
+#define LONG_MAX 2147483647L
+#endif
+
+#ifndef LONG_MIN
+#define LONG_MIN (- LONG_MAX - 1)
+#endif
 
 #undef SUCCESS
 #undef FAILURE
@@ -433,7 +445,7 @@ ZEND_API int zend_get_configuration_directive(char *name, uint name_length, zval
 	refcount = (*ppzv_dest)->refcount;			\
 	zval_dtor(*ppzv_dest);						\
 	**ppzv_dest = *pzv_src;						\
-	if(copy) {                                  \
+	if (copy) {                                  \
 		zval_copy_ctor(*ppzv_dest);				\
     }		                                    \
 	(*ppzv_dest)->is_ref = is_ref;				\

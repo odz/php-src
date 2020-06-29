@@ -1,5 +1,5 @@
 /* $Source: /repository/php4/ext/mnogosearch/php_mnogo.c,v $ */
-/* $Id: php_mnogo.c,v 1.23 2001/03/02 11:41:34 gluke Exp $ */
+/* $Id: php_mnogo.c,v 1.26.2.1 2001/05/24 12:41:57 ssb Exp $ */
 
 /*
    +----------------------------------------------------------------------+
@@ -22,6 +22,10 @@
    +----------------------------------------------------------------------+
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "php.h"
 #include "php_mnogo.h"
 #include "ext/standard/php_standard.h"
@@ -42,6 +46,7 @@
 #define UDM_FIELD_MODIFIED	10
 #define UDM_FIELD_ORDER		11
 #define UDM_FIELD_CRC		12
+#define UDM_FIELD_CATEGORY	13
 
 /* udm_set_agent_param constants */
 #define UDM_PARAM_PAGE_SIZE		1
@@ -122,6 +127,9 @@ function_entry mnogosearch_functions[] = {
 	PHP_FE(udm_get_res_param,	NULL)
 	PHP_FE(udm_get_res_field,	NULL)
 	
+	PHP_FE(udm_cat_list,		NULL)
+	PHP_FE(udm_cat_path,		NULL)
+	
 	PHP_FE(udm_free_res,		NULL)
 	PHP_FE(udm_free_agent,		NULL)
 
@@ -180,6 +188,7 @@ DLEXPORT PHP_MINIT_FUNCTION(mnogosearch)
 	REGISTER_LONG_CONSTANT("UDM_FIELD_MODIFIED",	UDM_FIELD_MODIFIED,CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("UDM_FIELD_ORDER",	UDM_FIELD_ORDER,CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("UDM_FIELD_CRC",		UDM_FIELD_CRC,CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("UDM_FIELD_CATEGORY",	UDM_FIELD_CATEGORY,CONST_CS | CONST_PERSISTENT);
 
 	/* udm_set_agent_param constants */
 	REGISTER_LONG_CONSTANT("UDM_PARAM_PAGE_SIZE",	UDM_PARAM_PAGE_SIZE,CONST_CS | CONST_PERSISTENT);
@@ -935,6 +944,10 @@ DLEXPORT PHP_FUNCTION(udm_get_res_field){
 				RETURN_LONG((Res->Doc[row].crc32));
 				break;
 				
+			case UDM_FIELD_CATEGORY:		
+				RETURN_STRING((Res->Doc[row].category),1);
+				break;
+				
 			default: 
 				php_error(E_WARNING,"Udm_Get_Res_Field: Unknown mnoGoSearch field name");
 				RETURN_FALSE;
@@ -1105,6 +1118,106 @@ DLEXPORT PHP_FUNCTION(udm_error)
 DLEXPORT PHP_FUNCTION(udm_api_version)
 {
 	RETURN_LONG(UDM_VERSION_ID);
+}
+/* }}} */
+
+
+/* {{{ proto array udm_cat_list(int agent, string category)
+   Get mnoGoSearch categories list with the same root */
+DLEXPORT PHP_FUNCTION(udm_cat_list)
+{
+	pval ** yycat, ** yyagent;
+	UDM_AGENT * Agent;
+	char *cat;
+	UDM_CATEGORY *c=NULL;
+	char *buf=NULL;
+	int id=-1;
+
+	switch(ZEND_NUM_ARGS()){
+		case 2: {
+				if (zend_get_parameters_ex(2, &yyagent,&yycat)==FAILURE) {
+					RETURN_FALSE;
+				}
+			}
+			break;
+		default:
+			WRONG_PARAM_COUNT;
+			break;
+	}
+	ZEND_FETCH_RESOURCE(Agent, UDM_AGENT *, yyagent, id, "mnoGoSearch-Agent", le_link);
+	convert_to_string_ex(yycat);
+	cat = (*yycat)->value.str.val;
+
+	if((c=UdmCatList(Agent,cat))){
+		if (array_init(return_value)==FAILURE) {
+			RETURN_FALSE;
+		}
+		
+		if (!(buf=calloc(1,UDMSTRSIZ+1))) {
+			RETURN_FALSE;
+		}
+		
+		while(c->rec_id){			
+			snprintf(buf, UDMSTRSIZ, "%s%s",c->link[0]?"@ ":"", c->name);				 
+			add_next_index_string(return_value, c->link[0]?c->link:c->path, 1);
+			add_next_index_string(return_value, buf, 1);
+			c++;
+		}
+		
+		free(buf);
+	} else {
+		RETURN_FALSE;
+	}
+}
+/* }}} */
+
+
+/* {{{ proto array udm_cat_path(int agent, string category)
+   Get mnoGoSearch categories path from the root to the given catgory */
+DLEXPORT PHP_FUNCTION(udm_cat_path)
+{
+	pval ** yycat, ** yyagent;
+	UDM_AGENT * Agent;
+	char *cat;
+	UDM_CATEGORY *c=NULL;
+	char *buf=NULL;
+	int id=-1;
+
+	switch(ZEND_NUM_ARGS()){
+		case 2: {
+				if (zend_get_parameters_ex(2, &yyagent,&yycat)==FAILURE) {
+					RETURN_FALSE;
+				}
+			}
+			break;
+		default:
+			WRONG_PARAM_COUNT;
+			break;
+	}
+	ZEND_FETCH_RESOURCE(Agent, UDM_AGENT *, yyagent, id, "mnoGoSearch-Agent", le_link);
+	convert_to_string_ex(yycat);
+	cat = (*yycat)->value.str.val;
+
+	if((c=UdmCatPath(Agent,cat))){
+		if (array_init(return_value)==FAILURE) {
+			RETURN_FALSE;
+		}
+		
+		if (!(buf=calloc(1,UDMSTRSIZ+1))) {
+			RETURN_FALSE;
+		}
+		
+		while(c->rec_id){			
+			snprintf(buf, UDMSTRSIZ, "%s%s",c->link[0]?"@ ":"", c->name);				 
+			add_next_index_string(return_value, c->link[0]?c->link:c->path, 1);
+			add_next_index_string(return_value, buf, 1);
+			c++;
+		}
+		
+		free(buf);
+	} else {
+		RETURN_FALSE;
+	}
 }
 /* }}} */
 

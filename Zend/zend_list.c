@@ -31,24 +31,22 @@ ZEND_API int le_index_ptr;
 static HashTable list_destructors;
 
 
-static inline int zend_list_do_insert(HashTable *list, void *ptr, int type, zend_bool valid)
+ZEND_API int zend_list_insert(void *ptr, int type)
 {
 	int index;
 	zend_rsrc_list_entry le;
-
-	index = zend_hash_next_free_element(list);
-
-	if (index==0) index++;
+	ELS_FETCH();
 
 	le.ptr=ptr;
 	le.type=type;
 	le.refcount=1;
-	le.valid = valid;
-	zend_hash_index_update(list, index, (void *) &le, sizeof(zend_rsrc_list_entry), NULL);
+
+	index = zend_hash_next_free_element(&EG(regular_list));
+	zend_hash_index_update(&EG(regular_list), index, (void *) &le, sizeof(zend_rsrc_list_entry), NULL);
 	return index;
 }
 
-static inline int zend_list_do_delete(HashTable *list,int id)
+ZEND_API int zend_list_delete(int id)
 {
 	zend_rsrc_list_entry *le;
 	ELS_FETCH();
@@ -66,33 +64,18 @@ static inline int zend_list_do_delete(HashTable *list,int id)
 }
 
 
-static inline void *zend_list_do_find(HashTable *list,int id, int *type)
+ZEND_API void *zend_list_find(int id, int *type)
 {
 	zend_rsrc_list_entry *le;
+	ELS_FETCH();
 
-	if (zend_hash_index_find(list, id, (void **) &le)==SUCCESS) {
+	if (zend_hash_index_find(&EG(regular_list), id, (void **) &le)==SUCCESS) {
 		*type = le->type;
 		return le->ptr;
 	} else {
 		*type = -1;
 		return NULL;
 	}
-}
-
-
-ZEND_API int zend_list_insert(void *ptr, int type)
-{
-	ELS_FETCH();
-
-	return zend_list_do_insert(&EG(regular_list), ptr, type, 1);
-}
-
-
-ZEND_API int zend_plist_insert(void *ptr, int type)
-{
-	ELS_FETCH();
-
-	return zend_list_do_insert(&EG(persistent_list), ptr, type, 1);
 }
 
 
@@ -111,73 +94,11 @@ ZEND_API int zend_list_addref(int id)
 }
 
 
-ZEND_API int zend_list_delete(int id)
-{
-	ELS_FETCH();
-
-	return zend_list_do_delete(&EG(regular_list), id);
-}
-
-
-ZEND_API int zend_plist_delete(int id)
-{
-	ELS_FETCH();
-
-	return zend_list_do_delete(&EG(persistent_list), id);
-}
-
-
-ZEND_API int zend_list_convert_to_number(int id)
-{
-	zend_rsrc_list_entry *le;
-	ELS_FETCH();
-	
-	if (zend_hash_index_find(&EG(regular_list), id, (void **) &le)==SUCCESS
-		&& le->valid) {
-		return id;
-	}
-	return 0;
-}
-
-
-
-ZEND_API void *zend_list_find(int id, int *type)
-{
-	ELS_FETCH();
-
-	return zend_list_do_find(&EG(regular_list), id, type);
-}
-
-
-ZEND_API void *zend_plist_find(int id, int *type)
-{
-	ELS_FETCH();
-
-	return zend_list_do_find(&EG(persistent_list), id, type);
-}
-
-
 ZEND_API int zend_register_resource(zval *rsrc_result, void *rsrc_pointer, int rsrc_type)
 {
 	int rsrc_id;
 
 	rsrc_id = zend_list_insert(rsrc_pointer, rsrc_type);
-	
-	if (rsrc_result) {
-		rsrc_result->value.lval = rsrc_id;
-		rsrc_result->type = IS_RESOURCE;
-	}
-
-	return rsrc_id;
-}
-
-
-ZEND_API int zend_register_false_resource(zval *rsrc_result, void *rsrc_pointer, int rsrc_type)
-{
-	int rsrc_id;
-	ELS_FETCH();
-
-	rsrc_id = zend_list_do_insert(&EG(regular_list), rsrc_pointer, rsrc_type, 0);
 	
 	if (rsrc_result) {
 		rsrc_result->value.lval = rsrc_id;
@@ -293,7 +214,12 @@ void plist_entry_destructor(void *ptr)
 
 int zend_init_rsrc_list(ELS_D)
 {
-	return zend_hash_init(&EG(regular_list), 0, NULL, list_entry_destructor, 0);
+	if (zend_hash_init(&EG(regular_list), 0, NULL, list_entry_destructor, 0)==SUCCESS) {
+		EG(regular_list).nNextFreeElement=1;	/* we don't want resource id 0 */
+		return SUCCESS;
+	} else {
+		return FAILURE;
+	}
 }
 
 

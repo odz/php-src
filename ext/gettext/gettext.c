@@ -16,9 +16,13 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: gettext.c,v 1.25 2001/02/26 06:06:56 andi Exp $ */
+/* $Id: gettext.c,v 1.26.2.1 2001/05/24 12:41:51 ssb Exp $ */
 
 #include <stdio.h>
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "php.h"
 #include "php_gettext.h"
 
@@ -151,9 +155,9 @@ PHP_FUNCTION(bindtextdomain)
 	convert_to_string_ex(dir);
 
 	if (strcmp((*dir)->value.str.val, "") && strcmp((*dir)->value.str.val, "0")) {
-		V_REALPATH((*dir)->value.str.val, dir_name);
+		VCWD_REALPATH((*dir)->value.str.val, dir_name);
 	} else {
-		V_GETCWD(dir_name, MAXPATHLEN);
+		VCWD_GETCWD(dir_name, MAXPATHLEN);
 	}
 
 	retval = bindtextdomain((*domain_name)->value.str.val, dir_name);

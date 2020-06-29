@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: basic_functions.h,v 1.75 2001/03/04 01:17:21 zeev Exp $ */
+/* $Id: basic_functions.h,v 1.76.2.1 2001/05/19 07:43:25 sas Exp $ */
 
 #ifndef BASIC_FUNCTIONS_H
 #define BASIC_FUNCTIONS_H
@@ -77,6 +77,7 @@ PHP_FUNCTION(is_string);
 PHP_FUNCTION(is_array);
 PHP_FUNCTION(is_object);
 PHP_FUNCTION(is_scalar);
+PHP_FUNCTION(is_callable);
 
 PHP_FUNCTION(error_log);
 
@@ -186,6 +187,11 @@ typedef struct {
 	url_adapt_state_t url_adapt_state;
 	/* url_scanner_ex.re */
 	url_adapt_state_ex_t url_adapt_state_ex;
+#endif
+
+#ifdef HAVE_MMAP
+	void *mmap_file;
+	size_t mmap_len;
 #endif
 } php_basic_globals;
 

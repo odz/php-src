@@ -1,5 +1,5 @@
 /*
-  +----------------------------------------------------------------------+
+   +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2001 The PHP Group                                |
@@ -12,14 +12,18 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Frank M. Kromann <fmk@swwwing.com>                          |
+   | Authors: Frank M. Kromann frank@frontbase.com>                       |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_mssql.c,v 1.39 2001/03/09 23:37:56 fmk Exp $ */
+/* $Id: php_mssql.c,v 1.46.2.1 2001/05/24 12:41:57 ssb Exp $ */
 
 #ifdef COMPILE_DL_MSSQL
 #define HAVE_MSSQL 1
+#endif
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
 #endif
 
 #include "php.h"
@@ -226,11 +230,15 @@ static void _close_mssql_plink(zend_rsrc_list_entry *rsrc)
 
 static void php_mssql_init_globals(zend_mssql_globals *mssql_globals)
 {
+	long compatability_mode;
+
 	MS_SQL_G(num_persistent) = 0;
-	if (MS_SQL_G(compatability_mode)) {
-		MS_SQL_G(get_column_content) = php_mssql_get_column_content_with_type;
-	} else {
-		MS_SQL_G(get_column_content) = php_mssql_get_column_content_without_type;	
+	if (cfg_get_long("mssql.compatability_mode", &compatability_mode) == SUCCESS) {
+		if (compatability_mode) {
+			MS_SQL_G(get_column_content) = php_mssql_get_column_content_without_type;	
+		} else {
+			MS_SQL_G(get_column_content) = php_mssql_get_column_content_with_type;
+		}
 	}
 }
 
@@ -239,6 +247,7 @@ PHP_MINIT_FUNCTION(mssql)
 	ZEND_INIT_MODULE_GLOBALS(mssql, php_mssql_init_globals, NULL);
 
 	REGISTER_INI_ENTRIES();
+
 	le_result = zend_register_list_destructors_ex(_free_mssql_result, NULL, "mssql result", module_number);
 	le_link = zend_register_list_destructors_ex(_close_mssql_link, NULL, "mssql link", module_number);
 	le_plink = zend_register_list_destructors_ex(NULL, _close_mssql_plink, "mssql link persistent", module_number);
@@ -247,6 +256,7 @@ PHP_MINIT_FUNCTION(mssql)
 	if (dbinit()==FAIL) {
 		return FAILURE;
 	}
+
 	dberrhandle((DBERRHANDLE_PROC) php_mssql_error_handler);
 	dbmsghandle((DBMSGHANDLE_PROC) php_mssql_message_handler);
 
@@ -729,20 +739,35 @@ static void php_mssql_get_column_content_with_type(mssql_link *mssql_ptr,int off
 			result->type = IS_DOUBLE;
 			break;
 		}
+		case SQLVARBINARY:
+		case SQLBINARY:
+		case SQLIMAGE: {
+			DBBINARY *bin;
+			unsigned char *res_buf;
+			int res_length = dbdatlen(mssql_ptr->link, offset);
+
+			res_buf = (unsigned char *) emalloc(res_length + 1);
+			bin = ((DBBINARY *)dbdata(mssql_ptr->link, offset));
+			memcpy(res_buf,bin,res_length);
+			res_buf[res_length] = '\0';
+			result->value.str.len = res_length;
+			result->value.str.val = res_buf;
+			result->type = IS_STRING;
+			}
+			break;
 		case SQLNUMERIC:
 		default: {
 			if (dbwillconvert(column_type,SQLCHAR)) {
 				char *res_buf;
-				int res_length = dbdatlen(mssql_ptr->link,offset) + 1;
+				int res_length = dbdatlen(mssql_ptr->link,offset);
 				if (column_type == SQLDATETIM4) res_length += 14;
 				if (column_type == SQLDATETIME) res_length += 10;
 			
-				res_buf = (char *) emalloc(res_length);
-				memset(res_buf, 0, res_length);
-				dbconvert(NULL,column_type,dbdata(mssql_ptr->link,offset), res_length,SQLCHAR,res_buf,-1);
-		
-				result->value.str.len = res_length;
+				res_buf = (char *) emalloc(res_length + 1);
+				res_length = dbconvert(NULL,column_type,dbdata(mssql_ptr->link,offset), res_length,SQLCHAR,res_buf,-1);
+
 				result->value.str.val = res_buf;
+				result->value.str.len = res_length;
 				result->type = IS_STRING;
 			} else {
 				php_error(E_WARNING,"MS SQL:  column %d has unknown data type (%d)", offset, coltype(offset));
@@ -759,16 +784,32 @@ static void php_mssql_get_column_content_without_type(mssql_link *mssql_ptr,int 
 		return;
 	}
 
-	if (dbwillconvert(coltype(offset),SQLCHAR)) {
+	if (column_type == SQLVARBINARY ||
+		column_type == SQLBINARY ||
+		column_type == SQLIMAGE) {
+		DBBINARY *bin;
+		unsigned char *res_buf;
+		int res_length = dbdatlen(mssql_ptr->link, offset);
+
+		res_buf = (unsigned char *) emalloc(res_length + 1);
+		bin = ((DBBINARY *)dbdata(mssql_ptr->link, offset));
+		memcpy(res_buf, bin, res_length);
+		res_buf[res_length] = '\0';
+		result->value.str.len = res_length;
+		result->value.str.val = res_buf;
+		result->type = IS_STRING;
+	}
+	else if  (dbwillconvert(coltype(offset),SQLCHAR)) {
 		unsigned char *res_buf;
 		int res_length = dbdatlen(mssql_ptr->link,offset);
+		if (column_type == SQLDATETIM4) res_length += 14;
+		if (column_type == SQLDATETIME) res_length += 10;
 		
-		res_buf = (unsigned char *) emalloc(res_length+1 + 19);
-		memset(res_buf, 0, res_length+1 + 10);
-		dbconvert(NULL,coltype(offset),dbdata(mssql_ptr->link,offset), res_length, SQLCHAR,res_buf,-1);
-		
-		result->value.str.len = strlen(res_buf);
+		res_buf = (unsigned char *) emalloc(res_length + 1);
+		res_length = dbconvert(NULL,coltype(offset),dbdata(mssql_ptr->link,offset), res_length, SQLCHAR,res_buf,-1);
+
 		result->value.str.val = res_buf;
+		result->value.str.len = res_length;
 		result->type = IS_STRING;
 	} else {
 		php_error(E_WARNING,"MS SQL:  column %d has unknown data type (%d)", offset, coltype(offset));
@@ -812,6 +853,7 @@ int _mssql_fetch_batch(mssql_link *mssql_ptr, mssql_result *result, int retvalue
 			case SQLINT1:
 			case SQLINT2:
 			case SQLINT4:
+			case SQLINTN:
 			case SQLFLT8:
 			case SQLNUMERIC:
 			case SQLDECIMAL:

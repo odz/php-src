@@ -17,7 +17,7 @@
 // |          Chuck Hagenbuch <chuck@horde.org>                           |
 // +----------------------------------------------------------------------+
 //
-// $Id: db.php,v 1.9 2001/03/08 20:39:16 uw Exp $
+// $Id: db.php,v 1.12 2001/05/04 08:14:20 chregu Exp $
 
 require_once 'DB.php';
 require_once 'Cache/Container.php';
@@ -25,14 +25,14 @@ require_once 'Cache/Container.php';
 /**
 * PEAR/DB Cache Container.
 *
-* WARNING: Other systems might or might not support certain datatypes of 
-* the tables shown. As far as I know there's no large binary 
-* type in SQL-92 or SQL-99. Postgres seems to lack any 
-* BLOB or TEXT type, for MS-SQL you could use IMAGE, don't know 
-* about other databases. Please add sugestions for other databases to 
+* WARNING: Other systems might or might not support certain datatypes of
+* the tables shown. As far as I know there's no large binary
+* type in SQL-92 or SQL-99. Postgres seems to lack any
+* BLOB or TEXT type, for MS-SQL you could use IMAGE, don't know
+* about other databases. Please add sugestions for other databases to
 * the inline docs.
 *
-* The field 'changed' has no meaning for the Cache itself. It's just there 
+* The field 'changed' has no meaning for the Cache itself. It's just there
 * because it's a good idea to have an automatically updated timestamp
 * field for debugging in all of your tables.
 *
@@ -44,36 +44,36 @@ require_once 'Cache/Container.php';
 *   cachedata   BLOB NOT NULL DEFAULT '',
 *   userdata    VARCHAR(255) NOT NULL DEFAUL '',
 *   expires     INT(9) NOT NULL DEFAULT 0,
-*  
+*
 *   changed     TIMESTAMP(14) NOT NULL,
-*  
+*
 *   INDEX (expires),
 *   PRIMARY KEY (id, cachegroup)
 * )
 *
 * @author   Sebastian Bergmann <sb@sebastian-bergmann.de>
-* @version  $Id: db.php,v 1.9 2001/03/08 20:39:16 uw Exp $
+* @version  $Id: db.php,v 1.12 2001/05/04 08:14:20 chregu Exp $
 * @package  Cache
 */
 class Cache_Container_db extends Cache_Container {
-  
+
     /**
     * Name of the DB table to store caching data
-    * 
+    *
     * @see  Cache_Container_file::$filename_prefix
-    */  
+    */
     var $cache_table = '';
 
     /**
     * PEAR DB dsn to use.
-    * 
+    *
     * @var  string
     */
     var $dsn = '';
 
     /**
     * PEAR DB object
-    * 
+    *
     * @var  object PEAR_DB
     */
     var $db;
@@ -84,7 +84,7 @@ class Cache_Container_db extends Cache_Container {
             return new Cache_Error('No dsn specified!', __FILE__, __LINE__);
         }
 
-        $this->setOptions($options, array('dsn', 'cache_table'));
+        $this->setOptions($options,  array_merge($this->allowed_options, array('dsn', 'cache_table')));
 
         if (!$this->dsn)
             return new Cache_Error('No dsn specified!', __FILE__, __LINE__);
@@ -111,15 +111,31 @@ class Cache_Container_db extends Cache_Container {
             return new Cache_Error('DB::query failed: ' . DB::errorMessage($res), __FILE__, __LINE__);
 
         $row = $res->fetchRow();
-
         if (is_array($row))
-            return array($row['expires'], $this->decode($row['cachedata']), $row['userdata']);
+            $data = array($row['expires'], $this->decode($row['cachedata']), $row['userdata']);
+        else
+            $data = array(NULL, NULL, NULL);
+
+        // last used required by the garbage collection
+        // WARNING: might be MySQL specific
+        $query = sprintf("UPDATE %s SET changed = (NOW() + 0) WHERE id = '%s' AND cachegroup = '%s'",
+                            $this->cache_table,
+                            addslashes($id),
+                            addslashes($group)
+                          );
+
+        $res = $this->db->query($query);
+
+        if (DB::isError($res))
+            return new Cache_Error('DB::query failed: ' . DB::errorMessage($res), __FILE__, __LINE__);
+
+        return $data;
     }
 
     /**
     * Stores a dataset.
-    * 
-    * WARNING: we use the SQL command REPLACE INTO this might be 
+    *
+    * WARNING: we use the SQL command REPLACE INTO this might be
     * MySQL specific. As MySQL is very popular the method should
     * work fine for 95% of you.
     */
@@ -164,9 +180,9 @@ class Cache_Container_db extends Cache_Container {
         $this->flushPreload();
 
          if ($group) {
-            $query = sprintf("DELETE FROM %s WHERE cachegroup = '%s'", $this->cache_table, addslashes($group));    
+            $query = sprintf("DELETE FROM %s WHERE cachegroup = '%s'", $this->cache_table, addslashes($group));
         } else {
-            $query = sprintf("DELETE FROM %s", $this->cache_table);    
+            $query = sprintf("DELETE FROM %s", $this->cache_table);
         }
 
         $res = $this->db->query($query);
@@ -177,7 +193,7 @@ class Cache_Container_db extends Cache_Container {
 
     function idExists($id, $group)
     {
-        $query = sprintf("SELECT id FROM %s WHERE ID = '%s' AND cachegroup = '%s'", 
+        $query = sprintf("SELECT id FROM %s WHERE ID = '%s' AND cachegroup = '%s'",
                          $this->cache_table,
                          addslashes($id),
                          addslashes($group)
@@ -197,17 +213,47 @@ class Cache_Container_db extends Cache_Container {
         }
     }
 
-    function garbageCollection()
+    function garbageCollection($maxlifetime)
     {
-        $query = sprintf('DELETE FROM %s WHERE expires <= %d AND expires > 0',
+        $this->flushPreload();
+
+        $query = sprintf('DELETE FROM %s WHERE (expires <= %d AND expires > 0) OR changed <= (NOW() - %d)',
                          $this->cache_table,
-                         time());
+                         time(),
+                         $maxlifetime
+                       );
 
         $res = $this->db->query($query);
+
+        $query = sprintf('select sum(length(cachedata)) as CacheSize from %s',
+                         $this->cache_table
+                       );
+        $cachesize = $this->db->GetOne($query);
+        //if cache is to big.
+        if ($cachesize > $this->highwater)
+        {
+            //find the lowwater mark.
+            $query = sprintf('select length(cachedata) as size, changed from %s order by changed DESC',
+                                     $this->cache_table
+                       );
+            $res = $this->db->query($query);
+            $keep_size=0;
+            while ($keep_size < $this->lowwater && $entry = $res->FetchRow(DB_FETCHMOD_ASSOC) )
+            {
+                $keep_size += $entry[size];
+            }
+
+            //delete all entries, which were changed before the "lowwwater mark"
+            $query = sprintf('delete from %s where changed <= '.$entry[changed],
+                                     $this->cache_table
+                                   );
+            $res = $this->db->query($query);
+        }
 
         if (DB::isError($res)) {
             return new Cache_Error('DB::query failed: ' . DB::errorMessage($res), __FILE__, __LINE__);
         }
     }
+
 }
 ?>

@@ -14,8 +14,8 @@ if test "$PHP_IRCG" != "no"; then
   
   PHP_EVAL_LIBLINE(`$IRCG_CONFIG --ldflags`)
   PHP_EVAL_INCLINE(`$IRCG_CONFIG --cppflags`)
-  AC_ADD_LIBRARY_WITH_PATH(ircg, $PHP_IRCG/lib)
-  AC_ADD_INCLUDE($PHP_IRCG/include)
+  PHP_ADD_LIBRARY_WITH_PATH(ircg, $PHP_IRCG/lib)
+  PHP_ADD_INCLUDE($PHP_IRCG/include)
   if test "$PHP_SAPI" = "thttpd"; then
     AC_DEFINE(IRCG_WITH_THTTPD, 1, [Whether thttpd is available])
   fi

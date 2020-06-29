@@ -17,9 +17,13 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: php_sybase_ct.c,v 1.43 2001/03/11 04:13:53 sniper Exp $ */
+/* $Id: php_sybase_ct.c,v 1.43.4.2 2001/05/24 12:42:08 ssb Exp $ */
 
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+ 
 #include "php.h"
 #include "php_sybase_ct.h"
 #include "ext/standard/php_standard.h"
@@ -198,7 +202,7 @@ static void _close_sybase_plink(zend_rsrc_list_entry *rsrc)
 }
 
 
-static CS_RETCODE _client_message_handler(CS_CONTEXT *context, CS_CONNECTION *connection, CS_CLIENTMSG *errmsg)
+static CS_RETCODE CS_PUBLIC _client_message_handler(CS_CONTEXT *context, CS_CONNECTION *connection, CS_CLIENTMSG *errmsg)
 {
 	SybCtLS_FETCH();
 
@@ -224,7 +228,7 @@ static CS_RETCODE _client_message_handler(CS_CONTEXT *context, CS_CONNECTION *co
 }
 
 
-static CS_RETCODE _server_message_handler(CS_CONTEXT *context, CS_CONNECTION *connection, CS_SERVERMSG *srvmsg)
+static CS_RETCODE CS_PUBLIC _server_message_handler(CS_CONTEXT *context, CS_CONNECTION *connection, CS_SERVERMSG *srvmsg)
 {
 	SybCtLS_FETCH();
 

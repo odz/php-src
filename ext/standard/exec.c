@@ -15,7 +15,7 @@
    | Author: Rasmus Lerdorf                                               |
    +----------------------------------------------------------------------+
  */
-/* $Id: exec.c,v 1.52 2001/02/26 06:07:17 andi Exp $ */
+/* $Id: exec.c,v 1.54 2001/04/30 12:43:39 andi Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -99,9 +99,9 @@ int php_Exec(int type, char *cmd, pval *array, pval *return_value)
 		sig_handler = signal (SIGCHLD, SIG_DFL);
 #endif
 #ifdef PHP_WIN32
-		fp = V_POPEN(d, "rb");
+		fp = VCWD_POPEN(d, "rb");
 #else
-		fp = V_POPEN(d, "r");
+		fp = VCWD_POPEN(d, "r");
 #endif
 		if (!fp) {
 			php_error(E_WARNING, "Unable to fork [%s]", d);
@@ -117,9 +117,9 @@ int php_Exec(int type, char *cmd, pval *array, pval *return_value)
 		sig_handler = signal (SIGCHLD, SIG_DFL);
 #endif
 #ifdef PHP_WIN32
-		fp = V_POPEN(cmd, "rb");
+		fp = VCWD_POPEN(cmd, "rb");
 #else
-		fp = V_POPEN(cmd, "r");
+		fp = VCWD_POPEN(cmd, "r");
 #endif
 		if (!fp) {
 			php_error(E_WARNING, "Unable to fork [%s]", cmd);
@@ -194,8 +194,10 @@ int php_Exec(int type, char *cmd, pval *array, pval *return_value)
 		/* strip trailing spaces */
 		l = strlen(buf);
 		t = l;
-		while (l && isspace((int)buf[--l]));
-		if (l < t) buf[l + 1] = '\0';
+		while (l && isspace((int)buf[l - 1])) {
+			l--;
+		}
+		if (l < t) buf[l] = '\0';
 
 		/* Return last line from the shell command */
 		if (PG(magic_quotes_runtime)) {
@@ -204,7 +206,7 @@ int php_Exec(int type, char *cmd, pval *array, pval *return_value)
 			tmp = php_addslashes(buf, 0, &len, 0);
 			RETVAL_STRINGL(tmp,len,0);
 		} else {
-			RETVAL_STRINGL(buf,l?l+1:0,1);
+			RETVAL_STRINGL(buf,l,1);
 		}
 	} else {
 		int b, i;
@@ -233,7 +235,7 @@ int php_Exec(int type, char *cmd, pval *array, pval *return_value)
 	return FG(pclose_ret);
 }
 
-/* {{{ proto int exec(string command [, array output [, int return_value]])
+/* {{{ proto string exec(string command [, array output [, int return_value]])
    Execute an external program */
 PHP_FUNCTION(exec)
 {
@@ -449,9 +451,9 @@ PHP_FUNCTION(shell_exec)
 
 	convert_to_string_ex(cmd);
 #ifdef PHP_WIN32
-	if ((in=V_POPEN(Z_STRVAL_PP(cmd),"rt"))==NULL) {
+	if ((in=VCWD_POPEN(Z_STRVAL_PP(cmd),"rt"))==NULL) {
 #else
-	if ((in=V_POPEN(Z_STRVAL_PP(cmd),"r"))==NULL) {
+	if ((in=VCWD_POPEN(Z_STRVAL_PP(cmd),"r"))==NULL) {
 #endif
 		php_error(E_WARNING,"Unable to execute '%s'",Z_STRVAL_PP(cmd));
 	}

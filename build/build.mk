@@ -14,7 +14,7 @@
 #  | Authors: Sascha Schumann <sascha@schumann.cx>                        |
 #  +----------------------------------------------------------------------+
 #
-# $Id: build.mk,v 1.5 2000/08/20 05:36:07 sas Exp $ 
+# $Id: build.mk,v 1.7 2001/04/03 21:16:07 wsanchez Exp $ 
 #
 #
 # Makefile to generate build tools

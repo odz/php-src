@@ -14,10 +14,11 @@
    +----------------------------------------------------------------------+
    | Authors: Paul Panotzki - Bunyip Information Systems                  |
    |          Jim Winstead (jimw@php.net)                                 |
+   |          Wez Furlong                                                 |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: fsock.h,v 1.34 2001/02/26 06:07:17 andi Exp $ */
+/* $Id: fsock.h,v 1.37 2001/05/06 09:39:11 wez Exp $ */
 
 /* Synced with php 3.0 revision 1.24 1999-06-18 [ssb] */
 
@@ -26,29 +27,15 @@
 
 #include "file.h"
 
-#ifdef PHP_WIN32
-# ifndef WINNT
-#  define WINNT 1
-# endif
-# undef FD_SETSIZE
-# include "arpa/inet.h"
-# define socklen_t unsigned int
-#endif
-
-#ifdef HAVE_NETINET_IN_H
-# include <netinet/in.h>
-#endif
-
-#ifdef HAVE_SYS_SOCKET_H
-#include <sys/socket.h>
-#endif
-
-#ifdef HAVE_SYS_TIME_H
-#include <sys/time.h>
-#endif
-
 #define PHP_FSOCK_CHUNK_SIZE 8192
 
+#include "php_network.h"
+
+#if HAVE_PHP_STREAM
+extern php_stream_ops php_stream_socket_ops;
+#endif
+
+/* stream->abstract points to an instance of this */
 struct php_sockbuf {
 	int socket;
 	unsigned char *readbuf;
@@ -63,6 +50,9 @@ struct php_sockbuf {
 	size_t chunk_size;
 	struct timeval timeout;
 	char timeout_event;
+#if HAVE_PHP_STREAM
+	php_stream * stream;
+#endif
 };
 
 typedef struct php_sockbuf php_sockbuf;
@@ -84,9 +74,15 @@ PHPAPI size_t php_sock_set_def_chunk_size(size_t size);
 PHPAPI void php_msock_destroy(int *data);
 PHPAPI void php_cleanup_sockbuf(int persistent FLS_DC);
 
-PHPAPI int connect_nonb(int sockfd, struct sockaddr *addr, socklen_t addrlen, struct timeval *timeout);
 PHPAPI struct php_sockbuf *php_get_socket(int socket);
 
 PHP_RSHUTDOWN_FUNCTION(fsock);
 
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim: sw=4 ts=4 tw=78
+ */
 #endif /* FSOCK_H */

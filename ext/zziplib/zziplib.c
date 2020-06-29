@@ -16,12 +16,17 @@
    +----------------------------------------------------------------------+
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "php.h"
 #include "php_ini.h"
 #include "php_zziplib.h"
 
 #if HAVE_ZZIPLIB
 
+#include "ext/standard/info.h"
 #include <zziplib.h>
 
 #ifndef O_BINARY
@@ -88,7 +93,7 @@ PHP_MINIT_FUNCTION(zziplib)
 PHP_MINFO_FUNCTION(zziplib)
 {
 	php_info_print_table_start();
-	php_info_print_table_header(2, "zziplib support", "enabled");
+	php_info_print_table_row(2, "zziplib support", "enabled");
 	php_info_print_table_end();
 
 }

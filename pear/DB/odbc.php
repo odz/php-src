@@ -25,7 +25,11 @@
 // XXX legend:
 //
 // XXX ERRORMSG: The error message from the odbc function should
-//				 be registered here.
+//                 be registered here.
+//
+// TODO:
+// - change fetchrow to use fetchInto
+// - implement $rownum param in FetchInto (supported by odbc functions)
 //
 
 require_once 'DB/common.php';
@@ -34,136 +38,131 @@ class DB_odbc extends DB_common
 {
     // {{{ properties
 
-	var $connection;
-	var $phptype, $dbsyntax;
+    var $connection;
+    var $phptype, $dbsyntax;
 
     // }}}
     // {{{ constructor
 
-	function DB_odbc()
+    function DB_odbc()
     {
         $this->DB_common();
-		$this->phptype = 'odbc';
-		$this->dbsyntax = 'sql92';
-		$this->features = array(
-			'prepare' => true,
-			'pconnect' => true,
-			'transactions' => false
-		);
-		$this->errorcode_map = array(
-			"01004" => DB_ERROR_TRUNCATED,
-			"07001" => DB_ERROR_MISMATCH,
-			"21S01" => DB_ERROR_MISMATCH,
-			"21S02" => DB_ERROR_MISMATCH,
-			"22003" => DB_ERROR_INVALID_NUMBER,
-			"22008" => DB_ERROR_INVALID_DATE,
-			"22012" => DB_ERROR_DIVZERO,
-			"23000" => DB_ERROR_CONSTRAINT,
-			"24000" => DB_ERROR_INVALID,
-			"34000" => DB_ERROR_INVALID,
-			"37000" => DB_ERROR_SYNTAX,
-			"42000" => DB_ERROR_SYNTAX,
-			"IM001" => DB_ERROR_UNSUPPORTED,
-			"S0001" => DB_ERROR_NOT_FOUND,
-			"S0002" => DB_ERROR_NOT_FOUND,
-			"S0011" => DB_ERROR_ALREADY_EXISTS,
-			"S0012" => DB_ERROR_NOT_FOUND,
-			"S0021" => DB_ERROR_ALREADY_EXISTS,
-			"S0022" => DB_ERROR_NOT_FOUND,
-			"S1009" => DB_ERROR_INVALID,
-			"S1090" => DB_ERROR_INVALID,
-			"S1C00" => DB_ERROR_NOT_CAPABLE
-		);
-	}
+        $this->phptype = 'odbc';
+        $this->dbsyntax = 'sql92';
+        $this->features = array(
+            'prepare' => true,
+            'pconnect' => true,
+            'transactions' => false
+        );
+        $this->errorcode_map = array(
+            "01004" => DB_ERROR_TRUNCATED,
+            "07001" => DB_ERROR_MISMATCH,
+            "21S01" => DB_ERROR_MISMATCH,
+            "21S02" => DB_ERROR_MISMATCH,
+            "22003" => DB_ERROR_INVALID_NUMBER,
+            "22008" => DB_ERROR_INVALID_DATE,
+            "22012" => DB_ERROR_DIVZERO,
+            "23000" => DB_ERROR_CONSTRAINT,
+            "24000" => DB_ERROR_INVALID,
+            "34000" => DB_ERROR_INVALID,
+            "37000" => DB_ERROR_SYNTAX,
+            "42000" => DB_ERROR_SYNTAX,
+            "IM001" => DB_ERROR_UNSUPPORTED,
+            "S0001" => DB_ERROR_NOT_FOUND,
+            "S0002" => DB_ERROR_NOT_FOUND,
+            "S0011" => DB_ERROR_ALREADY_EXISTS,
+            "S0012" => DB_ERROR_NOT_FOUND,
+            "S0021" => DB_ERROR_ALREADY_EXISTS,
+            "S0022" => DB_ERROR_NOT_FOUND,
+            "S1009" => DB_ERROR_INVALID,
+            "S1090" => DB_ERROR_INVALID,
+            "S1C00" => DB_ERROR_NOT_CAPABLE
+        );
+    }
 
     // }}}
     // {{{ connect()
 
-	/**
-	 * Connect to a database and log in as the specified user.
-	 *
-	 * @param $dsn the data source name (see DB::parseDSN for syntax)
-	 * @param $persistent (optional) whether the connection should
-	 *        be persistent
-	 *
-	 * @return int DB_OK on success, a DB error code on failure
-	 */
-	function connect($dsn, $persistent = false) {
-		if (is_array($dsn)) {
-			$dsninfo = &$dsn;
-		} else {
-			$dsninfo = DB::parseDSN($dsn);
-		}
-		if (!$dsninfo || !$dsninfo['phptype']) {
-			return $this->raiseError(); // XXX ERRORMSG
-		}
+    /**
+     * Connect to a database and log in as the specified user.
+     *
+     * @param $dsn the data source name (see DB::parseDSN for syntax)
+     * @param $persistent (optional) whether the connection should
+     *        be persistent
+     *
+     * @return int DB_OK on success, a DB error code on failure
+     */
+    function connect($dsninfo, $persistent = false)
+    {
         $this->dsn = $dsninfo;
-		$this->dbsyntax = $dsninfo['dbsyntax'];
-		switch ($this->dbsyntax) {
-			case 'solid':
-				$this->features = array(
-					'prepare' => true,
-					'pconnect' => true,
-					'transactions' => true
-				);
-				$default_dsn = 'localhost';
-				break;
-			default:
-				break;
-		}
-		$dbhost = $dsninfo['hostspec'] ? $dsninfo['hostspec'] : 'localhost';
-		$user = $dsninfo['username'];
-		$pw = $dsninfo['password'];
+        if (!empty($dsninfo['dbsyntax'])) {
+            $this->dbsyntax = $dsninfo['dbsyntax'];
+        }
+        switch ($this->dbsyntax) {
+            case 'solid':
+                $this->features = array(
+                    'prepare' => true,
+                    'pconnect' => true,
+                    'transactions' => true
+                );
+                $default_dsn = 'localhost';
+                break;
+            default:
+                break;
+        }
+        $dbhost = $dsninfo['hostspec'] ? $dsninfo['hostspec'] : 'localhost';
+        $user = $dsninfo['username'];
+        $pw = $dsninfo['password'];
         DB::assertExtension("odbc");
-		if ($this->provides('pconnect')) {
-			$connect_function = $persistent ? 'odbc_pconnect' : 'odbc_connect';
-		} else {
-			$connect_function = 'odbc_connect';
-		}
+        if ($this->provides('pconnect')) {
+            $connect_function = $persistent ? 'odbc_pconnect' : 'odbc_connect';
+        } else {
+            $connect_function = 'odbc_connect';
+        }
         $conn = @$connect_function($dbhost, $user, $pw);
-		if (!is_resource($conn)) {
-			return $this->raiseError();
-		}
-		$this->connection = $conn;
-		return DB_OK;
-	}
+        if (!is_resource($conn)) {
+            return $this->raiseError(DB_ERROR_CONNECT_FAILED);
+        }
+        $this->connection = $conn;
+        return DB_OK;
+    }
 
     // }}}
     // {{{ disconnect()
 
-	function disconnect()
+    function disconnect()
     {
-		$err = odbc_close($this->connection); // XXX ERRORMSG
-		return $err;
-	}
+        $err = odbc_close($this->connection); // XXX ERRORMSG
+        return $err;
+    }
 
     // }}}
     // {{{ simpleQuery()
 
-	/**
-	 * Send a query to ODBC and return the results as a ODBC resource
-	 * identifier.
-	 *
-	 * @param $query the SQL query
-	 *
-	 * @return int returns a valid ODBC result for successful SELECT
-	 * queries, DB_OK for other successful queries.  A DB error code
-	 * is returned on failure.
-	 */
-	function simpleQuery($query)
+    /**
+     * Send a query to ODBC and return the results as a ODBC resource
+     * identifier.
+     *
+     * @param $query the SQL query
+     *
+     * @return int returns a valid ODBC result for successful SELECT
+     * queries, DB_OK for other successful queries.  A DB error code
+     * is returned on failure.
+     */
+    function simpleQuery($query)
     {
-		$this->last_query = $query;
+        $this->last_query = $query;
         $query = $this->modifyQuery($query);
-		$result = odbc_exec($this->connection, $query);
-		if (!$result) {
-			return $this->raiseError(); // XXX ERRORMSG
-		}
-		// Determine which queries that should return data, and which
-		// should return an error code only.
+        $result = odbc_exec($this->connection, $query);
+        if (!$result) {
+            return $this->raiseError(); // XXX ERRORMSG
+        }
+        // Determine which queries that should return data, and which
+        // should return an error code only.
         return DB::isManip($query) ? DB_OK : $result;
-	}
+    }
 
-	// }}}
+    // }}}
     // {{{ fetchRow()
 
     /**
@@ -181,47 +180,56 @@ class DB_odbc extends DB_common
         if ($fetchmode == DB_FETCHMODE_DEFAULT) {
             $fetchmode = $this->fetchmode;
         }
-	
-	$cols = odbc_fetch_into($result, &$row);
-	if (!$cols) {
-	    if ($errno = odbc_error($this->connection)) {
-		return $this->raiseError($errno);
-	    } else {
-		return null;
-	    }
-	}
-	
+        $cols = odbc_fetch_into($result, &$row);
+        if (!$cols) {
+            if ($errno = odbc_error($this->connection)) {
+                return $this->raiseError($errno);
+            } else {
+                return null;
+            }
+        }
         if ($fetchmode == DB_FETCHMODE_ORDERED) {
             return $row;
-        } else if ($fetchmode == DB_FETCHMODE_ASSOC) {
+        } elseif ($fetchmode == DB_FETCHMODE_ASSOC) {
             for ($i = 0; $i < count($row); $i++) {
                 $colName = odbc_field_name($result, $i+1);
                 $a[$colName] = $row[$i];
             }
             return $a;
         } else {
-	    return $this->raiseError(); // XXX ERRORMSG
+            return $this->raiseError(); // XXX ERRORMSG
         }
     }
-    
+
+    function fetchInto($result, &$row, $fetchmode, $rownum=null)
+    {
+        if ($rownum !== null) {
+            return $this->raiseError(DB_ERROR_UNSUPPORTED);
+        }
+        if (is_array($row = $this->fetchRow($result, $fetchmode))) {
+            return DB_OK;
+        }
+        return $row;
+    }
+
     // }}}
     // {{{ freeResult()
 
-	function freeResult($result)
+    function freeResult($result)
     {
-		$err = odbc_free_result($result); // XXX ERRORMSG
-		return $err;
-	}
+        $err = odbc_free_result($result); // XXX ERRORMSG
+        return $err;
+    }
 
-	// }}}
+    // }}}
     // {{{ quoteString()
 
-	function quoteString($string)
+    function quoteString($string)
     {
-		return str_replace("'", "''", $string);
-	}
+        return str_replace("'", "''", $string);
+    }
 
-	// }}}
+    // }}}
     // {{{ numCols()
 
     function numCols($result)

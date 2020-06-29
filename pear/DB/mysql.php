@@ -25,7 +25,7 @@
 // XXX legend:
 //
 // XXX ERRORMSG: The error message from the mysql function should
-//				 be registered here.
+//               be registered here.
 //
 
 require_once "DB/common.php";
@@ -38,6 +38,8 @@ class DB_mysql extends DB_common
     var $phptype, $dbsyntax;
     var $prepare_tokens = array();
     var $prepare_types = array();
+    var $num_rows = array();
+    var $fetchmode = DB_FETCHMODE_ORDERED; /* Default fetch mode */
 
     // }}}
     // {{{ constructor
@@ -51,12 +53,12 @@ class DB_mysql extends DB_common
     function DB_mysql()
     {
         $this->DB_common();
-        $this->phptype = "mysql";
-        $this->dbsyntax = "mysql";
+        $this->phptype = 'mysql';
+        $this->dbsyntax = 'mysql';
         $this->features = array(
-            "prepare" => false,
-            "pconnect" => true,
-            "transactions" => false
+            'prepare' => false,
+            'pconnect' => true,
+            'transactions' => false
         );
         $this->errorcode_map = array(
             1004 => DB_ERROR_CANNOT_CREATE,
@@ -89,28 +91,18 @@ class DB_mysql extends DB_common
      * @access public
      * @return int DB_OK on success, a DB error on failure
      */
-    
-    function connect($dsn, $persistent = false)
-    {
-        if (is_array($dsn)) {
-            $dsninfo = &$dsn;
-        } else {
-            $dsninfo = DB::parseDSN($dsn);
-        }
-        
-        if (!$dsninfo || !$dsninfo["phptype"]) {
-            return $this->raiseError(); // XXX ERRORMSG
-        }
-	
-        $this->dsn = $dsninfo;
 
-        $dbhost = $dsninfo["hostspec"] ? $dsninfo["hostspec"] : "localhost";
-        $user = $dsninfo["username"];
-        $pw = $dsninfo["password"];
-        
-        DB::assertExtension("mysql");
-        $connect_function = $persistent ? "mysql_pconnect" : "mysql_connect";
-        
+    function connect($dsninfo, $persistent = false)
+    {
+        $this->dsn = $dsninfo;
+        $dbhost = $dsninfo['hostspec'] ? $dsninfo['hostspec'] : 'localhost';
+        $user = $dsninfo['username'];
+        $pw = $dsninfo['password'];
+
+        DB::assertExtension('mysql');
+        $connect_function = $persistent ? 'mysql_pconnect' : 'mysql_connect';
+
+        ini_set('track_errors', true);
         if ($dbhost && $user && $pw) {
             $conn = @$connect_function($dbhost, $user, $pw);
         } elseif ($dbhost && $user) {
@@ -120,17 +112,22 @@ class DB_mysql extends DB_common
         } else {
             $conn = false;
         }
-        
-        if ($conn == false) {
-            return $this->raiseError(); // XXX ERRORMSG
-        }
-        
-        if ($dsninfo["database"]) {
-            if (!mysql_select_db($dsninfo["database"], $conn)) {
-                return $this->raiseError(); // XXX ERRORMSG
+        ini_restore("track_errors");
+        if (empty($conn)) {
+            if (empty($php_errormsg)) {
+                return $this->raiseError(DB_ERROR_CONNECT_FAILED);
+            } else {
+                return $this->raiseError(DB_ERROR_CONNECT_FAILED, null, null,
+                                         null, $php_errormsg);
             }
         }
-        
+
+        if ($dsninfo['database']) {
+            if (!mysql_select_db($dsninfo['database'], $conn)) {
+                return $this->mysqlRaiseError();
+            }
+        }
+
         $this->connection = $conn;
         return DB_OK;
     }
@@ -169,52 +166,44 @@ class DB_mysql extends DB_common
     {
         $this->last_query = $query;
         $query = $this->modifyQuery($query);
-        $result = mysql_query($query, $this->connection);
+        $result = @mysql_query($query, $this->connection);
         if (!$result) {
             return $this->mysqlRaiseError();
         }
         // Determine which queries that should return data, and which
         // should return an error code only.
-        return DB::isManip($query) ? DB_OK : $result;
+        if (DB::isManip($query)) {
+            return DB_OK;
+        }
+        $numrows = $this->numrows($result);
+        if (is_object($numrows)) {
+            return $numrows;
+        }
+        $this->num_rows[$result] = $numrows;
+        return $result;
     }
 
     // }}}
     // {{{ fetchRow()
 
     /**
-     * Fetch a row and return as array.
-     *
+     * Fetch and return a row of data (it uses fetchInto for that)
      * @param $result MySQL result identifier
-     * @param $fetchmode how the resulting array should be indexed
+     * @param   $fetchmode  format of fetched row array
+     * @param   $rownum     the absolute row number to fetch
      *
-     * @access public
-     *
-     * @return mixed an array on success, a DB error on failure, NULL
-     *               if there is no more data
+     * @return  array   a row of data, or false on error
      */
-    function &fetchRow($result, $fetchmode = DB_FETCHMODE_DEFAULT)
+    function fetchRow($result, $fetchmode = DB_FETCHMODE_DEFAULT, $rownum=null)
     {
         if ($fetchmode == DB_FETCHMODE_DEFAULT) {
             $fetchmode = $this->fetchmode;
         }
-
-        if ($fetchmode & DB_FETCHMODE_ASSOC) {
-            $row = mysql_fetch_array($result, MYSQL_ASSOC);
-        } else {
-            $row = mysql_fetch_row($result);
+        $res = $this->fetchInto ($result, $arr, $fetchmode, $rownum);
+        if ($res !== DB_OK) {
+            return $res;
         }
-	
-        if (!$row) {
-            $errno = mysql_errno($this->connection);
-
-            if (!$errno) {
-                return null;
-            }
-	    
-            return $this->mysqlRaiseError($errno);
-        }
-	
-        return $row;
+        return $arr;
     }
 
     // }}}
@@ -226,33 +215,32 @@ class DB_mysql extends DB_common
      * @param $result MySQL result identifier
      * @param $arr (reference) array where data from the row is stored
      * @param $fetchmode how the array data should be indexed
-     *
+     * @param   $rownum the row number to fetch
      * @access public
      *
      * @return int DB_OK on success, a DB error on failure
      */
-    function fetchInto($result, &$arr, $fetchmode = DB_FETCHMODE_DEFAULT)
+    function fetchInto($result, &$arr, $fetchmode, $rownum=null)
     {
-        if ($fetchmode == DB_FETCHMODE_DEFAULT) {
-            $fetchmode = $this->fetchmode;
+        if ($rownum !== null) {
+            if (($rownum > 0) && ($rownum <= $this->num_rows[$result])) {
+                @mysql_data_seek($result, $rownum);
+            } else {
+                return null;
+            }
         }
-
         if ($fetchmode & DB_FETCHMODE_ASSOC) {
-            $arr = mysql_fetch_array($result, MYSQL_ASSOC);
+            $arr = @mysql_fetch_array($result, MYSQL_ASSOC);
         } else {
-            $arr = mysql_fetch_row($result);
+            $arr = @mysql_fetch_row($result);
         }
-
         if (!$arr) {
-            $errno = mysql_errno($this->connection);
-
+            $errno = @mysql_errno($this->connection);
             if (!$errno) {
                 return NULL;
             }
-
             return $this->mysqlRaiseError($errno);
         }
-
         return DB_OK;
     }
 
@@ -274,14 +262,14 @@ class DB_mysql extends DB_common
             return mysql_free_result($result);
         }
 
-        if (!isset($this->prepare_tokens[$result])) {
+        if (!isset($this->prepare_tokens[(int)$result])) {
             return false;
         }
 
-        unset($this->prepare_tokens[$result]);
-        unset($this->prepare_types[$result]);
+        unset($this->prepare_tokens[(int)$result]);
+        unset($this->prepare_types[(int)$result]);
 
-        return true; 
+        return true;
     }
 
     // }}}
@@ -298,7 +286,7 @@ class DB_mysql extends DB_common
      */
     function numCols($result)
     {
-        $cols = mysql_num_fields($result);
+        $cols = @mysql_num_fields($result);
 
         if (!$cols) {
             return $this->mysqlRaiseError();
@@ -325,7 +313,6 @@ class DB_mysql extends DB_common
         if ($rows === null) {
             return $this->mysqlRaiseError();
         }
-
         return $rows;
     }
 
@@ -342,7 +329,7 @@ class DB_mysql extends DB_common
     function affectedRows()
     {
         if (DB::isManip($this->last_query)) {
-            $result = mysql_affected_rows($this->connection);
+            $result = @mysql_affected_rows($this->connection);
         } else {
             $result = 0;
         }
@@ -376,7 +363,7 @@ class DB_mysql extends DB_common
      * @access public
      *
      * @param $seq_name the name of the sequence
-     * 
+     *
      * @param $ondemand whether to create the sequence table on demand
      * (default is true)
      *
@@ -404,7 +391,7 @@ class DB_mysql extends DB_common
         }
         return mysql_insert_id($this->connection);
     }
-		
+
     // }}}
     // {{{ createSequence()
 
@@ -412,8 +399,8 @@ class DB_mysql extends DB_common
     {
         $sqn = preg_replace('/[^a-z0-9_]/i', '_', $seq_name);
         return $this->query("CREATE TABLE ${sqn}_seq ".
-                            "(id INTEGER UNSIGNED AUTO_INCREMENT NOT NULL,".
-                            " PRIMARY KEY(id))");
+                            '(id INTEGER UNSIGNED AUTO_INCREMENT NOT NULL,'.
+                            ' PRIMARY KEY(id))');
     }
 
     // }}}
@@ -447,9 +434,106 @@ class DB_mysql extends DB_common
     function mysqlRaiseError($errno = null)
     {
         if ($errno === null) {
-            return $this->raiseError($this->errorCode(mysql_errno($this->connection)));
+            $errno = $this->errorCode(mysql_errno($this->connection));
         }
-        return $this->raiseError($this->errorCode($errno));
+        return $this->raiseError($errno, null, null, null,
+                        mysql_error($this->connection));
+    }
+
+    // }}}
+    // {{{ tableInfo()
+
+    function tableInfo($result, $mode = null) {
+        $count = 0;
+        $id    = 0;
+        $res   = array();
+
+        /*
+         * depending on $mode, metadata returns the following values:
+         *
+         * - mode is false (default):
+         * $result[]:
+         *   [0]["table"]  table name
+         *   [0]["name"]   field name
+         *   [0]["type"]   field type
+         *   [0]["len"]    field length
+         *   [0]["flags"]  field flags
+         *
+         * - mode is DB_TABLEINFO_ORDER
+         * $result[]:
+         *   ["num_fields"] number of metadata records
+         *   [0]["table"]  table name
+         *   [0]["name"]   field name
+         *   [0]["type"]   field type
+         *   [0]["len"]    field length
+         *   [0]["flags"]  field flags
+         *   ["order"][field name]  index of field named "field name"
+         *   The last one is used, if you have a field name, but no index.
+         *   Test:  if (isset($result['meta']['myfield'])) { ...
+         *
+         * - mode is DB_TABLEINFO_ORDERTABLE
+         *    the same as above. but additionally
+         *   ["ordertable"][table name][field name] index of field
+         *      named "field name"
+         *
+         *      this is, because if you have fields from different
+         *      tables with the same field name * they override each
+         *      other with DB_TABLEINFO_ORDER
+         *
+         *      you can combine DB_TABLEINFO_ORDER and
+         *      DB_TABLEINFO_ORDERTABLE with DB_TABLEINFO_ORDER |
+         *      DB_TABLEINFO_ORDERTABLE * or with DB_TABLEINFO_FULL
+         */
+
+        // if $result is a string, then we want information about a
+        // table without a resultset
+        if (is_string($result)) {
+            $id = @mysql_list_fields($this->dsn['database'],
+                                     $result, $this->connection);
+            if (empty($id)) {
+                return $this->mysqlRaiseError();
+            }
+        } else { // else we want information about a resultset
+            $id = $result;
+            if (empty($id)) {
+                return $this->mysqlRaiseError();
+            }
+        }
+
+        $count = @mysql_num_fields($id);
+
+        // made this IF due to performance (one if is faster than $count if's)
+        if (empty($mode)) {
+            for ($i=0; $i<$count; $i++) {
+                $res[$i]['table'] = @mysql_field_table ($id, $i);
+                $res[$i]['name']  = @mysql_field_name  ($id, $i);
+                $res[$i]['type']  = @mysql_field_type  ($id, $i);
+                $res[$i]['len']   = @mysql_field_len   ($id, $i);
+                $res[$i]['flags'] = @mysql_field_flags ($id, $i);
+            }
+        } else { // full
+            $res["num_fields"]= $count;
+
+            for ($i=0; $i<$count; $i++) {
+                $res[$i]['table'] = @mysql_field_table ($id, $i);
+                $res[$i]['name']  = @mysql_field_name  ($id, $i);
+                $res[$i]['type']  = @mysql_field_type  ($id, $i);
+                $res[$i]['len']   = @mysql_field_len   ($id, $i);
+                $res[$i]['flags'] = @mysql_field_flags ($id, $i);
+                if ($mode & DB_TABLEINFO_ORDER) {
+                    $res['order'][$res[$i]['name']] = $i;
+                }
+                if ($mode & DB_TABLEINFO_ORDERTABLE) {
+                    $res['ordertable'][$res[$i]['table']][$res[$i]['name']] = $i;
+                }
+            }
+        }
+
+        // free the result only if we were called on a table
+        if ($table) {
+            @mysql_free_result($id);
+        }
+        return $res;
     }
 
     // }}}

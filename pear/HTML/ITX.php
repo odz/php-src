@@ -16,7 +16,7 @@
 // | Authors: Ulf Wendel <ulf.wendel@phpdoc.de>                           |
 // +----------------------------------------------------------------------+
 //
-// $Id: ITX.php,v 1.4 2001/01/24 11:19:28 sbergmann Exp $
+// $Id: ITX.php,v 1.5 2001/03/29 21:49:15 uw Exp $
 //
 
 require_once "HTML/IT.php";
@@ -33,9 +33,10 @@ require_once "HTML/IT.php";
 * Note that you can replace an existing block and add new blocks add runtime.
 * Adding new blocks means changing a variable placeholder to a block.
 *
-* @author     Ulf Wendel <uw@netuse.de>
-* @access        public
-* @version     $Id: ITX.php,v 1.4 2001/01/24 11:19:28 sbergmann Exp $
+* @author   Ulf Wendel <uw@netuse.de>
+* @access   public
+* @version  $Id: ITX.php,v 1.5 2001/03/29 21:49:15 uw Exp $
+* @package  IT[X]
 */
 class IntegratedTemplateExtension extends IntegratedTemplate {
 
@@ -151,19 +152,16 @@ class IntegratedTemplateExtension extends IntegratedTemplate {
     * 
     * @param    string    Blockname
     * @param    string    Blockcontent
-    * @return   boolean    
+    * @return   boolean 
+    * @throws   IT_Error
     * @see      replaceBlockfile(), addBlock(), addBlockfile()
     * @access   public
     */
     function replaceBlock($block, $template) {
-        if (!isset($this->blocklist[$block])) {
-            $this->halt("The block '$block' does not exist in the template and thus it can't be replaced.", __FILE__, __LINE__);
-            return false;
-        }
-        if (""==$template) {
-            $this->halt("No block content given.", __FILE__, __LINE__);
-            return false;
-        }
+        if (!isset($this->blocklist[$block]))
+            return new IT_Error("The block '$block' does not exist in the template and thus it can't be replaced.", __FILE__, __LINE__);
+        if ("" == $template)
+            return new IT_Error("No block content given.", __FILE__, __LINE__);
         
         print "This function has not been coded yet.";
         
@@ -182,7 +180,7 @@ class IntegratedTemplateExtension extends IntegratedTemplate {
     * @param    string    Name of the file that contains the blockcontent
     */
     function replaceBlockfile($block, $filename) {
-        return $this->replaceBlock($block, $this->getFile($filename));    
+        return $this->replaceBlock($block, $this->getFile($filename));
     } // end func replaceBlockfile
     
     /**
@@ -207,33 +205,30 @@ class IntegratedTemplateExtension extends IntegratedTemplate {
     * @param    string    Name of the variable placeholder, the name must be unique within the template.
     * @param    string    Name of the block to be added
     * @param    string    Content of the block
-    * @return    boolean
-    * @see        addBlockfile()
-    * @access    public
+    * @return   boolean
+    * @throws   IT_Error
+    * @see      addBlockfile()
+    * @access   public
     */    
     function addBlock($placeholder, $blockname, $template) {
     
         // Don't trust any user even if it's a programmer or yourself...
         if ("" == $placeholder) {
         
-            $this->halt("No variable placeholder given.", __FILE__, __LINE__);
-            return false;
+            return new IT_Error("No variable placeholder given.", __FILE__, __LINE__);
             
         } else if ("" == $blockname || !preg_match($this->checkblocknameRegExp, $blockname) ) {
             
             print $this->checkblocknameRegExp;
-            $this->halt("No or invalid blockname '$blockname' given.", __FILE__, __LINE__);
-            return false;
+            return new IT_Error("No or invalid blockname '$blockname' given.", __FILE__, __LINE__);
             
         } else if ("" == $template) {
         
-            $this->halt("No block content given.", __FILE__, __LINE__);
-            return false;
+            return new IT_Error("No block content given.", __FILE__, __LINE__);
             
         } else if (isset($this->blocklist[$blockname])) {
         
-            $this->halt("The block already exists.", __FILE__, __LINE__);
-            return false;
+            return new IT_Error("The block already exists.", __FILE__, __LINE__);
             
         }
         
@@ -241,8 +236,7 @@ class IntegratedTemplateExtension extends IntegratedTemplate {
         $parents = $this->findPlaceholderBlocks($placeholder);
         if (0 == count($parents)) {
         
-            $this->halt("The variable placeholder '$placeholder' was not found in the template.", __FILE__, __LINE__);
-            return false;
+            return new IT_Error("The variable placeholder '$placeholder' was not found in the template.", __FILE__, __LINE__);
             
         } else if ( count($parents) > 1 ) {
             
@@ -251,8 +245,7 @@ class IntegratedTemplateExtension extends IntegratedTemplate {
                 $msg .= "$parent, ";
             $msg = substr($parent, -2);
             
-            $this->halt("The variable placeholder '$placeholder' must be unique, found in multiple blocks '$msg'.", __FILE__, __LINE__);
-            return false;
+            return new IT_Error("The variable placeholder '$placeholder' must be unique, found in multiple blocks '$msg'.", __FILE__, __LINE__);
                         
         }
         
@@ -292,17 +285,18 @@ class IntegratedTemplateExtension extends IntegratedTemplate {
     * @param    string  Name of the block to scan. If left out (default) all blocks are scanned.
     * @return   string  Name of the (first) block that contains the specified placeholder. 
     *                   If the placeholder was not found or an error occured an empty string is returned.
+    * @throws   IT_Error
     * @access   public
     */
     function placeholderExists($placeholder, $block = "") {
         
         if ("" == $placeholder) {
-            $this->halt("No placeholder name given.", __FILE__, __LINE__);
+            new IT_Error("No placeholder name given.", __FILE__, __LINE__);
             return "";
         }
         
         if ("" != $block && !isset($this->blocklist[$block])) {
-            $this->halt("Unknown block '$block'.", __FILE__, __LINE__);
+            new IT_Error("Unknown block '$block'.", __FILE__, __LINE__);
             return "";
         }
         
@@ -348,7 +342,7 @@ class IntegratedTemplateExtension extends IntegratedTemplate {
     /**
     * Checks the list of function calls in the template and calls their callback function.
     *
-    *    @access    public
+    * @access    public
     */
     function performCallback() {
     
@@ -382,8 +376,8 @@ class IntegratedTemplateExtension extends IntegratedTemplate {
     /**
     * Returns a list of all function calls in the current template.
     *
-    * @return array
-    * @access    public
+    * @return   array
+    * @access   public
     */
     function getFunctioncalls() {
         
@@ -394,9 +388,9 @@ class IntegratedTemplateExtension extends IntegratedTemplate {
     /**
     * Replaces a function call with the given replacement.
     * 
-    * @param    int            Function ID
+    * @param    int       Function ID
     * @param    string    Replacement
-    * @access    public
+    * @access   public
     */
     function setFunctioncontent($functionID, $replacement) {
         
@@ -410,15 +404,14 @@ class IntegratedTemplateExtension extends IntegratedTemplate {
     * @param    string    Function name in the template
     * @param    string    Name of the callback function
     * @param    string    Name of the callback object
-    * @return    boolean    False on failure.
-    * @access    public
+    * @return   boolean   False on failure.
+    * @throws   IT_Error
+    * @access   public
     */
     function setCallbackFunction($tplfunction, $callbackfunction, $callbackobject = "") {
         
-        if ("" == $tplfunction || "" == $callbackfunction) {
-            $this->halt("No template function ('$tplfunction') and/or no callback function ('$callback') given.", __FILE__, __LINE__);
-            return false;
-        }
+        if ("" == $tplfunction || "" == $callbackfunction)
+            return new IT_Error("No template function ('$tplfunction') and/or no callback function ('$callback') given.", __FILE__, __LINE__);
         
         $this->callback[$tplfunction] = array(
                                               "function"    => $callbackfunction,

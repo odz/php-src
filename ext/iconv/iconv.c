@@ -17,17 +17,23 @@
    +----------------------------------------------------------------------+
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "php.h"
-#include "php_ini.h"
-#include "php_config.h"
 
 #if HAVE_ICONV
 
+#include <iconv.h>
+
+#include "php_globals.h"
 #include "php_iconv.h"
 #include "ext/standard/info.h"
+#include "ext/standard/php_output.h"
+#include "SAPI.h"
+#include "php_ini.h"
 
-
-ZEND_DECLARE_MODULE_GLOBALS(iconv)
 
 #if HAVE_LIBICONV
 #define icv_open(a,b) libiconv_open(a,b)
@@ -39,9 +45,6 @@ ZEND_DECLARE_MODULE_GLOBALS(iconv)
 #define icv(a,b,c,d,e) iconv(a,b,c,d,e)
 #endif
 
-
-/* True global resources - no need for thread safety here */
-static int le_iconv;
 
 /* Every user visible function must have an entry in iconv_functions[].
 */
@@ -56,13 +59,15 @@ function_entry iconv_functions[] = {
 zend_module_entry iconv_module_entry = {
 	"iconv",
 	iconv_functions,
-	PHP_MINIT(iconv),
-	PHP_MSHUTDOWN(iconv),
+	PHP_MINIT(miconv),
+	PHP_MSHUTDOWN(miconv),
 	NULL,
 	NULL,
-	PHP_MINFO(iconv),
+	PHP_MINFO(miconv),
 	STANDARD_MODULE_PROPERTIES
 };
+
+ZEND_DECLARE_MODULE_GLOBALS(iconv)
 
 #ifdef COMPILE_DL_ICONV
 ZEND_GET_MODULE(iconv)
@@ -70,14 +75,13 @@ ZEND_GET_MODULE(iconv)
 
 int php_iconv_string(char *, char **, char *, char *);
 
-
 PHP_INI_BEGIN()
-	 STD_PHP_INI_ENTRY("iconv.input_encoding",		ICONV_INPUT_ENCODING,		PHP_INI_ALL,		OnUpdateString,  input_encoding,		zend_iconv_globals,  iconv_globals)
-	 STD_PHP_INI_ENTRY("iconv.output_encoding",		ICONV_OUTPUT_ENCODING,		PHP_INI_ALL,		OnUpdateString,  output_encoding,		zend_iconv_globals,  iconv_globals)
-	 STD_PHP_INI_ENTRY("iconv.internal_encoding",		ICONV_INTERNAL_ENCODING,		PHP_INI_ALL,		OnUpdateString,  internal_encoding,		zend_iconv_globals,  iconv_globals)
+	 STD_PHP_INI_ENTRY("iconv.input_encoding",	  ICONV_INPUT_ENCODING,    PHP_INI_ALL, OnUpdateString,  input_encoding,	zend_iconv_globals,  iconv_globals)
+	 STD_PHP_INI_ENTRY("iconv.output_encoding",	  ICONV_OUTPUT_ENCODING,   PHP_INI_ALL, OnUpdateString,  output_encoding,	zend_iconv_globals,  iconv_globals)
+	 STD_PHP_INI_ENTRY("iconv.internal_encoding", ICONV_INTERNAL_ENCODING, PHP_INI_ALL, OnUpdateString,  internal_encoding,	zend_iconv_globals,  iconv_globals)
 PHP_INI_END()
 
-static void
+static void 
 php_iconv_init_globals(zend_iconv_globals *iconv_globals)
 {
 	iconv_globals->input_encoding = NULL;
@@ -85,20 +89,20 @@ php_iconv_init_globals(zend_iconv_globals *iconv_globals)
 	iconv_globals->internal_encoding = NULL;
 }
 
-PHP_MINIT_FUNCTION(iconv)
+PHP_MINIT_FUNCTION(miconv)
 {
 	ZEND_INIT_MODULE_GLOBALS(iconv, php_iconv_init_globals, NULL);
 	REGISTER_INI_ENTRIES();
 	return SUCCESS;
 }
 
-PHP_MSHUTDOWN_FUNCTION(iconv)
+PHP_MSHUTDOWN_FUNCTION(miconv)
 {
 	UNREGISTER_INI_ENTRIES();
 	return SUCCESS;
 }
 
-PHP_MINFO_FUNCTION(iconv)
+PHP_MINFO_FUNCTION(miconv)
 {
 	php_info_print_table_start();
 	php_info_print_table_header(2, "iconv support", "enabled");
@@ -107,7 +111,8 @@ PHP_MINFO_FUNCTION(iconv)
 	DISPLAY_INI_ENTRIES();
 }
 
-int php_iconv_string(char *in_p, char **out, char *in_charset, char *out_charset) {
+int php_iconv_string(char *in_p, char **out, char *in_charset, char *out_charset)
+{
     unsigned int in_size, out_size;
     char *out_buffer, *out_p;
     iconv_t cd;
@@ -127,15 +132,15 @@ int php_iconv_string(char *in_p, char **out, char *in_charset, char *out_charset
 		php_error(E_WARNING, "iconv: cannot convert from `%s' to `%s'",
 				  in_charset, out_charset);
 		efree(out_buffer);
-		return -1;
+		return FAILURE;
 	}
 	
 	result = icv(cd, (const char **) &in_p, &in_size, (char **)
 				   &out_p, &out_size);
 
     if (result == (size_t)(-1)) {
-        sprintf(out_buffer, "???") ;
-		return -1;
+		 efree(out_buffer);
+		return FAILURE;
     }
 
     icv_close(cd);
@@ -149,11 +154,8 @@ int php_iconv_string(char *in_p, char **out, char *in_charset, char *out_charset
 PHP_FUNCTION(iconv)
 {
     zval **in_charset, **out_charset, **in_buffer;
-    unsigned int in_size, out_size;
-    char *out_buffer, *in_p, *out_p;
-    size_t result;
-    typedef unsigned int ucs4_t;
-
+	char *out_buffer;
+	
     if (ZEND_NUM_ARGS() != 3 || zend_get_parameters_ex(3, &in_charset, &out_charset, &in_buffer) == FAILURE) {
         WRONG_PARAM_COUNT;
     }
@@ -162,8 +164,7 @@ PHP_FUNCTION(iconv)
     convert_to_string_ex(out_charset);
     convert_to_string_ex(in_buffer);
 
-	if (php_iconv_string(Z_STRVAL_PP(in_buffer), &out_buffer, 
-						 Z_STRVAL_PP(in_charset), Z_STRVAL_PP(out_charset)) == SUCCESS) {
+	if (php_iconv_string(Z_STRVAL_PP(in_buffer), &out_buffer, Z_STRVAL_PP(in_charset), Z_STRVAL_PP(out_charset)) == SUCCESS) {
 		RETVAL_STRING(out_buffer, 0);
 	} else {
 		RETURN_FALSE;
@@ -171,18 +172,21 @@ PHP_FUNCTION(iconv)
 }
 /* }}} */
 
-/* {{{ proto string ob_iconv_handler(string contents)
+/* {{{ proto string ob_iconv_handler(string contents, int status)
    Returns str in output buffer converted to the iconv.output_encoding character set */
 PHP_FUNCTION(ob_iconv_handler)
 {
-	int coding;
 	char *out_buffer;
-	zval **zv_string;
+	zval **zv_string, **zv_status;
+	SLS_FETCH();
 	ICONVLS_FETCH();
 
-	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &zv_string)==FAILURE) {
+	if (ZEND_NUM_ARGS()!=2 || zend_get_parameters_ex(2, &zv_string, &zv_status)==FAILURE) {
 		ZEND_WRONG_PARAM_COUNT();
 	}
+
+	convert_to_string_ex(zv_string);
+	convert_to_long_ex(zv_status);
 
 	if (SG(sapi_headers).send_default_content_type &&
 		php_iconv_string(Z_STRVAL_PP(zv_string), &out_buffer,

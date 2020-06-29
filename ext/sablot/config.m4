@@ -1,13 +1,17 @@
-dnl $Id: config.m4,v 1.13 2001/01/18 15:09:35 sniper Exp $
+dnl $Id: config.m4,v 1.17.2.1 2001/06/01 06:42:55 sniper Exp $
 dnl config.m4 for extension Sablot
-
-PHP_ARG_WITH(expat-dir, for Sablotron XSL support,
-[  --with-expat-dir=DIR    Sablotron: libexpat dir for Sablotron 0.50])
 
 PHP_ARG_WITH(sablot, for Sablotron XSL support,
 [  --with-sablot[=DIR]     Include Sablotron support])
 
+PHP_ARG_WITH(expat-dir, libexpat dir for Sablotron 0.50,
+[  --with-expat-dir=DIR    Sablotron: libexpat dir for Sablotron 0.50])
+
 if test "$PHP_SABLOT" != "no"; then
+
+  PHP_EXTENSION(sablot, $ext_shared)
+  PHP_SUBST(SABLOT_SHARED_LIBADD)
+
   if test -r $PHP_SABLOT/include/sablot.h; then
     SABLOT_DIR=$PHP_SABLOT
   else
@@ -25,32 +29,41 @@ if test "$PHP_SABLOT" != "no"; then
     AC_MSG_ERROR(Please reinstall the Sablotron distribution)
   fi
 
-  AC_ADD_INCLUDE($SABLOT_DIR/include)
-
-  PHP_SUBST(SABLOT_SHARED_LIBADD)
-  AC_ADD_LIBRARY_WITH_PATH(sablot, $SABLOT_DIR/lib, SABLOT_SHARED_LIBADD)
-
-  if test -z "$PHP_EXPAT_DIR"; then
-    PHP_EXPAT_DIR=""
-  fi
+  PHP_ADD_INCLUDE($SABLOT_DIR/include)
+  PHP_ADD_LIBRARY_WITH_PATH(sablot, $SABLOT_DIR/lib, SABLOT_SHARED_LIBADD)
 
   testval=no
   for i in $PHP_EXPAT_DIR $SABLOT_DIR; do
-    if test -f $i/lib/libexpat.a -o -f $i/lib/libexpat.so; then
+    if test -f $i/lib/libexpat.a -o -f $i/lib/libexpat.s?; then
       AC_DEFINE(HAVE_LIBEXPAT2,1,[ ])
-      AC_ADD_LIBRARY_WITH_PATH(expat, $i/lib)
-      AC_ADD_INCLUDE($i/include)
+      PHP_ADD_LIBRARY_WITH_PATH(expat, $i/lib)
+      PHP_ADD_INCLUDE($i/include)
       AC_CHECK_LIB(sablot, SablotSetEncoding, AC_DEFINE(HAVE_SABLOT_SET_ENCODING,1,[ ]))
       testval=yes
     fi
   done
 
   if test "$testval" = "no"; then
-    AC_ADD_LIBRARY(xmlparse)
-    AC_ADD_LIBRARY(xmltok)
+    PHP_ADD_LIBRARY(xmlparse)
+    PHP_ADD_LIBRARY(xmltok)
+  fi
+
+  found_iconv=no
+  AC_CHECK_LIB(c, iconv_open, found_iconv=yes)
+  if test "$found_iconv" = "no"; then
+    if test "$PHP_ICONV" = "no"; then
+      for i in /usr /usr/local; do
+        if test -f $i/lib/libconv.a -o -f $i/lib/libiconv.s?; then
+          PHP_ADD_LIBRARY_WITH_PATH(iconv, $i/lib)
+          found_iconv=yes
+        fi
+      done
+    fi
+  fi
+  
+  if test "$found_iconv" = "no"; then
+    AC_MSG_ERROR(iconv not found, in order to build sablotron you need the iconv library)
   fi
   
   AC_DEFINE(HAVE_SABLOT,1,[ ])
-
-  PHP_EXTENSION(sablot, $ext_shared)
 fi

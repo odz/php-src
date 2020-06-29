@@ -145,10 +145,18 @@ SOURCE=.\tsrm_strtok_r.c
 
 SOURCE=.\tsrm_virtual_cwd.c
 # End Source File
+# Begin Source File
+
+SOURCE=.\tsrm_win32.c
+# End Source File
 # End Group
 # Begin Group "Header Files"
 
 # PROP Default_Filter "h;hpp;hxx;hm;inl"
+# Begin Source File
+
+SOURCE=.\readdir.h
+# End Source File
 # Begin Source File
 
 SOURCE=.\TSRM.h
@@ -168,6 +176,10 @@ SOURCE=.\tsrm_strtok_r.h
 # Begin Source File
 
 SOURCE=.\tsrm_virtual_cwd.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tsrm_win32.h
 # End Source File
 # End Group
 # End Target

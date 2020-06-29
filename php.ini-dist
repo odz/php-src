@@ -1,5 +1,5 @@
 [PHP]
-; $Id: php.ini-dist,v 1.73.2.2 2001/04/22 11:58:49 phanto Exp $
+; $Id: php.ini-dist,v 1.78.2.2 2001/06/01 03:20:49 sniper Exp $
 
 ;;;;;;;;;;;;;;;;;;;
 ; About this file ;
@@ -307,12 +307,14 @@ default_mimetype = "text/html"
 ; Paths and Directories ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
-; UNIX: "/path1:/path2"  Windows: "\path1;\path2"
-include_path =
+; UNIX: "/path1:/path2"  
+;include_path = ".:/php/includes"
+;
+; Windows: "\path1;\path2"
+;include_path = ".;c:\php\includes"
 
 ; The root of the PHP pages, used only if nonempty.
 doc_root =
-
 
 ; The directory under which PHP opens the script using /~usernamem used only
 ; if nonempty.
@@ -349,6 +351,8 @@ upload_max_filesize = 2M
 ; Whether to allow the treatment of URLs (like http:// or ftp://) as files.
 allow_url_fopen = On
 
+; Define the anonymous ftp password (your email address)
+;from="john@doe.com"
 
 ;;;;;;;;;;;;;;;;;;;;;;
 ; Dynamic Extensions ;
@@ -383,6 +387,7 @@ allow_url_fopen = On
 ;extension=php_db.dll
 ;extension=php_dba.dll
 ;extension=php_dbase.dll
+;extension=php_dbx.dll
 ;extension=php_domxml.dll
 ;extension=php_dotnet.dll
 ;extension=php_exif.dll
@@ -770,6 +775,12 @@ sockets.use_system_read = On
 [com]
 ; path to a file containing GUIDs, IIDs or filenames of files with TypeLibs
 ;com.typelib_file = 
-
 ; allow Distributed-COM calls
 ;com.allow_dcom = true
+
+[Printer]
+;printer.default_printer = ""
+
+; Local Variables:
+; tab-width: 4
+; End:

@@ -17,11 +17,15 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: pgsql.c,v 1.93.2.5 2001/04/04 21:51:58 thies Exp $ */
+/* $Id: pgsql.c,v 1.102.2.3 2001/06/04 08:06:30 sniper Exp $ */
 
 #include <stdlib.h>
 
 #define PHP_PGSQL_PRIVATE 1
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "php.h"
 #include "php_ini.h"
@@ -46,6 +50,7 @@ function_entry pgsql_functions[] = {
 	PHP_FE(pg_pconnect,		NULL)
 	PHP_FE(pg_close,		NULL)
 	PHP_FE(pg_cmdtuples,	NULL)
+	PHP_FE(pg_last_notice,  NULL)
 	PHP_FE(pg_dbname,		NULL)
 	PHP_FE(pg_errormessage,	NULL)
 	PHP_FE(pg_trace,		NULL)
@@ -117,12 +122,11 @@ static void php_pgsql_set_default_link(int id)
 {   
 	PGLS_FETCH();
 
-	zend_list_addref(id); /* increase refcount for the new default link */
+	zend_list_addref(id);
 
-    if (PGG(default_link) != -1) {
-		/* decrease refcount for the old default link */
-        zend_list_delete(PGG(default_link));
-    }
+	if (PGG(default_link) != -1) {
+		zend_list_delete(PGG(default_link));
+	}
 
 	PGG(default_link) = id;
 }
@@ -146,6 +150,9 @@ static void _close_pgsql_plink(zend_rsrc_list_entry *rsrc)
 	PQfinish(link);
 	PGG(num_persistent)--;
 	PGG(num_links)--;
+	if(PGG(last_notice) != NULL) {
+		efree(PGG(last_notice));
+	}
 }
 
 
@@ -155,14 +162,23 @@ _notice_handler(void *arg, const char *message)
 	PGLS_FETCH();
 
 	if (! PGG(ignore_notices)) {
-		php_log_err(message);
+		php_log_err((char *) message);
+		if (PGG(last_notice) != NULL) {
+			efree(PGG(last_notice));
+		}
+		PGG(last_notice) = estrdup(message);
 	}
 }
 
 
 static int _rollback_transactions(zend_rsrc_list_entry *rsrc)
 {
-	PGconn *link = (PGconn *)rsrc->ptr;
+	PGconn *link;
+	PGLS_FETCH();
+	
+	if (rsrc->type != le_plink) return 0;
+
+	link = (PGconn *) rsrc->ptr;
 
 	PGG(ignore_notices) = 1;
 	PQexec(link,"BEGIN;ROLLBACK;");
@@ -197,6 +213,7 @@ static void php_pgsql_init_globals(PGLS_D)
 {
 	PGG(num_persistent) = 0;
 	PGG(ignore_notices) = 0;
+	PGG(last_notice) = NULL;
 }
 
 PHP_MINIT_FUNCTION(pgsql)
@@ -377,6 +394,9 @@ void php_pgsql_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent)
 				pgsql=PQsetdb(host,port,options,tty,dbname);
 			}
 			if (pgsql==NULL || PQstatus(pgsql)==CONNECTION_BAD) {
+				if (pgsql) {
+					PQfinish(pgsql);
+				}
 				php_error(E_WARNING,"Unable to connect to PostgreSQL server:  %s",PQerrorMessage(pgsql));
 				efree(hashed_details);
 				RETURN_FALSE;
@@ -533,8 +553,6 @@ PHP_FUNCTION(pg_close)
 	}
 	
 	ZEND_FETCH_RESOURCE2(pgsql, PGconn *, pgsql_link, id, "PostgreSQL link", le_link, le_plink);
-
-	printf("\npg_close %d\n",id);
 
 	if (id==-1) { /* explicit resource number */
 		zend_list_delete(Z_RESVAL_PP(pgsql_link));
@@ -865,6 +883,19 @@ PHP_FUNCTION(pg_cmdtuples)
 }
 /* }}} */
 
+/* {{{ proto int pg_last_notice(int connection)
+   Returns the last notice set by the backend */
+PHP_FUNCTION(pg_last_notice) 
+{
+	PGLS_FETCH();
+
+	if (PGG(last_notice) == NULL) {
+		RETURN_FALSE;
+	} else {       
+		RETURN_STRING(PGG(last_notice),0);
+	}
+}
+/* }}} */
 
 char *get_field_name(PGconn *pgsql, Oid oid, HashTable *list)
 {

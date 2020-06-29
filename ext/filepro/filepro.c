@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: filepro.c,v 1.30 2001/02/26 06:06:55 andi Exp $ */
+/* $Id: filepro.c,v 1.31.2.1 2001/05/24 12:41:47 ssb Exp $ */
 
 /*
   filePro 4.x support developed by Chad Robinson, chadr@brttech.com
@@ -25,6 +25,10 @@
   no code or information that is not freely available from the filePro
   web site at http://www.fileproplus.com/
 */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "php.h"
 #include "safe_mode.h"
@@ -214,7 +218,7 @@ PHP_FUNCTION(filepro)
 		RETURN_FALSE;
 	}
 
-	if (!(fp = V_FOPEN(workbuf, "r"))) {
+	if (!(fp = VCWD_FOPEN(workbuf, "r"))) {
 		php_error(E_WARNING, "filePro: cannot open map: [%d] %s",
 					errno, strerror(errno));
 		RETURN_FALSE;
@@ -313,7 +317,7 @@ PHP_FUNCTION(filepro_rowcount)
 		RETURN_FALSE;
 	}
 
-	if (!(fp = V_FOPEN(workbuf, "r"))) {
+	if (!(fp = VCWD_FOPEN(workbuf, "r"))) {
 		php_error(E_WARNING, "filePro: cannot open key: [%d] %s",
 					errno, strerror(errno));
 		RETURN_FALSE;
@@ -538,7 +542,7 @@ PHP_FUNCTION(filepro_retrieve)
 		RETURN_FALSE;
 	}
 
-	if (!(fp = V_FOPEN(workbuf, "r"))) {
+	if (!(fp = VCWD_FOPEN(workbuf, "r"))) {
 		php_error(E_WARNING, "filePro: cannot open key: [%d] %s",
 					errno, strerror(errno));
 	    fclose(fp);

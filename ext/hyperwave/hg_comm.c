@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: hg_comm.c,v 1.39 2001/02/26 06:06:57 andi Exp $ */
+/* $Id: hg_comm.c,v 1.41 2001/03/21 07:58:20 steinm Exp $ */
 
 /* #define HW_DEBUG */
 
@@ -523,6 +523,19 @@ DLIST *fnCreateAnchorList(hw_objectID objID, char **anchors, char **docofanchorr
 						if(strncmp(str, "background", 10) == 0)
 							cur_ptr->linktype=HW_BACKGROUND_LINK;
 						else
+						if(strncmp(str, "intagnodel", 10) == 0) { /* New type introduced by Uwe Steinmann 16.03.2001 */
+							cur_ptr->linktype=HW_INTAGNODEL_LINK;
+							cur_ptr->tagattr = NULL;
+							if(NULL != (str = strstr(object, "TagAttr="))) {
+								str += 8;
+								str1 = str;
+								while((*str1 != '\n') && (*str1 != '\0'))
+									str1++;
+								cur_ptr->tagattr = emalloc(str1 - str + 1);
+								memcpy(cur_ptr->tagattr, str, str1 - str);
+								cur_ptr->tagattr[str1 - str] = '\0';
+							}
+						} else
 						if(strncmp(str, "intag", 5) == 0) {
 							cur_ptr->linktype=HW_INTAG_LINK;
 							cur_ptr->tagattr = NULL;
@@ -695,6 +708,11 @@ char *fnInsAnchorsIntoText(char *text, DLIST *pAnchorList, char **bodytag, char 
 						offset -= 4; /* because there is no closing tag </A> */
 /*						laststart = cur_ptr->start; */
 						break;
+					case HW_INTAGNODEL_LINK:
+						snprintf(istr, BUFFERLEN, "%s", cur_ptr->link);
+						offset -= 4; /* because there is no closing tag </A> */
+/*						laststart = cur_ptr->start; */
+						break;
 					case HW_APPLET_LINK:
 						if(cur_ptr->codebase)
 						  snprintf(istr, BUFFERLEN, " CODEBASE='%s' CODE='%s'", cur_ptr->codebase, cur_ptr->code);
@@ -727,7 +745,10 @@ char *fnInsAnchorsIntoText(char *text, DLIST *pAnchorList, char **bodytag, char 
 						else
 							snprintf(istr, BUFFERLEN, " %s='%s/%s'", cur_ptr->tagattr, scriptname[HW_INTAG_LINK], cur_ptr->destdocname); 
 						offset -= 4; /* because there is no closing tag </A> */
-/*						laststart = cur_ptr->start; */
+						break;
+					case HW_INTAGNODEL_LINK:
+						snprintf(istr, BUFFERLEN, "%s", cur_ptr->destdocname);
+						offset -= 4; /* because there is no closing tag </A> */
 						break;
 					case HW_APPLET_LINK:
 						if(cur_ptr->codebase)
@@ -4371,6 +4392,9 @@ int send_getobjbyftquery(int sockfd, char *query, int maxhits, hw_objectID **chi
 		return -1;
 	}
 	if(*ptr++ == 0) {
+		char *cptr, tmp[20];
+		float weight;
+		int j;
 		*count = (*ptr < maxhits) ? *ptr : maxhits;
 		ptr++;
 		if(NULL != (*childIDs = emalloc(*count * sizeof(hw_objectID)))) {
@@ -4378,8 +4402,18 @@ int send_getobjbyftquery(int sockfd, char *query, int maxhits, hw_objectID **chi
 			if(NULL != (*weights = emalloc(*count * sizeof(float)))) {
 				ptr2 = *weights;
 				for(i=0; i<*count; i++) {
-					ptr1[i] = *ptr++;
-					ptr2[i] = (float) *ptr++;
+					ptr1[i] = *ptr++; /* Object id */
+					cptr = (char *) ptr;
+					j = 0;
+					while(*cptr != ' ') {
+						tmp[j++] = *cptr++;
+					}
+					cptr++; /* Skip space after weight */
+					tmp[j] = '\0';
+					sscanf(tmp, "%f", &weight);
+					ptr2[i] = weight;
+					ptr = (int *) cptr;
+					ptr++; /* Skip 0-Integer after weight string */
 				}
 				efree(retmsg->buf);
 				efree(retmsg);
@@ -4443,6 +4477,9 @@ int send_getobjbyftqueryobj(int sockfd, char *query, int maxhits, char ***childr
 		return -4;
 	}
 	if(*ptr++ == 0) {
+		char *cptr, tmp[20];
+		float weight;
+		int j;
 		*count = (*ptr < maxhits) ? *ptr : maxhits;
     		ptr++;
 		if(NULL != (childIDs = emalloc(*count * sizeof(hw_objectID)))) {
@@ -4450,8 +4487,18 @@ int send_getobjbyftqueryobj(int sockfd, char *query, int maxhits, char ***childr
 			if(NULL != (*weights = emalloc(*count * sizeof(float)))) {
 				ptr2 = *weights;
 				for(i=0; i<*count; i++) {
-					ptr1[i] = *ptr++;
-					ptr2[i] = (float) *ptr++;
+					ptr1[i] = *ptr++; /* Object id */
+					cptr = (char *) ptr;
+					j = 0;
+					while(*cptr != ' ') {
+						tmp[j++] = *cptr++;
+					}
+					cptr++; /* Skip space after weight */
+					tmp[j] = '\0';
+					sscanf(tmp, "%f", &weight);
+					ptr2[i] = weight;
+					ptr = (int *) cptr;
+					ptr++; /* Skip 0-Integer after weight string */
 				}
 				efree(retmsg->buf);
 				efree(retmsg);
@@ -4579,6 +4626,9 @@ int send_getobjbyftquerycoll(int sockfd, hw_objectID collID, char *query, int ma
 		return -1;
 	}
 	if(*ptr++ == 0) {
+		char *cptr, tmp[20];
+		float weight;
+		int j;
 		*count = (*ptr < maxhits) ? *ptr : maxhits;
 		ptr++;
 		if(NULL != (*childIDs = emalloc(*count * sizeof(hw_objectID)))) {
@@ -4586,8 +4636,18 @@ int send_getobjbyftquerycoll(int sockfd, hw_objectID collID, char *query, int ma
 			if(NULL != (*weights = emalloc(*count * sizeof(float)))) {
 				ptr2 = *weights;
 				for(i=0; i<*count; i++) {
-					ptr1[i] = *ptr++;
-					ptr2[i] = (float) *ptr++;
+					ptr1[i] = *ptr++; /* Object id */
+					cptr = (char *) ptr;
+					j = 0;
+					while(*cptr != ' ') {
+						tmp[j++] = *cptr++;
+					}
+					cptr++; /* Skip space after weight */
+					tmp[j] = '\0';
+					sscanf(tmp, "%f", &weight);
+					ptr2[i] = weight;
+					ptr = (int *) cptr;
+					ptr++; /* Skip 0-Integer after weight string */
 				}
 			} else {
 				efree(*childIDs);
@@ -4652,6 +4712,9 @@ int send_getobjbyftquerycollobj(int sockfd, hw_objectID collID, char *query, int
 		return -1;
 	}
 	if(*ptr++ == 0) {
+		char *cptr, tmp[20];
+		float weight;
+		int j;
 		*count = (*ptr < maxhits) ? *ptr : maxhits;
 		ptr++;
 		if(NULL != (childIDs = emalloc(*count * sizeof(hw_objectID)))) {
@@ -4659,8 +4722,18 @@ int send_getobjbyftquerycollobj(int sockfd, hw_objectID collID, char *query, int
 			if(NULL != (*weights = emalloc(*count * sizeof(float)))) {
 				ptr2 = *weights;
 				for(i=0; i<*count; i++) {
-					ptr1[i] = *ptr++;
-					ptr2[i] = (float) *ptr++;
+					ptr1[i] = *ptr++; /* Object id */
+					cptr = (char *) ptr;
+					j = 0;
+					while(*cptr != ' ') {
+						tmp[j++] = *cptr++;
+					}
+					cptr++; /* Skip space after weight */
+					tmp[j] = '\0';
+					sscanf(tmp, "%f", &weight);
+					ptr2[i] = weight;
+					ptr = (int *) cptr;
+					ptr++; /* Skip 0-Integer after weight string */
 				}
 				efree(retmsg->buf);
 				efree(retmsg);

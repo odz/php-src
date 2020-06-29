@@ -1,5 +1,10 @@
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "php.h"
 #include "php_ini.h"
+#include "ext/standard/info.h"
 #include "php_crack.h"
 
 #if HAVE_CRACK
@@ -103,6 +108,8 @@ ZEND_RSHUTDOWN_FUNCTION(crack)
 	if (NULL != CRACKG(last_message)) {
 		efree(CRACKG(last_message));
 	}
+
+	return SUCCESS;
 }
 
 PHP_MINFO_FUNCTION(crack)

@@ -14,10 +14,11 @@
    +----------------------------------------------------------------------+
    | Authors: Stig Sæther Bakken <ssb@guardian.no>                        |
    |          Andreas Karajannis <Andreas.Karajannis@gmd.de>              |
+   |	      Kevin N. Shallow <kshallow@tampabay.rr.com> Velocis Support |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_odbc.h,v 1.34 2001/03/09 23:44:55 fmk Exp $ */
+/* $Id: php_odbc.h,v 1.36.2.2 2001/06/19 17:55:01 kalowsky Exp $ */
 
 #ifndef PHP_ODBC_H
 #define PHP_ODBC_H
@@ -78,7 +79,7 @@ PHP_FUNCTION(solid_fetch_prev);
 #define HAVE_SQL_EXTENDED_FETCH 1
 #define SQL_SUCCEEDED(rc) (((rc)&(~1))==0)
 #define SQLINTEGER ULONG
-#define SQLUMSALLINT USHORT
+#define SQLUSMALLINT USHORT
 
 #elif defined(HAVE_SAPDB) /* SAP DB */
 
@@ -134,9 +135,18 @@ PHP_FUNCTION(solid_fetch_prev);
 
 #define ODBC_TYPE "Velocis"
 #define UNIX
-#define HAVE_SQL_EXTENDED_FETCH 1
+/*
+ * Extended Fetch in the Velocis ODBC API is incapable of returning long varchar (memo) fields.
+ * So the following line has been commented-out to accomadate. - KNS
+ *
+ * #define HAVE_SQL_EXTENDED_FETCH 1
+ */
 #include <sql.h>
 #include <sqlext.h>
+#define SQLINTEGER SDWORD
+#define SQLSMALLINT SWORD
+#define SQLUSMALLINT UWORD
+
 
 #elif defined(HAVE_DBMAKER) /* DBMaker */
 
@@ -207,7 +217,9 @@ PHP_FUNCTION(odbc_field_name);
 PHP_FUNCTION(odbc_field_type);
 PHP_FUNCTION(odbc_field_num);
 PHP_FUNCTION(odbc_free_result);
+#if !defined(HAVE_SOLID) && !defined(HAVE_SOLID_30)
 PHP_FUNCTION(odbc_next_result);
+#endif
 PHP_FUNCTION(odbc_num_fields);
 PHP_FUNCTION(odbc_num_rows);
 PHP_FUNCTION(odbc_prepare);
@@ -236,7 +248,7 @@ PHP_FUNCTION(odbc_statistics);
 #define ODBC_SQL_ENV_T SQLHANDLE
 #define ODBC_SQL_CONN_T SQLHANDLE
 #define ODBC_SQL_STMT_T SQLHANDLE
-#elif defined( HAVE_SOLID_35 ) || defined( HAVE_SAPDB )
+#elif defined( HAVE_SOLID_35 ) || defined( HAVE_SAPDB ) || defined ( HAVE_EMPRESS )
 #define ODBC_SQL_ENV_T SQLHENV
 #define ODBC_SQL_CONN_T SQLHDBC
 #define ODBC_SQL_STMT_T SQLHSTMT

@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: caudium.c,v 1.10 2001/02/26 06:07:36 andi Exp $ */
+/* $Id: caudium.c,v 1.13 2001/05/07 06:43:37 neotron Exp $ */
 
 #include "php.h"
 #ifdef HAVE_CAUDIUM
@@ -37,10 +37,13 @@
  *
  */
 #define NO_PIKE_SHORTHAND
-/* Define to run w/o th_farm. This allows for A LOT easier
- * debugging due to stupid gdb...
+
+/* Ok, we are now using Pike level threads to handle PHP4 since
+ * the nice th_farm threads aren't working on Linux with glibc 2.2
+ * (why this is I don't know).
  */
-/*#define TEST_NO_THREADS*/
+#define USE_PIKE_LEVEL_THREADS
+
 #include <fdlib.h>
 #include <program.h>
 #include <pike_types.h>
@@ -439,7 +442,7 @@ static void php_info_caudium(ZEND_MODULE_INFO_FUNC_ARGS)
 {
   /*  char buf[512]; */
   php_info_print_table_start();
-  php_info_print_table_row(2, "SAPI module version", "$Id: caudium.c,v 1.10 2001/02/26 06:07:36 andi Exp $");
+  php_info_print_table_row(2, "SAPI module version", "$Id: caudium.c,v 1.13 2001/05/07 06:43:37 neotron Exp $");
   /*  php_info_print_table_row(2, "Build date", Ns_InfoBuildDate());
       php_info_print_table_row(2, "Config file path", Ns_InfoConfigFile());
       php_info_print_table_row(2, "Error Log path", Ns_InfoErrorLog());
@@ -471,6 +474,51 @@ static zend_module_entry php_caudium_module = {
 };
 
 
+static void sapi_caudium_register_variables(zval *track_vars_array ELS_DC SLS_DC PLS_DC)
+{
+  php_register_variable("PHP_SELF", SG(request_info).request_uri,
+			track_vars_array ELS_CC PLS_CC);
+  php_register_variable("GATEWAY_INTERFACE", "CGI/1.1",
+			track_vars_array ELS_CC PLS_CC);
+  php_register_variable("REQUEST_METHOD", (char *) SG(request_info).request_method,
+			track_vars_array ELS_CC PLS_CC);
+  php_register_variable("REQUEST_URI", SG(request_info).request_uri,
+			track_vars_array ELS_CC PLS_CC);
+  php_register_variable("PATH_TRANSLATED", SG(request_info).path_translated,
+			track_vars_array ELS_CC PLS_CC);
+  php_register_variable("SERVER_NAME", lookup_string_header("SERVER_NAME", NULL),
+			track_vars_array ELS_CC PLS_CC);
+  php_register_variable("SERVER_PORT", lookup_string_header("SERVER_PORT", NULL),
+			track_vars_array ELS_CC PLS_CC);
+  php_register_variable("SERVER_PROTOCOL", lookup_string_header("SERVER_PROTOCOL", NULL),
+			track_vars_array ELS_CC PLS_CC);
+  php_register_variable("SCRIPT_NAME", lookup_string_header("SCRIPT_NAME", NULL),
+			track_vars_array ELS_CC PLS_CC);
+  php_register_variable("SCRIPT_FILENAME", lookup_string_header("SCRIPT_FILENAME", NULL),
+			track_vars_array ELS_CC PLS_CC);
+  php_register_variable("REMOTE_ADDR", lookup_string_header("REMOTE_ADDR", NULL),
+			track_vars_array ELS_CC PLS_CC);
+  php_register_variable("REMOTE_PORT", lookup_string_header("REMOTE_PORT", NULL),
+			track_vars_array ELS_CC PLS_CC);
+  php_register_variable("DOCUMENT_ROOT", lookup_string_header("DOCUMENT_ROOT", NULL),
+			track_vars_array ELS_CC PLS_CC);
+  php_register_variable("HTTP_CONNECTION", lookup_string_header("HTTP_CONNECTION", NULL),
+			track_vars_array ELS_CC PLS_CC);
+  php_register_variable("HTTP_USER_AGENT", lookup_string_header("HTTP_USER_AGENT", NULL),
+			track_vars_array ELS_CC PLS_CC);
+  php_register_variable("DOCUMENT_ROOT", lookup_string_header("DOCUMENT_ROOT", NULL),
+			track_vars_array ELS_CC PLS_CC);
+  php_register_variable("QUERY_STRING", lookup_string_header("QUERY_STRING", ""),
+			track_vars_array ELS_CC PLS_CC);
+  php_register_variable("REMOTE_USER", lookup_string_header("REMOTE_USER", NULL),
+			track_vars_array ELS_CC PLS_CC);
+  php_register_variable("REMOTE_PASSWORD", lookup_string_header("REMOTE_PASSWORD", NULL),
+			track_vars_array ELS_CC PLS_CC);
+
+}
+
+
+
 /* this structure is static (as in "it does not change") */
 static sapi_module_struct caudium_sapi_module = {
   "caudium",
@@ -489,7 +537,7 @@ static sapi_module_struct caudium_sapi_module = {
   NULL,					/* send header handler */
   php_caudium_sapi_read_post,		/* read POST data */
   php_caudium_sapi_read_cookies,	/* read cookies */
-  NULL,					/* register server variables */
+  sapi_caudium_register_variables,	/* register server variables */
   NULL,					/* Log message */
   NULL,					/* Block interruptions */
   NULL,					/* Unblock interruptions */
@@ -553,10 +601,11 @@ static void php_caudium_hash_environment(CLS_D ELS_DC PLS_DC SLS_DC)
 static void php_caudium_module_main(php_caudium_request *ureq)
 {
   int res;
-  int cnt = 0;
   zend_file_handle file_handle;
+#ifndef USE_PIKE_LEVEL_THREADS
   struct thread_state *state;
   extern struct program *thread_id_prog;
+#endif
   SLS_FETCH();
   CLS_FETCH();
   PLS_FETCH();
@@ -569,30 +618,32 @@ static void php_caudium_module_main(php_caudium_request *ureq)
   THIS->request_data = ureq->request_data;
   free(ureq);
 
-#ifndef TEST_NO_THREADS
+#ifndef USE_PIKE_LEVEL_THREADS
   mt_lock_interpreter();
   init_interpreter();
 #if PIKE_MAJOR_VERSION == 7 && PIKE_MINOR_VERSION < 1
+  thread_id = low_clone(thread_id_prog);
+  state = OBJ2THREAD(thread_id);
   Pike_stack_top=((char *)&state)+ (thread_stack_size-16384) * STACK_DIRECTION;
   recoveries = NULL;
-  thread_id = low_clone(thread_id_prog);
   call_c_initializers(thread_id);
-  SWAP_OUT_THREAD(OBJ2THREAD(thread_id));
-  OBJ2THREAD(thread_id)->swapped=0;
   OBJ2THREAD(thread_id)->id=th_self();
   num_threads++;
   thread_table_insert(thread_id);
+  state->status=THREAD_RUNNING;
 #else
+  Pike_interpreter.thread_id = low_clone(thread_id_prog);
+  state = OBJ2THREAD(Pike_interpreter.thread_id);
   Pike_interpreter.stack_top=((char *)&state)+ (thread_stack_size-16384) * STACK_DIRECTION;
   Pike_interpreter.recoveries = NULL;
-  Pike_interpreter.thread_id = low_clone(thread_id_prog);
   call_c_initializers(Pike_interpreter.thread_id);
-  SWAP_OUT_THREAD(OBJ2THREAD(Pike_interpreter.thread_id));
-  OBJ2THREAD(Pike_interpreter.thread_id)->swapped=0;
-  OBJ2THREAD(Pike_interpreter.thread_id)->id=th_self();
+  state->id=th_self();
+  //  SWAP_OUT_THREAD(OBJ2THREAD(Pike_interpreter.thread_id));
   num_threads++;
   thread_table_insert(Pike_interpreter.thread_id);
+  state->status=THREAD_RUNNING;
 #endif
+  state->swapped = 0;
 #endif 
   SG(request_info).query_string = lookup_string_header("QUERY_STRING", 0);
   SG(server_context) = (void *)1; /* avoid server_context == NULL */
@@ -621,9 +672,11 @@ static void php_caudium_module_main(php_caudium_request *ureq)
    * Pike threads to run. We wait since the above would otherwise require
    * a lot of unlock/lock.
    */
-#ifndef TEST_NO_THREADS
-  SWAP_OUT_CURRENT_THREAD();
+#ifndef USE_PIKE_LEVEL_THREADS
+  SWAP_OUT_THREAD(state);
   mt_unlock_interpreter();
+#else
+  THREADS_ALLOW();
 #endif
 
 #ifdef VIRTUAL_DIR
@@ -632,18 +685,19 @@ static void php_caudium_module_main(php_caudium_request *ureq)
    * isn't. Not a problem though, since it's on by default when using ZTS
    * which we require.
    */
-  V_CHDIR_FILE(THIS->filename->str);
+  VCWD_CHDIR_FILE(THIS->filename->str);
 #endif
   
   file_handle.type = ZEND_HANDLE_FILENAME;
   file_handle.filename = THIS->filename->str;
+  file_handle.opened_path = NULL;
   file_handle.free_filename = 0;
+
   THIS->written = 0;
   res = php_request_startup(CLS_C ELS_CC PLS_CC SLS_CC);
 
   if(res == FAILURE) {
     THREAD_SAFE_RUN({
-      
       apply_svalue(&THIS->done_cb, 0);
       pop_stack();
       free_struct(SLS_C);
@@ -660,18 +714,19 @@ static void php_caudium_module_main(php_caudium_request *ureq)
       free_struct(SLS_C);
     }, "positive run response");
   }
-#ifndef TEST_NO_THREADS
+
+#ifndef USE_PIKE_LEVEL_THREADS
   mt_lock_interpreter();
-  SWAP_IN_CURRENT_THREAD();
+  SWAP_IN_THREAD(state);
 #if PIKE_MAJOR_VERSION == 7 && PIKE_MINOR_VERSION < 1
-  OBJ2THREAD(thread_id)->status=THREAD_EXITED;
-  co_signal(& OBJ2THREAD(thread_id)->status_change);
+  state->status=THREAD_EXITED;
+  co_signal(& state->status_change);
   thread_table_delete(thread_id);
   free_object(thread_id);
   thread_id=NULL;
 #else
-  OBJ2THREAD(Pike_interpreter.thread_id)->status=THREAD_EXITED;
-  co_signal(& OBJ2THREAD(Pike_interpreter.thread_id)->status_change);
+  state->status=THREAD_EXITED;
+  co_signal(& state->status_change);
   thread_table_delete(Pike_interpreter.thread_id);
   free_object(Pike_interpreter.thread_id);
   Pike_interpreter.thread_id=NULL;
@@ -679,6 +734,8 @@ static void php_caudium_module_main(php_caudium_request *ureq)
   cleanup_interpret();
   num_threads--;
   mt_unlock_interpreter();
+#else
+  THREADS_DISALLOW();
 #endif
 }
 
@@ -724,7 +781,7 @@ void f_php_caudium_request_handler(INT32 args)
       THIS->my_fd = fd;
   } else
     THIS->my_fd = 0;
-#ifdef TEST_NO_THREADS
+#ifdef USE_PIKE_LEVEL_THREADS
   php_caudium_module_main(THIS);
 #else
   th_farm((void (*)(void *))php_caudium_module_main, THIS);

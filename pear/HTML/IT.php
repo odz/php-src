@@ -16,8 +16,11 @@
 // | Authors: Ulf Wendel <ulf.wendel@phpdoc.de>                           |
 // +----------------------------------------------------------------------+
 //
-// $Id: IT.php,v 1.4 2001/02/08 22:19:59 chagenbu Exp $
+// $Id: IT.php,v 1.5 2001/03/29 21:49:15 uw Exp $
 //
+
+require_once("HTML/IT_Error.php");
+
 /**
 * Integrated Template - IT
 * 
@@ -108,55 +111,40 @@
 * $tpl->get();
 * </code>
 * 
-* @author      Ulf Wendel <uw@netuse.de>
-* @version  $Id: IT.php,v 1.4 2001/02/08 22:19:59 chagenbu Exp $
-* @access        public
+* @author   Ulf Wendel <uw@netuse.de>
+* @version  $Id: IT.php,v 1.5 2001/03/29 21:49:15 uw Exp $
+* @access   public
+* @package  IX[X]
 */
 class IntegratedTemplate {
 
     /**
     * Contains the error objects
-    * @var        array
-    * @access    public
-    * @see        halt(), $printError, $haltOnError
+    * @var      array
+    * @access   public
+    * @see      halt(), $printError, $haltOnError
     */
     var $err = array();
     
     /**
-    * Print error messages?
-    * @var        boolean
-    * @access    public
-    * @see        halt(), $haltOnError, $err
-    */
-    var $printError = false;
-    
-    /**
-    * Call die() on error?
-    * @var        boolean
-    * @access    public
-    * @see        halt(), $printError, $err
-    */
-    var $haltOnError = false;
-    
-    /**
     * Clear cache on get()? 
-    * @var    boolean
+    * @var      boolean
     */ 
     var $clearCache = false;
         
     /**
     * First character of a variable placeholder ( _{_VARIABLE} ).
-    * @var        string
-    * @access    public
-    * @see        $closingDelimiter, $blocknameRegExp, $variablenameRegExp
+    * @var      string
+    * @access   public
+    * @see      $closingDelimiter, $blocknameRegExp, $variablenameRegExp
     */
     var $openingDelimiter = "{";
     
     /**
     * Last character of a variable placeholder ( {VARIABLE_}_ ).
-    * @var        string
-    * @access    public
-    * @see        $openingDelimiter, $blocknameRegExp, $variablenameRegExp
+    * @var      string
+    * @access   public
+    * @see      $openingDelimiter, $blocknameRegExp, $variablenameRegExp
     */
     var $closingDelimiter     = "}";
     
@@ -164,9 +152,9 @@ class IntegratedTemplate {
     * RegExp matching a block in the template. 
     * Per default "sm" is used as the regexp modifier, "i" is missing.
     * That means a case sensitive search is done.
-    * @var        string
-    * @access    public
-    * @see        $variablenameRegExp, $openingDelimiter, $closingDelimiter
+    * @var      string
+    * @access   public
+    * @see      $variablenameRegExp, $openingDelimiter, $closingDelimiter
     */
     var $blocknameRegExp    = "[0-9A-Za-z_-]+";
     
@@ -174,83 +162,83 @@ class IntegratedTemplate {
     * RegExp matching a variable placeholder in the template.
     * Per default "sm" is used as the regexp modifier, "i" is missing.
     * That means a case sensitive search is done.
-    * @var        string    
-    * @access    public
-    * @see        $blocknameRegExp, $openingDelimiter, $closingDelimiter
+    * @var      string    
+    * @access   public
+    * @see      $blocknameRegExp, $openingDelimiter, $closingDelimiter
     */
     var $variablenameRegExp    = "[0-9A-Za-z_-]+";
     
     /**
     * RegExp used to find variable placeholder, filled by the constructor.
     * @var      string    Looks somewhat like @(delimiter varname delimiter)@
-  * @access public
-    * @see    IntegratedTemplate()
+    * @access   public
+    * @see      IntegratedTemplate()
     */
     var $variablesRegExp = "";
     
     /**
     * RegExp used to strip unused variable placeholder.
-    * @brother    $variablesRegExp
+    * @brother  $variablesRegExp
     */
     var $removeVariablesRegExp = "";
     
     /**
     * Controls the handling of unknown variables, default is remove.
-    * @var    boolean
-    * @access public
+    * @var      boolean
+    * @access   public
     */
     var $removeUnknownVariables = true;
     
     /**
     * Controls the handling of empty blocks, default is remove.
-    * @var    boolean
-    * @access public
+    * @var      boolean
+    * @access   public
     */
     var $removeEmptyBlocks = true;
     
     /**
     * RegExp used to find blocks an their content, filled by the constructor.
-    * @var    string
-    * @see    IntegratedTemplate()
+    * @var      string
+    * @see      IntegratedTemplate()
     */
     var $blockRegExp = "";
     
     /**
     * Name of the current block.
-    * @var        string
+    * @var      string
     */
     var $currentBlock = "__global__";
 
     /**
     * Content of the template.
-    * @var        string
+    * @var      string
     */    
     var $template = "";
     
     /**
     * Array of all blocks and their content.
     * 
-    * @var    array
-    * @see    findBlocks()
+    * @var      array
+    * @see      findBlocks()
     */    
     var $blocklist = array();
   
     /**
     * Array with the parsed content of a block.
     *
-    * @var  array
+    * @var      array
     */
     var $blockdata = array();
     
     /**
     * Array of variables in a block.
-    * @var    array
+    * @var      array
     */
     var $blockvariables = array();
 
     /**
     * Array of inner blocks of a block.
-    * @var    array
+    * @var      array
     */    
     var $blockinner         = array();
     
@@ -276,7 +264,7 @@ class IntegratedTemplate {
     * if they are empty.
     *
     * @var  array    $touchedBlocks
-    * @see    touchBlock(), $removeEmptyBlocks
+    * @see  touchBlock(), $removeEmptyBlocks
     */
     var $touchedBlocks = array();
   
@@ -349,7 +337,7 @@ class IntegratedTemplate {
     * class from this one. 
     *
     * @param    string    File root directory, prefix for all filenames given to the object.
-    * @see    setRoot()
+    * @see      setRoot()
     */
     function IntegratedTemplate($root = "") {
     
@@ -373,7 +361,8 @@ class IntegratedTemplate {
     * Returns a block with all replacements done.
     * 
     * @param    string     name of the block
-    * @return   string      
+    * @return   string
+    * @throws   IT_Error
     * @access   public
     * @see      show()
     */
@@ -383,8 +372,8 @@ class IntegratedTemplate {
             $this->parse("__global__");
 
         if (!isset($this->blocklist[$block])) {
-            $this->halt("The block '$block' was not found in the template.", __FILE__, __LINE__);
-            return true;
+            new IT_Error("The block '$block' was not found in the template.", __FILE__, __LINE__);
+            return "";
         }
 
         if ($this->clearCache) {
@@ -407,11 +396,12 @@ class IntegratedTemplate {
     * @param    string    name of the block to be parsed
     * @access   public
     * @see      parseCurrentBlock()
+    * @throws   IT_Error
     */
     function parse($block = "__global__", $flag_recursion = false) {
 
         if (!isset($this->blocklist[$block])) {
-            $this->halt("The block '$block' was not found in the template.", __FILE__, __LINE__);
+            return new IT_Error("The block '$block' was not found in the template.", __FILE__, __LINE__);
             return false;
         }
 
@@ -457,11 +447,11 @@ class IntegratedTemplate {
                 $placeholder = $this->openingDelimiter . "__" . $innerblock . "__" . $this->closingDelimiter;                
                 $outer = str_replace($placeholder, $this->blockdata[$innerblock], $outer);
                 $this->blockdata[$innerblock] = "";                
-      }
+          }
             
-    }
+        }
 
-    if ($this->removeUnknownVariables)
+        if ($this->removeUnknownVariables)
             $outer = preg_replace($this->removeVariablesRegExp, "", $outer);
 
         if ($empty) {
@@ -502,7 +492,7 @@ class IntegratedTemplate {
     * or with one array $variables["varname"] = "value" given setVariable($variables)
     * quite like phplib templates set_var().
     * 
-    * @param    mixed        string with the variable name or an array %variables["varname"] = "value"
+    * @param    mixed     string with the variable name or an array %variables["varname"] = "value"
     * @param    string    value of the variable or empty if $variable is an array.
     * @param    string    prefix for variable names
     * @access   public
@@ -524,16 +514,15 @@ class IntegratedTemplate {
     /**
     * Sets the name of the current block that is the block where variables are added.
     *
-    * @param    string    name of the block 
-    * @return    boolean    false on failure, otherwise true
-    *    @access    public
+    * @param    string      name of the block 
+    * @return   boolean     false on failure, otherwise true
+    * @throws   IT_Error
+    * @access   public
     */
     function setCurrentBlock($block = "__global__") {
     
-        if (!isset($this->blocklist[$block])) {
-            $this->halt("Can't find the block '$block' in the template.", __FILE__, __LINE__);
-            return false;
-        }
+        if (!isset($this->blocklist[$block]))
+            return new IT_Error("Can't find the block '$block' in the template.", __FILE__, __LINE__);
             
         $this->currentBlock = $block;
         
@@ -543,17 +532,16 @@ class IntegratedTemplate {
     /**
     * Preserves an empty block even if removeEmptyBlocks is true.
     *
-    * @param    string    name of the block
-    * @return    boolean    false on false, otherwise true
-    * @access    public
-    * @see    $removeEmptyBlocks
+    * @param    string      name of the block
+    * @return   boolean     false on false, otherwise true
+    * @throws   IT_Error    
+    * @access   public
+    * @see      $removeEmptyBlocks
     */
     function touchBlock($block) {
         
-        if (!isset($this->blocklist[$block])) {
-            $this->halt("Can't find the block '$block' in the template.", __FILE__, __LINE__);
-            return false;
-        }
+        if (!isset($this->blocklist[$block]))
+            return new IT_Error("Can't find the block '$block' in the template.", __FILE__, __LINE__);
         
         $this->touchedBlocks[$block] = true;
         
@@ -567,8 +555,8 @@ class IntegratedTemplate {
     * when a new template is given. Don't use this function 
     * unless you know what you're doing.
     *
-    * @access    public
-    * @see    free()
+    * @access   public
+    * @see      free()
     */
     function init() {
     
@@ -583,8 +571,8 @@ class IntegratedTemplate {
     * 
     * Don't use this function unless you know what you're doing.
     *
-    * @access    public
-    * @see    init()
+    * @access   public
+    * @see      init()
     */
     function free() {
     
@@ -607,12 +595,11 @@ class IntegratedTemplate {
     * You can eighter load a template file from disk with LoadTemplatefile() or set the
     * template manually using this function.
     * 
-    * @param        string    template content
-    * @param        boolean    Unbekannte, nicht ersetzte Platzhalter entfernen?
-    * @param        boolean    remove unknown/unused variables?
-    * @param        boolean    remove empty blocks?
-    * @see            LoadTemplatefile(), $template
-    * @access        public
+    * @param        string      template content
+    * @param        boolean     remove unknown/unused variables?
+    * @param        boolean     remove empty blocks?
+    * @see          LoadTemplatefile(), $template
+    * @access       public
     */
     function setTemplate($template, $removeUnknownVariables = true, $removeEmptyBlocks = true) {
                 
@@ -642,9 +629,9 @@ class IntegratedTemplate {
     /**
     * Reads a template file from the disk.
     *
-    * @param    string    name of the template file
-    * @param    bool        How to handle unknown variables.
-    * @param    bool      How to handle empty blocks. 
+    * @param    string      name of the template file
+    * @param    bool        how to handle unknown variables.
+    * @param    bool        how to handle empty blocks. 
     * @access   public
     * @return   boolean    false on failure, otherwise true
     * @see      $template, setTemplate(), $removeUnknownVariables, $removeEmptyBlocks
@@ -727,8 +714,7 @@ class IntegratedTemplate {
     * Recusively builds a list of all blocks within the template.
     *
     * @param    string    string that gets scanned
-    * @access    private
-    * @see    $blocklist
+    * @see      $blocklist
     */    
     function findBlocks($string) {
 
@@ -742,7 +728,7 @@ class IntegratedTemplate {
                 $blockcontent = $match[2];
             
                 if (isset($this->blocklist[$blockname])) {
-                    $this->halt("The name of a block must be unique within a template. Found '$blockname' twice. Unpredictable results may appear.", __FILE__, __LINE__);
+                    new IT_Error("The name of a block must be unique within a template. Found '$blockname' twice. Unpredictable results may appear.", __FILE__, __LINE__);
                     $this->flagBlocktrouble = true;
                 }                
 
@@ -778,7 +764,7 @@ class IntegratedTemplate {
     /**
     * Reads a file from disk and returns its content.
     * @param    string    Filename
-    * @return    string    Filecontent
+    * @return   string    Filecontent
     */    
     function getFile($filename) {
         
@@ -788,7 +774,7 @@ class IntegratedTemplate {
         $filename = $this->fileRoot . $filename;
         
         if (!($fh = @fopen($filename, "r"))) {
-            $this->halt("Can't read '$filename'.", __FILE__, __LINE__);
+            new IT_Error("Can't read '$filename'.", __FILE__, __LINE__);
             return "";
         }
     
@@ -797,32 +783,6 @@ class IntegratedTemplate {
         
         return $content; 
     } // end func getFile
-    
-    /**
-    * Error Handling function.
-    * @param    string    error message
-    * @param    mixed        File where the error occured
-    * @param    int            Line where the error occured
-    * @see        $err
-    */
-    function halt($message, $file = "", $line = 0) {
-        
-        
-        $message = sprintf("IntegratedTemplate Error: %s [File: %s, Line: %d]",
-                                                            $message,
-                                                            $file,
-                                                            $line
-                                                    );
-
-        $this->err[] = $message;
-
-        if ($this->printError)
-            print $message;
-            
-        if ($this->haltOnError)
-            die($message);
-
-    } // end func halt
     
 } // end class IntegratedTemplate
 ?>

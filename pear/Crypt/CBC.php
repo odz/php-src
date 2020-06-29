@@ -36,7 +36,7 @@
 * the author of libcrypt decides to name things internally.
 *
 *
-* @version  $Id: CBC.php,v 1.6 2001/02/13 21:53:48 cmv Exp $
+* @version  $Id: CBC.php,v 1.8 2001/04/23 20:51:55 cmv Exp $
 * @author   Colin Viebrock <colin@easydns.com>
 * @author   Mike Glover <mpg4@duluoz.net>
 *
@@ -69,7 +69,6 @@ class Crypt_CBC extends PEAR {
     var $blocksize;                     # blocksize of cipher
     var $keysize;                       # keysize of cipher
     var $keyhash;                       # mangled key
-    var $error;
     var $rand_source    = MCRYPT_RAND;  # or MCRYPT_DEV_URANDOM or MCRYPT_DEV_RANDOM
     var $header_spec    = 'RandomIV';   # header
 
@@ -94,8 +93,8 @@ class Crypt_CBC extends PEAR {
     {
 
         if (!extension_loaded('mcrypt')) {
-            $this->error = new Crypt_CBC_Error('mcrypt module is not compiled into PHP: compile PHP using --with-mcrypt.');
-            return $this->error;
+            return $this->raiseError('mcrypt module is not compiled into PHP', null, 
+                PEAR_ERROR_DIE, null, 'compile PHP using "--with-mcrypt"', 'Crypt_CBC_Error', false );
         }
 
         /* seed randomizer */
@@ -109,16 +108,16 @@ class Crypt_CBC extends PEAR {
         /* check for key */
 
         if (!$key) {
-            $this->error = new Crypt_CBC_Error('No key specified');
-            return $this->error;
+            return $this->raiseError('no key specified', null, 
+                PEAR_ERROR_PRINT, null, null, 'Crypt_CBC_Error', false );
         }
 
         /* check for cipher */
 
         $cipher = strtoupper($cipher);
         if (!isset($this->known_ciphers[$cipher])) {
-            $this->error = new Crypt_CBC_Error('Unknown cipher: ' . $cipher);
-            return $this->error;
+            return $this->raiseError('unknown cipher "'.$cipher.'"', null, 
+                PEAR_ERROR_PRINT, null, null, 'Crypt_CBC_Error', false );
         }
 
         $this->cipher = $this->known_ciphers[$cipher];
@@ -223,8 +222,8 @@ class Crypt_CBC extends PEAR {
         $header = substr($crypt, 0, $iv_offset);
         $iv = substr ($crypt, $iv_offset, $this->blocksize);
         if ( $header != $this->header_spec ) {
-            $this->error = new Crypt_CBC_Error('No initialization vector');
-            return $this->error;
+            return $this->raiseError('no initialization vector', null, 
+                PEAR_ERROR_PRINT, null, null, 'Crypt_CBC_Error', false );
         }
 
         $crypt = substr($crypt, $iv_offset+$this->blocksize);

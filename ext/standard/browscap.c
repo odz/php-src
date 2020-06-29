@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: browscap.c,v 1.42 2001/02/26 06:07:16 andi Exp $ */
+/* $Id: browscap.c,v 1.45 2001/04/30 12:43:39 andi Exp $ */
 
 #include "php.h"
 #include "php_regex.h"
@@ -139,7 +139,7 @@ PHP_MINIT_FUNCTION(browscap)
 			return FAILURE;
 		}
 
-		fh.handle.fp = V_FOPEN(browscap, "r");
+		fh.handle.fp = VCWD_FOPEN(browscap, "r");
 		if (!fh.handle.fp) {
 			php_error(E_CORE_WARNING,"Cannot open '%s' for reading", browscap);
 			return FAILURE;
@@ -196,6 +196,7 @@ PHP_FUNCTION(get_browser)
 	zval **agent_name,**agent;
 	zval *found_browser_entry,*tmp_copy;
 	char *lookup_browser_name;
+	PLS_FETCH();
 
 	if (!INI_STR("browscap")) {
 		RETURN_FALSE;
@@ -203,7 +204,8 @@ PHP_FUNCTION(get_browser)
 	
 	switch(ZEND_NUM_ARGS()) {
 		case 0:
-			if (zend_hash_find(&EG(symbol_table), "HTTP_USER_AGENT", sizeof("HTTP_USER_AGENT"), (void **) &agent_name)==FAILURE) {
+			if (!PG(http_globals)[TRACK_VARS_SERVER]
+				|| zend_hash_find(PG(http_globals)[TRACK_VARS_SERVER]->value.ht, "HTTP_USER_AGENT", sizeof("HTTP_USER_AGENT"), (void **) &agent_name)==FAILURE) {
 				zend_error(E_WARNING,"HTTP_USER_AGENT variable is not set, cannot determine user agent name");
 				RETURN_FALSE;
 			}

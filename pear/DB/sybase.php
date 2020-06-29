@@ -16,7 +16,7 @@
 // | Authors: Sterling Hughes <sterling@php.net>                          |
 // +----------------------------------------------------------------------+
 //
-// $Id: sybase.php,v 1.15 2001/02/19 12:22:26 ssb Exp $
+// $Id: sybase.php,v 1.17 2001/04/19 02:37:47 ssb Exp $
 //
 // Database independent query interface definition for PHP's Sybase
 // extension.
@@ -28,133 +28,133 @@ class DB_sybase extends DB_common
 {
     // {{{ properties
 
-	var $connection;
-	var $phptype, $dbsyntax;
-	var $prepare_tokens = array();
-	var $prepare_types = array();
+    var $connection;
+    var $phptype, $dbsyntax;
+    var $prepare_tokens = array();
+    var $prepare_types = array();
 
     // }}}
     // {{{ constructor
 
-	function DB_sybase()
+    function DB_sybase()
     {
         $this->DB_common();
-		$this->phptype = 'sybase';
-		$this->dbsyntax = 'sybase';
-		$this->features = array(
-			'prepare' => false,
-			'pconnect' => true,
-			'transactions' => false
-		);
-	}
+        $this->phptype = 'sybase';
+        $this->dbsyntax = 'sybase';
+        $this->features = array(
+            'prepare' => false,
+            'pconnect' => true,
+            'transactions' => false
+        );
+    }
 
     // }}}
     // {{{ connect()
 
-	function connect($dsn, $persistent = false)
+    function connect($dsninfo, $persistent = false)
     {
-		if (is_array($dsn)) {
-			$dsninfo = &$dsn;
-		} else {
-			$dsninfo = DB::parseDSN($dsn);
-		}
-		if (!$dsninfo || !$dsninfo['phptype']) {
-			return $this->raiseError(); 
-		}
         $this->dsn = $dsninfo;
-		$dbhost = $dsninfo['hostspec'] ? $dsninfo['hostspec'] : 'localhost';
-		$connect_function = $persistent ? 'sybase_pconnect' : 'sybase_connect';
-		$conn = $dbhost ? $connect_function($dbhost) : false;
-		$dsninfo['database'] && @sybase_select_db($dsninfo['database'], $conn);
-		$this->connection = $conn;
-		return DB_OK;
-	}
+        $dbhost = $dsninfo['hostspec'] ? $dsninfo['hostspec'] : 'localhost';
+        $connect_function = $persistent ? 'sybase_pconnect' : 'sybase_connect';
+        $conn = $dbhost ? $connect_function($dbhost) : false;
+        $dsninfo['database'] && @sybase_select_db($dsninfo['database'], $conn);
+        $this->connection = $conn;
+        return DB_OK;
+    }
 
     // }}}
     // {{{ disconnect()
 
-	function disconnect()
+    function disconnect()
     {
-		return @sybase_close($this->connection);
-	}
+        return @sybase_close($this->connection);
+    }
 
     // }}}
     // {{{ simpleQuery()
 
     function simpleQuery($query)
     {
-	$this->last_query = $query;
+        $this->last_query = $query;
         $query = $this->modifyQuery($query);
-	$result = @sybase_query($query, $this->connection);
-	if (!$result) {
-	    return $this->raiseError();
-	}
-	// Determine which queries that should return data, and which
-	// should return an error code only.
-	return DB::isManip($query) ? DB_OK : $result;
+        $result = @sybase_query($query, $this->connection);
+        if (!$result) {
+            return $this->raiseError();
+        }
+        // Determine which queries that should return data, and which
+        // should return an error code only.
+        return DB::isManip($query) ? DB_OK : $result;
     }
-    
+
     // }}}
     // {{{ fetchRow()
     function &fetchRow($result, $fetchmode = DB_FETCHMODE_DEFAULT)
     {
-	if ($fetchmode == DB_FETCHMODE_DEFAULT) {
-	    $fetchmode = $this->fetchmode;
-	}
-	$row = ($fetchmode & DB_FETCHMODE_ASSOC) ? @sybase_fetch_array($result) : @sybase_fetch_row($result);
-	if (!$row) {
-	    if ($errmsg = sybase_get_last_message()) {
-		return $this->raiseError($errmsg);
-	    } else {
-		return null;
-	    }
-	}
-	
-	return $row;
+        if ($fetchmode == DB_FETCHMODE_DEFAULT) {
+            $fetchmode = $this->fetchmode;
+        }
+        $row = ($fetchmode & DB_FETCHMODE_ASSOC) ? @sybase_fetch_array($result) : @sybase_fetch_row($result);
+        if (!$row) {
+            if ($errmsg = sybase_get_last_message()) {
+                return $this->raiseError($errmsg);
+            } else {
+                return null;
+            }
+        }
+        return $row;
     }
-    
+
     // }}}
     // {{{ fetchInto()
 
-	function fetchInto($result, &$ar, $fetchmode=DB_FETCHMODE_DEFAULT)
+    function fetchInto($result, &$ar, $fetchmode, $rownum=null)
     {
-		if ($fetchmode == DB_FETCHMODE_DEFAULT) {
-			$fetchmode = $this->fetchmode;
-		}
-		$ar = ($fetchmode & DB_FETCHMODE_ASSOC) ? @sybase_fetch_array($result) : @sybase_fetch_row($result);
-		if (!$ar) {
-			return $this->raiseError();
-		}
-		return DB_OK;
-	}
+        if ($rownum !== null) {
+            if (!sybase_data_seek($result, $rownum)) {
+                return $this->raiseError();
+            }
+        }
+        if ($fetchmode == DB_FETCHMODE_DEFAULT) {
+            $fetchmode = $this->fetchmode;
+        }
+        $ar = ($fetchmode & DB_FETCHMODE_ASSOC) ? @sybase_fetch_array($result) : @sybase_fetch_row($result);
+        if (!$ar) {
+            if ($errmsg = sybase_get_last_message()) {
+                return $this->raiseError($errmsg);
+            } else {
+                return null;
+            }
+        }
+        return DB_OK;
+    }
 
     // }}}
     // {{{ freeResult()
 
-	function freeResult($result)
+    function freeResult($result)
     {
-		if (is_resource($result)) {
-			return @sybase_free_result($result);
-		}
-		if (!isset($this->prepare_tokens[$result])) {
-			return false;
-		}
-		unset($this->prepare_tokens[$result]);
-		unset($this->prepare_types[$result]);
-		return true; 
-	}
+        if (is_resource($result)) {
+            return @sybase_free_result($result);
+        }
+        if (!isset($this->prepare_tokens[(int)$result])) {
+            return false;
+        }
+        unset($this->prepare_tokens[(int)$result]);
+        unset($this->prepare_types[(int)$result]);
+        return true;
+    }
 
     // }}}
     // {{{ numCols()
 
-	function numCols($result)
+    function numCols($result)
     {
-		$cols = @sybase_num_fields($result);
-		if (!$cols) {
-			return $this->raiseError();
-		}
-		return $cols;
-	}
+        $cols = @sybase_num_fields($result);
+        if (!$cols) {
+            return $this->raiseError();
+        }
+        return $cols;
+    }
 
     // }}}
 }

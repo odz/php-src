@@ -10,6 +10,10 @@ $sth = $dbh->query("SELECT * FROM phptest");
 for ($i = 1; $i <= 5; $i++) {
     print "row $i: ";
     $row = $sth->fetchRow();
+    if (DB::isError($row)) {
+        print $row->toString() . "\n";
+        continue;
+    }
     if (is_array($row)) {
         print implode(", ", $row) . "\n";
     } else {

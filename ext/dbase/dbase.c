@@ -16,16 +16,20 @@
    +----------------------------------------------------------------------+
  */
 
-#include <stdlib.h>
-
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
+#ifdef HAVE_CONFIG_H
+#include "config.h"
 #endif
 
 #include "php.h"
 #include "safe_mode.h"
 #include "fopen_wrappers.h"
 #include "php_globals.h"
+
+#include <stdlib.h>
+
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
 
 #if DBASE
 #include "php_dbase.h"
@@ -598,7 +602,7 @@ PHP_FUNCTION(dbase_create) {
 		RETURN_FALSE;
 	}
 
-	if ((fd = V_OPEN((Z_STRVAL_P(filename), O_BINARY|O_RDWR|O_CREAT, 0644))) < 0) {
+	if ((fd = VCWD_OPEN((Z_STRVAL_P(filename), O_BINARY|O_RDWR|O_CREAT, 0644))) < 0) {
 		php_error(E_WARNING, "Unable to create database (%d): %s", errno, strerror(errno));
 		RETURN_FALSE;
 	}

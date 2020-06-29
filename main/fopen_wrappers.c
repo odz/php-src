@@ -16,7 +16,7 @@
    |          Jim Winstead <jimw@php.net>                                 |
    +----------------------------------------------------------------------+
  */
-/* $Id: fopen_wrappers.c,v 1.111 2001/02/26 06:07:31 andi Exp $ */
+/* $Id: fopen_wrappers.c,v 1.113.2.2 2001/05/23 03:41:22 sniper Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -147,7 +147,7 @@ PHPAPI int php_check_specific_open_basedir(char *basedir, char *path PLS_DC)
 	SLS_FETCH();
 	
 	/* Special case basedir==".": Use script-directory */
-	if ((strcmp(PG(open_basedir), ".") == 0) && 
+	if ((strcmp(basedir, ".") == 0) && 
 		SG(request_info).path_translated &&
 		*SG(request_info).path_translated
 		) {
@@ -232,7 +232,7 @@ static FILE *php_fopen_and_set_opened_path(const char *path, char *mode, char **
 		if (php_check_open_basedir((char *)path)) {
 			return NULL;
 		}
-		fp = V_FOPEN(path, mode);
+		fp = VCWD_FOPEN(path, mode);
 		if (fp && opened_path) {
 			*opened_path = expand_filepath(path,NULL);
 		}
@@ -336,7 +336,7 @@ PHPAPI FILE *php_fopen_primary_script(void)
 		SG(request_info).path_translated = NULL;
 		return NULL;
 	}
-	fp = V_FOPEN(filename, "rb");
+	fp = VCWD_FOPEN(filename, "rb");
 
 	/* refuse to open anything that is not a regular file */
 	if (fp && (0 > fstat(fileno(fp), &st) || !S_ISREG(st.st_mode))) {
@@ -348,7 +348,9 @@ PHPAPI FILE *php_fopen_primary_script(void)
 		STR_FREE(SG(request_info).path_translated);	/* for same reason as above */
 		return NULL;
 	}
-	V_CHDIR_FILE(filename);
+    if (!(SG(options) & SAPI_OPTION_NO_CHDIR)) {
+		VCWD_CHDIR_FILE(filename);
+    }
 	SG(request_info).path_translated = filename;
 
 	return fp;
@@ -404,7 +406,7 @@ PHPAPI FILE *php_fopen_with_path(char *filename, char *mode, char *path, char **
 		}
 		snprintf(trypath, MAXPATHLEN, "%s/%s", ptr, filename);
 		if (PG(safe_mode)) {
-			if (V_STAT(trypath, &sb) == 0 && (!php_checkuid(trypath, mode, CHECKUID_CHECK_MODE_PARAM))) {
+			if (VCWD_STAT(trypath, &sb) == 0 && (!php_checkuid(trypath, mode, CHECKUID_CHECK_MODE_PARAM))) {
 				efree(pathbuf);
 				return NULL;
 			}
@@ -518,7 +520,7 @@ PHPAPI char *expand_filepath(const char *filepath, char *real_path)
 	char cwd[MAXPATHLEN];
 	char *result;
 
-	result = V_GETCWD(cwd, MAXPATHLEN);	
+	result = VCWD_GETCWD(cwd, MAXPATHLEN);	
 	if (!result) {
 		cwd[0] = '\0';
 	}

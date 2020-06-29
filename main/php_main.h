@@ -18,7 +18,7 @@
  */
 
 
-/* $Id: php_main.h,v 1.9 2001/02/26 06:07:31 andi Exp $ */
+/* $Id: php_main.h,v 1.11 2001/05/01 01:52:55 hirokawa Exp $ */
 
 
 #ifndef PHP_MAIN_H
@@ -52,5 +52,9 @@ extern void php_call_shutdown_functions(void);
 /* environment module */
 extern int php_init_environ(void);
 extern int php_shutdown_environ(void);
+
+#if defined(MBSTR_ENC_TRANS)
+#define php_treat_data mbstr_treat_data
+#endif
 
 #endif

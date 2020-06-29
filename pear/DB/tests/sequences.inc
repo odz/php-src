@@ -7,12 +7,12 @@ if (DB::isError($e)) {
 $a = $dbh->nextId("test");
 $b = $dbh->nextId("test");
 if (DB::isError($a)) {
-    print "a: ".$a->getMessage()."\n";
+    print "a: ".$a->toString()."\n";
 } else {
     print "a=$a\n";
 }
 if (DB::isError($b)) {
-    print "b: ".$b->getMessage()."\n";
+    print "b: ".$b->toString()."\n";
 } else {
     print "b=$b\n";
 }

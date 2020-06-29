@@ -16,7 +16,7 @@
 // | Authors: Colin Viebrock <colin@easyDNS.com>                          |
 // +----------------------------------------------------------------------+
 //
-// $Id: Dig.php,v 1.1 2001/03/12 19:30:56 cmv Exp $
+// $Id: Dig.php,v 1.2 2001/03/13 17:40:24 cmv Exp $
 //
 // A nice friendly OO interface to dig
 //
@@ -91,8 +91,11 @@ class Net_Dig extends PEAR
 	 * The Net_Dig constructor
          * Called when a new Net_Dig object is initialized
 	 *
-	 * @param string           [$address] The address to dig (can be set 
-	 *                                using the $address property as well)
+	 * @param string     [$address]  The address to dig (can be set 
+	 *                               using the $address property as well)
+	 *
+	 * @param string     [$server]   The server to dig at (can be set 
+	 *                               using the $server property as well)
 	 *
 	 * @return object Net_Dig   $obj   A new Net_Dig object
 	 *
@@ -100,11 +103,11 @@ class Net_Dig extends PEAR
 	 * @author Colin Viebrock <colin@easyDNS.com>
 	 * @since  PHP 4.0.5
 	 */
-	function Net_Dig($address = false)
+	function Net_Dig($address = false, $server = false )
 	{
 
 		$this->address = $address;
-		$this->server = false;
+		$this->server = $server;
 		$this->query_type = false;
 
 		$this->cmd = '';

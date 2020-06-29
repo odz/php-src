@@ -18,44 +18,33 @@
 // +----------------------------------------------------------------------+
 //
 
-require_once "PEAR.php";
-
-register_shutdown_function("__PEAR_Installer_cleanup");
+require_once "PEAR/Common.php";
 
 /**
  * Administration class used to install PEAR packages and maintain the
- * class definition cache.
+ * installed package database.
  *
  * @since PHP 4.0.2
  * @author Stig Bakken <ssb@fast.no>
  */
-class PEAR_Installer extends PEAR
+class PEAR_Installer extends PEAR_Common
 {
     // {{{ properties
-
-    /** stack of elements, gives some sort of XML context */
-    var $element_stack;
-
-    /** name of currently parsed XML element */
-    var $current_element;
-
-    /** array of attributes of the currently parsed XML element */
-    var $current_attributes = array();
-
-    /** assoc with information about the package */
-    var $pkginfo = array();
 
     /** name of the package directory, for example Foo-1.0 */
     var $pkgdir;
 
     /** directory where PHP code files go */
-    var $pear_phpdir = PEAR_INSTALL_DIR;
+    var $phpdir;
 
     /** directory where PHP extension files go */
-    var $pear_extdir = PEAR_EXTENSION_DIR;
+    var $extdir;
 
     /** directory where documentation goes */
-    var $pear_docdir = '';
+    var $docdir;
+
+    /** directory where system state information goes */
+    var $statedir;
 
     /** directory where the package wants to put files, relative
      *  to one of the three previous dirs
@@ -65,57 +54,55 @@ class PEAR_Installer extends PEAR
     /** debug mode (boolean) */
     var $debug = false;
 
-    /** class loading cache */
-    var $cache = array();
+    /** list of installed packages */
+    var $pkglist = array();
 
     /** temporary directory */
     var $tmpdir;
 
-    /** file pointer for cache file if open */
-    var $cache_fp;
+    /** file pointer for package list file if open */
+    var $pkglist_fp;
 
     // }}}
 
     // {{{ constructor
 
-    function PEAR_Installer() {
+    function PEAR_Installer($phpdir = PEAR_INSTALL_DIR,
+                            $extdir = PEAR_EXTENSION_DIR,
+                            $docdir = '')
+    {
 	$this->PEAR();
-	$this->cacheLoad("$this->pear_phpdir/.cache");
+        $this->phpdir = $phpdir;
+        $this->extdir = $extdir;
+        $this->docdir = $docdir;
+        $this->statedir = "/var/lib/php"; // XXX FIXME Windows
+	$this->loadPackageList("$this->statedir/packages.lst");
     }
 
     // }}}
     // {{{ destructor
 
     function _PEAR_Installer() {
-	$this->_PEAR();
 	if ($this->tmpdir && is_dir($this->tmpdir)) {
-	    system("rm -rf $this->tmpdir");
+	    system("rm -rf $this->tmpdir"); // XXX FIXME Windows
 	}
-	if ($this->cache_fp && is_resource($this->cache_fp)) {
-	    flock($this->cache_fp, LOCK_UN);
-	    fclose($this->cache_fp);
+	if ($this->pkglist_fp && is_resource($this->pkglist_fp)) {
+	    flock($this->pkglist_fp, LOCK_UN);
+	    fclose($this->pkglist_fp);
 	}
 	$this->tmpdir = null;
-	$this->cache_fp = null;
+	$this->pkglist_fp = null;
+	$this->_PEAR_Common();
     }
 
     // }}}
 
-    // {{{ raiseError()
-
-    function raiseError($msg)
-    {
-        return new PEAR_Error("$msg\n", 0, PEAR_ERROR_DIE);
-    }
-
-    // }}}
     // {{{ mkDirHier()
 
     function mkDirHier($dir)
     {
         $dirstack = array();
-        // XXX FIXME this does not work on Windows!
-        while (!is_dir($dir) && $dir != "/") {
+        while (!is_dir($dir) && $dir != DIRECTORY_SEPARATOR) {
             array_unshift($dirstack, $dir);
             $dir = dirname($dir);
         }
@@ -140,23 +127,23 @@ class PEAR_Installer extends PEAR
 
     // }}}
 
-    // {{{ cacheLock()
+    // {{{ lockPackageList()
 
-    function cacheLock() {
-	$fp = $this->cache_fp;
+    function lockPackageList() {
+	$fp = $this->pkglist_fp;
 	if (!is_resource($fp)) {
-	    $this->cache_fp = $fp = fopen($this->cache_file, "r");
+	    $this->pkglist_fp = $fp = fopen($this->pkglist_file, "r");
 	}
 	return flock($fp, LOCK_EX);
     }
 
     // }}}
-    // {{{ cacheUnlock()
+    // {{{ unlockPackageList()
 
-    function cacheUnlock() {
-	$fp = $this->cache_fp;
+    function unlockPackageList() {
+	$fp = $this->pkglist_fp;
 	if (!is_resource($fp)) {
-	    $this->cache_fp = $fp = fopen($this->cache_file, "r");
+	    $this->pkglist_fp = $fp = fopen($this->pkglist_file, "r");
 	    $doclose = true;
 	}
 	$ret = flock($fp, LOCK_EX);
@@ -167,54 +154,65 @@ class PEAR_Installer extends PEAR
     }
 
     // }}}
-    // {{{ cacheLoad()
+    // {{{ loadPackageList()
 
-    function cacheLoad($file) {
-	$this->cache_file = $file;
+    function loadPackageList($file) {
+	$this->pkglist_file = $file;
+        $this->pkglist = array();
 	if (!file_exists($file)) {
-	    touch($file);
+	    if (!@touch($file)) {
+                return $this->raiseError("touch($file): $php_errormsg");
+            }
 	}
-	$fp = $this->cache_fp = fopen($file, "r");
-	$this->cacheLock();
-	while ($line = fgets($fp, 2048)) {
-	    list($type, $name, $file) = explode(" ", trim($line));
-	    $this->cache[$type][$name] = $file;
-	}
+	$fp = $this->pkglist_fp = @fopen($file, "r");
+        if (!is_resource($fp)) {
+                return $this->raiseError("fopen($file): $php_errormsg");
+        }
+	$this->lockPackageList();
+        $versionline = trim(fgets($fp, 2048));
+        if ($versionline == ";1") {
+            while ($line = fgets($fp, 2048)) {
+                list($name, $version, $file) = explode(";", trim($line));
+                $this->pkglist[$name]["version"] = $version;
+                $this->pkglist[$name]["files"][] = $file;
+            }
+        }
+        $this->unlockPackageList();
     }
 
     // }}}
-    // {{{ cacheSave()
+    // {{{ savePackageList()
 
-    function cacheSave() {
-	$fp = $this->cache_fp;
-	$wfp = fopen($this->cache_file, "w");
-	if (!$wfp) {
-	    return false;
+    function savePackageList() {
+	$fp = $this->pkglist_fp;
+	$wfp = @fopen($this->pkglist_file, "w");
+	if (!is_resource($wfp)) {
+	    return $this->raiseError("could not write $this->pkglist_file");
 	}
 	if (is_resource($fp)) {
 	    fclose($fp);
 	}
-	$this->cache_fp = $fp = $wfp;
-	reset($this->cache);
-	while (list($type, $entry) = each($this->cache)) {
-	    reset($entry);
-	    while (list($name, $file) = each($entry)) {
-		fwrite($fp, "$type $name $file\n");
+	$this->pkglist_fp = $fp = $wfp;
+        fwrite($fp, ";1\n");
+        foreach ($this->pkglist as $name => $entry) {
+            $ver = $entry["version"];
+            foreach ($entry["files"] as $file) {
+		fwrite($fp, "$name;$ver;$file\n");
 	    }
 	}
 	fclose($fp);
-	$this->cache_fp = $fp = null;
+	$this->pkglist_fp = $fp = null;
     }
 
     // }}}
-    // {{{ cacheUpdateFrom()
+    // {{{ updatePackageListFrom()
 
-    function cacheUpdateFrom($file) {
+    function updatePackageListFrom($file) {
         /*
 	$new = $this->classesDeclaredBy($file);
 	reset($new);
 	while (list($i, $name) = each($new)) {
-	    $this->cache['class'][$name] = $file;
+	    $this->pkglist['class'][$name] = $file;
 	}
         */
     }
@@ -231,7 +229,6 @@ class PEAR_Installer extends PEAR
      * @return bool true if successful, false if not
      */
     function install($pkgfile) {
-        global $_PEAR_Installer_tempfiles;
         if (preg_match('#^(http|ftp)://#', $pkgfile)) {
             $need_download = true;
         } elseif (!file_exists($pkgfile)) {
@@ -240,9 +237,10 @@ class PEAR_Installer extends PEAR
 
         if ($need_download) {
             $file = basename($pkgfile);
+            // XXX FIXME use ??? on Windows, use $TMPDIR on unix
             $downloaddir = "/tmp/pearinstall";
             $this->mkDirHier($downloaddir);
-            $downloadfile = "$downloaddir/$file";
+            $downloadfile = $downloaddir.DIRECTORY_SEPARATOR.$file;
             $this->log(1, "downloading $pkgfile...");
             $fp = @fopen($pkgfile, "r");
             if (!$fp) {
@@ -252,6 +250,7 @@ class PEAR_Installer extends PEAR
             if (!$wp) {
                 return $this->raiseError("$downloadfile: write failed ($php_errormsg)");
             }
+            $this->addTempFile($downloadfile);
             $bytes = 0;
             while ($data = @fread($fp, 16384)) {
                 $bytes += strlen($data);
@@ -263,8 +262,8 @@ class PEAR_Installer extends PEAR
             fclose($fp);
             fclose($wp);
             $this->log(1, "...done, $bytes bytes");
-            $_PEAR_Installer_tempfiles[] = $downloadfile;
         }
+        // XXX FIXME depends on external gzip+tar
 	$fp = popen("gzip -dc $pkgfile | tar -tf -", "r");
 	if (!$fp) {
 	    return $this->raiseError("Unable to examine $pkgfile (gzip or tar failed)");
@@ -284,18 +283,20 @@ class PEAR_Installer extends PEAR
 	    return $this->raiseError("Invalid package: no package.xml file found!");
 	}
 
+        // XXX FIXME Windows
 	$this->tmpdir = tempnam("/tmp", "pear");
         unlink($this->tmpdir);
 	if (!mkdir($this->tmpdir, 0755)) {
 	    return $this->raiseError("Unable to create temporary directory $this->tmpdir.");
 	}
-        $_PEAR_Installer_tempfiles[] = $this->tmpdir;
-	$pwd = trim(`pwd`);
+        $this->addTempFile($this->tmpdir);
+	$pwd = getcwd();
 
-	if (substr($pkgfile, 0, 1) == "/") {
+        // XXX FIXME Windows should check for drive
+	if (substr($pkgfile, 0, 1) == DIRECTORY_SEPARATOR) {
 	    $pkgfilepath = $pkgfile;
 	} else {
-	    $pkgfilepath = $pwd.'/'.$pkgfile;
+	    $pkgfilepath = $pwd.DIRECTORY_SEPARATOR.$pkgfile;
 	}
 
 	if (!chdir($this->tmpdir)) {
@@ -323,16 +324,15 @@ class PEAR_Installer extends PEAR
 	$this->element_stack = array();
 	$this->pkginfo = array();
 	$this->current_element = false;
-	$destdir = '';
+	$this->destdir = '';
 
-	while ($data = fread($fp, 2048)) {
-	    if (!xml_parse($xp, $data, feof($fp))) {
-		$err = $this->raiseError(sprintf("XML error: %s at line %d",
-							xml_error_string(xml_get_error_code($xp)),
-							xml_get_current_line_number($xp)));
-		xml_parser_free($xp);
-		return $err;
-	    }
+	$data = fread($fp, filesize($descfile));
+        if (!xml_parse($xp, $data, 1)) {
+            $msg = sprintf("XML error: %s at line %d",
+                           xml_error_string(xml_get_error_code($xp)),
+                           xml_get_current_line_number($xp));
+            xml_parser_free($xp);
+            return $this->raiseError($msg);
 	}
 
 	xml_parser_free($xp);
@@ -349,10 +349,12 @@ class PEAR_Installer extends PEAR
 	$this->current_attributes = $attribs;
 	switch ($name) {
 	    case "Package":
+/*
 		if (strtolower($attribs["Type"]) != "binary") {
 		    return $this->raiseError("Invalid package: only binary packages supported yet.");
 		}
 		$this->pkginfo['pkgtype'] = strtolower($attribs["Type"]);
+*/
 		break;
 	}
     }
@@ -369,17 +371,23 @@ class PEAR_Installer extends PEAR
     // {{{ charHandler()
 
     function charHandler($xp, $data) {
-        // XXX FIXME: $data may be incomplete, all of this code should
-        // actually be in endHandler.
-        //
+        $next = $this->element_stack[sizeof($this->element_stack)-1];
 	switch ($this->current_element) {
+            case "Name":
+                if ($next == "Package") {
+                    $this->pkginfo["name"] = $data;
+                }
+                break;
+            case "Version":
+                $this->pkginfo["version"] = $data;
+                break;
 	    case "Dir":
-		if (!$this->pear_phpdir) {
+		if (!$this->phpdir) {
 		    break;
 		}
                 $type = $this->current_attributes["Type"];
 		$dir = trim($data);
-		$d = "$this->pear_phpdir/$this->destdir/$dir";
+		$d = "$this->phpdir/$this->destdir/$dir";
 		if (substr($dir, 0, 1) == "/") {
 		    $this->destdir = substr($dir, 1);
 		} else {
@@ -399,23 +407,23 @@ class PEAR_Installer extends PEAR
                 $this->log(1, "created dir $d");
 		break;
 	    case "File":
-		if (!$this->pear_phpdir) {
+		if (!$this->phpdir) {
 		    break;
 		}
                 $type = strtolower($this->current_attributes["Role"]);
 		$file = trim($data);
-                $updatecache = false;
+                $updatepkglist = false;
                 switch ($type) {
                     case "test":
                         $d = ""; // don't install test files for now
                         break;
                     default:
                         if ($this->destdir) {
-                            $d = "$this->pear_phpdir/$this->destdir";
+                            $d = "$this->phpdir/$this->destdir";
                         } else {
-                            $d = $this->pear_phpdir;
+                            $d = $this->phpdir;
                         }
-                        $updatecache = true;
+                        $updatepkglist = true;
                         break;
                 }
                 if (!$d) {
@@ -429,8 +437,8 @@ class PEAR_Installer extends PEAR
 		    $this->log(0, "failed to copy $this->pkgdir/$file to $d");
 		    break;
 		}
-                if ($updatecache) {
-                    $this->cacheUpdateFrom("$d/$file");
+                if ($updatepkglist) {
+                    $this->updatePackageListFrom("$d/$file");
                 }
                 $this->log(1, "installed $d/$bfile");
 		break;
@@ -459,7 +467,36 @@ class PEAR_Installer extends PEAR
 	return $diff;
     }
 
-// }}}
+    // }}}
+
+    // {{{ declaredWhenIncluding()
+
+    /**
+     * Find out which new classes are defined by a file.
+     *
+     * @param $file file name passed to "include"
+     *
+     * @return array classes that were defined
+     */
+    function &declaredWhenIncluding($file) {
+	$classes_before = get_declared_classes();
+        $funcs_before = get_defined_functions();
+//        $vars_before = $GLOBALS;
+        ob_start();
+	include($file);
+        ob_end_clean();
+	$classes_after = get_declared_classes();
+        $funcs_after = get_defined_functions();
+//        $vars_after = $GLOBALS;
+	// using array_slice to renumber array
+        return array(
+            "classes" => array_slice(array_diff($classes_after, $classes_before), 0),
+            "functions" => array_slice(array_diff($funcs_after, $funcs_before), 0),
+//            "globals" => array_slice(array_diff($vars_after, $vars_before), 0)
+        );
+    }
+
+    // }}}
 
     // {{{ lockDir()
 
@@ -488,20 +525,6 @@ class PEAR_Installer extends PEAR
     }
 
     // }}}
-}
-
-function __PEAR_Installer_cleanup()
-{
-    global $_PEAR_Installer_tempfiles;
-    if (is_array($_PEAR_Installer_tempfiles)) {
-        while ($file = array_shift($_PEAR_Installer_tempfiles)) {
-            if (is_dir($file)) {
-                system("rm -rf $file"); // XXX FIXME Windows
-            } else {
-                unlink($file);
-            }
-        }
-    }
 }
 
 ?>

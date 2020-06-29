@@ -16,10 +16,13 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_curl.h,v 1.18 2001/02/26 06:06:52 andi Exp $ */
+/* $Id: php_curl.h,v 1.21.2.2 2001/05/29 07:50:48 sniper Exp $ */
 
 #ifndef _PHP_CURL_H
 #define _PHP_CURL_H
+
+#include "php.h"
+#include "ext/standard/php_smart_str.h"
 
 #ifdef COMPILE_DL_CURL
 #undef HAVE_CURL
@@ -30,10 +33,12 @@
 
 #include <curl/curl.h>
 
+
 extern zend_module_entry curl_module_entry;
 #define curl_module_ptr &curl_module_entry
 
 #define CURLOPT_RETURNTRANSFER 19913
+#define CURLOPT_BINARYTRANSFER 19914
 
 PHP_MINIT_FUNCTION(curl);
 PHP_MSHUTDOWN_FUNCTION(curl);
@@ -42,21 +47,50 @@ PHP_FUNCTION(curl_version);
 PHP_FUNCTION(curl_init);
 PHP_FUNCTION(curl_setopt);
 PHP_FUNCTION(curl_exec);
-#if LIBCURL_VERSION_NUM >= 0x070401
 PHP_FUNCTION(curl_getinfo);
-#endif
 PHP_FUNCTION(curl_error);
 PHP_FUNCTION(curl_errno);
 PHP_FUNCTION(curl_close);
 
 typedef struct {
-	int return_transfer;
-	int output_file;
-	int php_stdout;
-	int cerrno;
-	char error[CURL_ERROR_SIZE+1];
-	CURL *cp;
-	zend_llist to_free;
+	zval         *func;
+	FILE         *fp;
+	smart_str     buf;
+	int           method;
+	int           type;
+} php_curl_write;
+
+typedef struct {
+	zval         *func;
+	FILE         *fp;
+	long          fd;
+	int           method;
+} php_curl_read;
+
+typedef struct {
+	php_curl_write *write;
+	php_curl_read  *read;
+	zval           *write_header;
+	zval           *passwd;
+} php_curl_handlers;
+
+struct _php_curl_error  {
+	char str[CURL_ERROR_SIZE + 1];
+	int  no;
+};
+
+struct _php_curl_free {
+	zend_llist str;
+	zend_llist post;
+	zend_llist slist;
+};
+
+typedef struct {
+	CURL                    *cp;
+	php_curl_handlers       *handlers;
+	struct _php_curl_error   err;
+	struct _php_curl_free    to_free;
+	long                     id;
 } php_curl;
 
 

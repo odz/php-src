@@ -44,6 +44,6 @@ var_dump($o->parse());
 ?>
 --EXPECT--
 new __TestParser2 string(13) "__testparser2"
-setInputFile resource(2) of type 2
+setInputFile resource(2) of type (file)
 parse <ROOT><![CDATA[foo]]></ROOT>
 bool(true)

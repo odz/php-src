@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ircg_scanner.re,v 1.9 2001/03/10 23:21:49 sas Exp $ */
+/* $Id: ircg_scanner.re,v 1.10 2001/04/25 13:50:35 sas Exp $ */
 
 #include <ext/standard/php_smart_str.h>
 #include <stdio.h>
@@ -87,19 +87,19 @@ underline = "\037";
 static void handle_scheme(STD_PARA)
 {
 	ctx->scheme.len = 0;
-	smart_str_appendl(&ctx->scheme, start, YYCURSOR - start);
+	smart_str_appendl_ex(&ctx->scheme, start, YYCURSOR - start, 1);
 	smart_str_0(&ctx->scheme);
 }
 
 static void handle_url(STD_PARA)
 {
-	smart_str_appends(ctx->result, "<a target=blank href=\"");
-	smart_str_append(ctx->result, &ctx->scheme);
-	smart_str_appendl(ctx->result, start, YYCURSOR - start);
-	smart_str_appends(ctx->result, "\">");
-	smart_str_append(ctx->result, &ctx->scheme);
-	smart_str_appendl(ctx->result, start, YYCURSOR - start);
-	smart_str_appends(ctx->result, "</a>");
+	smart_str_appends_ex(ctx->result, "<a target=blank href=\"", 1);
+	smart_str_append_ex(ctx->result, &ctx->scheme, 1);
+	smart_str_appendl_ex(ctx->result, start, YYCURSOR - start, 1);
+	smart_str_appends_ex(ctx->result, "\">", 1);
+	smart_str_append_ex(ctx->result, &ctx->scheme, 1);
+	smart_str_appendl_ex(ctx->result, start, YYCURSOR - start, 1);
+	smart_str_appends_ex(ctx->result, "</a>", 1);
 }
 
 static void handle_color_digit(STD_PARA, int mode)
@@ -128,7 +128,7 @@ static void handle_color_digit(STD_PARA, int mode)
 static void finish_color_stuff(STD_PARA)
 {
 	if (ctx->font_tag_open) {
-		smart_str_appends(ctx->result, "</font>");
+		smart_str_appends_ex(ctx->result, "</font>", 1);
 		ctx->font_tag_open = 0;
 	}
 }
@@ -137,10 +137,10 @@ static void handle_bold(STD_PARA, int final)
 {
 	switch (ctx->bold_tag_open) {
 	case 0:
-		if (!final) smart_str_appends(ctx->result, "<b>");
+		if (!final) smart_str_appends_ex(ctx->result, "<b>", 1);
 		break;
 	case 1:
-		smart_str_appends(ctx->result, "</b>");
+		smart_str_appends_ex(ctx->result, "</b>", 1);
 		break;
 	}
 
@@ -151,10 +151,10 @@ static void handle_underline(STD_PARA, int final)
 {
 	switch (ctx->underline_tag_open) {
 	case 0:
-		if (!final) smart_str_appends(ctx->result, "<u>");
+		if (!final) smart_str_appends_ex(ctx->result, "<u>", 1);
 		break;
 	case 1:
-		smart_str_appends(ctx->result, "</u>");
+		smart_str_appends_ex(ctx->result, "</u>", 1);
 		break;
 	}
 
@@ -166,21 +166,21 @@ static void commit_color_stuff(STD_PARA)
 	finish_color_stuff(STD_ARGS);
 
 	if (IS_VALID_CODE(ctx->fg_code)) {
-		smart_str_appends(ctx->result, "<font color=\"");
-		smart_str_appends(ctx->result, color_list[ctx->fg_code]);
-		smart_str_appends(ctx->result, "\">");
+		smart_str_appends_ex(ctx->result, "<font color=\"", 1);
+		smart_str_appends_ex(ctx->result, color_list[ctx->fg_code], 1);
+		smart_str_appends_ex(ctx->result, "\">", 1);
 		ctx->font_tag_open = 1;
 	}
 }
 
 static void passthru(STD_PARA)
 {
-	smart_str_appendl(ctx->result, start, YYCURSOR - start);
+	smart_str_appendl_ex(ctx->result, start, YYCURSOR - start, 1);
 }
 
 static void add_entity(STD_PARA, const char *entity)
 {
-	smart_str_appends(ctx->result, entity);
+	smart_str_appends_ex(ctx->result, entity, 1);
 }
 
 void ircg_mirc_color(const char *msg, smart_str *result, size_t msg_len) {
@@ -255,7 +255,7 @@ void ircg_mirc_color(const char *msg, smart_str *result, size_t msg_len) {
 		}
 	}
 stop:
-	smart_str_free(&ctx->scheme);
+	smart_str_free_ex(&ctx->scheme, 1);
 
 	finish_color_stuff(STD_ARGS);
 	handle_bold(STD_ARGS, 1);

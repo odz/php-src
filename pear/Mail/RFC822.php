@@ -22,7 +22,7 @@
  *
  * @author  Richard Heyes <richard.heyes@heyes-computing.net>
  * @author  Chuck Hagenbuch <chuck@horde.org>
- * @version $Revision: 1.5 $
+ * @version $Revision: 1.6 $
  */
 class Mail_RFC822 {
 
@@ -580,7 +580,7 @@ class Mail_RFC822 {
         }
         
         $mailbox = $mbox;
-    return true;
+        return true;
     }
     
     /**

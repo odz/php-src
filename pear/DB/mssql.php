@@ -16,7 +16,7 @@
 // | Authors: Sterling Hughes <sterling@php.net>                          |
 // +----------------------------------------------------------------------+
 //
-// $Id: mssql.php,v 1.19 2001/02/19 12:22:26 ssb Exp $
+// $Id: mssql.php,v 1.21 2001/04/16 22:32:54 cox Exp $
 //
 // Database independent query interface definition for PHP's Microsoft SQL Server
 // extension.
@@ -43,16 +43,8 @@ class DB_mssql extends DB_common
         );
     }
 
-    function connect($dsn, $persistent = false)
+    function connect($dsninfo, $persistent = false)
     {
-        if(is_array($dsn)) {
-            $dsninfo = &$dsn;
-        } else {
-            $dsninfo = DB::parseDSN($dsn);
-        }
-        if (!$dsninfo || !$dsninfo['phptype']) {
-            return $this->raiseError(mssql_get_last_message()); 
-        }
         $this->dsn = $dsninfo;
         $user = $dsninfo['username'];
         $pw = $dsninfo['password'];
@@ -61,7 +53,7 @@ class DB_mssql extends DB_common
         if ($dbhost && $user && $pw) {
             $conn = $connect_function($dbhost, $user, $pw);
         } elseif ($dbhost && $user) {
-            $conn = $connect_function($dbhost,$user);
+            $conn = $connect_function($dbhost, $user);
         } else {
             $conn = $connect_function($dbhost);
         }
@@ -81,7 +73,7 @@ class DB_mssql extends DB_common
 
     function simpleQuery($query)
     {
-	$this->last_query = $query;
+        $this->last_query = $query;
         $query = $this->modifyQuery($query);
         $result = @mssql_query($query, $this->connection);
         if (!$result) {
@@ -92,40 +84,36 @@ class DB_mssql extends DB_common
         return DB::isManip($query) ? DB_OK : $result;
     }
 
-    function &fetchRow($result, $fetchmode=DB_FETCHMODE_DEFAULT)
+    function &fetchRow($result, $fetchmode = DB_FETCHMODE_DEFAULT, $rownum=null)
     {
-	if ($fetchmode == DB_FETCHMODE_DEFAULT) {
-	    $fetchmode = $this->fetchmode;
-	}
-        if ($fetchmode & DB_FETCHMODE_ASSOC) {
-            $row = @mssql_fetch_array($result);
-        } else {
-            $row = @mssql_fetch_row($result);
+        if ($fetchmode == DB_FETCHMODE_DEFAULT) {
+            $fetchmode = $this->fetchmode;
         }
-	
-        if (!$row) {
-	    if ($msg = mssql_get_last_message()) {
-		return $this->raiseError($msg);
-	    } else {
-		return null;
-	    }
+        $res = $this->fetchInto ($result, $arr, $fetchmode, $rownum);
+        if ($res !== DB_OK) {
+            return $res;
         }
-	
-        return $row;
+        return $arr;
     }
 
-    function fetchInto($result, &$ar, $fetchmode=DB_FETCHMODE_DEFAULT)
+    function fetchInto($result, &$ar, $fetchmode, $rownum=null)
     {
-	if ($fetchmode == DB_FETCHMODE_DEFAULT) {
-	    $fetchmode = $this->fetchmode;
-	}
+        if ($rownum !== null) {
+            if (!@mssql_data_seek($result, $rownum)) {
+                return null;
+            }
+        }
         if ($fetchmode & DB_FETCHMODE_ASSOC) {
             $ar = @mssql_fetch_array($result);
         } else {
             $ar = @mssql_fetch_row($result);
         }
         if (!$ar) {
-            return $this->raiseError(mssql_get_last_message());
+            if ($msg = mssql_get_last_message()) {
+                return $this->raiseError($msg);
+            } else {
+                return null;
+            }
         }
         return DB_OK;
     }
@@ -140,7 +128,7 @@ class DB_mssql extends DB_common
         }
         unset($this->prepare_tokens[$result]);
         unset($this->prepare_types[$result]);
-        return true; 
+        return true;
     }
 
     function numCols($result)

@@ -1,4 +1,4 @@
-/* 
+/*
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php.h,v 1.134 2001/02/26 18:14:30 andi Exp $ */
+/* $Id: php.h,v 1.137 2001/04/30 14:23:41 dbeu Exp $ */
 
 #ifndef PHP_H
 #define PHP_H
@@ -42,11 +42,12 @@
 #endif
 
 #ifdef PHP_WIN32
+#include "tsrm_win32.h"
 #include "win95nt.h"
 #	ifdef PHP_EXPORTS
-#	define PHPAPI __declspec(dllexport) 
+#	define PHPAPI __declspec(dllexport)
 #	else
-#	define PHPAPI __declspec(dllimport) 
+#	define PHPAPI __declspec(dllimport)
 #	endif
 #define PHP_DIR_SEPARATOR '\\'
 #else
@@ -127,11 +128,11 @@ typedef unsigned int socklen_t;
 #endif
 #if HAVE_STDARG_H
 #include <stdarg.h>
-#else   
+#else
 # if HAVE_SYS_VARARGS_H
 # include <sys/varargs.h>
-# endif 
-#endif 
+# endif
+#endif
 
 
 #include "zend_hash.h"
@@ -156,6 +157,7 @@ typedef unsigned int socklen_t;
 char *strerror(int);
 #endif
 
+#include "php_streams.h"
 #include "fopen_wrappers.h"
 
 #if (REGEX == 1 || REGEX == 0) && !defined(NO_REGEX_EXTRA_H)
@@ -239,7 +241,7 @@ extern char **environ;
 void phperror(char *error);
 PHPAPI int php_write(void *buf, uint size);
 PHPAPI int php_printf(const char *format, ...);
-void php_log_err(char *log_message);
+PHPAPI void php_log_err(char *log_message);
 int Debug(char *format, ...);
 int cfgparse(void);
 
@@ -307,7 +309,7 @@ PHPAPI int cfg_get_string(char *varname, char **result);
 
 #define XtOffset(p_type,field) ((unsigned int)&(((p_type)NULL)->field))
 
-#endif /* !CRAY2 */  
+#endif /* !CRAY2 */
 #endif /* __STDC__ */
 #else /* ! (CRAY || __arm) */
 

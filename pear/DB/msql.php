@@ -16,7 +16,7 @@
 // | Authors: Sterling Hughes <sterling@php.net>                          |
 // +----------------------------------------------------------------------+
 //
-// $Id: msql.php,v 1.16 2001/02/19 12:22:26 ssb Exp $
+// $Id: msql.php,v 1.17 2001/04/22 17:09:57 cox Exp $
 //
 // Database independent query interface definition for PHP's Mini-SQL
 // extension.
@@ -43,16 +43,8 @@ class DB_msql extends DB_common
         );
     }
 
-    function connect($dsn, $persistent = false)
+    function connect($dsninfo, $persistent = false)
     {
-        if(is_array($dsn)) {
-            $dsninfo = &$dsn;
-        } else {
-            $dsninfo = DB::parseDSN($dsn);
-        }
-        if (!$dsninfo || !$dsninfo['phptype']) {
-            return $this->raiseError(); 
-        }
         $this->dsn = $dsninfo;
         $user = $dsninfo['username'];
         $pw = $dsninfo['password'];
@@ -65,10 +57,11 @@ class DB_msql extends DB_common
         } else {
             $conn = $connect_function($dbhost);
         }
-        if ($dsninfo['database']) {
-            @msql_select_db($dsninfo['database'], $conn);
-        } else {
-            return $this->raiseError();
+        if (!$conn) {
+            $this->raiseError(DB_ERROR_CONNECT_FAILED);
+        }
+        if (!@msql_select_db($dsninfo['database'], $conn)){
+            return $this->raiseError(DB_ERROR_NODBSELECTED);
         }
         $this->connection = $conn;
         return DB_OK;
@@ -81,7 +74,7 @@ class DB_msql extends DB_common
 
     function simpleQuery($query)
     {
-	$this->last_query = $query;
+        $this->last_query = $query;
         $query = $this->modifyQuery($query);
         $result = @msql_query($query, $this->connection);
         if (!$result) {
@@ -92,39 +85,36 @@ class DB_msql extends DB_common
         return DB::isManip($query) ? DB_OK : $result;
     }
 
-    function &fetchRow($result, $fetchmode=DB_FETCHMODE_DEFAULT)
+    function fetchRow($result, $fetchmode = DB_FETCHMODE_DEFAULT, $rownum=null)
     {
-	if ($fetchmode == DB_FETCHMODE_DEFAULT) {
-	    $fetchmode = $this->fetchmode;
-	}
-        if ($fetchmode & DB_FETCHMODE_ASSOC) {
-            $row = @msql_fetch_array($result, MSQL_ASSOC);
-        } else {
-            $row = @msql_fetch_row($result);
+        if ($fetchmode == DB_FETCHMODE_DEFAULT) {
+            $fetchmode = $this->fetchmode;
         }
-        if (!$row) {
-	    if ($error = msql_error()) {
-		return $this->raiseError($error);
-	    } else {
-		return null;
-	    }
+        $res = $this->fetchInto ($result, $arr, $fetchmode, $rownum);
+        if ($res !== DB_OK) {
+            return $res;
         }
-	
-        return $row;
+        return $arr;
     }
 
-    function fetchInto($result, &$ar, $fetchmode=DB_FETCHMODE_DEFAULT)
+    function fetchInto($result, &$ar, $fetchmode, $rownum=null)
     {
-	if ($fetchmode == DB_FETCHMODE_DEFAULT) {
-	    $fetchmode = $this->fetchmode;
-	}
+        if ($rownum !== null) {
+            if (!@msql_data_seek($result, $rownum)) {
+                return null;
+            }
+        }
         if ($fetchmode & DB_FETCHMODE_ASSOC) {
             $ar = @msql_fetch_array($result, MSQL_ASSOC);
         } else {
             $ar = @msql_fetch_row($result);
         }
         if (!$ar) {
-            return $this->raiseError();
+            if ($error = msql_error()) {
+                return $this->raiseError($error);
+            } else {
+                return null;
+            }
         }
         return DB_OK;
     }
@@ -139,7 +129,7 @@ class DB_msql extends DB_common
         }
         unset($this->prepare_tokens[$result]);
         unset($this->prepare_types[$result]);
-        return true; 
+        return true;
     }
 
     function numCols($result)

@@ -80,7 +80,7 @@
 extern char *ap_php_optarg;
 extern int ap_php_optind;
 
-#define OPTSTRING "ac:d:ef:g:hilmnqs?vz:"
+#define OPTSTRING "aCc:d:ef:g:hilmnqs?vz:"
 
 static int _print_module_info ( zend_module_entry *module, void *arg ) {
 	php_printf("%s\n", module->name);
@@ -89,14 +89,21 @@ static int _print_module_info ( zend_module_entry *module, void *arg ) {
 
 static int sapi_cgibin_ub_write(const char *str, uint str_length)
 {
+	const char *ptr = str;
+	uint remaining = str_length;
 	size_t ret;
 
-	ret = fwrite(str, 1, str_length, stdout);
-	if (ret != str_length) {
-		php_handle_aborted_connection();
+	while (remaining > 0)
+	{
+		ret = fwrite(ptr, 1, MIN(remaining, 16384), stdout);
+		if (!ret) {
+			php_handle_aborted_connection();
+		}
+		ptr += ret;
+		remaining -= ret;
 	}
 
-	return ret;
+	return str_length;
 }
 
 
@@ -141,38 +148,13 @@ static char *sapi_cgi_read_cookies(SLS_D)
 
 static void sapi_cgi_register_variables(zval *track_vars_array ELS_DC SLS_DC PLS_DC)
 {
-	char *pi;
-
 	/* In CGI mode, we consider the environment to be a part of the server
 	 * variables
 	 */
 	php_import_environment_variables(track_vars_array ELS_CC PLS_CC);
 
 	/* Build the special-case PHP_SELF variable for the CGI version */
-#if FORCE_CGI_REDIRECT
 	php_register_variable("PHP_SELF", (SG(request_info).request_uri ? SG(request_info).request_uri:""), track_vars_array ELS_CC PLS_CC);
-#else
-	{
-		char *sn;
-		char *val;
-		int l=0;
-
-		sn = getenv("SCRIPT_NAME");
-		pi = SG(request_info).request_uri;
-		if (sn)
-			l += strlen(sn);
-		if (pi)
-			l += strlen(pi);
-		if (pi && sn && !strcmp(pi, sn)) {
-			l -= strlen(pi);
-			pi = NULL;
-		}
-		val = emalloc(l + 1);
-		sprintf(val, "%s%s", (sn ? sn : ""), (pi ? pi : ""));	/* SAFE */
-		php_register_variable("PHP_SELF", val, track_vars_array ELS_CC PLS_CC);
-		efree(val);
-	}
-#endif
 }
 
 
@@ -246,6 +228,7 @@ static void php_cgi_usage(char *argv0)
 				"  -s             Display colour syntax highlighted source.\n"
 				"  -f <file>      Parse <file>.  Implies `-q'\n"
 				"  -v             Version number\n"
+                "  -C             Do not chdir to the script's directory\n"
 				"  -c <path>      Look for php.ini file in this directory\n"
 #if SUPPORT_INTERACTIVE
 				"  -a             Run interactively\n"
@@ -263,6 +246,7 @@ static void php_cgi_usage(char *argv0)
 static void init_request_info(SLS_D)
 {
 	char *content_length = getenv("CONTENT_LENGTH");
+	char *content_type = getenv("CONTENT_TYPE");
 	const char *auth;
 
 #if 0
@@ -311,7 +295,7 @@ static void init_request_info(SLS_D)
 		SG(request_info).request_uri = getenv("SCRIPT_NAME");
 	}
 	SG(request_info).path_translated = NULL; /* we have to update it later, when we have that information */
-	SG(request_info).content_type = getenv("CONTENT_TYPE");
+	SG(request_info).content_type = (content_type ? content_type : "" );
 	SG(request_info).content_length = (content_length?atoi(content_length):0);
 	SG(sapi_headers).http_response_code = 200;
 	
@@ -524,7 +508,10 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 #endif
 					break;
 				
-			  case 'd':	/* define ini entries on command line */
+			case 'C': /* don't chdir to the script directory */
+					SG(options) |= SAPI_OPTION_NO_CHDIR;
+					break;
+			case 'd': /* define ini entries on command line */
 					define_command_line_ini_entry(ap_php_optarg);
 					break;
 					
@@ -643,7 +630,9 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 			*s = '\0';			/* we are pretending it came from the environment  */
 			if (script_file) {
 				strcpy(s, script_file);
-				strcat(s, "+");
+				if (ap_php_optind<argc) {
+					strcat(s, "+");
+				}
 			}
 			for (i = ap_php_optind, len = 0; i < argc; i++) {
 				strcat(s, argv[i]);
@@ -703,8 +692,7 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 	}
 
 	if (cgi && !file_handle.handle.fp) {
-		file_handle.handle.fp = V_FOPEN(argv0, "rb");
-		if(!file_handle.handle.fp) {
+		if(!argv0 || !(file_handle.handle.fp = VCWD_FOPEN(argv0, "rb"))) {
 			PUTS("No input file specified.\n");
 			php_request_shutdown((void *) 0);
 			php_module_shutdown();

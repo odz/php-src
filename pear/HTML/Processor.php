@@ -16,7 +16,7 @@
 // | Authors: Sterling Hughes <sterling@php.net>                          |
 // +----------------------------------------------------------------------+
 //
-// $Id: Processor.php,v 1.1 2001/01/17 16:34:05 sterling Exp $
+// $Id: Processor.php,v 1.2 2001/04/08 07:39:27 ssb Exp $
 //
 // HTML processing utility functions.
 //
@@ -30,7 +30,7 @@ require_once('PEAR.php');
 
 // {{{ HTML_Processor
 
-$_HTML_Processor_translation_table = array();
+$GLOBALS['_HTML_Processor_translation_table'] = array();
 
 /**
  * The HTML_Processor class facilitates the parsing and processing of

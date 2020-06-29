@@ -1,5 +1,4 @@
 <?php
-
 /* vim: set expandtab tabstop=4 shiftwidth=4; */
 // +---------------------------------------------------------------------+
 // |  PHP version 4.0                                                    |
@@ -17,7 +16,7 @@
 // |  Authors:  Sean Grimes <metallic@noworlater.net>                    |
 // +---------------------------------------------------------------------+
 // 
-// $Id: Render.php,v 1.2 2001/01/16 00:27:34 metallic Exp $
+// $Id: Render.php,v 1.3 2001/03/15 19:44:47 uw Exp $
 
 /**
 * Render class for rendering from XML. 
@@ -28,76 +27,19 @@
 * will make it possible to take a document from
 * HTML to PDF, but this is unlikely. 
 * 
-* @author Sean Grimes <metallic@noworlater.net>
+* @author   Sean Grimes <metallic@noworlater.net>
+* @version  $Id: Render.php,v 1.3 2001/03/15 19:44:47 uw Exp $
+* @todo     - Implement the HTML and PDF rendering modes
+*           - Extend the parse() function to what is needed
+*           - Implement filesystem commands
+*           - Come up with the XML language syntax
+*           - Provide a better class interface 
+*          - Do some debugging    
 */ 
-
-/*** Todo ***
- ** - Implement the HTML and PDF rendering modes
- ** - Extend the parse() function to what is needed
- ** - Implement filesystem commands
- ** - Come up with the XML language syntax
- ** - Provide a better class interface 
- ** - Do some debugging
-***/
 
 require_once "Parser.php";
 
 class XML_Render extends XML_Parser {
-
-    var $data; // holds the file contents
-
-	function XML_Render($charset = 'UTF-8', $mode = "event") {
-		$this->XML_Parser($charset, $mode);
-
-	}
-
-	/**
-	* Set the input file.
-	*
-	* This overrides XML_Parser::setInputFile(),
-	* and creates a wrapper around XML_Parser::setInputFile()
-	* and XML_Parser::inputFile(). The functions are so similar
-	* that its confusing me(hint: document XML_Parser).
-	*
-	* @access public
-	* @param $file file to be input
-	*/
-	function setInputFile($file) {
-		$fp = @fopen($file, "r");
-		if (is_resource($fp)) {
-			$this->fp = $fp;
-			return $this->setInput($file);
-		} else {
-			return new XML_Parser_Error($php_errormsg); // ??
-		}
-	}
-
-    /** 
-    * Parses the document
-    *
-    * This function extends the capabilities of the 
-    * parse function in XML/Parser.php. The only real
-    * notable change is the addition of a command to 
-    * store the contents of the file to a variable to
-    * make it available to the entire class
-    */
-    function parse() {
-        if(!is_resource($this->fp)) {
-            return new XML_Parser_Error("no input");
-        }
-        if (!is_resource($this->parser)) {
-            return new XML_Parser_Error("no parser");
-        }
-        while ($data = fread($this->fp, 2048)) {
-            $err = $this->parseString($data, $feof($this->fp));
-            if (PEAR::isError($err)) {
-                return $err;
-            }
-        }
-        $this->data = $data;
-        return $true;
-    }
-        
 
 	/**
 	* Renders the XML document.
@@ -124,4 +66,5 @@ class XML_Render extends XML_Parser {
 			new PEAR_Error($message, 0, PEAR_ERROR_RETURN, E_USER_NOTIFY);
 		}
 	}
+    
 }

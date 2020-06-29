@@ -19,7 +19,7 @@ test("mysql");
 test("odbc(mssql)");
 test("mysql://localhost");
 test("mysql://remote.host.com/db");
-test("mysql://testuser:testpw");
+test("mysql://testuser:testpw@");
 test("oci8://user:pass@tns-name");
 test("odbc(solid)://foo:bar@tcp+localhost+1313");
 test("ibase://user%40domain:password@database");
@@ -30,7 +30,7 @@ test("ibase://user%40domain:password@database");
 --POST--
 --EXPECT--
 testing DB::parseDSN...
-mysql,,,,,,
+mysql,mysql,,,,,
 odbc,mssql,,,,,
 mysql,mysql,,localhost,,,
 mysql,mysql,,remote.host.com,db,,

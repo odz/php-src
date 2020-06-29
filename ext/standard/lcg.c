@@ -1,4 +1,4 @@
-/* 
+/*
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: lcg.c,v 1.15 2001/02/26 06:07:23 andi Exp $ */
+/* $Id: lcg.c,v 1.17 2001/05/06 17:55:10 sniper Exp $ */
 
 #include "php.h"
 #include "php_lcg.h"
@@ -30,6 +30,8 @@ int lcg_globals_id;
 #else
 static php_lcg_globals lcg_globals;
 #endif
+
+static int php_lcg_initialized = 0;
 
 #ifdef PHP_WIN32
 #include <process.h>
@@ -71,15 +73,22 @@ static void lcg_init_globals(LCGLS_D)
 #endif
 }
 
+#ifdef ZTS
 PHP_MINIT_FUNCTION(lcg)
 {
-#ifdef ZTS
 	lcg_globals_id = ts_allocate_id(sizeof(php_lcg_globals), (ts_allocate_ctor) lcg_init_globals, NULL);
-#else
-	lcg_init_globals();
-#endif
 	return SUCCESS;
 }
+#else 
+PHP_RINIT_FUNCTION(lcg)
+{
+	if (!php_lcg_initialized) {
+		lcg_init_globals();
+		php_lcg_initialized = 1;
+	}
+	return SUCCESS;
+}
+#endif
 
 /* {{{ proto double lcg_value()
    Returns a value from the combined linear congruential generator */

@@ -17,7 +17,7 @@
 // |          Christian Stocker <chregu@nomad.ch>                         |
 // +----------------------------------------------------------------------+
 //
-// $Id: Container.php,v 1.9 2001/03/08 20:41:39 uw Exp $
+// $Id: Container.php,v 1.10 2001/05/02 18:49:33 uw Exp $
 
 require_once "Cache/Error.php";
 
@@ -39,7 +39,7 @@ require_once "Cache/Error.php";
 * not recommended!
 * 
 * @author   Ulf Wendel <ulf.wendel@phpdoc.de>
-* @version  $Id: Container.php,v 1.9 2001/03/08 20:41:39 uw Exp $
+* @version  $Id: Container.php,v 1.10 2001/05/02 18:49:33 uw Exp $
 * @package  Cache
 * @access   public
 * @abstract
@@ -103,7 +103,38 @@ class Cache_Container {
     * @var  string  base64 or slash
     */
     var $encoding_mode = "base64";
-
+    
+    /**
+    * Highwater mark - maximum space required by all cache entries.
+    * 
+    * Whenever the garbage collection runs it checks the amount of space
+    * required by all cache entries. If it's more than n (highwater) bytes
+    * the garbage collection deletes as many entries as necessary to reach the
+    * lowwater mark. 
+    * 
+    * @var  int
+    * @see  lowwater
+    */
+    var $highwater = 2048000; 
+    
+    
+    /**
+    * Lowwater mark
+    *
+    * @var  int
+    * @see  highwater
+    */
+    var $lowwater = 1536000;
+    
+    
+    /**
+    * Options that can be set in every derived class using it's constructor.
+    * 
+    * @var  array
+    */
+    var $allowed_options = array("encoding_mode", "highwater", "lowwater");
+    
+    
     /**
     * Loads a dataset from the cache.
     * 

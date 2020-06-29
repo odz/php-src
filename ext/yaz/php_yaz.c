@@ -16,7 +16,11 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_yaz.c,v 1.13 2001/02/26 06:07:26 andi Exp $ */
+/* $Id: php_yaz.c,v 1.16.2.1 2001/05/24 12:42:13 ssb Exp $ */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "php.h"
 
@@ -72,6 +76,7 @@ struct Yaz_AssociationInfo {
 	char *host_port;
 	int num_databaseNames;
 	char **databaseNames;
+	char *local_databases;
 	COMSTACK cs;
 	char *cookie;
 	char *auth_open;
@@ -110,6 +115,7 @@ static Yaz_Association yaz_association_mk ()
 	p->host_port = 0;
 	p->num_databaseNames = 0;
 	p->databaseNames = 0;
+	p->local_databases = 0;
 	p->cs = 0;
 	p->cookie = 0;
 	p->auth_open = 0;
@@ -149,6 +155,7 @@ static void yaz_association_destroy (Yaz_Association p)
 	if (!p)
 		return ;
 	xfree (p->host_port);
+	xfree (p->local_databases);
 	for (i = 0; i<p->num_databaseNames; i++)
 		xfree (p->databaseNames[i]);
 	xfree (p->databaseNames);
@@ -202,11 +209,17 @@ static MUTEX_T yaz_mutex;
 static Yaz_Association *shared_associations;
 static int order_associations;
 
+static unsigned char third_argument_force_ref[] = {
+	3, BYREF_NONE, BYREF_NONE, BYREF_FORCE };
+
+static unsigned char second_argument_force_ref[] = {
+	2, BYREF_NONE, BYREF_FORCE };
+
 function_entry yaz_functions [] = {
 	PHP_FE(yaz_connect, NULL)
 	PHP_FE(yaz_close, NULL)
 	PHP_FE(yaz_search, NULL)
-	PHP_FE(yaz_wait, NULL)
+	PHP_FE(yaz_wait, second_argument_force_ref)
 	PHP_FE(yaz_errno, NULL)
 	PHP_FE(yaz_error, NULL)
 	PHP_FE(yaz_addinfo, NULL)
@@ -217,10 +230,11 @@ function_entry yaz_functions [] = {
 	PHP_FE(yaz_range, NULL)
 	PHP_FE(yaz_itemorder, NULL)
 	PHP_FE(yaz_scan, NULL)
-	PHP_FE(yaz_scan_result, NULL)
+	PHP_FE(yaz_scan_result, second_argument_force_ref)
 	PHP_FE(yaz_present, NULL)
 	PHP_FE(yaz_ccl_conf, NULL)
-	PHP_FE(yaz_ccl_parse, NULL)
+	PHP_FE(yaz_ccl_parse, third_argument_force_ref)
+	PHP_FE(yaz_database, NULL)
 	{NULL, NULL, NULL}
 };
 
@@ -240,6 +254,7 @@ static Yaz_Association get_assoc (pval **id)
 #ifdef ZTS
 		tsrm_mutex_unlock (yaz_mutex);
 #endif
+		php_error(E_WARNING, "Invalid YAZ handle");
 		return 0;
 	}
 	return assoc;
@@ -319,6 +334,35 @@ static void response_diag (Yaz_Association t, Z_DiagRec *p)
 		t->addinfo = xstrdup (addinfo);
 	t->error = *r->condition;
 }
+
+static const char *array_lookup_string(HashTable *ht, const char *idx)
+{
+	pval **pvalue;
+
+	if (ht && zend_hash_find(ht, (char*) idx, strlen(idx)+1,
+							 (void**) &pvalue) == SUCCESS)
+	{
+		SEPARATE_ZVAL(pvalue);
+		convert_to_string(*pvalue);
+		return (*pvalue)->value.str.val;
+	}
+	return 0;
+}
+
+static long *array_lookup_long(HashTable *ht, const char *idx)
+{
+	pval **pvalue;
+
+	if (ht && zend_hash_find(ht, (char*) idx, strlen(idx)+1,
+							 (void**) &pvalue) == SUCCESS)
+	{
+		SEPARATE_ZVAL(pvalue);
+		convert_to_long(*pvalue);
+		return &(*pvalue)->value.lval;
+	}
+	return 0;
+}
+
 
 static int send_present (Yaz_Association t);
 
@@ -488,6 +532,7 @@ static void handle_apdu (Yaz_Association t, Z_APDU *apdu)
 			}
 			if (t->action)
 				(*t->action) (t);
+			t->action = 0;
 		}
 		break;
 	case Z_APDU_searchResponse:
@@ -656,12 +701,21 @@ static int send_APDU (Yaz_Association t, Z_APDU *a)
 	return 0;	
 }
 
+/* set database names. Take local databases (if set); otherwise
+   take databases given in ZURL (if set); otherwise use Default */
 static char **set_DatabaseNames (Yaz_Association t, int *num)
 {
 	char **databaseNames;
-	char *c, *cp = strchr (t->host_port, '/');
+	char *c;
 	int no = 2;
+	char *cp = t->local_databases;
 
+	if (!cp || !*cp)
+	{
+		cp = strchr (t->host_port, '/');
+		if (cp)
+			cp++;
+	}
 	if (cp)
 	{
 		c = cp;
@@ -672,23 +726,26 @@ static char **set_DatabaseNames (Yaz_Association t, int *num)
 		}
 	}
 	else
-		cp = "/Default";
+		cp = "Default";
 	databaseNames = odr_malloc (t->odr_out, no * sizeof(*databaseNames));
 	no = 0;
 	while (*cp)
 	{
-		c = ++cp;
-		c = strchr (c, '+');
+		c = strchr (cp, '+');
 		if (!c)
 			c = cp + strlen(cp);
 		else if (c == cp)
+		{
+			cp++;
 			continue;
+		}
 		/* cp ptr to first char of db name, c is char following db name */
 		databaseNames[no] = odr_malloc (t->odr_out, 1+c-cp);
 		memcpy (databaseNames[no], cp, c-cp);
-		databaseNames[no][c-cp] = '\0';
-		no++;
+		databaseNames[no++][c-cp] = '\0';
 		cp = c;
+		if (*cp)
+			cp++;
 	}
 	databaseNames[no] = NULL;
 	*num = no;
@@ -822,6 +879,7 @@ static void send_init(Yaz_Association t)
 	ODR_MASK_SET(ireq->options, Z_Options_present);
 	ODR_MASK_SET(ireq->options, Z_Options_namedResultSets);
 	ODR_MASK_SET(ireq->options, Z_Options_scan);
+	ODR_MASK_SET(ireq->options, Z_Options_extendedServices);
 	
 	ODR_MASK_SET(ireq->protocolVersion, Z_ProtocolVersion_1);
 	ODR_MASK_SET(ireq->protocolVersion, Z_ProtocolVersion_2);
@@ -875,7 +933,7 @@ static void send_init(Yaz_Association t)
 	send_APDU (t, apdu);
 }
 
-static int do_event (int *id)
+static int do_event (int *id, int timeout)
 {
 	fd_set input, output;
 	int i;
@@ -883,7 +941,7 @@ static int do_event (int *id)
 	int max_fd = 0;
 	struct timeval tv;
 	
-	tv.tv_sec = 15;
+	tv.tv_sec = timeout;
 	tv.tv_usec = 0;
 	
 #ifdef ZTS
@@ -932,10 +990,7 @@ static int do_event (int *id)
 		{
 			if (p->mask_select)	   /* only mark for those still pending */
 			{
-				if (p->state == PHP_YAZ_STATE_CONNECTING)
-					p->error = PHP_YAZ_ERROR_CONNECT;
-				else
-					p->error = PHP_YAZ_ERROR_TIMEOUT;
+				p->error = PHP_YAZ_ERROR_TIMEOUT;
 				do_close (p);
 			}
 		}
@@ -1062,6 +1117,8 @@ PHP_FUNCTION(yaz_connect)
 		shared_associations[i]->group = xstrdup (group_str);
 		shared_associations[i]->pass = xstrdup (pass_str);
 	}
+	xfree (shared_associations[i]->local_databases);
+	shared_associations[i]->local_databases = 0;
 #ifdef ZTS
 	tsrm_mutex_unlock (yaz_mutex);
 #endif
@@ -1174,7 +1231,6 @@ PHP_FUNCTION(yaz_present)
 	p = get_assoc (id);
 	if (!p)
 	{
-		zend_error(E_WARNING, "get_assoc failed for present");
 		RETURN_FALSE;
 	}
 	p->action = 0;
@@ -1188,19 +1244,40 @@ PHP_FUNCTION(yaz_present)
 }
 /* }}} */
 
-/* {{{ proto int yaz_wait()
-   Process all outstanding events. */
+/* {{{ proto int yaz_wait([array options])
+   Process events. */
 PHP_FUNCTION(yaz_wait)
 {
 	int i;
 	int id;
+	int timeout = 15;
+	if (ZEND_NUM_ARGS() == 1)
+	{
+		long *val = 0;
+		pval **pval_options = 0;
+		HashTable *options_ht = 0;
+		if (zend_get_parameters_ex(1, &pval_options) == FAILURE)
+		{
+			WRONG_PARAM_COUNT;
+		}
+		if (Z_TYPE_PP(pval_options) != IS_ARRAY)
+		{
+			php_error(E_WARNING, "yaz_wait: Expected array parameter");
+			RETURN_FALSE;
+		}
+		options_ht = Z_ARRVAL_PP(pval_options);
+		val = array_lookup_long(options_ht, "timeout");
+		if (val)
+			timeout = *val;
+	}
 #ifdef ZTS
 	tsrm_mutex_lock (yaz_mutex);
 #endif
 	for (i = 0; i<MAX_ASSOC; i++)
 	{
 		Yaz_Association p = shared_associations[i];
-		if (!p || p->order != order_associations || !p->action)
+		if (!p || p->order != order_associations || !p->action
+			|| p->mask_select)
 			continue;
 		if (!p->cs)
 		{
@@ -1215,7 +1292,7 @@ PHP_FUNCTION(yaz_wait)
 #ifdef ZTS
 	tsrm_mutex_unlock (yaz_mutex);
 #endif
-	while (do_event(&id))
+	while (do_event(&id, timeout))
 		;
 	RETURN_TRUE;
 }
@@ -1630,6 +1707,11 @@ PHP_FUNCTION(yaz_record)
 				if (ent && ent->desc)
 					RETVAL_STRING(ent->desc, 1);
 			}
+			else if (!strcmp (type, "database"))
+			{
+				if (npr->databaseName)
+					RETVAL_STRING(npr->databaseName, 1);
+			}
 			else if (!strcmp (type, "string"))
 			{
 				if (r->which == Z_External_sutrs && ent->value == VAL_SUTRS)
@@ -1762,23 +1844,9 @@ PHP_FUNCTION(yaz_range)
 }
 /* }}} */
 
-static const char *array_lookup(HashTable *ht, const char *idx)
-{
-	pval **pvalue;
-
-	if (ht && zend_hash_find(ht, (char*) idx, strlen(idx)+1,
-							 (void**) &pvalue) == SUCCESS)
-	{
-		SEPARATE_ZVAL(pvalue);
-		convert_to_string(*pvalue);
-		return (*pvalue)->value.str.val;
-	}
-	return 0;
-}
-
 static const char *ill_array_lookup (void *clientData, const char *idx)
 {
-	return array_lookup((HashTable *) clientData, idx+4);
+	return array_lookup_string((HashTable *) clientData, idx+4);
 }
 
 static Z_External *encode_ill_request (Yaz_Association t, HashTable *ht)
@@ -1850,15 +1918,15 @@ static Z_ItemOrder *encode_item_order(Yaz_Association t,
     req->u.esRequest->toKeep->contact =
 		odr_malloc (t->odr_out, sizeof(*req->u.esRequest->toKeep->contact));
 	
-    str = array_lookup (ht, "contact-name");
+    str = array_lookup_string (ht, "contact-name");
     req->u.esRequest->toKeep->contact->name = str ?
 		nmem_strdup (t->odr_out->mem, str) : 0;
 	
-    str = array_lookup (ht, "contact-phone");
+    str = array_lookup_string (ht, "contact-phone");
     req->u.esRequest->toKeep->contact->phone = str ?
 		nmem_strdup (t->odr_out->mem, str) : 0;
 	
-    str = array_lookup (ht, "contact-email");
+    str = array_lookup_string (ht, "contact-email");
     req->u.esRequest->toKeep->contact->email = str ?
 		nmem_strdup (t->odr_out->mem, str) : 0;
 	
@@ -1874,7 +1942,7 @@ static Z_ItemOrder *encode_item_order(Yaz_Association t,
     req->u.esRequest->notToKeep->resultSetItem->item =
 		(int *) odr_malloc(t->odr_out, sizeof(int));
 	
-    str = array_lookup (ht, "itemorder-item");
+    str = array_lookup_string (ht, "itemorder-item");
 	*req->u.esRequest->notToKeep->resultSetItem->item =
 		(str ? atoi(str) : 1);
 	
@@ -1906,11 +1974,11 @@ static Z_APDU *encode_es_itemorder (Yaz_Association t, HashTable *ht)
 	r->u.itemOrder = encode_item_order (t, ht);
     req->packageType = odr_oiddup(t->odr_out, oid_ent_to_oid(&oident, oid));
 
-    str = array_lookup(ht, "package-name");
+    str = array_lookup_string(ht, "package-name");
     if (str && *str)
         req->packageName = nmem_strdup (t->odr_out->mem, str);
 
-    str = array_lookup(ht, "user-id");
+    str = array_lookup_string(ht, "user-id");
     if (str)
 		req->userId = nmem_strdup (t->odr_out->mem, str);
 
@@ -1982,17 +2050,17 @@ static Z_APDU *encode_scan (Yaz_Association t, const char *type,
 		php_error (E_WARNING, str);
 		return 0;
 	}
-	val = array_lookup(ht, "number");
+	val = array_lookup_string(ht, "number");
 	if (val && *val)
 		*req->numberOfTermsRequested = atoi(val);
-	val = array_lookup(ht, "position");
+	val = array_lookup_string(ht, "position");
 	if (val && *val)
 	{
 		req->preferredPositionInResponse =
 			odr_malloc (t->odr_out, sizeof(int));
 		*req->preferredPositionInResponse = atoi(val);
 	}
-	val = array_lookup(ht, "stepsize");
+	val = array_lookup_string(ht, "stepsize");
 	if (val && *val)
 	{
 		req->stepSize = odr_malloc (t->odr_out, sizeof(int));
@@ -2182,8 +2250,13 @@ PHP_FUNCTION(yaz_ccl_conf)
 			zend_hash_move_forward_ex(ht, &pos)) 
 		{
 			ulong idx;
+#if PHP_API_VERSION > 20010101
 			int type = zend_hash_get_current_key_ex(ht, &key, 0, 
 													&idx, 0, &pos);
+#else
+			int type = zend_hash_get_current_key_ex(ht, &key, 0, 
+													&idx, &pos);
+#endif
 			if (type != HASH_KEY_IS_STRING || Z_TYPE_PP(ent) != IS_STRING)
 				continue;
 			ccl_qual_fitem(p->ccl_parser->bibset, (*ent)->value.str.val, key);
@@ -2198,7 +2271,7 @@ PHP_FUNCTION(yaz_ccl_conf)
 
 PHP_FUNCTION(yaz_ccl_parse)
 {
-	pval **pval_id, **pval_query, **pval_res;
+	pval **pval_id, **pval_query, **pval_res = 0;
 	Yaz_Association p;
 	if (ZEND_NUM_ARGS() != 3 || 
 		zend_get_parameters_ex(3, &pval_id, &pval_query, &pval_res) ==
@@ -2206,12 +2279,15 @@ PHP_FUNCTION(yaz_ccl_parse)
 	{
 		WRONG_PARAM_COUNT;
 	}
-	if (!ParameterPassedByReference(ht, 3))
-	{
-		WRONG_PARAM_COUNT;
+	
+	if (!ParameterPassedByReference(ht, 3)) {
+		php_error(E_WARNING, "Third argument must be passed by reference.");
+		RETURN_FALSE;
 	}
+	pval_destructor(*pval_res);
 	if (array_init(*pval_res) == FAILURE)
 	{
+		php_error(E_WARNING, "cannot initialize array");
 		RETURN_FALSE;
 	}
 	convert_to_string_ex (pval_query);
@@ -2245,6 +2321,33 @@ PHP_FUNCTION(yaz_ccl_parse)
 			RETVAL_TRUE;
 		}
 		ccl_rpn_delete(rpn);
+	}
+	else
+		RETVAL_FALSE;
+	release_assoc (p);
+}
+/* }}} */
+
+/* {{{ proto int yaz_ccl_parse(int id, string query, array res)
+   Parse a CCL query */
+
+PHP_FUNCTION(yaz_database)
+{
+	pval **pval_id, **pval_database;
+	Yaz_Association p;
+	if (ZEND_NUM_ARGS() != 2 || 
+		zend_get_parameters_ex(2, &pval_id, &pval_database) ==
+		FAILURE)
+	{
+		WRONG_PARAM_COUNT;
+	}
+	convert_to_string_ex (pval_database);
+	p = get_assoc (pval_id);
+	if (p)
+	{
+		xfree (p->local_databases);
+		p->local_databases = xstrdup ((*pval_database)->value.str.val);
+		RETVAL_TRUE;
 	}
 	else
 		RETVAL_FALSE;

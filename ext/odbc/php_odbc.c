@@ -15,11 +15,17 @@
    | Authors: Stig Sæther Bakken <ssb@fast.no>                            |
    |          Andreas Karajannis <Andreas.Karajannis@gmd.de>              |
    |          Frank M. Kromann <frank@frontbase.com> Support for DB/2 CLI |
+   |	      Kevin N. Shallow <kshallow@tampabay.rr.com> Velocis Support |
+   |		  Daniel R. Kalowsky <kalowsky@php.net>						  |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_odbc.c,v 1.73 2001/03/09 23:44:55 fmk Exp $ */
+/* $Id: php_odbc.c,v 1.84.2.3 2001/06/19 17:55:00 kalowsky Exp $ */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+ 
 #include "php.h"
 #include "php_globals.h"
 
@@ -63,7 +69,7 @@ static int le_result, le_conn, le_pconn;
 
 #define SAFE_SQL_NTS(n) ((SWORD) ((n)?(SQL_NTS):0))
 
-static unsigned char a3_arg3_force_ref[] = { 3, BYREF_NONE, BYREF_ALLOW, BYREF_FORCE };
+static unsigned char a3_arg3_and_3_force_ref[] = { 3, BYREF_NONE, BYREF_FORCE, BYREF_FORCE };
 
 function_entry odbc_functions[] = {
     PHP_FE(odbc_error, NULL)
@@ -84,14 +90,16 @@ function_entry odbc_functions[] = {
 	PHP_FE(odbc_prepare, NULL)
 	PHP_FE(odbc_execute, NULL)
 	PHP_FE(odbc_fetch_row, NULL)
-	PHP_FE(odbc_fetch_into, a3_arg3_force_ref)
+	PHP_FE(odbc_fetch_into, a3_arg3_and_3_force_ref)
 	PHP_FE(odbc_field_len, NULL)
 	PHP_FE(odbc_field_scale, NULL)
 	PHP_FE(odbc_field_name, NULL)
 	PHP_FE(odbc_field_type, NULL)
 	PHP_FE(odbc_field_num, NULL)
 	PHP_FE(odbc_free_result, NULL)
+#if !defined(HAVE_SOLID) && !defined(HAVE_SOLID_30)
 	PHP_FE(odbc_next_result, NULL)
+#endif
 	PHP_FE(odbc_num_fields, NULL)
 	PHP_FE(odbc_num_rows, NULL)
 	PHP_FE(odbc_result, NULL)
@@ -103,14 +111,16 @@ function_entry odbc_functions[] = {
 	PHP_FE(odbc_columns, NULL)
 	PHP_FE(odbc_gettypeinfo, NULL)
 	PHP_FE(odbc_primarykeys, NULL)
-#if !defined(HAVE_DBMAKER) && !defined(HAVE_SOLID) && !defined(HAVE_SOLID_30) &&!defined(HAVE_SOLID_35)    /* not supported now */
+#if !defined(HAVE_DBMAKER) && !defined(HAVE_SOLID) && !defined(HAVE_SOLID_30) &&!defined(HAVE_SOLID_35) && !defined(HAVE_VELOCIS)    /* not supported now */
 	PHP_FE(odbc_columnprivileges, NULL)
 	PHP_FE(odbc_tableprivileges, NULL)
 #endif
-#if !defined(HAVE_SOLID) && !defined(HAVE_SOLID_30) && !defined(HAVE_SOLID_35)    /* not supported */
+#if !defined(HAVE_SOLID) && !defined(HAVE_SOLID_30) && !defined(HAVE_SOLID_35) /* not supported */
 	PHP_FE(odbc_foreignkeys, NULL)
 	PHP_FE(odbc_procedures, NULL)
+#if !defined(HAVE_VELOCIS)
 	PHP_FE(odbc_procedurecolumns, NULL)
+#endif
 #endif
 	PHP_FE(odbc_specialcolumns, NULL)
 	PHP_FE(odbc_statistics, NULL)
@@ -169,17 +179,29 @@ static void _free_odbc_result(zend_rsrc_list_entry *rsrc)
 	}
 }
 
+/*
+ * disconnect, and if it fails, then issue a rollback for any pending transaction (lurcher)
+ */
+
+static void safe_odbc_disconnect( void *handle )
+{
+	int ret;
+
+	ret = SQLDisconnect( handle );
+	if ( ret == SQL_ERROR )
+	{
+		SQLTransact( NULL, handle, SQL_ROLLBACK );
+		SQLDisconnect( handle );
+	}
+}
+
 static void _close_odbc_conn(zend_rsrc_list_entry *rsrc)
 {
 	odbc_connection *conn = (odbc_connection *)rsrc->ptr;
-	/* FIXME
-	 * Closing a connection will fail if there are
-	 * pending transactions. It is in the responsibility
-	 * of the user to avoid this.
-	 */
+
 	ODBCLS_FETCH();
 
-   	SQLDisconnect(conn->hdbc);
+   	safe_odbc_disconnect(conn->hdbc);
 	SQLFreeConnect(conn->hdbc);
 	SQLFreeEnv(conn->henv);
 	efree(conn);
@@ -191,7 +213,7 @@ static void _close_odbc_pconn(zend_rsrc_list_entry *rsrc)
 	odbc_connection *conn = (odbc_connection *)rsrc->ptr;
 	ODBCLS_FETCH();
 	
-	SQLDisconnect(conn->hdbc);
+	safe_odbc_disconnect(conn->hdbc);
 	SQLFreeConnect(conn->hdbc);
 	SQLFreeEnv(conn->henv);
 	free(conn);
@@ -239,6 +261,8 @@ static PHP_INI_DISP(display_defPW)
 #else
 		PUTS("********");
 #endif
+	} else {
+		PUTS("<i>no value</i>");
 	}
 }
 
@@ -1349,6 +1373,7 @@ PHP_FUNCTION(odbc_fetch_into)
 		case 3:
 			if (zend_get_parameters_ex(3, &pv_res, &pv_row, &pv_res_arr) == FAILURE)
 				WRONG_PARAM_COUNT;
+			SEPARATE_ZVAL(pv_row);
 			convert_to_long_ex(pv_row);
 			rownum = (*pv_row)->value.lval;
 			break;
@@ -1365,11 +1390,6 @@ PHP_FUNCTION(odbc_fetch_into)
 		WRONG_PARAM_COUNT;
 	}
 #endif
-	
-	if (!ParameterPassedByReference(ht, numArgs)) {
-		php_error(E_WARNING, "Array not passed by reference in call to odbc_fetch_into()");
-		RETURN_FALSE;
-	}
 
 	ZEND_FETCH_RESOURCE(result, odbc_result *, pv_res, -1, "ODBC result", le_result);
 	
@@ -1907,22 +1927,27 @@ int odbc_sqlconnect(odbc_connection **conn, char *db, char *uid, char *pwd, int 
 			return FALSE;
 		}
 	}
-#ifdef HAVE_EMPRESS
+/*  Possible fix for bug #10250
+ *  Needs testing on UnixODBC < 2.0.5 though. */
+ #if defined(HAVE_EMPRESS) || defined(HAVE_UNIXODBC)
+/* *  Uncomment the line above, and comment line below to fully test 
+ * #ifdef HAVE_EMPRESS */
 	{
 		int     direct = 0;
 		char    dsnbuf[300];
 		short   dsnbuflen;
 		char    *ldb = 0;
+		int		ldb_len = 0;
 
 		if (strstr((char*)db, ";")) {
 			direct = 1;
-			if (uid && !strstr ((char*)db, "uid") &&
-						!strstr((char*)db, "UID")) {
-				ldb = (char*)emalloc(strlen(db) + strlen(uid) + strlen(pwd) + 12);
+			if (uid && !strstr ((char*)db, "uid") && !strstr((char*)db, "UID")) {
+				ldb = (char*) emalloc(strlen(db) + strlen(uid) + strlen(pwd) + 12);
 				sprintf(ldb, "%s;UID=%s;PWD=%s", db, uid, pwd);
 			} else {
-				ldb = (char*)emalloc(strlen(db) + 1);
-				strcat(ldb, db);
+				ldb_len = strlen(db)+1;
+				ldb = (char*) emalloc(ldb_len);
+				memcpy(ldb, db, ldb_len);
 			}
 		}
 
@@ -2092,7 +2117,7 @@ try_and_get_another_connection:
 
 				if(ret != SQL_SUCCESS){
 					zend_hash_del(&EG(persistent_list), hashed_details, hashed_len + 1);
-					SQLDisconnect(db_conn->hdbc);
+					safe_odbc_disconnect(db_conn->hdbc);
 					SQLFreeConnect(db_conn->hdbc);
 					goto try_and_get_another_connection;
 				}
@@ -2157,15 +2182,15 @@ PHP_FUNCTION(odbc_close)
 	int i;
 	int type;
 	int is_pconn = 0;
+	int found_resource_type = le_conn;
 	ODBCLS_FETCH();
 
     if (zend_get_parameters_ex(1, &pv_conn) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
-	conn = (odbc_connection *) zend_fetch_resource(pv_conn, -1, "ODBC-Link", NULL, 1, le_conn);
-	if(!conn){
-		ZEND_FETCH_RESOURCE(conn, odbc_connection *, pv_conn, -1, "ODBC-Link", le_pconn);
+	conn = (odbc_connection *) zend_fetch_resource(pv_conn, -1, "ODBC-Link", &found_resource_type, 2, le_conn, le_pconn);
+	if (found_resource_type==le_pconn) {
 		is_pconn = 1;
 	}
 
@@ -2208,6 +2233,7 @@ PHP_FUNCTION(odbc_num_rows)
 }
 /* }}} */
 
+#if !defined(HAVE_SOLID) && !defined(HAVE_SOLID_30)
 /* {{{ proto bool next_result(int result_id)
    Checks if multiple results are avaiable */
 PHP_FUNCTION(odbc_next_result)
@@ -2255,6 +2281,7 @@ PHP_FUNCTION(odbc_next_result)
 	}
 }
 /* }}} */
+#endif
 
 /* {{{ proto int odbc_num_fields(int result_id)
    Get number of columns in a result */
@@ -2420,11 +2447,7 @@ PHP_FUNCTION(odbc_autocommit)
 
 	ZEND_FETCH_RESOURCE2(conn, odbc_connection *, pv_conn, -1, "ODBC-Link", le_conn, le_pconn);
 	
-#ifndef HAVE_DBMAKER	
-	if ((*pv_onoff)) {
-#else
 	if (pv_onoff && (*pv_onoff)) {
-#endif
 		convert_to_long_ex(pv_onoff);
 		rc = SQLSetConnectOption(conn->hdbc, SQL_AUTOCOMMIT,
 								 ((*pv_onoff)->value.lval) ?
@@ -2485,17 +2508,17 @@ static void php_odbc_lasterror(INTERNAL_FUNCTION_PARAMETERS, int mode)
     if (argc == 1) {
         ZEND_FETCH_RESOURCE2(conn, odbc_connection *, pv_handle, -1, "ODBC-Link", le_conn, le_pconn);
         if (mode == 0) {
-            strncpy(ptr, conn->laststate, len);
+            strlcpy(ptr, conn->laststate, len+1);
         } else {
-            strncpy(ptr, conn->lasterrormsg, len);
+            strlcpy(ptr, conn->lasterrormsg, len+1);
         }
     } else {
 		ODBCLS_FETCH();
 
         if (mode == 0) {
-            strncpy(ptr, ODBCG(laststate), len);
+            strlcpy(ptr, ODBCG(laststate), len+1);
         } else {
-            strncpy(ptr, ODBCG(lasterrormsg), len);
+            strlcpy(ptr, ODBCG(lasterrormsg), len+1);
         }
     }
     RETVAL_STRING(ptr, 0);
@@ -2740,7 +2763,7 @@ PHP_FUNCTION(odbc_columns)
 }
 /* }}} */
 
-#if !defined(HAVE_DBMAKER) && !defined(HAVE_SOLID) && !defined(HAVE_SOLID_30) && !defined(HAVE_SOLID_35)
+#if !defined(HAVE_DBMAKER) && !defined(HAVE_SOLID) && !defined(HAVE_SOLID_30) && !defined(HAVE_SOLID_35) && !defined(HAVE_VELOCIS)
 /* {{{ proto int odbc_columnprivileges(int connection_id, string catalog, string schema, string table, string column)
    Returns a result identifier that can be used to fetch a list of columns and associated privileges for the specified table */
 PHP_FUNCTION(odbc_columnprivileges)
@@ -3067,7 +3090,7 @@ PHP_FUNCTION(odbc_primarykeys)
 }
 /* }}} */
 
-#if !defined(HAVE_SOLID) && !defined(HAVE_SOLID_30) && !defined(HAVE_SOLID_35)
+#if !defined(HAVE_SOLID) && !defined(HAVE_SOLID_30) && !defined(HAVE_SOLID_35) && !defined(HAVE_VELOCIS)
 /* {{{ proto int odbc_procedurecolumns(int connection_id [, string qualifier, string owner, string proc, string column])
    Returns a result identifier containing the list of input and output parameters, as well as the columns that make up the result set for the specified procedures */
 PHP_FUNCTION(odbc_procedurecolumns)
@@ -3404,7 +3427,7 @@ PHP_FUNCTION(odbc_statistics)
 }
 /* }}} */
 
-#if !defined(HAVE_DBMAKER) && !defined(HAVE_SOLID) && !defined(HAVE_SOLID_30) && !defined(HAVE_SOLID_35)
+#if !defined(HAVE_DBMAKER) && !defined(HAVE_SOLID) && !defined(HAVE_SOLID_30) && !defined(HAVE_SOLID_35) && !defined(HAVE_VELOCIS)
 /* {{{ proto int odbc_tableprivileges(int connection_id, string qualifier, string owner, string name)
    Returns a result identifier containing a list of tables and the privileges associated with each table */
 PHP_FUNCTION(odbc_tableprivileges)

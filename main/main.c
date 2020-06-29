@@ -19,7 +19,7 @@
 */
 
 
-/* $Id: main.c,v 1.356.2.3 2001/04/06 15:18:52 sniper Exp $ */
+/* $Id: main.c,v 1.365 2001/05/08 20:11:46 sniper Exp $ */
 
 
 #include <stdio.h>
@@ -139,18 +139,6 @@ static void php_disable_functions()
 }
 
 
-static PHP_INI_MH(OnUpdateDeprecated)
-{
-	PLS_FETCH();
-
-	PG(arg_separator.output) = new_value;
-
-	if (stage==PHP_INI_STAGE_RUNTIME) {
-		php_error(E_WARNING, "The arg_separator directive is deprecated. Use arg_separator.output instead");
-	}
-	return SUCCESS;
-}
-
 static PHP_INI_MH(OnUpdateTimeout)
 {
 	ELS_FETCH();
@@ -167,7 +155,6 @@ static PHP_INI_MH(OnUpdateTimeout)
 
 
 /* Need to convert to strings and make use of:
- * DEFAULT_SHORT_OPEN_TAG
  * PHP_SAFE_MODE
  *
  * Need to be read from the environment (?):
@@ -201,8 +188,6 @@ PHP_INI_BEGIN()
 	STD_PHP_INI_BOOLEAN("display_errors",		"1",		PHP_INI_ALL,		OnUpdateBool,			display_errors,			php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("display_startup_errors",	"0",	PHP_INI_ALL,		OnUpdateBool,			display_startup_errors,	php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("enable_dl",			"1",		PHP_INI_SYSTEM,		OnUpdateBool,			enable_dl,				php_core_globals,	core_globals)
-	STD_PHP_INI_BOOLEAN("error_append_string",	NULL,		PHP_INI_ALL,		OnUpdateString,			error_append_string,	php_core_globals,	core_globals)
-	STD_PHP_INI_BOOLEAN("error_prepend_string",	NULL,		PHP_INI_ALL,		OnUpdateString,			error_prepend_string,	php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("expose_php",			"1",		PHP_INI_SYSTEM,		OnUpdateBool,			expose_php,				php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("html_errors",			"1",		PHP_INI_SYSTEM,		OnUpdateBool,			html_errors,			php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("ignore_user_abort",	"0",		PHP_INI_ALL,		OnUpdateBool,			ignore_user_abort,		php_core_globals,	core_globals)
@@ -216,14 +201,13 @@ PHP_INI_BEGIN()
 	STD_PHP_INI_BOOLEAN("register_argc_argv",	"1",		PHP_INI_ALL,		OnUpdateBool,			register_argc_argv,		php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("register_globals",		"1",		PHP_INI_ALL,		OnUpdateBool,			register_globals,		php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("safe_mode",			"0",		PHP_INI_SYSTEM,		OnUpdateBool,			safe_mode,				php_core_globals,	core_globals)
-	STD_PHP_INI_BOOLEAN("short_open_tag",		"1",		PHP_INI_SYSTEM|PHP_INI_PERDIR,		OnUpdateBool,			short_tags,				zend_compiler_globals,	compiler_globals)
+	STD_PHP_INI_BOOLEAN("short_open_tag",DEFAULT_SHORT_OPEN_TAG,	PHP_INI_SYSTEM|PHP_INI_PERDIR,		OnUpdateBool,			short_tags,				zend_compiler_globals,	compiler_globals)
 	STD_PHP_INI_BOOLEAN("sql.safe_mode",		"0",		PHP_INI_SYSTEM,		OnUpdateBool,			sql_safe_mode,			php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("track_errors",			"0",		PHP_INI_ALL,		OnUpdateBool,			track_errors,			php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("y2k_compliance",		"0",		PHP_INI_ALL,		OnUpdateBool,			y2k_compliance,			php_core_globals,	core_globals)
 
 	STD_PHP_INI_ENTRY("arg_separator.output",	"&",		PHP_INI_ALL,		OnUpdateStringUnempty,	arg_separator.output,	php_core_globals,	core_globals)
 	STD_PHP_INI_ENTRY("arg_separator.input",	"&",		PHP_INI_SYSTEM|PHP_INI_PERDIR,	OnUpdateStringUnempty,	arg_separator.input,	php_core_globals,	core_globals)
-	PHP_INI_ENTRY("arg_separator",				"&",		PHP_INI_ALL,		OnUpdateDeprecated)
 
 	STD_PHP_INI_ENTRY("auto_append_file",		NULL,		PHP_INI_ALL,		OnUpdateString,			auto_append_file,		php_core_globals,	core_globals)
 	STD_PHP_INI_ENTRY("auto_prepend_file",		NULL,		PHP_INI_ALL,		OnUpdateString,			auto_prepend_file,		php_core_globals,	core_globals)
@@ -243,6 +227,9 @@ PHP_INI_BEGIN()
 	STD_PHP_INI_ENTRY("upload_tmp_dir",			NULL,		PHP_INI_SYSTEM,		OnUpdateStringUnempty,	upload_tmp_dir,			php_core_globals,	core_globals)
 	STD_PHP_INI_ENTRY("user_dir",				NULL,		PHP_INI_SYSTEM,		OnUpdateStringUnempty,	user_dir,				php_core_globals,	core_globals)
 	STD_PHP_INI_ENTRY("variables_order",		NULL,		PHP_INI_ALL,		OnUpdateStringUnempty,	variables_order,		php_core_globals,	core_globals)
+
+	STD_PHP_INI_ENTRY("error_append_string",	NULL,		PHP_INI_ALL,		OnUpdateStringUnempty,	error_append_string,	php_core_globals,	core_globals)
+	STD_PHP_INI_ENTRY("error_prepend_string",	NULL,		PHP_INI_ALL,		OnUpdateStringUnempty,	error_prepend_string,	php_core_globals,	core_globals)
 
 	PHP_INI_ENTRY("SMTP",						"localhost",PHP_INI_ALL,		NULL)
 	PHP_INI_ENTRY("browscap",					NULL,		PHP_INI_SYSTEM,		NULL)
@@ -264,7 +251,7 @@ PHP_INI_END()
 /* True global (no need for thread safety */
 static int module_initialized = 0;
 
-void php_log_err(char *log_message)
+PHPAPI void php_log_err(char *log_message)
 {
 	FILE *log_file;
 	char error_time_str[128];
@@ -280,7 +267,7 @@ void php_log_err(char *log_message)
 			return;
 		}
 #endif
-		log_file = V_FOPEN(PG(error_log), "a");
+		log_file = VCWD_FOPEN(PG(error_log), "a");
 		if (log_file != NULL) {
 			time(&error_time);
 			strftime(error_time_str, 128, "%d-%b-%Y %H:%M:%S", php_localtime_r(&error_time, &tmbuf)); 
@@ -539,7 +526,7 @@ static void php_message_handler_for_zend(long message, void *data)
 
 					if (message==ZMSG_MEMORY_LEAK_DETECTED) {
 						zend_mem_header *t = (zend_mem_header *) data;
-						void *ptr = (void *)((char *)t+sizeof(zend_mem_header)+PLATFORM_PADDING);
+						void *ptr = (void *)((char *)t+sizeof(zend_mem_header)+MEM_HEADER_PADDING);
 
 						snprintf(memory_leak_buf, 512, "%s(%d) :  Freeing 0x%.8lX (%d bytes), script=%s\n", t->filename, t->lineno, (unsigned long)ptr, t->size, SAFE_FILENAME(SG(request_info).path_translated));
 						if (t->orig_filename) {
@@ -865,6 +852,16 @@ int php_module_startup(sapi_module_struct *sf)
 
 	REGISTER_MAIN_STRINGL_CONSTANT("PHP_VERSION", PHP_VERSION, sizeof(PHP_VERSION)-1, CONST_PERSISTENT | CONST_CS);
 	REGISTER_MAIN_STRINGL_CONSTANT("PHP_OS", php_os, strlen(php_os), CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_STRINGL_CONSTANT("DEFAULT_INCLUDE_PATH", PHP_INCLUDE_PATH, sizeof(PHP_INCLUDE_PATH)-1, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_STRINGL_CONSTANT("PEAR_INSTALL_DIR", PEAR_INSTALLDIR, sizeof(PEAR_INSTALLDIR)-1, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_STRINGL_CONSTANT("PEAR_EXTENSION_DIR", PHP_EXTENSION_DIR, sizeof(PHP_EXTENSION_DIR)-1, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_STRINGL_CONSTANT("PHP_EXTENSION_DIR", PHP_EXTENSION_DIR, sizeof(PHP_EXTENSION_DIR)-1, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_STRINGL_CONSTANT("PHP_BINDIR", PHP_BINDIR, sizeof(PHP_BINDIR)-1, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_STRINGL_CONSTANT("PHP_LIBDIR", PHP_LIBDIR, sizeof(PHP_LIBDIR)-1, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_STRINGL_CONSTANT("PHP_DATADIR", PHP_DATADIR, sizeof(PHP_DATADIR)-1, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_STRINGL_CONSTANT("PHP_SYSCONFDIR", PHP_SYSCONFDIR, sizeof(PHP_SYSCONFDIR)-1, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_STRINGL_CONSTANT("PHP_LOCALSTATEDIR", PHP_LOCALSTATEDIR, sizeof(PHP_LOCALSTATEDIR)-1, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_STRINGL_CONSTANT("PHP_CONFIG_FILE_PATH", PHP_CONFIG_FILE_PATH, sizeof(PHP_CONFIG_FILE_PATH)-1, CONST_PERSISTENT | CONST_CS);
 	php_output_register_constants();
 
 	if (php_startup_ticks(PLS_C) == FAILURE) {
@@ -1171,7 +1168,7 @@ PHPAPI int php_execute_script(zend_file_handle *primary_file CLS_DC ELS_DC PLS_D
 
 	if (setjmp(EG(bailout))!=0) {
 		if (old_cwd[0] != '\0')
-			V_CHDIR(old_cwd);
+			VCWD_CHDIR(old_cwd);
 		free_alloca(old_cwd);
 		return EG(exit_status);
 	}
@@ -1184,8 +1181,8 @@ PHPAPI int php_execute_script(zend_file_handle *primary_file CLS_DC ELS_DC PLS_D
 
 	if (primary_file->type == ZEND_HANDLE_FILENAME 
 			&& primary_file->filename) {
-		V_GETCWD(old_cwd, OLD_CWD_SIZE-1);
-		V_CHDIR_FILE(primary_file->filename);
+		VCWD_GETCWD(old_cwd, OLD_CWD_SIZE-1);
+		VCWD_CHDIR_FILE(primary_file->filename);
 	}
 
 	if (PG(auto_prepend_file) && PG(auto_prepend_file)[0]) {
@@ -1209,7 +1206,7 @@ PHPAPI int php_execute_script(zend_file_handle *primary_file CLS_DC ELS_DC PLS_D
 	zend_execute_scripts(ZEND_REQUIRE CLS_CC ELS_CC, 3, prepend_file_p, primary_file, append_file_p);
 
 	if (old_cwd[0] != '\0')
-		V_CHDIR(old_cwd);
+		VCWD_CHDIR(old_cwd);
 	free_alloca(old_cwd);
 
 	return EG(exit_status);

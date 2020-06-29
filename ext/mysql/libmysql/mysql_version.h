@@ -12,7 +12,10 @@ This file is public domain and comes with NO WARRANTY of any kind */
 #define FRM_VER				6
 #define MYSQL_VERSION_ID		32332
 #define MYSQL_PORT			3306
-#define MYSQL_UNIX_ADDR			"/tmp/mysql.sock"
+
+#ifndef MYSQL_UNIX_ADDR
+#define MYSQL_UNIX_ADDR	"/tmp/mysql.sock"
+#endif
 
 /* mysqld compile time options */
 #ifndef MYSQL_CHARSET

@@ -44,9 +44,7 @@ PHP_FUNCTION(bzcompress);
 PHP_FUNCTION(bzdecompress);
 
 #else
-
 #define phpext_bz2_ptr NULL
-
 #endif
 
 #endif

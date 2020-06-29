@@ -39,7 +39,6 @@
 #endif
 
 #include <errno.h>
-#include <limits.h>
 #include "zend.h"
 #include "zend_alloc.h"
 #include "zend_language_parser.h"
@@ -79,6 +78,10 @@
 #define YY_DECL int lex_scan(zval *zendlval CLS_DC)
 #endif
 
+#if SUPPORT_INTERACTIVE
+#define YY_INTERACTIVE
+#endif
+
 #define ECHO { ZEND_WRITE( yytext, yyleng ); }
 
 #ifdef ZTS
@@ -91,20 +94,23 @@
 
 #define YY_FATAL_ERROR zend_fatal_scanner_error
 
-#define HANDLE_NEWLINES(s,l) \
-do { \
-	char *p = (s),*boundary = p+(l); \
-\
-	while(p<boundary) { \
-		if (*p++=='\n') { \
-			CG(zend_lineno)++; \
-		} \
-	} \
-} while(0)
+#define HANDLE_NEWLINES(s,l)													\
+do {																			\
+	char *p = (s),*boundary = p+(l);											\
+																				\
+	while (p<boundary) {														\
+		if (*p == '\n') {														\
+			CG(zend_lineno)++;													\
+		} else if ((*p == '\r') && (p+1 < boundary) && (*(p+1) != '\n')) {		\
+			CG(zend_lineno)++;													\
+		}																		\
+		p++;																	\
+	}																			\
+} while (0)
 
 #define HANDLE_NEWLINE(c) \
 { \
-	if (c=='\n') { \
+	if (c == '\n' || c == '\r') { \
 		CG(zend_lineno)++; \
 	} \
 }
@@ -304,7 +310,7 @@ ZEND_API int open_file_for_scanning(zend_file_handle *file_handle CLS_DC)
 	CG(ZFL)->switch_streams(file_handle->handle.is, &cout);
 #endif
 
-	if(file_handle->opened_path) {
+	if (file_handle->opened_path) {
 		file_path = file_handle->opened_path; 
 	} else {
 		file_path = file_handle->filename;
@@ -604,6 +610,7 @@ TOKENS [;:,.\[\]()|^&+-/*=%!~$<>?@]
 ENCAPSED_TOKENS [\[\]{}$]
 ESCAPED_AND_WHITESPACE [\n\t\r #'.:;,()|^&+-/*=%!~<>?@]+
 ANY_CHAR (.|[\n])
+NEWLINE ("\r"|"\n"|"\r\n")
 
 %option noyylineno
 %option noyywrap
@@ -1011,7 +1018,7 @@ ANY_CHAR (.|[\n])
 		zendlval->value.lval = LONG_MAX; /* maximal long */
 		zend_error(E_NOTICE,"Hex number is too big: %s",yytext);
 	} else {
-		if(zendlval->value.lval < 0) {
+		if (zendlval->value.lval < 0) {
 			/* maintain consistency with the old way */
 			zendlval->value.dval = (unsigned long) zendlval->value.lval;
 			zendlval->type = IS_DOUBLE;
@@ -1113,7 +1120,7 @@ ANY_CHAR (.|[\n])
 }
 
 
-<INITIAL>"<?php"[ \n\r\t] {
+<INITIAL>"<?php"([ \t]|{NEWLINE}) {
 	zendlval->value.str.val = yytext; /* no copying - intentional */
 	zendlval->value.str.len = yyleng;
 	zendlval->type = IS_STRING;
@@ -1123,7 +1130,7 @@ ANY_CHAR (.|[\n])
 }
 
 
-<INITIAL>"<?php_track_vars?>"("\n"|"\r\n")? {
+<INITIAL>"<?php_track_vars?>"{NEWLINE}? {
 	zend_error(E_WARNING, "&lt;?php_track_vars?&gt; is no longer supported - please use the track_vars INI directive instead");
 	HANDLE_NEWLINE(yytext[yyleng-1]);
 	zendlval->value.str.val = (char *) estrndup(yytext, yyleng);
@@ -1178,7 +1185,7 @@ ANY_CHAR (.|[\n])
 	yymore();
 }
 
-<ST_ONE_LINE_COMMENT>"\n"|"\r\n" {
+<ST_ONE_LINE_COMMENT>{NEWLINE} {
 	zendlval->value.str.val = yytext; /* no copying - intentional */
 	zendlval->value.str.len = yyleng;
 	zendlval->type = IS_STRING;
@@ -1188,7 +1195,7 @@ ANY_CHAR (.|[\n])
 }
 
 <ST_ONE_LINE_COMMENT>"?>"|"%>" {
-    if(CG(asp_tags) || yytext[yyleng-2] != '%') { /* asp comment? */
+    if (CG(asp_tags) || yytext[yyleng-2] != '%') { /* asp comment? */
 		zendlval->value.str.val = yytext; /* no copying - intentional */
 		zendlval->value.str.len = yyleng;
 		zendlval->type = IS_STRING;
@@ -1221,7 +1228,7 @@ ANY_CHAR (.|[\n])
 	yymore();
 }
 
-<ST_IN_SCRIPTING>("?>"|"</script"{WHITESPACE}*">")("\n"|"\r\n")? {
+<ST_IN_SCRIPTING>("?>"|"</script"{WHITESPACE}*">"){NEWLINE}? {
 	zendlval->value.str.val = yytext; /* no copying - intentional */
 	zendlval->value.str.len = yyleng;
 	zendlval->type = IS_STRING;
@@ -1231,7 +1238,7 @@ ANY_CHAR (.|[\n])
 }
 
 
-<ST_IN_SCRIPTING>"%>"("\n"|"\r\n")? {
+<ST_IN_SCRIPTING>"%>"{NEWLINE}? {
 	if (CG(asp_tags)) {
 		BEGIN(INITIAL);
 		zendlval->value.str.len = yyleng;
@@ -1374,7 +1381,7 @@ ANY_CHAR (.|[\n])
 }
 
 
-<ST_IN_SCRIPTING>"<<<"{TABS_AND_SPACES}{LABEL}("\r")?"\n" {
+<ST_IN_SCRIPTING>"<<<"{TABS_AND_SPACES}{LABEL}{NEWLINE} {
 	char *s;
 	CG(zend_lineno)++;
 	CG(heredoc_len) = yyleng-3-1-(yytext[yyleng-2]=='\r'?1:0);
@@ -1401,7 +1408,7 @@ ANY_CHAR (.|[\n])
 }
 
 
-<ST_HEREDOC>^{LABEL}(";")?("\r")?"\n" {
+<ST_HEREDOC>^{LABEL}(";")?{NEWLINE} {
 	int label_len;
 	unsigned char unput_semicolon;
 

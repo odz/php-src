@@ -17,7 +17,7 @@
    |          David Sklar <sklar@student.net>                             |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_apache.c,v 1.28 2001/02/26 06:07:35 andi Exp $ */
+/* $Id: php_apache.c,v 1.29.2.2 2001/05/15 15:58:59 dbeu Exp $ */
 
 #define NO_REGEX_EXTRA_H
 
@@ -89,10 +89,19 @@ PHP_INI_BEGIN()
 PHP_INI_END()
 
 
+
+static void php_apache_globals_ctor(php_apache_info_struct *apache_globals)
+{
+	apache_globals->in_request = 0;
+}
+
+
 static PHP_MINIT_FUNCTION(apache)
 {
 #ifdef ZTS
-	php_apache_info_id = ts_allocate_id(sizeof(php_apache_info_struct), NULL, NULL);
+	php_apache_info_id = ts_allocate_id(sizeof(php_apache_info_struct), php_apache_globals_ctor, NULL);
+#else
+	php_apache_globals_ctor(&php_apache_info);
 #endif
 	REGISTER_INI_ENTRIES();
 	return SUCCESS;
@@ -312,15 +321,6 @@ PHP_FUNCTION(virtual)
 		RETURN_FALSE;
 	}
 
-	/* Cannot include another PHP file because of global conflicts */
-	if (rr->content_type &&
-		!strcmp(rr->content_type, PHP_MIME_TYPE)) {
-		php_error(E_WARNING, "Cannot include a PHP file "
-			  "(use <code>&lt;?include \"%s\"&gt;</code> instead)", (*filename)->value.str.val);
-		if (rr) destroy_sub_req (rr);
-		RETURN_FALSE;
-	}
-	
 	php_end_ob_buffers(1);
 	php_header();
 

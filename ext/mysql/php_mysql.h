@@ -17,7 +17,7 @@
 */
 
 
-/* $Id: php_mysql.h,v 1.18 2001/02/26 06:07:04 andi Exp $ */
+/* $Id: php_mysql.h,v 1.21 2001/05/05 01:42:15 zeev Exp $ */
 
 #ifndef PHP_MYSQL_H
 #define PHP_MYSQL_H
@@ -41,6 +41,7 @@ extern zend_module_entry mysql_module_entry;
 extern PHP_MINIT_FUNCTION(mysql);
 extern PHP_RINIT_FUNCTION(mysql);
 extern PHP_MSHUTDOWN_FUNCTION(mysql);
+extern PHP_RSHUTDOWN_FUNCTION(mysql);
 PHP_MINFO_FUNCTION(mysql);
 
 PHP_FUNCTION(mysql_connect);
@@ -50,6 +51,7 @@ PHP_FUNCTION(mysql_select_db);
 PHP_FUNCTION(mysql_create_db);
 PHP_FUNCTION(mysql_drop_db);
 PHP_FUNCTION(mysql_query);
+PHP_FUNCTION(mysql_unbuffered_query);
 PHP_FUNCTION(mysql_db_query);
 PHP_FUNCTION(mysql_list_dbs);
 PHP_FUNCTION(mysql_list_tables);
@@ -89,6 +91,8 @@ ZEND_BEGIN_MODULE_GLOBALS(mysql)
 	long default_port;
 	char *default_host, *default_user, *default_password;
 	char *default_socket;
+	char *connect_error;
+	long connect_errno;
 ZEND_END_MODULE_GLOBALS(mysql)
 
 #ifdef ZTS

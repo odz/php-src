@@ -26,10 +26,6 @@
 # include <stdlib.h>
 #endif
 
-#ifdef HAVE_LIMITS_H
-# include <limits.h>
-#endif
-
 #define HANDLE_NUMERIC(key, length, func) {												\
 	register char *tmp=key;																\
 																						\
@@ -52,7 +48,7 @@
 				return func;															\
 			}																			\
 		}																				\
-	} while(0);																			\
+	} while (0);																			\
 }
 
 

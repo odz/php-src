@@ -282,7 +282,7 @@ static inline void zend_assign_to_variable(znode *result, znode *op1, znode *op2
 						if (op2
 							&& op2->op_type == IS_VAR
 							&& value==&Ts[op2->u.var].tmp_var) {
-							efree(value->value.str.val);
+							STR_FREE(value->value.str.val);
 						}
 						if (final_value == &tmp) {
 							zval_dtor(final_value);
@@ -839,7 +839,12 @@ static zval get_overloaded_property(temp_variable *T ELS_DC)
 
 static void set_overloaded_property(temp_variable *T, zval *value ELS_DC)
 {
-	(T->EA.data.overloaded_element.object)->value.obj.ce->handle_property_set(&T->EA.data.overloaded_element, value);
+	if ((T->EA.data.overloaded_element.object)->value.obj.ce->handle_property_set) {
+		(T->EA.data.overloaded_element.object)->value.obj.ce->handle_property_set(&T->EA.data.overloaded_element, value);
+	} else {
+		zend_error(E_ERROR, "Class '%s' does not support setting overloaded properties",
+			(T->EA.data.overloaded_element.object)->value.obj.ce->name);
+	}
 	zend_llist_destroy(T->EA.data.overloaded_element.elements_list);
 	efree(T->EA.data.overloaded_element.elements_list);
 }
@@ -847,7 +852,12 @@ static void set_overloaded_property(temp_variable *T, zval *value ELS_DC)
 
 static void call_overloaded_function(temp_variable *T, int arg_count, zval *return_value ELS_DC)
 {
-	(T->EA.data.overloaded_element.object)->value.obj.ce->handle_function_call(arg_count, return_value, T->EA.data.overloaded_element.object, 1 ELS_CC, &T->EA.data.overloaded_element);
+	if ((T->EA.data.overloaded_element.object)->value.obj.ce->handle_function_call) {
+		(T->EA.data.overloaded_element.object)->value.obj.ce->handle_function_call(arg_count, return_value, T->EA.data.overloaded_element.object, 1 ELS_CC, &T->EA.data.overloaded_element);
+	} else {
+		zend_error(E_ERROR, "Class '%s' does not support overloaded method calls",
+			(T->EA.data.overloaded_element.object)->value.obj.ce->name);
+	}
 	zend_llist_destroy(T->EA.data.overloaded_element.elements_list);
 	efree(T->EA.data.overloaded_element.elements_list);
 }
@@ -888,7 +898,7 @@ typedef struct _object_info {
 	zval *ptr;
 } object_info;
 
-void execute(zend_op_array *op_array ELS_DC)
+ZEND_API void execute(zend_op_array *op_array ELS_DC)
 {
 	zend_op *opline = op_array->opcodes;
 #if SUPPORT_INTERACTIVE
@@ -1522,7 +1532,7 @@ do_fcall_common:
 
 							zend_hash_update(function_state.function_symbol_table, "this", sizeof("this"), &null_ptr, sizeof(zval *), (void **) &this_ptr);
 							if (!PZVAL_IS_REF(object.ptr)) {
-								zend_error(E_WARNING,"Problem with method call. Report this bug\n");
+								zend_error(E_WARNING, "Problem with method call - please report this bug");
                 			}
 							*this_ptr = object.ptr;
 							object.ptr = NULL;
@@ -1907,7 +1917,7 @@ send_by_ref:
 					if (offset) {
 						switch(offset->type) {
 							case IS_DOUBLE:
-								zend_hash_index_update(array_ptr->value.ht, (long) offset->value.lval, &expr_ptr, sizeof(zval *), NULL);
+								zend_hash_index_update(array_ptr->value.ht, (long) offset->value.dval, &expr_ptr, sizeof(zval *), NULL);
 								break;
 							case IS_LONG:
 								zend_hash_index_update(array_ptr->value.ht, offset->value.lval, &expr_ptr, sizeof(zval *), NULL);

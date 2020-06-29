@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: array.c,v 1.101.2.1 2001/04/02 16:12:06 andrei Exp $ */
+/* $Id: array.c,v 1.109 2001/05/10 16:30:12 andrei Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -521,7 +521,7 @@ static int array_user_compare(const void *a, const void *b)
 	Bucket *s;
 	pval **args[2];
 	pval *retval_ptr;
-	CLS_FETCH();
+	ELS_FETCH();
 	BLS_FETCH();
 
 	f = *((Bucket **) a);
@@ -530,7 +530,7 @@ static int array_user_compare(const void *a, const void *b)
 	args[0] = (pval **) f->pData;
 	args[1] = (pval **) s->pData;
 
-	if (call_user_function_ex(CG(function_table), NULL, *BG(user_compare_func_name), &retval_ptr, 2, args, 0, NULL)==SUCCESS
+	if (call_user_function_ex(EG(function_table), NULL, *BG(user_compare_func_name), &retval_ptr, 2, args, 0, NULL)==SUCCESS
 		&& retval_ptr) {
 		long retval;
 
@@ -609,7 +609,7 @@ static int array_user_key_compare(const void *a, const void *b)
 	pval *args[2];
 	pval retval;
 	int status;
-	CLS_FETCH();
+	ELS_FETCH();
 	BLS_FETCH();
 
 	args[0] = &key1;
@@ -637,7 +637,7 @@ static int array_user_key_compare(const void *a, const void *b)
 		Z_TYPE(key2) = IS_LONG;
 	}
 
-	status = call_user_function(CG(function_table), NULL, *BG(user_compare_func_name), &retval, 2, args);
+	status = call_user_function(EG(function_table), NULL, *BG(user_compare_func_name), &retval, 2, args);
 	
 	zval_dtor(&key1);
 	zval_dtor(&key2);
@@ -954,9 +954,11 @@ static int php_array_walk(HashTable *target_hash, zval **userdata)
 		  *retval_ptr,			/* Return value - unused */
 		  *key;				/* Entry key */
 	char  *string_key;
+	ulong  string_key_len;
 	ulong  num_key;
-	CLS_FETCH();
+	HashPosition pos;
 	BLS_FETCH();
+	ELS_FETCH();
 
 	/* Allocate space for key */
 	MAKE_STD_ZVAL(key);
@@ -965,22 +967,22 @@ static int php_array_walk(HashTable *target_hash, zval **userdata)
 	args[1] = &key;
 	args[2] = userdata;
 
-	zend_hash_internal_pointer_reset(target_hash);
+	zend_hash_internal_pointer_reset_ex(target_hash, &pos);
 
 	/* Iterate through hash */
-	while(zend_hash_get_current_data(target_hash, (void **)&args[0]) == SUCCESS) {
+	while(zend_hash_get_current_data_ex(target_hash, (void **)&args[0], &pos) == SUCCESS) {
 		/* Set up the key */
-		if (zend_hash_get_current_key(target_hash, &string_key, &num_key, 1) == HASH_KEY_IS_LONG) {
+		if (zend_hash_get_current_key_ex(target_hash, &string_key, &string_key_len, &num_key, 0, &pos) == HASH_KEY_IS_LONG) {
 			Z_TYPE_P(key) = IS_LONG;
 			Z_LVAL_P(key) = num_key;
 		} else {
 			Z_TYPE_P(key) = IS_STRING;
 			Z_STRVAL_P(key) = string_key;
-			Z_STRLEN_P(key) = strlen(string_key);
+			Z_STRLEN_P(key) = string_key_len-1;
 		}
 		
 		/* Call the userland function */
-		if (call_user_function_ex(CG(function_table), NULL, *BG(array_walk_func_name),
+		if (call_user_function_ex(EG(function_table), NULL, *BG(array_walk_func_name),
 						   &retval_ptr, userdata ? 3 : 2, args, 0, NULL) == SUCCESS) {
 		
 			zval_ptr_dtor(&retval_ptr);
@@ -988,11 +990,7 @@ static int php_array_walk(HashTable *target_hash, zval **userdata)
 			php_error(E_WARNING,"Unable to call %s() - function does not exist",
 					  (*BG(array_walk_func_name))->value.str.val);
 
-		/* Clean up the key */
-		if (zend_hash_get_current_key_type(target_hash) == HASH_KEY_IS_STRING)
-			efree(Z_STRVAL_P(key));
-		
-		zend_hash_move_forward(target_hash);
+		zend_hash_move_forward_ex(target_hash, &pos);
     }
 	efree(key);
 	
@@ -1156,6 +1154,7 @@ PHP_FUNCTION(extract)
 	char *var_name, *final_name;
 	ulong num_key, var_name_len;
 	int var_exists, extract_type, key_type, count = 0;
+	HashPosition pos;
 
 	switch(ZEND_NUM_ARGS()) {
 		case 1:
@@ -1204,9 +1203,9 @@ PHP_FUNCTION(extract)
 		return;
 	}
 		
-	zend_hash_internal_pointer_reset(Z_ARRVAL_PP(var_array));
-	while(zend_hash_get_current_data(Z_ARRVAL_PP(var_array), (void **)&entry) == SUCCESS) {
-		key_type = zend_hash_get_current_key_ex(Z_ARRVAL_PP(var_array), &var_name, &var_name_len, &num_key, 0, NULL);
+	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_PP(var_array), &pos);
+	while(zend_hash_get_current_data_ex(Z_ARRVAL_PP(var_array), (void **)&entry, &pos) == SUCCESS) {
+		key_type = zend_hash_get_current_key_ex(Z_ARRVAL_PP(var_array), &var_name, &var_name_len, &num_key, 0, &pos);
 		final_name = NULL;
 		var_exists = 0;
 
@@ -1217,7 +1216,7 @@ PHP_FUNCTION(extract)
 			final_name = emalloc(MAX_LENGTH_OF_LONG + Z_STRLEN_PP(prefix) + 2);
 			zend_sprintf(final_name, "%s_%ld", Z_STRVAL_PP(prefix), num_key);
 		} else {
-			zend_hash_move_forward(Z_ARRVAL_PP(var_array));
+			zend_hash_move_forward_ex(Z_ARRVAL_PP(var_array), &pos);
 			continue;
 		}
 			
@@ -1271,7 +1270,7 @@ PHP_FUNCTION(extract)
 			efree(final_name);
 		}
 
-		zend_hash_move_forward(Z_ARRVAL_PP(var_array));
+		zend_hash_move_forward_ex(Z_ARRVAL_PP(var_array), &pos);
 	}
 
 	RETURN_LONG(count);
@@ -1279,8 +1278,7 @@ PHP_FUNCTION(extract)
 /* }}} */
 
 
-/* {{{ void _compact_var(HashTable *eg_active_symbol_table, zval *return_value, zval *entry) */
-static void _compact_var(HashTable *eg_active_symbol_table, zval *return_value, zval *entry)
+static void php_compact_var(HashTable *eg_active_symbol_table, zval *return_value, zval *entry)
 {
 	zval **value_ptr, *value, *data;
 	
@@ -1298,17 +1296,17 @@ static void _compact_var(HashTable *eg_active_symbol_table, zval *return_value, 
 		}
 	}
 	else if (Z_TYPE_P(entry) == IS_ARRAY) {
-		zend_hash_internal_pointer_reset(Z_ARRVAL_P(entry));
+		HashPosition pos;
 
-		while(zend_hash_get_current_data(Z_ARRVAL_P(entry), (void**)&value_ptr) == SUCCESS) {
+		zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(entry), &pos);
+		while (zend_hash_get_current_data_ex(Z_ARRVAL_P(entry), (void**)&value_ptr, &pos) == SUCCESS) {
 			value = *value_ptr;
 
-			_compact_var(eg_active_symbol_table, return_value, value);
-			zend_hash_move_forward(Z_ARRVAL_P(entry));
+			php_compact_var(eg_active_symbol_table, return_value, value);
+			zend_hash_move_forward_ex(Z_ARRVAL_P(entry), &pos);
 		}
 	}
 }
-/* }}} */
 
 
 /* {{{ proto array compact(mixed var_names [, mixed ...])
@@ -1327,9 +1325,8 @@ PHP_FUNCTION(compact)
 
 	array_init(return_value);
 	
-	for (i=0; i<ZEND_NUM_ARGS(); i++)
-	{
-		_compact_var(EG(active_symbol_table), return_value, *args[i]);
+	for (i=0; i<ZEND_NUM_ARGS(); i++) {
+		php_compact_var(EG(active_symbol_table), return_value, *args[i]);
 	}
 	
 	efree(args);
@@ -1723,7 +1720,9 @@ PHP_FUNCTION(array_slice)
 				 argc;			/* Number of function arguments */
 				 
 	char		*string_key;
+	ulong		 string_key_len;
 	ulong		 num_key;
+	HashPosition hpos;
 	
 
 	/* Get the arguments and do error-checking */	
@@ -1771,22 +1770,22 @@ PHP_FUNCTION(array_slice)
 	
 	/* Start at the beginning and go until we hit offset */
 	pos = 0;
-	zend_hash_internal_pointer_reset(Z_ARRVAL_PP(input));
+	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_PP(input), &hpos);
 	while(pos < offset_val &&
-		  zend_hash_get_current_data(Z_ARRVAL_PP(input), (void **)&entry) == SUCCESS) {
+		  zend_hash_get_current_data_ex(Z_ARRVAL_PP(input), (void **)&entry, &hpos) == SUCCESS) {
 		pos++;
-		zend_hash_move_forward(Z_ARRVAL_PP(input));
+		zend_hash_move_forward_ex(Z_ARRVAL_PP(input), &hpos);
 	}
 	
 	/* Copy elements from input array to the one that's returned */
 	while(pos < offset_val+length_val &&
-		  zend_hash_get_current_data(Z_ARRVAL_PP(input), (void **)&entry) == SUCCESS) {
+		  zend_hash_get_current_data_ex(Z_ARRVAL_PP(input), (void **)&entry, &hpos) == SUCCESS) {
 		
 		(*entry)->refcount++;
 
-		switch (zend_hash_get_current_key(Z_ARRVAL_PP(input), &string_key, &num_key, 0)) {
+		switch (zend_hash_get_current_key_ex(Z_ARRVAL_PP(input), &string_key, &string_key_len, &num_key, 0, &hpos)) {
 			case HASH_KEY_IS_STRING:
-				zend_hash_update(Z_ARRVAL_P(return_value), string_key, strlen(string_key)+1,
+				zend_hash_update(Z_ARRVAL_P(return_value), string_key, string_key_len,
 								 entry, sizeof(zval *), NULL);
 				break;
 	
@@ -1796,7 +1795,7 @@ PHP_FUNCTION(array_slice)
 				break;
 		}
 		pos++;
-		zend_hash_move_forward(Z_ARRVAL_PP(input));
+		zend_hash_move_forward_ex(Z_ARRVAL_PP(input), &hpos);
 	}
 }
 /* }}} */
@@ -1807,14 +1806,16 @@ PHPAPI void php_array_merge(HashTable *dest, HashTable *src, int recursive)
 	zval	  **src_entry,
 			  **dest_entry;
 	char	   *string_key;
+	ulong		string_key_len;
 	ulong		num_key;
+	HashPosition pos;
 
-	zend_hash_internal_pointer_reset(src);
-	while(zend_hash_get_current_data(src, (void **)&src_entry) == SUCCESS) {
-		switch (zend_hash_get_current_key(src, &string_key, &num_key, 0)) {
+	zend_hash_internal_pointer_reset_ex(src, &pos);
+	while(zend_hash_get_current_data_ex(src, (void **)&src_entry, &pos) == SUCCESS) {
+		switch (zend_hash_get_current_key_ex(src, &string_key, &string_key_len, &num_key, 0, &pos)) {
 			case HASH_KEY_IS_STRING:
 				if (recursive &&
-					zend_hash_find(dest, string_key, strlen(string_key) + 1,
+					zend_hash_find(dest, string_key, string_key_len,
 								   (void **)&dest_entry) == SUCCESS) {
 					convert_to_array_ex(dest_entry);
 					convert_to_array_ex(src_entry);
@@ -1834,7 +1835,7 @@ PHPAPI void php_array_merge(HashTable *dest, HashTable *src, int recursive)
 				break;
 		}
 
-		zend_hash_move_forward(src);
+		zend_hash_move_forward_ex(src, &pos);
 	}
 }
 
@@ -1897,7 +1898,9 @@ PHP_FUNCTION(array_keys)
 				*new_val;		/* New value */
 	int			 add_key;		/* Flag to indicate whether a key should be added */
 	char		*string_key;	/* String key */
+	ulong		 string_key_len;
 	ulong		 num_key;		/* Numeric key */
+	HashPosition pos;
 
 	search_value = NULL;
 	
@@ -1917,8 +1920,8 @@ PHP_FUNCTION(array_keys)
 	add_key = 1;
 	
 	/* Go through input array and add keys to the return array */
-	zend_hash_internal_pointer_reset(Z_ARRVAL_PP(input));
-	while(zend_hash_get_current_data(Z_ARRVAL_PP(input), (void **)&entry) == SUCCESS) {
+	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_PP(input), &pos);
+	while(zend_hash_get_current_data_ex(Z_ARRVAL_PP(input), (void **)&entry, &pos) == SUCCESS) {
 		if (search_value != NULL) {
      		is_equal_function(&res, *search_value, *entry);
 			add_key = zval_is_true(&res);
@@ -1927,11 +1930,11 @@ PHP_FUNCTION(array_keys)
 		if (add_key) {	
 			MAKE_STD_ZVAL(new_val);
 
-			switch (zend_hash_get_current_key(Z_ARRVAL_PP(input), &string_key, &num_key, 1)) {
+			switch (zend_hash_get_current_key_ex(Z_ARRVAL_PP(input), &string_key, &string_key_len, &num_key, 1, &pos)) {
 				case HASH_KEY_IS_STRING:
 					Z_TYPE_P(new_val) = IS_STRING;
 					Z_STRVAL_P(new_val) = string_key;
-					Z_STRLEN_P(new_val) = strlen(string_key);
+					Z_STRLEN_P(new_val) = string_key_len-1;
 					zend_hash_next_index_insert(Z_ARRVAL_P(return_value), &new_val,
 												sizeof(zval *), NULL);
 					break;
@@ -1945,7 +1948,7 @@ PHP_FUNCTION(array_keys)
 			}
 		}
 
-		zend_hash_move_forward(Z_ARRVAL_PP(input));
+		zend_hash_move_forward_ex(Z_ARRVAL_PP(input), &pos);
 	}
 }
 /* }}} */
@@ -1957,6 +1960,7 @@ PHP_FUNCTION(array_values)
 {
 	zval	   **input,		/* Input array */
 			   **entry;		/* An entry in the input array */
+	HashPosition pos;
 	
 	/* Get arguments and do error-checking */
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(ZEND_NUM_ARGS(), &input) == FAILURE) {
@@ -1972,14 +1976,14 @@ PHP_FUNCTION(array_values)
 	array_init(return_value);
 
 	/* Go through input array and add values to the return array */	
-	zend_hash_internal_pointer_reset(Z_ARRVAL_PP(input));
-	while(zend_hash_get_current_data(Z_ARRVAL_PP(input), (void **)&entry) == SUCCESS) {
+	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_PP(input), &pos);
+	while(zend_hash_get_current_data_ex(Z_ARRVAL_PP(input), (void **)&entry, &pos) == SUCCESS) {
 		
 		(*entry)->refcount++;
 		zend_hash_next_index_insert(Z_ARRVAL_P(return_value), entry,
 											sizeof(zval *), NULL);
 
-		zend_hash_move_forward(Z_ARRVAL_PP(input));
+		zend_hash_move_forward_ex(Z_ARRVAL_PP(input), &pos);
 	}
 }
 /* }}} */
@@ -1993,6 +1997,7 @@ PHP_FUNCTION(array_count_values)
 			   **entry;		/* An entry in the input array */
 	zval       **tmp;
 	HashTable   *myht;
+	HashPosition pos;
 	
 	/* Get arguments and do error-checking */
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &input) == FAILURE) {
@@ -2009,8 +2014,8 @@ PHP_FUNCTION(array_count_values)
 
 	/* Go through input array and add values to the return array */	
 	myht = Z_ARRVAL_PP(input);
-	zend_hash_internal_pointer_reset(myht);
-	while (zend_hash_get_current_data(myht, (void **)&entry) == SUCCESS) {
+	zend_hash_internal_pointer_reset_ex(myht, &pos);
+	while (zend_hash_get_current_data_ex(myht, (void **)&entry, &pos) == SUCCESS) {
 		if (Z_TYPE_PP(entry) == IS_LONG) {
 			if (zend_hash_index_find(Z_ARRVAL_P(return_value), 
 									 Z_LVAL_PP(entry), 
@@ -2040,7 +2045,7 @@ PHP_FUNCTION(array_count_values)
 			php_error(E_WARNING, "Can only count STRING and INTEGER values!");
 		}
 
-		zend_hash_move_forward(myht);
+		zend_hash_move_forward_ex(myht, &pos);
 	}
 }
 /* }}} */
@@ -2054,8 +2059,10 @@ PHP_FUNCTION(array_reverse)
 			   **z_preserve_keys, /* Flag: whether to preserve keys */
 			   **entry;			  /* An entry in the input array */
 	char		*string_key;
+	ulong		 string_key_len;
 	ulong		 num_key;
 	zend_bool	 preserve_keys = 0;
+	HashPosition pos;
 	
 	/* Get arguments and do error-checking */
 	if (ZEND_NUM_ARGS() < 1 || ZEND_NUM_ARGS() > 2 ||
@@ -2076,13 +2083,13 @@ PHP_FUNCTION(array_reverse)
 	/* Initialize return array */
 	array_init(return_value);
 	
-	zend_hash_internal_pointer_end(Z_ARRVAL_PP(input));
-	while(zend_hash_get_current_data(Z_ARRVAL_PP(input), (void **)&entry) == SUCCESS) {
+	zend_hash_internal_pointer_end_ex(Z_ARRVAL_PP(input), &pos);
+	while(zend_hash_get_current_data_ex(Z_ARRVAL_PP(input), (void **)&entry, &pos) == SUCCESS) {
 		(*entry)->refcount++;
 		
-		switch (zend_hash_get_current_key(Z_ARRVAL_PP(input), &string_key, &num_key, 0)) {
+		switch (zend_hash_get_current_key_ex(Z_ARRVAL_PP(input), &string_key, &string_key_len, &num_key, 0, &pos)) {
 			case HASH_KEY_IS_STRING:
-				zend_hash_update(Z_ARRVAL_P(return_value), string_key, strlen(string_key)+1,
+				zend_hash_update(Z_ARRVAL_P(return_value), string_key, string_key_len,
 								 entry, sizeof(zval *), NULL);
 				break;
 
@@ -2096,7 +2103,7 @@ PHP_FUNCTION(array_reverse)
 				break;
 		}
 		
-		zend_hash_move_backwards(Z_ARRVAL_PP(input));
+		zend_hash_move_backwards_ex(Z_ARRVAL_PP(input), &pos);
 	}
 }
 /* }}} */
@@ -2700,7 +2707,9 @@ PHP_FUNCTION(array_rand)
 	long randval;
 	int num_req_val, num_avail, key_type;
 	char *string_key;
+	ulong string_key_len;
 	ulong num_key;
+	HashPosition pos;
 
 	if (ZEND_NUM_ARGS() < 1 || ZEND_NUM_ARGS() > 2 ||
 		zend_get_parameters_ex(ZEND_NUM_ARGS(), &input, &num_req) == FAILURE) {
@@ -2731,8 +2740,8 @@ PHP_FUNCTION(array_rand)
 		array_init(return_value);
 
 	/* We can't use zend_hash_index_find() because the array may have string keys or gaps. */
-	zend_hash_internal_pointer_reset(Z_ARRVAL_PP(input));
-	while (num_req_val && (key_type = zend_hash_get_current_key(Z_ARRVAL_PP(input), &string_key, &num_key, 0)) != HASH_KEY_NON_EXISTANT) {
+	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_PP(input), &pos);
+	while (num_req_val && (key_type = zend_hash_get_current_key_ex(Z_ARRVAL_PP(input), &string_key, &string_key_len, &num_key, 0, &pos)) != HASH_KEY_NON_EXISTANT) {
 
 #ifdef HAVE_RANDOM
 		randval = random();
@@ -2748,21 +2757,21 @@ PHP_FUNCTION(array_rand)
 			/* If we are returning a single result, just do it. */
 			if (Z_TYPE_P(return_value) != IS_ARRAY) {
 				if (key_type == HASH_KEY_IS_STRING) {
-					RETURN_STRING(string_key, 1);
+					RETURN_STRINGL(string_key, string_key_len-1, 1);
 				} else {
 					RETURN_LONG(num_key);
 				}
 			} else {
 				/* Append the result to the return value. */
 				if (key_type == HASH_KEY_IS_STRING)
-					add_next_index_string(return_value, string_key, 1);
+					add_next_index_stringl(return_value, string_key, string_key_len-1, 1);
 				else
 					add_next_index_long(return_value, num_key);
 			}
 			num_req_val--;
 		}
 		num_avail--;
-		zend_hash_move_forward(Z_ARRVAL_PP(input));
+		zend_hash_move_forward_ex(Z_ARRVAL_PP(input), &pos);
 	}  
 
 	if (num_req_val == num_avail) {
@@ -2782,6 +2791,7 @@ PHP_FUNCTION(array_sum)
 	zval **input,
 		 **entry;
 	int argc = ZEND_NUM_ARGS();
+	HashPosition pos;
 	
 	if (argc != 1 || zend_get_parameters_ex(argc, &input) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -2795,9 +2805,9 @@ PHP_FUNCTION(array_sum)
 
 	ZVAL_LONG(return_value, 0);
 
-	for (zend_hash_internal_pointer_reset(Z_ARRVAL_PP(input));
-		 zend_hash_get_current_data(Z_ARRVAL_PP(input), (void **)&entry) == SUCCESS;
-		 zend_hash_move_forward(Z_ARRVAL_PP(input))) {
+	for (zend_hash_internal_pointer_reset_ex(Z_ARRVAL_PP(input), &pos);
+		 zend_hash_get_current_data_ex(Z_ARRVAL_PP(input), (void **)&entry, &pos) == SUCCESS;
+		 zend_hash_move_forward_ex(Z_ARRVAL_PP(input), &pos)) {
 		
 		if (Z_TYPE_PP(entry) == IS_ARRAY || Z_TYPE_PP(entry) == IS_OBJECT)
 			continue;
@@ -2827,6 +2837,7 @@ PHP_FUNCTION(array_reduce)
 	zval *result = NULL;
 	zval *retval;
 	char *callback_name;
+	HashPosition pos;
 
 	if (ZEND_NUM_ARGS() < 2 || ZEND_NUM_ARGS() > 3 ||
 		zend_get_parameters_ex(ZEND_NUM_ARGS(), &input, &callback, &initial) == FAILURE) {
@@ -2845,6 +2856,7 @@ PHP_FUNCTION(array_reduce)
 		efree(callback_name);
 		return;
 	}
+	efree(callback_name);
 
 	if (ZEND_NUM_ARGS() > 2)
 		result = *initial;
@@ -2857,8 +2869,8 @@ PHP_FUNCTION(array_reduce)
 		return;
 	}
 
-	zend_hash_internal_pointer_reset(Z_ARRVAL_PP(input));
-	while (zend_hash_get_current_data(Z_ARRVAL_PP(input), (void **)&operand) == SUCCESS) {
+	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_PP(input), &pos);
+	while (zend_hash_get_current_data_ex(Z_ARRVAL_PP(input), (void **)&operand, &pos) == SUCCESS) {
 		if (result) {
 			args[0] = &result;
 			args[1] = operand;
@@ -2871,11 +2883,238 @@ PHP_FUNCTION(array_reduce)
 		} else
 			result = *operand;
 
-		zend_hash_move_forward(Z_ARRVAL_PP(input));
+		zend_hash_move_forward_ex(Z_ARRVAL_PP(input), &pos);
 	}
 	
 	*return_value = *result;
 }
+/* }}} */
+
+
+/* {{{ proto array array_filter(array input [, mixed callback])
+   Filters elements from the array via the callback. */
+PHP_FUNCTION(array_filter)
+{
+	zval **input, **callback = NULL;
+	zval **operand;
+	zval **args[1];
+	zval *retval = NULL;
+	char *callback_name;
+	char *string_key;
+	ulong string_key_len;
+	ulong num_key;
+	HashPosition pos;
+	
+	if (ZEND_NUM_ARGS() < 1 || ZEND_NUM_ARGS() > 2 ||
+		zend_get_parameters_ex(ZEND_NUM_ARGS(), &input, &callback) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	if (Z_TYPE_PP(input) != IS_ARRAY) {
+		php_error(E_WARNING, "%s() expects argument 1 to be an array",
+				  get_active_function_name());
+		return;
+	}
+
+	if (ZEND_NUM_ARGS() > 1) {
+		if (!zend_is_callable(*callback, 0, &callback_name)) {
+			php_error(E_WARNING, "%s() expects argument 2, '%s', to be a valid callback",
+					  get_active_function_name(), callback_name);
+			efree(callback_name);
+			return;
+		}
+		efree(callback_name);
+	}
+
+	array_init(return_value);
+	if (zend_hash_num_elements(Z_ARRVAL_PP(input)) == 0)
+		return;
+
+	for (zend_hash_internal_pointer_reset_ex(Z_ARRVAL_PP(input), &pos);
+		 zend_hash_get_current_data_ex(Z_ARRVAL_PP(input), (void **)&operand, &pos) == SUCCESS;
+		 zend_hash_move_forward_ex(Z_ARRVAL_PP(input), &pos)) {
+
+		if (callback) {
+			args[0] = operand;
+			if (call_user_function_ex(EG(function_table), NULL, *callback, &retval, 1, args, 0, NULL) == SUCCESS && retval) {
+				if (!zend_is_true(retval)) {
+					zval_ptr_dtor(&retval);
+					continue;
+				} else
+					zval_ptr_dtor(&retval);
+			} else {
+				php_error(E_WARNING, "%s() had an error invoking the filter callback", get_active_function_name());
+				return;
+			}
+		} else if (!zend_is_true(*operand))
+			continue;
+
+		zval_add_ref(operand);
+		switch (zend_hash_get_current_key_ex(Z_ARRVAL_PP(input), &string_key, &string_key_len, &num_key, 0, &pos)) {
+			case HASH_KEY_IS_STRING:
+				zend_hash_update(Z_ARRVAL_P(return_value), string_key,
+								 string_key_len, operand, sizeof(zval *), NULL);
+				break;
+
+			case HASH_KEY_IS_LONG:
+				zend_hash_index_update(Z_ARRVAL_P(return_value), num_key,
+									   operand, sizeof(zval *), NULL);
+				break;
+		}
+	}
+}
+/* }}} */
+
+
+/* {{{ proto array array_map(mixed callback, array input1 [, array input2 ,...])
+   Applies the callback to the elements in given arrays. */
+PHP_FUNCTION(array_map)
+{
+	zval ***args = NULL;
+	zval ***params;
+	zval *callback;
+	zval *result, *null;
+	char *callback_name;
+	int i, k, maxlen = 0;
+	int *array_len;
+
+	if (ZEND_NUM_ARGS() < 2) {
+		WRONG_PARAM_COUNT;
+	}
+
+	args = (zval ***)emalloc(ZEND_NUM_ARGS() * sizeof(zval **));
+	if (zend_get_parameters_array_ex(ZEND_NUM_ARGS(), args) == FAILURE) {
+		efree(args);
+		WRONG_PARAM_COUNT;
+	}
+
+	callback = *args[0];
+	if (Z_TYPE_P(callback) != IS_NULL && !zend_is_callable(callback, 0, &callback_name)) {
+		php_error(E_WARNING, "%s() expects argument 1, '%s', to be either NULL or a valid callback",
+				  get_active_function_name(), callback_name);
+		efree(callback_name);
+		efree(args);
+		return;
+	}
+	efree(callback_name);
+
+	/* Cache array sizes. */
+	array_len = (int*)emalloc((ZEND_NUM_ARGS()-1) * sizeof(int));
+
+	/* Check that arrays are indeed arrays and calculate maximum size. */
+	for (i = 0; i < ZEND_NUM_ARGS()-1; i++) {
+		if (Z_TYPE_PP(args[i+1]) != IS_ARRAY) {
+			php_error(E_WARNING, "%s() expects argument %d to be an array",
+					  get_active_function_name(), i + 2);
+			efree(array_len);
+			efree(args);
+			return;
+		}
+		array_len[i] = zend_hash_num_elements(Z_ARRVAL_PP(args[i+1]));
+		if (array_len[i] > maxlen)
+			maxlen = array_len[i];
+	}
+
+	/* Short-circuit: if no callback and only one array, just return it. */
+	if (Z_TYPE_P(callback) == IS_NULL && ZEND_NUM_ARGS() == 2) {
+		*return_value = **args[1];
+		zval_copy_ctor(return_value);
+		efree(array_len);
+		efree(args);
+		return;
+	}
+
+	array_init(return_value);
+	params = (zval ***)emalloc((ZEND_NUM_ARGS()-1) * sizeof(zval **));
+	MAKE_STD_ZVAL(null);
+	ZVAL_NULL(null);
+
+	/* We iterate through all the arrays at once. */
+	for (k = 0; k < maxlen; k++) {
+		/*
+		 * If no callback, the result will be an array, consisting of current
+		 * entries from all arrays.
+		 */
+		if (Z_TYPE_P(callback) == IS_NULL) {
+			MAKE_STD_ZVAL(result);
+			array_init(result);
+		}
+
+		for (i = 0; i < ZEND_NUM_ARGS()-1; i++) {
+			/*
+			 * If this array still hash elements, add the current one to the
+			 * parameter list, otherwise use null value.
+			 */
+			if (k < array_len[i]) {
+				zend_hash_index_find(Z_ARRVAL_PP(args[i+1]), k, (void **)&params[i]);
+			} else {
+				if (Z_TYPE_P(callback) == IS_NULL)
+					zval_add_ref(&null);
+				params[i] = &null;
+			}
+
+			if (Z_TYPE_P(callback) == IS_NULL)
+				add_next_index_zval(result, *params[i]);
+		}
+
+		if (Z_TYPE_P(callback) != IS_NULL) {
+			if (!call_user_function_ex(EG(function_table), NULL, callback, &result, ZEND_NUM_ARGS()-1, params, 0, NULL) == SUCCESS && result) {
+				php_error(E_WARNING, "%s() had an error invoking the map callback", get_active_function_name());
+				efree(array_len);
+				efree(args);
+				zval_dtor(return_value);
+				RETURN_NULL();
+			}
+		}
+
+		add_next_index_zval(return_value, result);
+	}
+	
+	zval_ptr_dtor(&null);
+	efree(params);
+	efree(array_len);
+	efree(args);
+}
+/* }}} */
+
+
+/* {{{ proto bool key_exists(mixed key, array search)
+   Checks if the given key or index exists in the array */
+PHP_FUNCTION(key_exists)
+{
+	zval **key,					/* key to check for */
+		 **array;				/* array to check in */
+      	
+	if (ZEND_NUM_ARGS() != 2 ||
+		zend_get_parameters_ex(ZEND_NUM_ARGS(), &key, &array) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+	
+	if (Z_TYPE_PP(array) != IS_ARRAY && Z_TYPE_PP(array) != IS_OBJECT) {
+		php_error(E_WARNING, "Wrong datatype for second argument in call to %s", get_active_function_name());
+		RETURN_FALSE;
+	}
+
+	switch (Z_TYPE_PP(key)) {
+		case IS_STRING:
+			if (zend_hash_exists(HASH_OF(*array), Z_STRVAL_PP(key), Z_STRLEN_PP(key)+1)) {
+				RETURN_TRUE;
+			}
+			RETURN_FALSE;
+
+		case IS_LONG:
+			if (zend_hash_index_exists(HASH_OF(*array), Z_LVAL_PP(key))) {
+				RETURN_TRUE;
+			}
+			RETURN_FALSE;
+
+		default:
+			php_error(E_WARNING, "Wrong datatype for first argument in call to %s", get_active_function_name());
+			RETURN_FALSE;
+	}
+			
+}
+/* }}} */
 
 /*
  * Local variables:

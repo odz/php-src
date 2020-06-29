@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_printer.h,v 1.7 2001/02/26 06:07:13 andi Exp $ */
+/* $Id: php_printer.h,v 1.8 2001/04/05 12:36:00 dbeu Exp $ */
 
 #ifndef PHP_PRINTER_H
 #define PHP_PRINTER_H
@@ -29,12 +29,11 @@ extern zend_module_entry printer_module_entry;
 
 PHP_MINIT_FUNCTION(printer);
 PHP_MINFO_FUNCTION(printer);
-
+PHP_MSHUTDOWN_FUNCTION(printer);
 
 PHP_FUNCTION(printer_open);
 PHP_FUNCTION(printer_close);
 PHP_FUNCTION(printer_write);
-PHP_FUNCTION(printer_name);
 PHP_FUNCTION(printer_list);
 PHP_FUNCTION(printer_set_option);
 PHP_FUNCTION(printer_get_option);
@@ -50,45 +49,36 @@ PHP_FUNCTION(printer_select_pen);
 PHP_FUNCTION(printer_create_brush);
 PHP_FUNCTION(printer_delete_brush);
 PHP_FUNCTION(printer_select_brush);
+PHP_FUNCTION(printer_create_font);
+PHP_FUNCTION(printer_delete_font);
+PHP_FUNCTION(printer_select_font);
 PHP_FUNCTION(printer_logical_fontheight);
 PHP_FUNCTION(printer_draw_roundrect);
 PHP_FUNCTION(printer_draw_rectangle);
 PHP_FUNCTION(printer_draw_text);
 PHP_FUNCTION(printer_draw_elipse);
-PHP_FUNCTION(printer_create_font);
-PHP_FUNCTION(printer_delete_font);
-PHP_FUNCTION(printer_select_font);
-
+PHP_FUNCTION(printer_draw_line);
+PHP_FUNCTION(printer_draw_chord);
+PHP_FUNCTION(printer_draw_pie);
+PHP_FUNCTION(printer_draw_bmp);
+PHP_FUNCTION(printer_abort);
 
 typedef struct {
 	HANDLE handle;
 	LPTSTR name;
 	LPDEVMODE device;
-	LPVOID data;
 	DOC_INFO_1 info1;
 	DOCINFO info;
 	HDC dc;
 } printer;
 
 typedef struct {
-	HPEN pointer;
-} pen_struct;
-
-typedef struct {
-	HBRUSH pointer;
-} brush_struct;
-
-typedef struct {
-	HFONT pointer;
-} font_struct;
-
-typedef struct {
-	int printer_id;
-} php_printer_globals;
+	char *default_printer;
+} zend_printer_globals;
 
 #ifdef ZTS
 #define PRINTERG(v) (printer_globals->v)
-#define PRINTERLS_FETCH() php_printer_globals *printer_globals = ts_resource(printer_globals_id)
+#define PRINTERLS_FETCH() zend_printer_globals *printer_globals = ts_resource(printer_globals_id)
 #else
 #define PRINTERG(v) (printer_globals.v)
 #define PRINTERLS_FETCH()

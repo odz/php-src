@@ -2,10 +2,14 @@
 
 function errhandler($obj)
 {
-    $msg = $obj->getMessage();
-    print "  $msg";
-    if (substr($msg, -1) != "\n") {
-        print "\n";
+    if ($obj->getCode() == DB_ERROR) {
+        print "  unknown: ".$obj->getUserInfo()."\n";
+    } else {
+        $msg = $obj->getMessage();
+        print "  $msg";
+        if (substr($msg, -1) != "\n") {
+            print "\n";
+        }
     }
 }
 
@@ -15,7 +19,7 @@ print "Trying to provoke DB_ERROR_NOSUCHTABLE\n";
 $dbh->query("SELECT * FROM tableThatDoesNotExist");
 
 print "Trying to provoke DB_ERROR_ALREADY_EXISTS\n";
-$dbh->query("CREATE TABLE phptest (a INTEGER, b VARCHAR(40), c TEXT, d DATE)");
+$dbh->query($test_mktable_query);
 
 print "Trying to provoke DB_ERROR_NOSUCHTABLE\n";
 $dbh->query("DROP TABLE tableThatDoesNotExist");

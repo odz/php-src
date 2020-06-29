@@ -16,7 +16,7 @@
 // |          Sebastian Bergmann <sb@sebastian-bergmann.de>               |
 // +----------------------------------------------------------------------+
 //
-// $Id: file.php,v 1.8.2.1 2001/03/23 18:35:17 chregu Exp $
+// $Id: file.php,v 1.13 2001/05/05 17:37:29 chregu Exp $
 
 require_once 'Cache/Container.php';
 
@@ -24,7 +24,7 @@ require_once 'Cache/Container.php';
 * Stores cache contents in a file.
 *
 * @author   Ulf Wendel  <ulf.wendel@phpdoc.de>
-* @version  $Id: file.php,v 1.8.2.1 2001/03/23 18:35:17 chregu Exp $
+* @version  $Id: file.php,v 1.13 2001/05/05 17:37:29 chregu Exp $
 */
 class Cache_Container_file extends Cache_Container {
 
@@ -53,6 +53,21 @@ class Cache_Container_file extends Cache_Container {
     * @var  string
     */
     var $filename_prefix = "";
+    
+    
+    /**
+    * List of cache entries, used within a gc run
+    * 
+    * @var array
+    */
+    var $entries;
+    
+    /**
+    * Total number of bytes required by all cache entries, used within a gc run.
+    * 
+    * @var  int
+    */
+    var $total_size = 0;
 
     /**
     * Creates the cache directory if neccessary
@@ -61,17 +76,20 @@ class Cache_Container_file extends Cache_Container {
     */
     function Cache_Container_file($options = "") {
         if (is_array($options))
-            $this->setOptions($options, array("cache_dir", "filename_prefix"));
-
+            $this->setOptions($options, array_merge($this->allowed_options, array("cache_dir", "filename_prefix")));
+        
         clearstatcache();
 
-        //make relative paths absolute for use in deconstructor.
+        // make relative paths absolute for use in deconstructor.
         // it looks like the deconstructor has problems with relative paths
-        if (preg_match("/\.+/",$this->cache_dir))
-            $this->cache_dir=realpath(getcwd()."/".$this->cache_dir)."/";
+        if ("." == $this->cache_dir{0})
+            $this->cache_dir = realpath( getcwd() . "/" . $this->cache_dir) . "/";
 
         if (!file_exists($this->cache_dir) || !is_dir($this->cache_dir))
             mkdir($this->cache_dir, 0755);
+            
+        $this->entries = array();
+                    
     } // end func contructor
 
     function fetch($id, $group) {
@@ -92,6 +110,10 @@ class Cache_Container_file extends Cache_Container {
         $cachedata = $this->decode(fread($fh, filesize($file)));
         fclose($fh);
 
+        // last usage date used by the gc - maxlifetime
+        touch($file);
+        clearstatcache();
+        
         return array($expire, $cachedata, $userdata);
     } // end func fetch
 
@@ -165,15 +187,47 @@ class Cache_Container_file extends Cache_Container {
     * If you have a user comment for a good default gc probability please add it to
     * to the inline docs.
     *
+    * @param    integer Maximum lifetime in seconds of an no longer used/touched entry
+    * @throws   Cache_Error
+    */
+    function garbageCollection($maxlifetime) {
+
+        $this->flushPreload();
+        clearstatcache();
+
+        $ok = $this->doGarbageCollection($maxlifetime, $this->cache_dir);
+
+        // check the space used by the cache entries        
+        if ($this->total_size > $this->highwater) {
+        
+            krsort($this->entries);
+            reset($this->entries);
+            
+            while ($this->total_size > $this->lowwater && list($lastmod, $entry) = each($this->entries)) {
+                if (@unlink($entry["file"]))
+                    $this->total_size -= $entry["size"];
+                else
+                    new CacheError("Can't delete {$entry["file"]}. Check the permissions.");
+            }
+            
+        }
+        
+        $this->entries = array();
+        $this->total_size = 0;
+        
+        return $ok;
+    } // end func garbageCollection
+    
+    /**
+    * Does the recursive gc procedure, protected.
+    *
+    * @param    integer Maximum lifetime in seconds of an no longer used/touched entry
     * @param    string  directory to examine - don't sets this parameter, it's used for a
     *                   recursive function call!
+    * @throws   Cache_Error
     */
-    function garbageCollection($dir = "") {
-        $this->flushPreload();
-
-        if (!$dir)
-            $dir = $this->cache_dir;
-
+    function doGarbageCollection($maxlifetime, $dir) {
+           
         if (!($dh = opendir($dir)))
             return new Cache_Error("Can't access cache directory '$dir'. Check permissions and path.", __FILE__, __LINE__);
 
@@ -183,7 +237,7 @@ class Cache_Container_file extends Cache_Container {
 
             $file = $dir . $file;
             if (is_dir($file)) {
-                $this->garbageCollection($file . "/");
+                $this->doGarbageCollection($maxlifetime,$file . "/");
                 continue;
             }
 
@@ -195,9 +249,13 @@ class Cache_Container_file extends Cache_Container {
 
             $expire = fgets($fh, 11);
             fclose($fh);
-
+            $lastused = filemtime($file);
+            
+            $this->entries[$lastused] = array("file" => $file, "size" => filesize($file));
+            $this->total_size += filesize($file);
+            
             // remove if expired
-            if ($expire && $expire <= time() && !unlink($file))
+            if (( ($expire && $expire <= time()) || ($lastused <= (time() - $maxlifetime)) ) && !unlink($file))
                 new Cache_Error("Can't unlink cache file '$file', skipping. Check permissions and path.", __FILE__, __LINE__);
         }
 
@@ -205,7 +263,8 @@ class Cache_Container_file extends Cache_Container {
 
         // flush the disk state cache
         clearstatcache();
-    } // end func garbageCollection
+
+    } // end func doGarbageCollection
 
     /**
     * Returns the filename for the specified id.
@@ -270,5 +329,6 @@ class Cache_Container_file extends Cache_Container {
 
         return $num_removed;
     } // end func deleteDir
+    
 } // end class file
 ?>

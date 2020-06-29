@@ -16,7 +16,7 @@
 // | Authors: Sterling Hughes <sterling@php.net>                          |
 // +----------------------------------------------------------------------+
 //
-// $Id: ibase.php,v 1.17 2001/02/19 12:22:26 ssb Exp $
+// $Id: ibase.php,v 1.18 2001/03/28 00:54:05 cox Exp $
 //
 // Database independent query interface definition for PHP's Interbase
 // extension.
@@ -26,172 +26,173 @@ require_once 'DB/common.php';
 
 class DB_ibase extends DB_common
 {
-	var $connection;
-	var $phptype, $dbsyntax;
+    var $connection;
+    var $phptype, $dbsyntax;
     var $autocommit = 1;
-	var $manip_query = array();
+    var $manip_query = array();
 
-	function DB_ibase()
+    function DB_ibase()
     {
         $this->DB_common();
-		$this->phptype = 'ibase';
-		$this->dbsyntax = 'ibase';
-		$this->features = array(
-			'prepare' => true,
-			'pconnect' => true,
-			'transactions' => true
-		);
-	}
+        $this->phptype = 'ibase';
+        $this->dbsyntax = 'ibase';
+        $this->features = array(
+            'prepare' => true,
+            'pconnect' => true,
+            'transactions' => true
+        );
+    }
 
-	function connect($dsn, $persistant = false)
+    function connect($dsninfo, $persistent = false)
     {
-		if(is_array($dsn)) {
-			$dsninfo = &$dsn;
-		} else {
-			$dsninfo = DB::parseDSN($dsn);
-		}
-		if (!$dsninfo || !$dsninfo['phptype']) {
-			return $this->raiseError("invalid data source name"); 
-		}
         $this->dsn = $dsninfo;
-		$user = $dsninfo['username'];
-		$pw = $dsninfo['password'];
-		$dbhost = $dsninfo['hostspec'] ? 
-		          ($dsninfo['hostspec'] . ':/' . $dsninfo['database']) : 
-		          $dsninfo['database'];
-		$connect_function = $persistent ? 'ibase_pconnect' : 'ibase_connect';
-		if ($dbhost && $user && $pw) {
-			$conn = $connect_function($dbhost, $user, $pw);
-		} elseif ($dbhost && $user) {
-			$conn = $connect_function($dbhost, $user);
-		} elseif ($dbhost) {
-			$conn = $connect_function($dbhost);
-		} else {
-			return $this->raiseError("no host, user or password");
-		}
-		$this->connection = $conn;
-		return DB_OK;
-	}
+        $user = $dsninfo['username'];
+        $pw = $dsninfo['password'];
+        $dbhost = $dsninfo['hostspec'] ?
+                  ($dsninfo['hostspec'] . ':/' . $dsninfo['database']) :
+                  $dsninfo['database'];
+        $connect_function = $persistent ? 'ibase_pconnect' : 'ibase_connect';
+        if ($dbhost && $user && $pw) {
+            $conn = $connect_function($dbhost, $user, $pw);
+        } elseif ($dbhost && $user) {
+            $conn = $connect_function($dbhost, $user);
+        } elseif ($dbhost) {
+            $conn = $connect_function($dbhost);
+        } else {
+            return $this->raiseError("no host, user or password");
+        }
+        if (!$conn) {
+            return $this->raiseError(DB_ERROR_CONNECT_FAILED);
+        }
+        $this->connection = $conn;
+        return DB_OK;
+    }
 
-	function disconnect()
+    function disconnect()
     {
-		return @ibase_close($this->connection);
-	}
+        return @ibase_close($this->connection);
+    }
 
-	function simpleQuery($query)
+    function simpleQuery($query)
     {
-		$this->last_query = $query;
+        $this->last_query = $query;
         $query = $this->modifyQuery($query);
-		$result = @ibase_query($this->connection, $query);
-		if (!$result) {
-			return $this->raiseError();
-		}
+        $result = @ibase_query($this->connection, $query);
+        if (!$result) {
+            return $this->raiseError();
+        }
         if ($this->autocommit) {
             ibase_commit($this->connection);
         }
-		// Determine which queries that should return data, and which
-		// should return an error code only.
+        // Determine which queries that should return data, and which
+        // should return an error code only.
         return DB::isManip($query) ? DB_OK : $result;
-	}
+    }
 
     function &fetchRow($result, $fetchmode=DB_FETCHMODE_DEFAULT)
     {
-	if ($fetchmode == DB_FETCHMODE_DEFAULT) {
-	    $fetchmode = $this->fetchmode;
-	}
-	if ($fetchmode & DB_FETCHMODE_ASSOC) {
-	    $row = (array)ibase_fetch_object($result);
-	} else {
-	    $row = ibase_fetch_row($result);
-	}
-	if (!$row) {
-	    if ($errmsg = ibase_errmsg()) {
-		return $this->raiseError($errmsg);
-	    } else {
-		return null;
-	    }
-	}
-	
-	return $row;
+        if ($fetchmode == DB_FETCHMODE_DEFAULT) {
+            $fetchmode = $this->fetchmode;
+        }
+        if ($fetchmode & DB_FETCHMODE_ASSOC) {
+            $row = (array)ibase_fetch_object($result);
+        } else {
+            $row = ibase_fetch_row($result);
+        }
+        if (!$row) {
+            if ($errmsg = ibase_errmsg()) {
+                return $this->raiseError($errmsg);
+            } else {
+                return null;
+            }
+        }
+        return $row;
     }
-    
-    function fetchInto($result, &$ar, $fetchmode=DB_FETCHMODE_DEFAULT)
-    {
-		if ($fetchmode == DB_FETCHMODE_DEFAULT) {
-			$fetchmode = $this->fetchmode;
-		}
-		if ($fetchmode & DB_FETCHMODE_ASSOC) {
-			return $this->raiseError(DB_ERROR_NOT_CAPABLE);
-		} else {
-			$ar = ibase_fetch_row($result);
-		}
-		if (!$ar) {
-			return $this->raiseError();
-		}
-		return DB_OK;
-	}
 
-	function freeResult()
+    function fetchInto($result, &$ar, $fetchmode=DB_FETCHMODE_DEFAULT, $rownum=null)
     {
-		return $this->raiseError(DB_ERROR_NOT_CAPABLE);
-	}
+        if ($rownum !== NULL) {
+            return $this->raiseError(DB_ERROR_NOT_CAPABLE);
+        }
+        if ($fetchmode == DB_FETCHMODE_DEFAULT) {
+            $fetchmode = $this->fetchmode;
+        }
+        if ($fetchmode & DB_FETCHMODE_ASSOC) {
+            return $this->raiseError(DB_ERROR_NOT_CAPABLE);
+        } else {
+            $ar = ibase_fetch_row($result);
+        }
+        if (!$ar) {
+            if ($errmsg = ibase_errmsg()) {
+                return $this->raiseError($errmsg);
+            } else {
+                return null;
+            }
+        }
+        return DB_OK;
+    }
 
-	function freeQuery($query)
+    function freeResult()
     {
-		ibase_free_query($query);
-		return true;
-	} 
+        return $this->raiseError(DB_ERROR_NOT_CAPABLE);
+    }
 
-	function numCols($result)
+    function freeQuery($query)
     {
-		$cols = ibase_num_fields($result);
-		if (!$cols) {
-			return $this->raiseError();
-		}
-		return $cols;
-	}
+        ibase_free_query($query);
+        return true;
+    }
 
-	function prepare($query)
+    function numCols($result)
     {
-		$this->last_query = $query;
+        $cols = ibase_num_fields($result);
+        if (!$cols) {
+            return $this->raiseError();
+        }
+        return $cols;
+    }
+
+    function prepare($query)
+    {
+        $this->last_query = $query;
         $query = $this->modifyQuery($query);
         $stmt = ibase_prepare($query);
         $this->manip_query[(int)$stmt] = DB::isManip($query);
-		return $stmt;
-	}
+        return $stmt;
+    }
 
-	function execute($stmt, $data = false)
+    function execute($stmt, $data = false)
     {
-		$result = ibase_execute($stmt, $data);
-		if (!$result) {
-			return $this->raiseError();
-		}
+        $result = ibase_execute($stmt, $data);
+        if (!$result) {
+            return $this->raiseError();
+        }
         if ($this->autocommit) {
             ibase_commit($this->connection);
         }
-		return DB::isManip($this->manip_query[(int)$stmt]) ? DB_OK : $result;
-	}
+        return DB::isManip($this->manip_query[(int)$stmt]) ? DB_OK : $result;
+    }
 
-	function autoCommit($onoff = false)
+    function autoCommit($onoff = false)
     {
         $this->autocommit = $onoff ? 1 : 0;
-		return DB_OK;
-	}
+        return DB_OK;
+    }
 
-	function commit()
+    function commit()
     {
-		return ibase_commit($this->connection);
-	}
+        return ibase_commit($this->connection);
+    }
 
-	function rollback($trans_number)
+    function rollback($trans_number)
     {
-		return ibase_rollback($this->connection, $trans_number);
-	}
+        return ibase_rollback($this->connection, $trans_number);
+    }
 
-	function transactionInit($trans_args = 0)
+    function transactionInit($trans_args = 0)
     {
-		return $trans_args ? ibase_trans($trans_args, $this->connection) : ibase_trans();
-	}
+        return $trans_args ? ibase_trans($trans_args, $this->connection) : ibase_trans();
+    }
 }
 
 /*

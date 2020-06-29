@@ -77,17 +77,24 @@ static int sapi_thttpd_send_headers(sapi_headers_struct *sapi_headers SLS_DC)
 	int n = 0;
 	zend_llist_position pos;
 	sapi_header_struct *h;
+	size_t len;
 	
 	if (!SG(sapi_headers).http_status_line) {
-		size_t len;
-
 		snprintf(buf, 1023, "HTTP/1.0 %d Something\r\n", SG(sapi_headers).http_response_code);
 		len = strlen(buf);
 		vec[n].iov_base = buf;
-		vec[n++].iov_len = len;
-		TG(hc)->status = SG(sapi_headers).http_response_code;
-		TG(hc)->bytes_sent += len;
+		vec[n].iov_len = len;
+	} else {
+		vec[n].iov_base = SG(sapi_headers).http_status_line;
+		len = strlen(vec[n].iov_base);
+		vec[n].iov_len = len;
+		vec[++n].iov_base = "\r\n";
+		vec[n].iov_len = 2;
+		len += 2;
 	}
+	TG(hc)->status = SG(sapi_headers).http_response_code;
+	TG(hc)->bytes_sent += len;
+	n++;
 
 	h = zend_llist_get_first_ex(&sapi_headers->headers, &pos);
 	while (h) {
@@ -158,6 +165,7 @@ static char *sapi_thttpd_read_cookies(SLS_D)
 static void sapi_thttpd_register_variables(zval *track_vars_array ELS_DC SLS_DC PLS_DC)
 {
 	char buf[BUF_SIZE + 1];
+	char *p;
 	TLS_FETCH();
 
 	php_register_variable("PHP_SELF", SG(request_info).request_uri, track_vars_array ELS_CC PLS_CC);
@@ -167,11 +175,13 @@ static void sapi_thttpd_register_variables(zval *track_vars_array ELS_DC SLS_DC 
 	php_register_variable("REQUEST_URI", SG(request_info).request_uri, track_vars_array ELS_CC PLS_CC);
 	php_register_variable("PATH_TRANSLATED", SG(request_info).path_translated, track_vars_array ELS_CC PLS_CC);
 
-	buf[BUF_SIZE] = '\0';
-	
-	strncpy(buf, inet_ntoa(TG(hc)->client_addr.sa_in.sin_addr), BUF_SIZE);
-	ADD_STRING("REMOTE_ADDR");
-	ADD_STRING("REMOTE_HOST");
+	p = inet_ntoa(TG(hc)->client_addr.sa_in.sin_addr);
+	/* string representation of IPs are never larger than 512 bytes */
+	if (p) {
+		memcpy(buf, p, strlen(p) + 1);
+		ADD_STRING("REMOTE_ADDR");
+		ADD_STRING("REMOTE_HOST");
+	}
 
 	snprintf(buf, BUF_SIZE, "%d", TG(hc)->hs->port);
 	ADD_STRING("SERVER_PORT");

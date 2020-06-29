@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mail.c,v 1.31 2001/02/26 06:07:23 andi Exp $ */
+/* $Id: mail.c,v 1.33 2001/04/02 16:37:50 jmoore Exp $ */
 
 #include <stdlib.h>
 #include <ctype.h>
@@ -38,10 +38,6 @@
 #if HAVE_SENDMAIL
 #ifdef PHP_WIN32
 #include "win32/sendmail.h"
-#endif
-
-#ifdef COMPILE_DL_STANDARD
-ZEND_GET_MODULE(odbc)
 #endif
 
 /* {{{ proto int ezmlm_hash(string addr)
@@ -174,7 +170,11 @@ int php_mail(char *to, char *subject, char *message, char *headers, char *extra_
 		}
 		fprintf(sendmail, "\n%s\n", message);
 		ret = pclose(sendmail);
+#if defined(EX_TEMPFAIL)
 		if ((ret != EX_OK)&&(ret != EX_TEMPFAIL)) {
+#else
+		if (ret != EX_OK) {
+#endif
 			return 0;
 		} else {
 			return 1;

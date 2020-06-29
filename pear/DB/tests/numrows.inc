@@ -1,11 +1,10 @@
 <?php
 
-function errhandler($obj)
+if (!function_exists("errhandler"))
 {
-    $msg = $obj->getMessage();
-    print "$msg";
-    if (substr($msg, -1) != "\n") {
-        print "\n";
+    function errhandler($obj)
+    {
+        printf("%s\n", $obj->getMessage());
     }
 }
 
@@ -15,17 +14,33 @@ if (isset($test_error_mode)) {
     $dbh->setErrorHandling(PEAR_ERROR_DIE);
 }
 $sth = $dbh->query("SELECT a FROM phptest");
-printf("%d\n", $sth->numRows());
+if (!DB::isError($rows = $sth->numRows())) {
+    print "$rows\n";
+} else {
+    print "\n";
+}
 for ($i = 0; $i < 5; $i++) {
     $sth = $dbh->query("INSERT INTO phptest (a) VALUES($i)");
     $sth = $dbh->query("SELECT a FROM phptest");
-    printf("%d\n", $sth->numRows());
+    if (!DB::isError($rows = $sth->numRows())) {
+        print "$rows\n";
+    } else {
+        print "\n";
+    }
 }
 $dbh->query("DELETE FROM phptest WHERE a < 4");
 $sth = $dbh->query("SELECT a FROM phptest");
-printf("%d\n", $sth->numRows());
+if (!DB::isError($rows = $sth->numRows())) {
+    print "$rows\n";
+} else {
+    print "\n";
+}
 $sth = $dbh->query("SELECT a FROM phptest where a < 0");
-printf("%d\n", $sth->numRows());
+if (!DB::isError($rows = $sth->numRows())) {
+    print "$rows\n";
+} else {
+    print "\n";
+}
 $dbh->setErrorHandling(PEAR_ERROR_CALLBACK, "errhandler");
 $test = $dbh->numRows(false);
 

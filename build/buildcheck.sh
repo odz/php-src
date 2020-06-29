@@ -16,7 +16,7 @@
 #  |          Sascha Schumann <sascha@schumann.cx>                        |
 #  +----------------------------------------------------------------------+
 #
-# $Id: buildcheck.sh,v 1.3 2000/08/20 05:39:37 sas Exp $ 
+# $Id: buildcheck.sh,v 1.8.2.1 2001/05/12 09:03:58 andi Exp $ 
 #
 
 echo "buildconf: checking installation..."
@@ -58,7 +58,9 @@ echo "buildconf: automake version $am_version (ok)"
 fi
 
 # libtool 1.3.3 or newer
-lt_pversion=`libtool --version 2>/dev/null|sed -e 's/^[^0-9]*//' -e 's/[- ].*//'`
+libtool=`which libtool`
+if test ! -f "$libtool"; then libtool=`which glibtool`; fi
+lt_pversion=`$libtool --version 2>/dev/null|sed -e 's/^[^0-9]*//' -e 's/[- ].*//'`
 if test "$lt_pversion" = ""; then
 echo "buildconf: libtool not found."
 echo "           You need libtool version 1.3 or newer installed"
@@ -67,18 +69,19 @@ exit 1
 fi
 lt_version=`echo $lt_pversion|sed -e 's/\([a-z]*\)$/.\1/'`
 IFS=.; set $lt_version; IFS=' '
-if test "$1" -gt "1" || test "$2" -gt "3" || test "$2" = "3" && (test "$3" = "c" || test "$3" -ge "3")
+
+if test "$1" -gt "1" || test "$2" -gt "3" || (test "$2" = "3" && (test "$3" = "c" || test "$3" -ge "3"))
 then
 echo "buildconf: libtool version $lt_pversion (ok)"
 else
 echo "buildconf: libtool version $lt_pversion found."
-echo "           You need libtool version 1.3.3 or newer installed"
+echo "           You need libtool version 1.4 or newer installed"
 echo "           to build PHP from CVS."
 exit 1
 fi
 
 am_prefix=`which automake | sed -e 's#/[^/]*/[^/]*$##'`
-lt_prefix=`which libtool | sed -e 's#/[^/]*/[^/]*$##'`
+lt_prefix=`which $libtool | sed -e 's#/[^/]*/[^/]*$##'`
 if test "$am_prefix" != "$lt_prefix"; then
     echo "WARNING: automake and libtool are installed in different"
     echo "         directories.  This may cause aclocal to fail."

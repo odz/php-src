@@ -17,7 +17,7 @@
 // |          Vinai Kopp <kopp@netzarbeiter.de>                           |
 // +----------------------------------------------------------------------+
 //
-// $Id: Output.php,v 1.11.2.1 2001/03/23 18:36:36 chregu Exp $
+// $Id: Output.php,v 1.15.2.1 2001/05/15 15:39:45 jon Exp $
 
 require_once 'Cache.php';
 
@@ -130,7 +130,7 @@ class Cache_Output extends Cache {
     * @access   public
     */
     function start($id, $group = "default") {
-        if ($this->no_cache)
+        if (!$this->caching)
             return "";
 
         // this is already cached return it from the cache so that the user
@@ -163,7 +163,7 @@ class Cache_Output extends Cache {
         ob_end_clean();
 
         // store in the cache
-        if (!$this->no_cache)
+        if ($this->caching)
             $this->container->save($this->output_id, $content, $expire, $this->output_group, $userdata);
 
         return $content;

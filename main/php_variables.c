@@ -16,7 +16,7 @@
    |          Zeev Suraski <zeev@zend.com>                                |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_variables.c,v 1.21.2.2 2001/04/06 02:09:43 sniper Exp $ */
+/* $Id: php_variables.c,v 1.25 2001/04/06 01:50:40 sniper Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -252,7 +252,7 @@ void php_treat_data(int arg, char *str, zval* destArray ELS_DC PLS_DC SLS_DC)
 		return;
 	}
 
-	if (arg == PARSE_GET) {					/* GET data */
+	if (arg == PARSE_GET) {		/* GET data */
 		c_var = SG(request_info).query_string;
 		if (c_var && *c_var) {
 			res = (char *) estrdup(c_var);

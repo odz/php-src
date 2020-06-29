@@ -15,8 +15,8 @@
    | Authors: Rasmus Lerdorf                                              |
    +----------------------------------------------------------------------+
  */
-/* $Id: image.c,v 1.28 2001/02/26 06:07:17 andi Exp $ */
-/* 
+/* $Id: image.c,v 1.31.2.1 2001/05/16 04:51:08 sniper Exp $ */
+/*
  * Based on Daniel Schmitt's imageinfo.c which carried the following
  * Copyright notice.
  */
@@ -28,7 +28,7 @@
  *
  * Copyright (c) 1997 Daniel Schmitt, opal online publishing, Bonn, Germany.
  *
- * Includes code snippets from rdjpgcom.c, 
+ * Includes code snippets from rdjpgcom.c,
  * Copyright (c) 1994-1995 Thomas G. Lane
  * from release 6a of the Independent JPEG Group's software.
  *
@@ -50,9 +50,11 @@
 
 /* file type markers */
 PHPAPI const char php_sig_gif[3] = {'G', 'I', 'F'};
+PHPAPI const char php_sig_psd[4] = {'8', 'B', 'P', 'S'};
+PHPAPI const char php_sig_bmp[2] = {'B', 'M'};
 PHPAPI const char php_sig_swf[3] = {'F', 'W', 'S'};
 PHPAPI const char php_sig_jpg[3] = {(char) 0xff, (char) 0xd8, (char) 0xff};
-PHPAPI const char php_sig_png[8] = {(char) 0x89, (char) 0x50, (char) 0x4e, (char) 0x47, 
+PHPAPI const char php_sig_png[8] = {(char) 0x89, (char) 0x50, (char) 0x4e, (char) 0x47,
 (char) 0x0d, (char) 0x0a, (char) 0x1a, (char) 0x0a};
 
 /* return info as a struct, to make expansion easier */
@@ -84,19 +86,66 @@ static struct gfxinfo *php_handle_gif (int socketd, FILE *fp, int issock)
 	return result;
 }
 
+
+static struct gfxinfo *php_handle_psd (int socketd, FILE *fp, int issock)
+{
+	struct gfxinfo *result = NULL;
+	unsigned char a[8];
+	char temp[11];
+	unsigned long in_width, in_height;
+
+	result = (struct gfxinfo *) ecalloc(1,sizeof(struct gfxinfo));
+	FP_FREAD(temp, sizeof(temp), socketd, fp, issock);
+
+	if((FP_FREAD(a, sizeof(a), socketd, fp, issock)) <= 0) {
+		in_height = 0;
+		in_width  = 0;
+	} else {
+		in_height =  (((unsigned long) a[ 0 ]) << 24) + (((unsigned long) a[ 1 ]) << 16) + (((unsigned long) a[ 2 ]) << 8) + ((unsigned long) a[ 3 ]);
+		in_width  =  (((unsigned long) a[ 4 ]) << 24) + (((unsigned long) a[ 5 ]) << 16) + (((unsigned long) a[ 6 ]) << 8) + ((unsigned long) a[ 7 ]);
+	}
+
+	result->width  = (unsigned int) in_width;
+	result->height = (unsigned int) in_height;
+
+	return result;
+}
+
+
+static struct gfxinfo *php_handle_bmp (int socketd, FILE *fp, int issock)
+{
+	struct gfxinfo *result = NULL;
+	char temp[15];
+
+	struct {
+		unsigned long in_width, in_height;
+	} dim;
+
+	result = (struct gfxinfo *) ecalloc (1, sizeof(struct gfxinfo));
+
+	FP_FREAD(temp, sizeof(temp), socketd, fp, issock);
+	FP_FREAD((char*) &dim, sizeof(dim), socketd, fp, issock);
+	result->width = dim.in_width;
+	result->height = dim.in_height;
+
+	return result;
+}
+
+
 /* routines to handle SWF files. */
 static unsigned long int php_swf_get_bits (unsigned char* buffer, unsigned int pos, unsigned int count)
 {
 	unsigned int loop;
 	unsigned long int result = 0;
-	
+
 	for (loop = pos; loop < pos + count; loop++)
 	{
-		result = result + 
+		result = result +
 			((((buffer[loop / 8]) >> (7 - (loop % 8))) & 0x01) << (count - (loop - pos) - 1));
 	}
 	return result;
 }
+
 
 static struct gfxinfo *php_handle_swf (int socketd, FILE *fp, int issock)
 {
@@ -129,13 +178,13 @@ static struct gfxinfo *php_handle_png (int socketd, FILE *fp, int issock)
 
 	FP_FREAD(temp, sizeof(temp), socketd, fp, issock);	/* fseek(fp, 16L, SEEK_SET); */
 
-	if((FP_FREAD(a, sizeof(a), socketd, fp, issock)) <= 0) { 
+	if((FP_FREAD(a, sizeof(a), socketd, fp, issock)) <= 0) {
 		in_width  = 0;
 		in_height = 0;
 	} else {
 		in_width =  (((unsigned long) a[ 0 ]) << 24) + (((unsigned long) a[ 1 ]) << 16) + (((unsigned long) a[ 2 ]) << 8) + ((unsigned long) a[ 3 ]);
 		in_height = (((unsigned long) a[ 4 ]) << 24) + (((unsigned long) a[ 5 ]) << 16) + (((unsigned long) a[ 6 ]) << 8) + ((unsigned long) a[ 7 ]);
-	} 
+	}
 
 	result->width  = (unsigned int) in_width;
 	result->height = (unsigned int) in_height;
@@ -158,7 +207,7 @@ static struct gfxinfo *php_handle_png (int socketd, FILE *fp, int issock)
 #define M_SOF13 0xCD
 #define M_SOF14 0xCE
 #define M_SOF15 0xCF
-#define M_SOI   0xD8  
+#define M_SOI   0xD8
 #define M_EOI   0xD9			/* End Of Image (end of datastream) */
 #define M_SOS   0xDA			/* Start Of Scan (begins compressed data) */
 #define M_APP0  0xe0
@@ -193,15 +242,6 @@ static unsigned int php_next_marker(int socketd, FILE *fp, int issock)
 {
 	int c;
 
-	/* skip unimportant stuff */
-
-	c = FP_FGETC(socketd,fp,issock);
-
-	while (c != 0xff) { 
-		if ((c = FP_FGETC(socketd,fp,issock)) == EOF)
-			return M_EOI; /* we hit EOF */
-	}
-
 	/* get marker byte, swallowing possible padding */
 	do {
 		if ((c = FP_FGETC(socketd,fp,issock)) == EOF)
@@ -219,7 +259,7 @@ static void php_skip_variable(int socketd, FILE *fp, int issock)
 
 	length = php_read2(socketd,fp,issock);
 	length -= 2;				/* length includes itself */
-	
+
 	tmp = emalloc(length);
 	FP_FREAD(tmp, (long) length, socketd, fp, issock); /* skip the header */
 	efree(tmp);
@@ -235,7 +275,7 @@ static void php_read_APP(int socketd, FILE *fp, int issock,unsigned int marker,p
 	length = php_read2(socketd,fp,issock);
 	length -= 2;				/* length includes itself */
 
-    buffer = emalloc(length);
+	buffer = emalloc(length);
 
  	if (FP_FREAD(buffer, (long) length, socketd, fp, issock) <= 0) {
 		efree(buffer);
@@ -279,13 +319,13 @@ static struct gfxinfo *php_handle_jpeg (int socketd, FILE *fp, int issock, pval 
 				if (result == NULL) {
 					/* handle SOFn block */
 					result = (struct gfxinfo *) ecalloc(1,sizeof(struct gfxinfo));
-					FP_FREAD(tmp, sizeof(tmp), socketd, fp, issock); 
- 					result->bits   = FP_FGETC(socketd,fp,issock);
-				    FP_FREAD(a, sizeof(a), socketd, fp, issock);
+					FP_FREAD(tmp, sizeof(tmp), socketd, fp, issock);
+					result->bits   = FP_FGETC(socketd,fp,issock);
+					FP_FREAD(a, sizeof(a), socketd, fp, issock);
 					result->height = (((unsigned short) a[ 0 ]) << 8) + ((unsigned short) a[ 1 ]);
 					result->width  = (((unsigned short) a[ 2 ]) << 8) + ((unsigned short) a[ 3 ]);
 					result->channels = FP_FGETC(socketd,fp,issock);
- 
+
 					if (! info) /* if we don't want an extanded info -> return */
 						return result;
 				} else {
@@ -309,10 +349,10 @@ static struct gfxinfo *php_handle_jpeg (int socketd, FILE *fp, int issock, pval 
 			case M_APP13:
 			case M_APP14:
 			case M_APP15:
-				if (info) {	
+				if (info) {
 					php_read_APP(socketd,fp,issock,marker,info); /* read all the app markes... */
 				} else {
-				    php_skip_variable(socketd,fp,issock);
+					php_skip_variable(socketd,fp,issock);
 				}
 				break;
 
@@ -343,8 +383,9 @@ PHP_FUNCTION(getimagesize)
 	char filetype[8];
 	char temp[64];
 	struct gfxinfo *result = NULL;
-	
-	switch(ZEND_NUM_ARGS()){
+
+	switch(ZEND_NUM_ARGS()) {
+
 	case 1:
 		if (zend_get_parameters_ex(1, &arg1) == FAILURE) {
 			WRONG_PARAM_COUNT;
@@ -357,9 +398,9 @@ PHP_FUNCTION(getimagesize)
 			WRONG_PARAM_COUNT;
 		}
 		if (!ParameterPassedByReference(ht, 2)) {
-            php_error(E_WARNING, "Array to be filled with values must be passed by reference.");
-            RETURN_FALSE;
-        }
+			php_error(E_WARNING, "Array to be filled with values must be passed by reference.");
+			RETURN_FALSE;
+		}
 
 		zval_dtor(*info);
 
@@ -374,8 +415,8 @@ PHP_FUNCTION(getimagesize)
 		WRONG_PARAM_COUNT;
 		break;
 	}
-		
-	fp = php_fopen_wrapper(Z_STRVAL_PP(arg1), "rb", IGNORE_PATH|ENFORCE_SAFE_MODE, &issock, &socketd, NULL);   
+
+	fp = php_fopen_wrapper(Z_STRVAL_PP(arg1), "rb", IGNORE_PATH|ENFORCE_SAFE_MODE, &issock, &socketd, NULL);
 
 	if (!fp && !socketd) {
 		if (issock != BAD_URL) {
@@ -421,6 +462,12 @@ PHP_FUNCTION(getimagesize)
 	} else if (!memcmp(filetype, php_sig_swf, 3)) {
 		result = php_handle_swf(socketd, fp, issock);
 		itype = 4;
+	} else if (!memcmp(filetype, php_sig_psd, 3)) {
+		result = php_handle_psd(socketd, fp, issock);
+		itype = 5;
+	} else if (!memcmp(filetype, php_sig_bmp, 2)) {
+		result = php_handle_bmp(socketd, fp, issock);
+		itype = 6;
 	}
 
 	zend_list_delete(rsrc_id);
@@ -442,7 +489,7 @@ PHP_FUNCTION(getimagesize)
 		}
 		if (result->channels != 0) {
 			add_assoc_long(return_value,"channels",result->channels);
-		} 
+		}
 		efree(result);
 	}
 }

@@ -24,13 +24,12 @@ static void _php_image_output_ctx(INTERNAL_FUNCTION_PARAMETERS, int image_type, 
 	char *fn = NULL;
 	FILE *fp = NULL;
 	int argc = ZEND_NUM_ARGS();
-	int q = -1;
+	int q = -1, i;
 	gdIOCtx *ctx;
 	GDLS_FETCH();
 
-	/* The quality parameter for Wbmp stands for the threshold
-	   So the q variable */
-
+	/* The quality parameter for Wbmp stands for the threshold when called from image2wbmp() */
+	
 	if (argc < 1 || argc > 3 || zend_get_parameters_ex(argc, &imgind, &file, &quality) == FAILURE) 
 	{
 		WRONG_PARAM_COUNT;
@@ -53,7 +52,7 @@ static void _php_image_output_ctx(INTERNAL_FUNCTION_PARAMETERS, int image_type, 
 			RETURN_FALSE;
 		}
 
-		fp = V_FOPEN(fn, "wb");
+		fp = VCWD_FOPEN(fn, "wb");
 		if (!fp) {
 			php_error(E_WARNING, "%s: unable to open '%s' for writing", get_active_function_name(), fn);
 			RETURN_FALSE;
@@ -75,14 +74,19 @@ static void _php_image_output_ctx(INTERNAL_FUNCTION_PARAMETERS, int image_type, 
 	}
 
 	switch(image_type) {
+		case PHP_GDIMG_CONVERT_WBM:
+			if(q<0||q>255) {
+				php_error(E_WARNING, "%s: invalid threshold value '%d'. It must be between 0 and 255",get_active_function_name(), q);
+			}
 		case PHP_GDIMG_TYPE_JPG:
 			(*func_p)(im, ctx, q);
 			break;
 		case PHP_GDIMG_TYPE_WBM:
-			if(q<0||q>255) {
-				php_error(E_WARNING, "%s: invalid threshold value '%d'. It must be between 0 and 255",get_active_function_name(), q);
-			}
-				/* break missing intentionally */
+			for(i=0; i < gdImageColorsTotal(im); i++) {
+				if(gdImageRed(im, i) == 0) break;
+			} 
+			(*func_p)(im, i, ctx);
+			break;
 		default:
 			(*func_p)(im, ctx);
 			break;

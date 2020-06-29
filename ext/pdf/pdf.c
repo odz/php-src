@@ -17,13 +17,17 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: pdf.c,v 1.77 2001/03/10 02:21:38 hirokawa Exp $ */
+/* $Id: pdf.c,v 1.79.2.1 2001/05/24 12:42:02 ssb Exp $ */
 /* Id: pdf.c,v 1.73 2001/02/26 06:07:11 andi Exp  */
 
 /* pdflib 2.02 ... 3.0x is subject to the ALADDIN FREE PUBLIC LICENSE.
    Copyright (C) 1997-1999 Thomas Merz. 2000-2001 PDFlib GmbH */
 /* Note that there is no code from the pdflib package in this file */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+ 
 #include "php.h"
 #include "php_ini.h"
 #include "php_globals.h"
@@ -171,6 +175,8 @@ function_entry pdf_functions[] = {
 	PHP_FE(pdf_add_annotation, NULL)
 #if HAVE_LIBGD13
 	PHP_FE(pdf_open_memory_image, NULL)
+#else
+	PHP_FALIAS(pdf_open_memory_image, warn_not_available, NULL)
 #endif
 	/* depreciatet after V4.0 of PDFlib */
 	PHP_FE(pdf_setgray_fill, NULL)
@@ -185,6 +191,7 @@ function_entry pdf_functions[] = {
 	PHP_FE(pdf_open_pdi, NULL)
 	PHP_FE(pdf_close_pdi, NULL)
 	PHP_FE(pdf_open_pdi_page, NULL)
+	PHP_FE(pdf_place_pdi_page, NULL)
 	PHP_FE(pdf_close_pdi_page, NULL)
 	PHP_FE(pdf_get_pdi_parameter, NULL)
 	PHP_FE(pdf_get_pdi_value, NULL)
@@ -198,6 +205,24 @@ function_entry pdf_functions[] = {
 	PHP_FE(pdf_add_thumbnail, NULL)
 	PHP_FE(pdf_initgraphics, NULL)
 	PHP_FE(pdf_setmatrix, NULL)
+#else
+	PHP_FALIAS(pdf_open_pdi, warn_not_available, NULL)
+	PHP_FALIAS(pdf_close_pdi, warn_not_available, NULL)
+	PHP_FALIAS(pdf_open_pdi_page, warn_not_available, NULL)
+	PHP_FALIAS(pdf_place_pdi_page, warn_not_available, NULL)
+	PHP_FALIAS(pdf_close_pdi_page, warn_not_available, NULL)
+	PHP_FALIAS(pdf_get_pdi_parameter, warn_not_available, NULL)
+	PHP_FALIAS(pdf_get_pdi_value, warn_not_available, NULL)
+	PHP_FALIAS(pdf_begin_pattern, warn_not_available, NULL)
+	PHP_FALIAS(pdf_end_pattern, warn_not_available, NULL)
+	PHP_FALIAS(pdf_begin_template, warn_not_available, NULL)
+	PHP_FALIAS(pdf_end_template, warn_not_available, NULL)
+	PHP_FALIAS(pdf_setcolor, warn_not_available, NULL)
+	PHP_FALIAS(pdf_makespotcolor, warn_not_available, NULL)
+	PHP_FALIAS(pdf_arcn, warn_not_available, NULL)
+	PHP_FALIAS(pdf_add_thumbnail, warn_not_available, NULL)
+	PHP_FALIAS(pdf_initgraphics, warn_not_available, NULL)
+	PHP_FALIAS(pdf_setmatrix, warn_not_available, NULL)
 #endif /* PDFlib >= V4 */
 
 	{NULL, NULL, NULL}
@@ -293,7 +318,7 @@ PHP_MINFO_FUNCTION(pdf)
 #else
 	php_info_print_table_row(2, "PDFlib GmbH Version", tmp );
 #endif
-	php_info_print_table_row(2, "Revision", "$Revision: 1.77 $" );
+	php_info_print_table_row(2, "Revision", "$Revision: 1.79.2.1 $" );
 	php_info_print_table_end();
 
 }
@@ -2684,24 +2709,50 @@ PHP_FUNCTION(pdf_open_pdi_page) {
 	RETURN_LONG(pdi_image+PDFLIB_IMAGE_OFFSET);
 }
 
-/* {{{ proto void pdf_close_pdi_page(int pdf, int doc, int page);
- * Close the page handle, and free all page-related resources. */
-PHP_FUNCTION(pdf_close_pdi_page) {
-	zval **arg1, **arg2, **arg3;
+/* {{{ proto void pdf_place_pdi_page(int pdf, int page, double x, double y, double sx, double sy)
+ * Place a PDF page with the lower left corner at (x, y), and scale it. */
+PHP_FUNCTION(pdf_place_pdi_page) {
+	zval **arg1, **arg2, **arg3, **arg4, **arg5, **arg6;
 	PDF *pdf;
 
-	if (ZEND_NUM_ARGS() != 3 || zend_get_parameters_ex(3, &arg1, &arg2, &arg3) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 6 || zend_get_parameters_ex(6, &arg1, &arg2, &arg3, &arg4, &arg5, &arg6) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
 	ZEND_FETCH_RESOURCE(pdf, PDF *, arg1, -1, "pdf object", le_pdf);
 
 	convert_to_long_ex(arg2);
-	convert_to_long_ex(arg3);
+	convert_to_double_ex(arg3);
+	convert_to_double_ex(arg4);
+	convert_to_double_ex(arg5);
+	convert_to_double_ex(arg6);
+
+	PDF_place_pdi_page(pdf,
+		Z_LVAL_PP(arg2)-PDFLIB_IMAGE_OFFSET,
+		(float) Z_DVAL_PP(arg3),
+		(float) Z_DVAL_PP(arg4),
+		(float) Z_DVAL_PP(arg5),
+		(float) Z_DVAL_PP(arg6));
+
+	RETURN_TRUE;
+}
+
+/* {{{ proto void pdf_close_pdi_page(int pdf, int page);
+ * Close the page handle, and free all page-related resources. */
+PHP_FUNCTION(pdf_close_pdi_page) {
+	zval **arg1, **arg2;
+	PDF *pdf;
+
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	ZEND_FETCH_RESOURCE(pdf, PDF *, arg1, -1, "pdf object", le_pdf);
+
+	convert_to_long_ex(arg2);
 
 	PDF_close_pdi_page(pdf,
-		Z_LVAL_PP(arg2)-PDFLIB_PDI_OFFSET,
-		Z_LVAL_PP(arg3)-PDFLIB_IMAGE_OFFSET);
+		Z_LVAL_PP(arg2)-PDFLIB_IMAGE_OFFSET);
 
 	RETURN_TRUE;
 }
@@ -2854,7 +2905,7 @@ PHP_FUNCTION(pdf_end_template) {
 PHP_FUNCTION(pdf_setcolor) {
 	zval **arg1, **arg2, **arg3, **arg4, **arg5, **arg6, **arg7;
 	PDF *pdf;
-	int c1;
+	double c1;
 
 	if (ZEND_NUM_ARGS() != 7 || zend_get_parameters_ex(7, &arg1, &arg2, &arg3, &arg4, &arg5, &arg6, &arg7) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -2870,11 +2921,11 @@ PHP_FUNCTION(pdf_setcolor) {
 	convert_to_double_ex(arg7);
 
 	if (0 == (strcmp(Z_STRVAL_PP(arg3), "spot"))) {
-	    c1 = (int) Z_DVAL_PP(arg4)-PDFLIB_SPOT_OFFSET;
+	    c1 = Z_DVAL_PP(arg4)-PDFLIB_SPOT_OFFSET;
 	} else if(0 == (strcmp(Z_STRVAL_PP(arg3), "pattern"))) {
-	    c1 = (int) Z_DVAL_PP(arg4)-PDFLIB_PATTERN_OFFSET;
+	    c1 = Z_DVAL_PP(arg4)-PDFLIB_PATTERN_OFFSET;
 	} else {
-	    c1 = (float) Z_DVAL_PP(arg4);
+	    c1 = Z_DVAL_PP(arg4);
 	}
 
 	PDF_setcolor(pdf,

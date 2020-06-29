@@ -15,7 +15,7 @@
    | Author: Hartmut Holzgraefe <hartmut@six.de>                          |
    +----------------------------------------------------------------------+
  */
-/* $Id: url_scanner.c,v 1.29.2.1 2001/04/06 02:09:43 sniper Exp $ */
+/* $Id: url_scanner.c,v 1.30 2001/04/04 20:46:26 sniper Exp $ */
 
 #include "php.h"
 

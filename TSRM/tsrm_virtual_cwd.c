@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_virtual_cwd.c,v 1.13 2001/01/21 17:35:31 andi Exp $ */
+/* $Id: tsrm_virtual_cwd.c,v 1.19 2001/05/05 16:05:19 zeev Exp $ */
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -33,6 +33,7 @@
 
 #ifdef TSRM_WIN32
 #include <io.h>
+#include "tsrm_win32.h"
 #endif
 
 #define VIRTUAL_CWD_DEBUG 0
@@ -313,7 +314,10 @@ CWD_API int virtual_file_ex(cwd_state *state, const char *path, verify_path_func
 		copy_amount = COPY_WHEN_ABSOLUTE;
 		is_absolute = 1;
 #ifdef TSRM_WIN32
-	} else if(IS_SLASH(path_copy[0])) {
+	} else if (IS_UNC_PATH(path_copy, path_length)) {
+		copy_amount = 1;
+		is_absolute = 1;
+	} else if (IS_SLASH(path_copy[0])) {
 		copy_amount = 2;
 #endif
 	}
@@ -360,9 +364,16 @@ CWD_API int virtual_file_ex(cwd_state *state, const char *path, verify_path_func
 			}
 		} else if (!IS_DIRECTORY_CURRENT(ptr, ptr_length)) {
 			state->cwd = (char *) realloc(state->cwd, state->cwd_length+ptr_length+1+1);
-			state->cwd[state->cwd_length] = DEFAULT_SLASH;
-			memcpy(&state->cwd[state->cwd_length+1], ptr, ptr_length+1);
-			state->cwd_length += (ptr_length+1);
+#ifdef TSRM_WIN32
+			/* Windows 9x will consider C:\\Foo as a network path. Avoid it. */
+			if (state->cwd[state->cwd_length-1]!=DEFAULT_SLASH) {
+				state->cwd[state->cwd_length++] = DEFAULT_SLASH;
+			}
+#else
+			state->cwd[state->cwd_length++] = DEFAULT_SLASH;
+#endif
+			memcpy(&state->cwd[state->cwd_length], ptr, ptr_length+1);
+			state->cwd_length += ptr_length;
 		}
 		ptr = tsrm_strtok_r(NULL, TOKENIZER_STRING, &tok);
 	}
@@ -735,11 +746,8 @@ CWD_API FILE *virtual_popen(const char *command, const char *type)
 	*ptr++ = ' ';
 
 	memcpy(ptr, command, command_length+1);
-#ifdef TSRM_WIN32
-	retval = _popen(command_line, type);
-#else
 	retval = popen(command_line, type);
-#endif
+
 	free(command_line);
 	return retval;
 }
@@ -766,7 +774,7 @@ CWD_API FILE *virtual_popen(const char *command, const char *type)
 #endif
 
 	chdir(CWDG(cwd).cwd);
-	retval = _popen(command, type);
+	retval = popen(command, type);
 	chdir(prev_cwd);
 
 #ifdef ZTS
