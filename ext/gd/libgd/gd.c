@@ -1290,7 +1290,9 @@ void gdImageAALine (gdImagePtr im, int x1, int y1, int x2, int y2, int col)
 		inc = (dy * 65536) / dx;
 		while ((x >> 16) < x2) {
 			gdImageSetAAPixelColor(im, x >> 16, y >> 16, col, (y >> 8) & 0xFF);
-			gdImageSetAAPixelColor(im, x >> 16, (y >> 16) + 1,col, (~y >> 8) & 0xFF);
+			if ((y >> 16) + 1 < im->sy) {
+				gdImageSetAAPixelColor(im, x >> 16, (y >> 16) + 1,col, (~y >> 8) & 0xFF);
+			}
 			x += (1 << 16);
 			y += inc;
 		}
@@ -1310,7 +1312,9 @@ void gdImageAALine (gdImagePtr im, int x1, int y1, int x2, int y2, int col)
 		inc = (dx * 65536) / dy;
 		while ((y>>16) < y2) {
 			gdImageSetAAPixelColor(im, x >> 16, y >> 16, col, (x >> 8) & 0xFF);
-			gdImageSetAAPixelColor(im, (x >> 16) + 1, (y >> 16),col, (~x >> 8) & 0xFF);
+			if ((x >> 16) + 1 < im->sx) {
+				gdImageSetAAPixelColor(im, (x >> 16) + 1, (y >> 16),col, (~x >> 8) & 0xFF);
+			}
 			x += inc;
 			y += (1<<16);
 		}
@@ -1603,9 +1607,14 @@ void gdImageFilledArc (gdImagePtr im, int cx, int cy, int w, int h, int s, int e
 	int lx = 0, ly = 0;
 	int fx = 0, fy = 0;
 
+	while (s<0) {
+		s += 360;
+	}
+
 	while (e < s) {
 		e += 360;
 	}
+
 	for (i = s; i <= e; i++) {
 		int x, y;
 		x = ((long) gdCosT[i % 360] * (long) w / (2 * 1024)) + cx;
@@ -1823,7 +1832,7 @@ void gdImageFillToBorder (gdImagePtr im, int x, int y, int border, int color)
 	if (y < ((im->sy) - 1)) {
 		lastBorder = 1;
 		for (i = leftLimit; i <= rightLimit; i++) {
-			int c = gdImageGetTrueColorPixel(im, i, y + 1);
+			int c = gdImageGetPixel(im, i, y + 1);
 
 			if (lastBorder) {
 				if ((c != border) && (c != color)) {
@@ -1871,7 +1880,7 @@ void gdImageFill(gdImagePtr im, int x, int y, int nc)
 	int oc;   /* old pixel value */
 	int wx2,wy2;
 	/* stack of filled segments */
-	//struct seg stack[FILL_MAX],*sp = stack;;
+	/* struct seg stack[FILL_MAX],*sp = stack;; */
 	struct seg *stack;
 	struct seg *sp;
 

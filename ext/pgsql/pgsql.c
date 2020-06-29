@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: pgsql.c,v 1.244.2.34 2004/03/18 01:35:50 iliaa Exp $ */
+/* $Id: pgsql.c,v 1.244.2.36 2004/05/12 16:49:56 iliaa Exp $ */
 
 #include <stdlib.h>
 
@@ -222,7 +222,7 @@ static char * _php_pgsql_trim_message(const char *message, int *len)
 	if (i>1 && (message[i-1] == '\r' || message[i-1] == '\n') && message[i] == '.') {
 		--i;
 	}
-	while (i && (message[i] == '\r' || message[i] == '\n')) {
+	while (i>0 && (message[i] == '\r' || message[i] == '\n')) {
 		--i;
 	}
 	++i;
@@ -2515,8 +2515,8 @@ PHP_FUNCTION(pg_copy_to)
 	ZEND_FETCH_RESOURCE2(pgsql, PGconn *, &pgsql_link, id, "PostgreSQL link", le_link, le_plink);
 
 	query = (char *)emalloc(strlen(query_template) + strlen(table_name) + strlen(pg_null_as) + 1);
-	sprintf(query, "COPY \"%s\" TO STDOUT DELIMITERS '%s' WITH NULL AS '%s'",
-			table_name,	pg_delim, pg_null_as);
+	sprintf(query, "COPY \"%s\" TO STDOUT DELIMITERS '%c' WITH NULL AS '%s'",
+			table_name, *pg_delim, pg_null_as);
 
 	while ((pgsql_result = PQgetResult(pgsql))) {
 		PQclear(pgsql_result);
@@ -2625,8 +2625,8 @@ PHP_FUNCTION(pg_copy_from)
 	ZEND_FETCH_RESOURCE2(pgsql, PGconn *, &pgsql_link, id, "PostgreSQL link", le_link, le_plink);
 
 	query = (char *)emalloc(strlen(query_template) + strlen(table_name) + strlen(pg_null_as) + 1);
-	sprintf(query, "COPY \"%s\" FROM STDIN DELIMITERS '%s' WITH NULL AS '%s'",
-			table_name, pg_delim, pg_null_as);
+	sprintf(query, "COPY \"%s\" FROM STDIN DELIMITERS '%c' WITH NULL AS '%s'",
+			table_name, *pg_delim, pg_null_as);
 	while ((pgsql_result = PQgetResult(pgsql))) {
 		PQclear(pgsql_result);
 	}

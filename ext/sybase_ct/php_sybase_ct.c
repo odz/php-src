@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_sybase_ct.c,v 1.73.2.11 2004/02/15 10:55:55 thekid Exp $ */
+/* $Id: php_sybase_ct.c,v 1.73.2.16 2004/05/21 21:00:19 edink Exp $ */
 
 
 #ifdef HAVE_CONFIG_H
@@ -427,7 +427,7 @@ PHP_RINIT_FUNCTION(sybase)
 {
 	SybCtG(default_link)=-1;
 	SybCtG(num_links) = SybCtG(num_persistent);
-	SybCtG(appname) = estrndup("PHP 4.0", 7);
+	SybCtG(appname) = estrndup("PHP " PHP_VERSION, sizeof("PHP " PHP_VERSION));
 	SybCtG(server_message) = empty_string;
 	return SUCCESS;
 }
@@ -1089,6 +1089,7 @@ static int php_sybase_fetch_result_row (sybase_result *result, int numrows)
 {
 	int i, j;
 	CS_INT retcode;
+	TSRMLS_FETCH();
 	
 	/* We've already fetched everything */
 	if (result->last_retcode == CS_END_DATA || result->last_retcode == CS_END_RESULTS) {
@@ -1127,14 +1128,13 @@ static int php_sybase_fetch_result_row (sybase_result *result, int numrows)
 						convert_to_long(&result->data[i][j]);
 						break;
 					case 2:
-						/* We also get numbers that are actually integers here due to the check on 
-						 * precision against > 9 (ranges are -1E10 to -1E9 and 1E9 to 1E10). As we
-						 * cannot be sure that they "fit" into MIN_LONG <= x <= MAX_LONG, we call
-						 * convert_to_double() on them. This is a small performance penalty, but 
-						 * ensures that "select 2147483648" will be a float and "select 2147483647"
-						 * will be become an int.
-						 */
 						convert_to_double(&result->data[i][j]);
+						break;
+					case 3:
+						/* This signals we have an integer datatype, but we need to convert to double if we 
+						 * overflow. 
+						 */
+						convert_scalar_to_number(&result->data[i][j] TSRMLS_CC);
 						break;
 				}
 			}
@@ -1243,7 +1243,7 @@ static sybase_result * php_sybase_fetch_result_set (sybase_link *sybase_ptr, int
 			case CS_DECIMAL_TYPE:
 				result->datafmt[i].maxlength = result->datafmt[i].precision + 3;
 				/* numeric(10) vs numeric(10, 1) */
-				result->numerics[i] = (result->datafmt[i].scale == 0 && result->datafmt[i].precision <= 9) ? 1 : 2;
+				result->numerics[i] = (result->datafmt[i].scale == 0) ? 3 : 2;
 				break;
 			default:
 				result->datafmt[i].maxlength++;
@@ -1596,7 +1596,7 @@ PHP_FUNCTION(sybase_free_result)
 	ZEND_FETCH_RESOURCE(result, sybase_result *, sybase_result_index, -1, "Sybase result", le_result);
 	
 	/* Did we fetch up until the end? */
-	if (result->last_retcode != CS_END_DATA) {
+	if (result->last_retcode != CS_END_DATA && result->last_retcode != CS_END_RESULTS) {
 		/* php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase:  Cancelling the rest of the results\n"); */
 		ct_cancel(NULL, result->sybase_ptr->cmd, CS_CANCEL_ALL);
 		php_sybase_finish_results(result);

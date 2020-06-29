@@ -16,7 +16,7 @@
    |          Jani Taskinen <sniper@php.net>                              |
    +----------------------------------------------------------------------+
  */
-/* $Id: rfc1867.c,v 1.122.2.17 2004/02/12 18:36:57 sesser Exp $ */
+/* $Id: rfc1867.c,v 1.122.2.21 2004/05/23 10:15:24 sesser Exp $ */
 
 /*
  *  This product includes software developed by the Apache Group
@@ -147,7 +147,7 @@ static void normalize_protected_variable(char *varname TSRMLS_DC)
 	
 	/* and remove it */
 	if (s != varname) {
-		memcpy(varname, s, strlen(s)+1);
+		memmove(varname, s, strlen(s)+1);
 	}
 
 	for (p=varname; *p && *p != '['; p++) {
@@ -178,7 +178,7 @@ static void normalize_protected_variable(char *varname TSRMLS_DC)
 		indexend = indexend ? indexend + 1 : index + strlen(index);
 		
 		if (s != index) {
-			memcpy(s, index, strlen(s)+1);
+			memmove(s, index, strlen(index)+1);
 			s += indexend-index;
 		} else {
 			s = indexend;
@@ -830,7 +830,7 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 	while (!multipart_buffer_eof(mbuff TSRMLS_CC))
 	{
 		char buff[FILLUNIT];
-		char *cd=NULL,*param=NULL,*filename=NULL;
+		char *cd=NULL,*param=NULL,*filename=NULL, *tmp=NULL;
 		int blen=0, wlen=0;
 
 		zend_llist_clean(&header);
@@ -1031,12 +1031,21 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 					php_mb_gpc_encoding_converter(&filename, &str_len, 1, NULL, NULL TSRMLS_CC);
 				}
 				s = php_mb_strrchr(filename, '\\' TSRMLS_CC);
+				if ((tmp = php_mb_strrchr(filename, '/' TSRMLS_CC)) > s) {
+					s = tmp;
+				}
 				num_vars--;
 			} else {
 				s = strrchr(filename, '\\');
+				if ((tmp = strrchr(filename, '/')) > s) {
+					s = tmp;
+				}
 			}
 #else
 			s = strrchr(filename, '\\');
+			if ((tmp = strrchr(filename, '/')) > s) {
+				s = tmp;
+			}
 #endif
 			if (s && s > filename) {
 				safe_php_register_variable(lbuf, s+1, NULL, 0 TSRMLS_CC);

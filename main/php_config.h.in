@@ -2293,6 +2293,9 @@
 /* whether atof() accepts INF */
 #undef HAVE_ATOF_ACCEPTS_INF
 
+/* whether HUGE_VAL == INF */
+#undef HAVE_HUGE_VAL_INF
+
 /* whether HUGE_VAL + -HUGEVAL == NAN */
 #undef HAVE_HUGE_VAL_NAN
 

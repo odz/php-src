@@ -1,5 +1,61 @@
 PHP 4                                                                      NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+03 Jun 2004, Version 4.3.7
+- Upgraded bundled GD library to 2.0.23. (Ilia)
+- Changed user error handler mechanism to relay to built-in error handler if it
+  returns false. (Andrei)
+- Fixed command line escaping routines for win32. (Ilia)
+- Fixed problems with *printf() functions and '%f' formatting. (Marcus)
+- Fixed possible crash inside pg_copy_(to|from) function if delimiter is more
+  then 1 character long. (Ilia)
+- Fixed crash inside cpdf_place_inline_image() when working with truecolor
+  images. (Ilia)
+- Fixed handling of return values from storred procedures in mssql_execute()
+  with multiple result sets returned. (Frank)
+- Fixed logic bug in session_register() which allowed registering _SESSION
+  and/or HTTP_SESSION_VARS. (Sara)
+- Fixed bug #28597 (xmlrpc_encode_request() incorrectly encodes chars in
+  200-210 range). (fernando dot nemec at folha dot com dot br, Ilia)
+- Fixed bug #28569 (informix connection id is not thread safe).
+  (novicky at aarongroup dot cz, Ard)
+- Fixed bug #28564 (Problem building informix as a shared extension). 
+  (roques at mti dot ag, Ilia)
+- Fixed bug #28508 (Do not make hypot() available if not supported by libc).
+  (Ilia)
+- Fixed bug #28506 (Allow negative start angle in imagearc and imagefilledarc.
+  (Pierre)
+- Fixed bug #28456 (Problem with enclosed / in uploaded files). (Antony)
+- Fixed bug #28386 (wordwrap() wraps lines 1 character too soon). (Ilia)
+- Fixed bug #28374 (Possible unterminated loop inside 
+  _php_pgsql_trim_message()). (Ilia)
+- Fixed bug #28355 (glob() does not return error on Linux when it does not
+  have permission to open the directory). (Ilia)
+- Fixed bug #28289 (incorrect resolving of relative paths by glob() in
+  windows). (Ilia)
+- Fixed bug #28229 (run-tests tripped up by spaces in names). (Marcus)
+- Fixed bug #28228 (number_format() does not allow empty decimal separator).
+  (Ilia)
+- Fixed bug #28196 (missing error constants in cURL extension). (Ilia)
+- Fixed bug #28187 (parse_url() not handling embedded IPv6 in URLs). (Sara)
+- Fixed bug #28175 (build problem for people using FreeType 2.1.0-2.1.2).
+  (Ilia)
+- Fixed bug #28147 (Crash with drawing anti-aliased lines). (Derick)
+- Fixed bug #28122 (dba_open db3: Permission denied). (Marcus)
+- Fixed bug #28112 (sqlite_query() crashing apache on malformed query). (Ilia,
+  Marcus)
+- Fixed bug #28055 (timeout duration too long in feof()/pfsockopen() liveness
+  checks). (Wez)
+- Fixed bug #28087 (Do not force mysql.trace_mode to 0 on every request).
+  (Ilia)
+- Fixed bug #28042 (greek letters in html to entitity mapping not correct).
+  (Derick)
+- Fixed bug #28007 (compile mssql extension with old versions of FreeTDS
+  fails). (Frank)
+- Fixed bug #27995 (imagefilltoborder() stops the fill process prematurely).
+  (Ilia)
+- Fixed bug #27810 (don't use php's pemalloc in ext/pcre). (Joe Orton)
+- Fixed bug #23220 (SSL: fatal protocol error when talking to IIS). (Wez)
+
 15 Apr 2004, Version 4.3.6
 - Updated bundled PDFLib library to version 5.0.3p1 in Windows distribution.
   (Edin)

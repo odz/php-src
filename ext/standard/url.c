@@ -15,7 +15,7 @@
    | Author: Jim Winstead <jimw@php.net>                                  |
    +----------------------------------------------------------------------+
  */
-/* $Id: url.c,v 1.58.2.12 2003/12/04 00:14:50 iliaa Exp $ */
+/* $Id: url.c,v 1.58.2.15 2004/05/28 11:33:42 sesser Exp $ */
 
 #include <stdlib.h>
 #include <string.h>
@@ -86,7 +86,7 @@ PHPAPI char *php_replace_controlchars(char *str)
 PHPAPI php_url *php_url_parse(char *str)
 {
 	int length = strlen(str);
-	char port_buf[5];
+	char port_buf[6];
 	php_url *ret = ecalloc(1, sizeof(php_url));
 	char *s, *e, *p, *pp, *ue;
 		
@@ -194,7 +194,18 @@ PHPAPI php_url *php_url_parse(char *str)
 	}
 	
 	/* check for port */
-	if ((p = memchr(s, ':', (e-s)))) {
+	if (*s == '[' && *(e-1) == ']') {
+		/* Short circuit portscan
+		   we're dealing with an
+		   IPv6 embedded address */
+		p = s;
+	} else {
+		/* memchr is a GNU specific extension
+		   Emulate for wide compatability */
+		for(p = e; *p != ':' && p >= s; p--);
+	}
+
+	if (p >= s && *p == ':') {
 		if (!ret->port) {
 			p++;
 			if (e-p > 5) { /* port cannot be longer then 5 characters */
@@ -213,7 +224,7 @@ PHPAPI php_url *php_url_parse(char *str)
 	} else {
 		p = e;
 	}
-	
+
 	/* check if we have a valid host, if we don't reject the string as url */
 	if ((p-s) < 1) {
 		STR_FREE(ret->scheme);

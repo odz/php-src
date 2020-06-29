@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: gd.c,v 1.221.2.40 2004/04/07 22:31:29 edink Exp $ */
+/* $Id: gd.c,v 1.221.2.42 2004/05/20 23:38:05 iliaa Exp $ */
 
 /* gd 1.2 is copyright 1994, 1995, Quest Protein Database Center, 
    Cold Spring Harbor Labs. */
@@ -390,7 +390,7 @@ PHP_RSHUTDOWN_FUNCTION(gd)
 /* }}} */
 
 #if HAVE_GD_BUNDLED
-#define PHP_GD_VERSION_STRING "bundled (2.0.22 compatible)"
+#define PHP_GD_VERSION_STRING "bundled (2.0.23 compatible)"
 #elif HAVE_LIBGD20
 #define PHP_GD_VERSION_STRING "2.0 or higher"
 #elif HAVE_GDIMAGECOLORRESOLVE
@@ -648,6 +648,7 @@ PHP_FUNCTION(imageloadfont)
 	if (body_size != body_size_check) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Error reading font");
 		efree(font);
+		php_stream_close(stream);
 		RETURN_FALSE;
 	}
 

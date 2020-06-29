@@ -159,6 +159,7 @@ $ini_overwrites = array(
 		'auto_prepend_file=',
 		'auto_append_file=',
 		'magic_quotes_runtime=0',
+		'session.auto_start=0'
 	);
 $info_params = array();
 settings2array($ini_overwrites,$info_params);
@@ -680,7 +681,7 @@ TEST $file
 		putenv("CONTENT_TYPE=application/x-www-form-urlencoded");
 		putenv("CONTENT_LENGTH=$content_length");
 
-		$cmd = "$php$ini_settings -f $tmp_file 2>&1 < $tmp_post";
+		$cmd = "$php$ini_settings -f \"$tmp_file\" 2>&1 < $tmp_post";
 
 	} else {
 
@@ -688,7 +689,7 @@ TEST $file
 		putenv("CONTENT_TYPE=");
 		putenv("CONTENT_LENGTH=");
 
-		$cmd = "$php$ini_settings -f $tmp_file$args 2>&1";
+		$cmd = "$php$ini_settings -f \"$tmp_file\" $args 2>&1";
 	}
 
 	if (DETAILED) echo "

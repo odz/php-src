@@ -237,6 +237,8 @@ ZEND_API int zend_get_constant(char *name, uint name_len, zval *result TSRMLS_DC
 	if (retval) {
 		*result = c->value;
 		zval_copy_ctor(result);
+		result->is_ref = 0;
+		result->refcount = 1;
 	}
 
 	return retval;
@@ -245,30 +247,34 @@ ZEND_API int zend_get_constant(char *name, uint name_len, zval *result TSRMLS_DC
 
 ZEND_API int zend_register_constant(zend_constant *c TSRMLS_DC)
 {
-	char *lowercase_name;
+	char *lowercase_name = NULL;
+	char *name;
 	int ret = SUCCESS;
 
 #if 0
 	printf("Registering constant for module %d\n", c->module_number);
 #endif
 
-	lowercase_name = do_alloca(c->name_len);
-
-	memcpy(lowercase_name, c->name, c->name_len);
-
 	if (!(c->flags & CONST_CS)) {
+		lowercase_name = do_alloca(c->name_len);
+		memcpy(lowercase_name, c->name, c->name_len);
 		zend_str_tolower(lowercase_name, c->name_len);
-	}	
+		name = lowercase_name;
+	} else {
+		name = c->name;
+	}
 
-	if (zend_hash_add(EG(zend_constants), lowercase_name, c->name_len, (void *) c, sizeof(zend_constant), NULL)==FAILURE) {
+	if (zend_hash_add(EG(zend_constants), name, c->name_len, (void *) c, sizeof(zend_constant), NULL)==FAILURE) {
 		free(c->name);
 		if (!(c->flags & CONST_PERSISTENT)) {
 			zval_dtor(&c->value);
 		}
-		zend_error(E_NOTICE,"Constant %s already defined", lowercase_name);
+		zend_error(E_NOTICE,"Constant %s already defined", name);
 		ret = FAILURE;
 	}
-	free_alloca(lowercase_name);
+	if (lowercase_name) {
+		free_alloca(lowercase_name);
+	}
 	return ret;
 }
 

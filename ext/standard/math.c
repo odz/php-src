@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: math.c,v 1.97.2.9 2004/03/26 20:01:53 abies Exp $ */
+/* $Id: math.c,v 1.97.2.11 2004/05/24 17:02:31 iliaa Exp $ */
 
 #include "php.h"
 #include "php_math.h"
@@ -622,9 +622,9 @@ PHP_FUNCTION(sqrt)
    disappear in the next version of PHP!
 */
 
+#ifdef HAVE_HYPOT
 PHP_FUNCTION(hypot)
 {
-#ifdef HAVE_HYPOT
 	zval **num1, **num2;
 
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &num1, &num2) == FAILURE) {
@@ -634,8 +634,8 @@ PHP_FUNCTION(hypot)
 	convert_to_double_ex(num2);
 	Z_DVAL_P(return_value) = hypot(Z_DVAL_PP(num1), Z_DVAL_PP(num2));
 	Z_TYPE_P(return_value) = IS_DOUBLE;
-#endif
 }
+#endif
 
 /* }}} */
 
@@ -1020,7 +1020,12 @@ PHPAPI char *_php_math_number_format(double d, int dec, char dec_point, char tho
 		is_negative = 1;
 		d = -d;
 	}
-	dec = MAX(0, dec);
+	if (!dec_point && dec > 0) {
+		d *= pow(10, dec);
+		dec = 0;
+	} else {
+		dec = MAX(0, dec);
+	}
 
 	PHP_ROUND_WITH_FUZZ(d, dec);
 
@@ -1140,6 +1145,8 @@ PHP_FUNCTION(number_format)
 		convert_to_string_ex(t_s);
 		if (Z_STRLEN_PP(d_p)==1) {
 			dec_point=Z_STRVAL_PP(d_p)[0];
+		} else if (Z_STRLEN_PP(d_p)==0) {
+			dec_point=0;
 		}
 		if (Z_STRLEN_PP(t_s)==1) {
 			thousand_sep=Z_STRVAL_PP(t_s)[0];
