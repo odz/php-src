@@ -1,5 +1,45 @@
 PHP                                                                        NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+13 Sep 2012, PHP 5.3.17
+
+- Core:
+  . Fixed bug (segfault while build with zts and GOTO vm-kind). (Laruence)
+  . Fixed bug #62955 (Only one directive is loaded from "Per Directory Values" 
+    Windows registry). (aserbulov at parallels dot com)
+  . Fixed bug #62763 (register_shutdown_function and extending class). 
+    (Laruence)
+  . Fixed bug #62744 (dangling pointers made by zend_disable_class). (Laruence)
+  . Fixed bug #62716 (munmap() is called with the incorrect length). 
+    (slangley@google.com)
+  . Fixed bug ##62460 (php binaries installed as binary.dSYM). (Reeze Xia)
+
+- CURL:
+  . Fixed bug #62839 (curl_copy_handle segfault with CURLOPT_FILE). (Pierrick)
+
+- DateTime:
+  . Fixed bug #62852 (Unserialize invalid DateTime causes crash).
+    (reeze.xia@gmail.com)
+
+- Intl:
+  . Fix null pointer dereferences in some classes of ext/intl. (Gustavo)
+
+- MySQLnd:
+  . Fixed bug #62885 (mysqli_poll - Segmentation fault). (Laruence)
+
+- PDO:
+  . Fixed bug #62685 (Wrong return datatype in PDO::inTransaction()). (Laruence)
+
+- Session:
+  . Fixed bug (segfault due to retval is not initialized). (Laruence)
+
+- SPL:
+  . Fixed bug #62904 (Crash when cloning an object which inherits SplFixedArray)
+    (Laruence)
+
+- Enchant:
+  . Fixed bug #62838 (enchant_dict_quick_check() destroys zval, but fails to 
+  initialize it). (Tony, Mateusz Goik).
+
 16 Aug 2012, PHP 5.3.16
 
 - Core:
