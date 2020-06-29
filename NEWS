@@ -1,5 +1,31 @@
 PHP                                                                        NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+03 Apr 2014, PHP 5.4.27
+
+- Core:
+  . Fixed bug #60602 (proc_open() changes environment array) (Tjerk)
+
+- Fileinfo:
+  . Fixed bug #66946 (fileinfo: extensive backtracking in awk rule regular
+    expression). (CVE-2013-7345) (Remi)
+
+- FPM:
+  . Added clear_env configuration directive to disable clearenv() call.
+  (Github PR# 598, Paul Annesley)
+
+- GMP
+  . fixed bug#66872 (invalid argument crashes gmp_testbit) (Pierre)
+
+- Mail:
+  . Fixed bug #66535 (Don't add newline after X-PHP-Originating-Script) (Tjerk)
+
+- MySQLi:
+  . Fixed bug #66762 (Segfault in mysqli_stmt::bind_result() when link closed)
+  (Remi)
+
+- Openssl:
+  . Fixed bug #66833 (Default disgest algo is still MD5, switch to SHA1). (Remi)
+  
 06 Mar 2014, PHP 5.4.26
 
 - JSON:
@@ -8,7 +34,7 @@ PHP                                                                        NEWS
 
 - Fileinfo:
   . Fixed bug #66731 (file: infinite recursion). (CVE-2014-1943) (Remi)
-  . Fixed bug #66820 (out-of-bounds memory access in fileinfo) (Remi)
+  . Fixed bug #66820 (out-of-bounds memory access in fileinfo). (Remi)
 
 - LDAP:
   . Implemented ldap_modify_batch (https://wiki.php.net/rfc/ldap_modify_batch).
