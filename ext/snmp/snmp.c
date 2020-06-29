@@ -1,8 +1,8 @@
 /*
 +----------------------------------------------------------------------+
-| PHP version 4.0                                                      |
+| PHP Version 4                                                        |
 +----------------------------------------------------------------------+
-| Copyright (c) 1997-2001 The PHP Group                                |
+| Copyright (c) 1997-2002 The PHP Group                                |
 +----------------------------------------------------------------------+
 | This source file is subject to version 2.02 of the PHP license,      |
 | that is bundled with this package in the file LICENSE, and is        |
@@ -12,12 +12,12 @@
 | obtain it through the world-wide-web, please send a note to          |
 | license@php.net so we can mail you a copy immediately.               |
 +----------------------------------------------------------------------+
-| Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
+| Authors: Rasmus Lerdorf <rasmus@php.net>                             |
 |          Mike Jackson <mhjack@tscnet.com>                            |
 |          Steven Lawrance <slawrance@technologist.com>                |
 +----------------------------------------------------------------------+
 */
-/* $Id: snmp.c,v 1.48.2.2 2001/10/15 19:37:45 ssb Exp $ */
+/* $Id: snmp.c,v 1.56 2002/03/01 03:31:01 yohgaki Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -189,29 +189,29 @@ void php_snmp(INTERNAL_FUNCTION_PARAMETERS, int st) {
 	
 		if(myargc > 5) {
 			convert_to_long_ex(a6);
-			timeout = (*a6)->value.lval;
+			timeout = Z_LVAL_PP(a6);
 		}
 
 		if(myargc > 6) {
 			convert_to_long_ex(a7);
-			retries = (*a7)->value.lval;
+			retries = Z_LVAL_PP(a7);
 		}
 
-		type = (*a4)->value.str.val[0];
-		value = (*a5)->value.str.val;
+		type = Z_STRVAL_PP(a4)[0];
+		value = Z_STRVAL_PP(a5);
 	} else {
 		if(myargc > 3) {
 			convert_to_long_ex(a4);
-			timeout = (*a4)->value.lval;
+			timeout = Z_LVAL_PP(a4);
 		}
 
 		if(myargc > 4) {
 			convert_to_long_ex(a5);
-			retries = (*a5)->value.lval;
+			retries = Z_LVAL_PP(a5);
 		}
 	}
 
-	objid = (*a3)->value.str.val;
+	objid = Z_STRVAL_PP(a3);
 	
 	if (st >= 2) { /* walk */
 		rootlen = MAX_NAME_LEN;
@@ -231,7 +231,7 @@ void php_snmp(INTERNAL_FUNCTION_PARAMETERS, int st) {
 	
 	memset(&session, 0, sizeof(struct snmp_session));
 
-	strcpy (hostname, (*a1)->value.str.val);
+	strcpy (hostname, Z_STRVAL_PP(a1));
 	if ((pptr = strchr (hostname, ':'))) {
 		remote_port = strtol (pptr + 1, NULL, 0);
 		*pptr = 0;
@@ -247,11 +247,11 @@ void php_snmp(INTERNAL_FUNCTION_PARAMETERS, int st) {
 	* memory it did not allocate
 	*/
 #ifdef UCD_SNMP_HACK
-	session.community = (u_char *)strdup((*a2)->value.str.val); /* memory freed by SNMP library, strdup NOT estrdup */
+	session.community = (u_char *)strdup(Z_STRVAL_PP(a2)); /* memory freed by SNMP library, strdup NOT estrdup */
 #else
-	session.community = (u_char *)(*a2)->value.str.val;
+	session.community = (u_char *)Z_STRVAL_PP(a2);
 #endif
-	session.community_len = (*a2)->value.str.len;
+	session.community_len = Z_STRLEN_PP(a2);
 	session.retries = retries;
 	session.timeout = timeout;
 	
@@ -315,7 +315,7 @@ retry:
 					}
 
 					if (st != 11) {
-						sprint_value(buf,vars->name, vars->name_length, vars);
+						sprint_value((struct sbuf *)buf,vars->name, vars->name_length, vars);
 					}
 #if 0
 					Debug("snmp response is: %s\n",buf);
@@ -325,12 +325,12 @@ retry:
 					} else if (st == 2) {
 						add_next_index_string(return_value,buf,1); /* Add to returned array */
 					} else if (st == 3)  {
-						sprint_objid(buf2, vars->name, vars->name_length);
+						sprint_objid((struct sbuf *)buf2, vars->name, vars->name_length);
 						add_assoc_string(return_value,buf2,buf,1);
 					}
 					if (st >= 2 && st != 11) {
-						if (vars->type != SNMP_ENDOFMIBVIEW && 
-							vars->type != SNMP_NOSUCHOBJECT && vars->type != SNMP_NOSUCHINSTANCE) {
+						if (Z_TYPE_P(vars) != SNMP_ENDOFMIBVIEW && 
+							Z_TYPE_P(vars) != SNMP_NOSUCHOBJECT && Z_TYPE_P(vars) != SNMP_NOSUCHINSTANCE) {
 							memmove((char *)name, (char *)vars->name,vars->name_length * sizeof(oid));
 							name_length = vars->name_length;
 							keepwalking = 1;
@@ -344,7 +344,7 @@ retry:
 						for (count=1, vars = response->variables; vars && count != response->errindex;
 						vars = vars->next_variable, count++);
 						if (vars) {
-							sprint_objid(buf,vars->name, vars->name_length);
+							sprint_objid((struct sbuf *)buf,vars->name, vars->name_length);
 						}
 						php_error(E_WARNING,"This name does not exist: %s\n",buf);
 					}
@@ -366,7 +366,7 @@ retry:
 				}
 			}
 		} else if (status == STAT_TIMEOUT) {
-			php_error(E_WARNING,"No Response from %s\n", (*a1)->value.str.val);
+			php_error(E_WARNING,"No Response from %s\n", Z_STRVAL_PP(a1));
 			snmp_close(ss);
 			RETURN_FALSE;
 		} else {    /* status == STAT_ERROR */
@@ -448,6 +448,6 @@ PHP_FUNCTION(snmpset)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

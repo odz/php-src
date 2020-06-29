@@ -1,9 +1,9 @@
 <?php
 //
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2001 The PHP Group                                |
+// | Copyright (c) 1997-2002 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -13,11 +13,10 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors: Frank M. Kromann <frank@frontbase.com>                      |
-// |                                                                      |
+// | Author: Frank M. Kromann <frank@frontbase.com>                       |
 // +----------------------------------------------------------------------+
 //
-// $Id: fbsql.php,v 1.5.2.2 2001/11/13 01:26:42 ssb Exp $
+// $Id: fbsql.php,v 1.14 2002/02/28 08:27:08 sebastian Exp $
 //
 // Database independent query interface definition for PHP's FrontBase
 // extension.
@@ -424,7 +423,8 @@ class DB_fbsql extends DB_common
         $sqn = preg_replace('/[^a-z0-9_]/i', '_', $seq_name);
         $repeat = 0;
         do {
-            $result = $this->query("INSERT INTO ${sqn}_seq VALUES(NULL)");
+            $seqname = sprintf($this->getOption("seqname_format"), $sqn);
+            $result = $this->query("INSERT INTO ${seqname} VALUES(NULL)");
             if ($ondemand && DB::isError($result) &&
                 $result->getCode() == DB_ERROR_NOSUCHTABLE) {
                 $repeat = 1;
@@ -448,7 +448,8 @@ class DB_fbsql extends DB_common
     function createSequence($seq_name)
     {
         $sqn = preg_replace('/[^a-z0-9_]/i', '_', $seq_name);
-        return $this->query("CREATE TABLE ${sqn}_seq ".
+        $seqname = sprintf($this->getOption("seqname_format"), $sqn);
+        return $this->query("CREATE TABLE ${seqname} ".
                             '(id INTEGER UNSIGNED AUTO_INCREMENT NOT NULL,'.
                             ' PRIMARY KEY(id))');
     }
@@ -459,7 +460,8 @@ class DB_fbsql extends DB_common
     function dropSequence($seq_name)
     {
         $sqn = preg_replace('/[^a-z0-9_]/i', '_', $seq_name);
-        return $this->query("DROP TABLE ${sqn}_seq RESTRICT");
+        $seqname = sprintf($this->getOption("seqname_format"), $sqn);
+        return $this->query("DROP TABLE ${seqname} RESTRICT");
     }
 
     // }}}

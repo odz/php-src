@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2002 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -20,6 +20,7 @@
 #include <stdlib.h>
 
 #include "zend.h"
+#include "zend_qsort.h"
 #include "zend_API.h"
 #include "zend_ini.h"
 #include "zend_alloc.h"
@@ -97,7 +98,7 @@ ZEND_API int zend_copy_ini_directives(TSRMLS_D)
 }
 
 
-static int ini_key_compare(const void *a, const void *b)
+static int ini_key_compare(const void *a, const void *b TSRMLS_DC)
 {
 	Bucket *f;
 	Bucket *s;
@@ -119,7 +120,7 @@ static int ini_key_compare(const void *a, const void *b)
 
 ZEND_API void zend_ini_sort_entries(TSRMLS_D)
 {
-	zend_hash_sort(&EG(ini_directives), qsort, ini_key_compare, 0);
+	zend_hash_sort(&EG(ini_directives), zend_qsort, ini_key_compare, 0 TSRMLS_CC);
 }
 
 /*

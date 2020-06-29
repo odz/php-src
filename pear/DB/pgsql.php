@@ -1,9 +1,9 @@
 <?php
 //
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2001 The PHP Group                                |
+// | Copyright (c) 1997-2002 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -13,11 +13,11 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors: Rui Hirokawa <louis@cityfujisawa.ne.jp>                     |
+// | Authors: Rui Hirokawa <rui_hirokawa@ybb.ne.jp>                       |
 // |          Stig Bakken <ssb@fast.no>                                   |
 // +----------------------------------------------------------------------+
 //
-// $Id: pgsql.php,v 1.46.2.3 2002/02/24 14:36:01 hirokawa Exp $
+// $Id: pgsql.php,v 1.65.2.3 2002/04/10 08:38:42 edink Exp $
 //
 // Database independent query interface definition for PHP's PostgreSQL
 // extension.
@@ -84,27 +84,25 @@ class DB_pgsql extends DB_common
             return $this->raiseError(DB_ERROR_EXTENSION_NOT_FOUND);
 
         $this->dsn = $dsninfo;
-        $host = $dsninfo['hostspec'];
-        $protocol = (isset($dsninfo['protocol'])) ? $dsninfo['protocol'] : '';
+        $protocol = (isset($dsninfo['protocol'])) ? $dsninfo['protocol'] : 'tcp';
         $connstr = '';
-        if (($host !== false) && ($protocol != 'unix')){
-            if (($pos = strpos($host, ':')) !== false) {
-                $dbhost = substr($host, 0, $pos);
-                $port = substr($host, $pos + 1);
-            } else {
-                $dbhost = $host;
-                $port = '5432';
+
+        if ($protocol == 'tcp') {
+            if ($dsninfo['hostspec']) {
+                $connstr = 'host=' . $dsninfo['hostspec'];
             }
-            $connstr = 'host=' . $dbhost . ' port=' . $port;
+            if ($dsninfo['port']) {
+                $connstr .= ' port=' . $dsninfo['port'];
+            }
         }
 
         if (isset($dsninfo['database'])) {
             $connstr .= ' dbname=' . $dsninfo['database'];
         }
-        if (isset($dsninfo['username'])) {
+        if (!empty($dsninfo['username'])) {
             $connstr .= ' user=' . $dsninfo['username'];
         }
-        if (isset($dsninfo['password'])) {
+        if (!empty($dsninfo['password'])) {
             $connstr .= ' password=' . $dsninfo['password'];
         }
         if (!empty($dsninfo['options'])) {
@@ -179,8 +177,8 @@ class DB_pgsql extends DB_common
         if ($ismanip) {
             $this->affected = @pg_cmdtuples($result);
             return DB_OK;
-        } elseif (preg_match('/^\s*(SELECT)\s/i', $query) &&
-                  !preg_match('/^\s*(SELECT\s+INTO)\s/i', $query)) {
+        } elseif (preg_match('/^\s*\(?\s*SELECT\s+/si', $query) &&
+                  !preg_match('/^\s*\(?\s*SELECT\s+INTO\s/si', $query)) {
             /* PostgreSQL commands:
                ABORT, ALTER, BEGIN, CLOSE, CLUSTER, COMMIT, COPY,
                CREATE, DECLARE, DELETE, DROP TABLE, EXPLAIN, FETCH,
@@ -240,7 +238,7 @@ class DB_pgsql extends DB_common
         if (empty($error_regexps)) {
             $error_regexps = array(
                 '/(Table does not exist\.|Relation [\"\'].*[\"\'] does not exist|sequence does not exist|class ".+" not found)$/' => DB_ERROR_NOSUCHTABLE,
-                '/Relation [\"\'].*[\"\'] already exists|Cannot insert a duplicate key into a unique index/'      => DB_ERROR_ALREADY_EXISTS,
+                '/Relation [\"\'].*[\"\'] already exists|Cannot insert a duplicate key into (a )?unique index.*/'      => DB_ERROR_ALREADY_EXISTS,
                 '/divide by zero$/'                     => DB_ERROR_DIVZERO,
                 '/pg_atoi: error in .*: can\'t parse /' => DB_ERROR_INVALID_NUMBER,
                 '/ttribute [\"\'].*[\"\'] not found$|Relation [\"\'].*[\"\'] does not have attribute [\"\'].*[\"\']/' => DB_ERROR_NOSUCHFIELD,
@@ -495,11 +493,11 @@ class DB_pgsql extends DB_common
      */
     function nextId($seq_name, $ondemand = true)
     {
-        $sqn = preg_replace('/[^a-z0-9_]/i', '_', $seq_name);
+        $seqname = $this->getSequenceName($seq_name);
         $repeat = 0;
         do {
             $this->pushErrorHandling(PEAR_ERROR_RETURN);
-            $result = $this->query("SELECT NEXTVAL('${sqn}_seq')");
+            $result = $this->query("SELECT NEXTVAL('${seqname}')");
             $this->popErrorHandling();
             if ($ondemand && DB::isError($result) &&
                 $result->getCode() == DB_ERROR_NOSUCHTABLE) {
@@ -532,9 +530,9 @@ class DB_pgsql extends DB_common
      */
     function createSequence($seq_name)
     {
-        $sqn = preg_replace('/[^a-z0-9_]/i', '_', $seq_name);
+        $seqname = $this->getSequenceName($seq_name);
         $this->pushErrorHandling(PEAR_ERROR_RETURN);
-        $result = $this->query("CREATE SEQUENCE ${sqn}_seq");
+        $result = $this->query("CREATE SEQUENCE ${seqname}");
         $this->popErrorHandling();
         return $result;
     }
@@ -551,8 +549,8 @@ class DB_pgsql extends DB_common
      */
     function dropSequence($seq_name)
     {
-        $sqn = preg_replace('/[^a-z0-9_]/i', '_', $seq_name);
-        return $this->query("DROP SEQUENCE ${sqn}_seq");
+        $seqname = $this->getSequenceName($seq_name);
+        return $this->query("DROP SEQUENCE ${seqname}");
     }
 
     // }}}
@@ -601,21 +599,22 @@ class DB_pgsql extends DB_common
                                 AND typ.typrelid = f.attrelid
                                 AND f.attname = '$field_name'
                                 AND tab.relname = '$table_name'");
-        $row = pg_fetch_row($result, 0);
-        $flags  = ($row[0] == 't') ? 'not_null ' : '';
-
-        if ($row[1] == 't') {
-            $result = pg_exec($this->connection, "SELECT a.adsrc
-                                FROM pg_attribute f, pg_class tab, pg_type typ, pg_attrdef a
-                                WHERE tab.relname = typ.typname AND typ.typrelid = f.attrelid
-                                AND f.attrelid = a.adrelid AND f.attname = '$field_name'
-                                AND tab.relname = '$table_name'");
+        if (pg_numrows($result) > 0) {
             $row = pg_fetch_row($result, 0);
-            $num = str_replace('\'', '', $row[0]);
+            $flags  = ($row[0] == 't') ? 'not_null ' : '';
 
-            $flags .= "default_$num ";
+            if ($row[1] == 't') {
+                $result = pg_exec($this->connection, "SELECT a.adsrc
+                                    FROM pg_attribute f, pg_class tab, pg_type typ, pg_attrdef a
+                                    WHERE tab.relname = typ.typname AND typ.typrelid = f.attrelid
+                                    AND f.attrelid = a.adrelid AND f.attname = '$field_name'
+                                    AND tab.relname = '$table_name'");
+                $row = pg_fetch_row($result, 0);
+                $num = str_replace('\'', '', $row[0]);
+
+                $flags .= "default_$num ";
+            }
         }
-
         $result = pg_exec($this->connection, "SELECT i.indisunique, i.indisprimary, i.indkey
                                 FROM pg_attribute f, pg_class tab, pg_type typ, pg_index i
                                 WHERE tab.relname = typ.typname

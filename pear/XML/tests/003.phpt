@@ -10,30 +10,31 @@ XML Parser: parse from file resource
 //               - some handlers
 //               - parse from file resource
 //
+chdir (dirname(__FILE__));
 
 require_once "XML/Parser.php";
 
 class __TestParser3 extends XML_Parser {
     function __TestParser3() {
-	$this->XML_Parser();
+        $this->XML_Parser();
     }
     function startHandler($xp, $element, $attribs) {
-	print "<$element";
-	reset($attribs);
-	while (list($key, $val) = each($attribs)) {
-	    $enc = htmlentities($val);
-	    print " $key=\"$enc\"";
-	}
-	print ">";
+        print "<$element";
+        reset($attribs);
+        while (list($key, $val) = each($attribs)) {
+            $enc = htmlentities($val);
+            print " $key=\"$enc\"";
+        }
+        print ">";
     }
     function endHandler($xp, $element) {
-	print "</$element>\n";
+        print "</$element>\n";
     }
     function cdataHandler($xp, $cdata) {
-	print "<![CDATA[$cdata]]>";
+        print "<![CDATA[$cdata]]>";
     }
     function defaultHandler($xp, $cdata) {
-	
+
     }
 }
 print "new __TestParser3 ";
@@ -48,7 +49,7 @@ var_dump($o->parse());
 ?>
 --EXPECT--
 new __TestParser3 string(13) "__testparser3"
-fopen resource(2) of type (file)
+fopen resource(4) of type (stream)
 setInput bool(true)
 parse <ROOT><![CDATA[foo]]></ROOT>
 bool(true)

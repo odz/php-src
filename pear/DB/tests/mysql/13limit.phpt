@@ -5,7 +5,7 @@ DB_mysql row limit
 --FILE--
 <?php
 require 'connect.inc';
-include '../limit.inc';
+include dirname(__FILE__).'/../limit.inc';
 ?>
 --EXPECT--
 ======= From: 0 || Number of rows to fetch: 10 =======

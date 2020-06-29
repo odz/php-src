@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,10 +12,10 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Stig Venaas <venaas@uninett.no>                             |
+   | Author: Stig Venaas <venaas@uninett.no>                              |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_network.h,v 1.7 2001/05/05 22:36:26 wez Exp $ */
+/* $Id: php_network.h,v 1.12 2002/02/28 08:27:03 sebastian Exp $ */
 
 #ifndef _PHP_NETWORK_H
 #define _PHP_NETWORK_H
@@ -41,10 +41,20 @@
 #include <sys/time.h>
 #endif
 
+#ifdef HAVE_SOCKADDR_STORAGE
+typedef struct sockaddr_storage php_sockaddr_storage;
+#else
+typedef struct {
+        unsigned short ss_family;
+        char info[256];
+} php_sockaddr_storage;
+#endif
 
 
-int php_hostconnect(char *host, unsigned short port, int socktype, int timeout);
-PHPAPI int php_connect_nonb(int sockfd, struct sockaddr *addr, socklen_t addrlen, struct timeval *timeout);
+int php_hostconnect(const char *host, unsigned short port, int socktype, int timeout);
+PHPAPI int php_connect_nonb(int sockfd, const struct sockaddr *addr, socklen_t addrlen, struct timeval *timeout);
+void php_any_addr(int family, php_sockaddr_storage *addr, unsigned short port);
+int php_sockaddr_size(php_sockaddr_storage *addr);
 
 #endif /* _PHP_NETWORK_H */
 

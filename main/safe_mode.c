@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,10 +12,10 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
+   | Author: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                        |
    +----------------------------------------------------------------------+
  */
-/* $Id: safe_mode.c,v 1.37 2001/08/05 01:42:44 zeev Exp $ */
+/* $Id: safe_mode.c,v 1.42.2.2 2002/03/20 09:02:54 sesser Exp $ */
 
 #include "php.h"
 
@@ -46,7 +46,7 @@
 PHPAPI int php_checkuid(const char *filename, char *fopen_mode, int mode)
 {
 	struct stat sb;
-	int ret;
+	int ret, nofile=0;
 	long uid=0L, gid=0L, duid=0L, dgid=0L;
 	char path[MAXPATHLEN];
 	char *s;
@@ -82,10 +82,11 @@ PHPAPI int php_checkuid(const char *filename, char *fopen_mode, int mode)
 			if (mode == CHECKUID_DISALLOW_FILE_NOT_EXISTS) {
 				php_error(E_WARNING, "Unable to access %s", filename);
 				return 0;
-			} else if (mode == CHECKUID_ALLOW_FILE_NOT_EXISTS)
-				php_error(E_WARNING, "Unable to access %s", filename);{
+			} else if (mode == CHECKUID_ALLOW_FILE_NOT_EXISTS) {
+				php_error(E_WARNING, "Unable to access %s", filename);
 				return 1;
 			}
+			nofile = 1;
 		} else {
 			uid = sb.st_uid;
 			gid = sb.st_gid;
@@ -98,12 +99,19 @@ PHPAPI int php_checkuid(const char *filename, char *fopen_mode, int mode)
 
 		/* Trim off filename */
 		if ((s = strrchr(path, DEFAULT_SLASH))) {
-			*s = '\0';
+			if (s == path)
+				path[1] = '\0';
+			else
+				*s = '\0';
 		}
 	} else { /* CHECKUID_ALLOW_ONLY_DIR */
 		s = strrchr(filename, DEFAULT_SLASH);
 
-		if (s) {
+		if (s == filename) {
+			/* root dir */
+			path[0] = DEFAULT_SLASH;
+			path[1] = '\0';
+		} else if (s) {
 			*s = '\0';
 			VCWD_REALPATH(filename, path);
 			*s = DEFAULT_SLASH;
@@ -143,6 +151,13 @@ PHPAPI int php_checkuid(const char *filename, char *fopen_mode, int mode)
 			*s = 0;
 		}
 	}
+	
+	if (nofile) {
+		uid = duid;
+		gid = dgid;
+		filename = path;
+	}
+	
 	if (PG(safe_mode_gid)) {
 		php_error(E_WARNING, "SAFE MODE Restriction in effect.  The script whose uid/gid is %ld/%ld is not allowed to access %s owned by uid/gid %ld/%ld", php_getuid(), php_getgid(), filename, uid, gid);
 	} else {
@@ -186,6 +201,6 @@ PHPAPI char *php_get_current_user()
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

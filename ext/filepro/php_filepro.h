@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Chad Robinson <chadr@brttech.com>                           |
+   | Author: Chad Robinson <chadr@brttech.com>                            |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_filepro.h,v 1.7 2001/07/30 01:56:24 zeev Exp $ */
+/* $Id: php_filepro.h,v 1.9 2002/02/28 08:26:08 sebastian Exp $ */
 
 /*
   filePro 4.x support developed by Chad Robinson, chadr@brttech.com

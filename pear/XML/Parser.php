@@ -1,9 +1,9 @@
 <?php
 //
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2001 The PHP Group                                |
+// | Copyright (c) 1997-2002 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -13,11 +13,10 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors: Stig Bakken <ssb@fast.no>                                   |
-// |                                                                      |
+// | Author: Stig Bakken <ssb@fast.no>                                    |
 // +----------------------------------------------------------------------+
 //
-// $Id: Parser.php,v 1.16.2.3 2001/11/13 01:26:49 ssb Exp $
+// $Id: Parser.php,v 1.22 2002/02/28 08:27:18 sebastian Exp $
 
 require_once "PEAR.php";
 
@@ -128,7 +127,7 @@ class XML_Parser extends PEAR {
 
     // {{{ setMode()
 
-        /**
+    /**
     * Sets the mode and all handler.
     *
     * @param    string

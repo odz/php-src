@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Kirill Maximov <kir@rus.net>                                |
+   | Author: Kirill Maximov <kir@rus.net>                                 |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: cyr_convert.c,v 1.15 2001/06/06 13:05:51 rasmus Exp $ */
+/* $Id: cyr_convert.c,v 1.19 2002/02/28 08:26:44 sebastian Exp $ */
 
 #include <stdlib.h>
 
@@ -282,9 +282,9 @@ PHP_FUNCTION(convert_cyr_string)
     convert_to_string_ex(fr_cs);
     convert_to_string_ex(to_cs);
 
-	str = (unsigned char*) estrndup((*str_arg)->value.str.val, (*str_arg)->value.str.len);
+	str = (unsigned char*) estrndup(Z_STRVAL_PP(str_arg), Z_STRLEN_PP(str_arg));
 	
-	php_convert_cyr_string(str, (*str_arg)->value.str.len, (*fr_cs)->value.str.val[0], (*to_cs)->value.str.val[0]);
+	php_convert_cyr_string(str, Z_STRLEN_PP(str_arg), Z_STRVAL_PP(fr_cs)[0], Z_STRVAL_PP(to_cs)[0]);
 	RETVAL_STRING((char *)str, 0)
 }
 /* }}} */
@@ -294,6 +294,6 @@ PHP_FUNCTION(convert_cyr_string)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

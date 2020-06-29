@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+   | Author: Sascha Schumann <sascha@schumann.cx>                         |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mod_mm.c,v 1.22.2.4 2002/02/25 00:21:14 yohgaki Exp $ */
+/* $Id: mod_mm.c,v 1.38 2002/03/06 12:25:01 sas Exp $ */
 
 #include "php.h"
 
@@ -319,6 +319,7 @@ PS_READ_FUNC(mm)
 {
 	PS_MM_DATA;
 	ps_sd *sd;
+	int ret = FAILURE;
 
 	mm_lock(data->mm, MM_LOCK_RD);
 	
@@ -328,13 +329,12 @@ PS_READ_FUNC(mm)
 		*val = emalloc(sd->datalen + 1);
 		memcpy(*val, sd->data, sd->datalen);
 		(*val)[sd->datalen] = '\0';
+		ret = SUCCESS;
 	}
-	else {
-		*val = estrdup("");
-	}
+
 	mm_unlock(data->mm);
 	
- 	return SUCCESS;
+	return ret;
 }
 
 PS_WRITE_FUNC(mm)

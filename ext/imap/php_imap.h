@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000, 2001 The PHP Group             |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    |          Brian Wang          <brian@vividnet.com>                    |
    |          Kaj-Michael Lang    <milang@tal.org>                        |
    |          Antoni Pamies Olive <toni@readysoft.net>                    |
-   |          Rasmus Lerdorf      <rasmus@lerdorf.on.ca>                  |
+   |          Rasmus Lerdorf      <rasmus@php.net>                        |
    |          Chuck Hagenbuch     <chuck@horde.org>                       |
    |          Andrew Skalski      <askalski@chekinc.com>                  |
    |          Hartmut Holzgraefe  <hartmut@six.de>                        |
@@ -26,7 +26,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_imap.h,v 1.14.2.1 2001/08/16 20:21:31 chagenbu Exp $ */
+/* $Id: php_imap.h,v 1.17.2.1 2002/03/11 23:11:37 derick Exp $ */
 
 #ifndef PHP_IMAP_H
 #define PHP_IMAP_H
@@ -39,11 +39,11 @@
 
 #if defined(HAVE_IMAP2000) || defined(HAVE_IMAP2001)
  /* these are used for quota support */
- #include "c-client.h"	/* includes mail.h and rfc822.h */
- #include "imap4r1.h"	/* location of c-client quota functions */
+# include "c-client.h"	/* includes mail.h and rfc822.h */
+# include "imap4r1.h"	/* location of c-client quota functions */
 #else
- #include "mail.h"
- #include "rfc822.h" 
+# include "mail.h"
+# include "rfc822.h" 
 #endif
 
 extern zend_module_entry imap_module_entry;

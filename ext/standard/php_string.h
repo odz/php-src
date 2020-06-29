@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,12 +12,12 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
-   |          Stig Sæther Bakken <ssb@guardian.no>                        |
+   | Authors: Rasmus Lerdorf <rasmus@php.net>                             |
+   |          Stig Sæther Bakken <ssb@fast.no>                            |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_string.h,v 1.49 2001/08/11 17:03:37 zeev Exp $ */
+/* $Id: php_string.h,v 1.55 2002/02/28 08:26:48 sebastian Exp $ */
 
 /* Synced with php 3.0 revision 1.43 1999-06-16 [ssb] */
 
@@ -27,7 +27,7 @@
 PHP_FUNCTION(strspn);
 PHP_FUNCTION(strcspn);
 PHP_FUNCTION(str_replace);
-PHP_FUNCTION(chop);
+PHP_FUNCTION(rtrim);
 PHP_FUNCTION(trim);
 PHP_FUNCTION(ltrim);
 PHP_FUNCTION(soundex);
@@ -113,14 +113,14 @@ PHPAPI void php_dirname(char *str, int len);
 PHPAPI char *php_stristr(unsigned char *s, unsigned char *t, size_t s_len, size_t t_len);
 PHPAPI char *php_str_to_str(char *haystack, int length, char *needle,
 		int needle_len, char *str, int str_len, int *_new_length);
-PHPAPI void php_trim(pval *str, pval *return_value, int mode TSRMLS_DC);
-PHPAPI void php_trim2(zval *str, zval *what, zval *return_value, int mode TSRMLS_DC);
+PHPAPI void php_trim(zval **str, zval *return_value, int mode TSRMLS_DC);
+PHPAPI void php_trim2(zval **str, zval **what, zval *return_value, int mode TSRMLS_DC);
 PHPAPI void php_strip_tags(char *rbuf, int len, int state, char *allow, int allow_len);
 
-PHPAPI void php_char_to_str(char *str, uint len, char from, char *to, int to_len, pval *result);
+PHPAPI int php_char_to_str(char *str, uint len, char from, char *to, int to_len, pval *result);
 
-PHPAPI void php_implode(pval *delim, pval *arr, pval *return_value);
-PHPAPI void php_explode(pval *delim, pval *str, pval *return_value, int limit);
+PHPAPI void php_implode(zval *delim, zval *arr, zval *return_value);
+PHPAPI void php_explode(zval *delim, zval *str, zval *return_value, int limit);
 
 static inline char *
 php_memnstr(char *haystack, char *needle, int needle_len, char *end)

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,7 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors:  Zeev Suraski <zeev@zend.com>                               |
+   | Author:  Zeev Suraski <zeev@zend.com>                                |
    +----------------------------------------------------------------------+
 */
 
@@ -97,6 +97,10 @@ typedef struct {
 	/* this is necessary for Safe Mode */
 	char *current_user;
 	int current_user_length;
+
+    /* this is necessary for CLI module */
+    int argc;
+    char **argv;
 } sapi_request_info;
 
 
@@ -122,7 +126,6 @@ SAPI_API extern int sapi_globals_id;
 # define SG(v) (sapi_globals.v)
 extern SAPI_API sapi_globals_struct sapi_globals;
 #endif
-
 
 SAPI_API void sapi_startup(sapi_module_struct *sf);
 SAPI_API void sapi_shutdown(void);
@@ -207,11 +210,11 @@ struct _sapi_post_entry {
 #define SAPI_DEFAULT_CHARSET		""
 #define SAPI_PHP_VERSION_HEADER		"X-Powered-By: PHP/" PHP_VERSION
 
-#define SAPI_POST_READER_FUNC(post_reader) SAPI_API void post_reader(TSRMLS_D)
-#define SAPI_POST_HANDLER_FUNC(post_handler) SAPI_API void post_handler(char *content_type_dup, void *arg TSRMLS_DC)
+#define SAPI_POST_READER_FUNC(post_reader) void post_reader(TSRMLS_D)
+#define SAPI_POST_HANDLER_FUNC(post_handler) void post_handler(char *content_type_dup, void *arg TSRMLS_DC)
 
-SAPI_POST_READER_FUNC(sapi_read_standard_form_data);
-SAPI_POST_READER_FUNC(php_default_post_reader);
+SAPI_API SAPI_POST_READER_FUNC(sapi_read_standard_form_data);
+SAPI_API SAPI_POST_READER_FUNC(php_default_post_reader);
 
 #define STANDARD_SAPI_MODULE_PROPERTIES NULL
 

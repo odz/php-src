@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -37,7 +37,6 @@
 
 /* prototypes */
 
-static void pval_to_variant_ex(pval *pval_arg, VARIANT *var_arg, int type, int codepage TSRMLS_DC);
 static void comval_to_variant(pval *pval_arg, VARIANT *var_arg TSRMLS_DC);
 
 /* implementations */
@@ -85,21 +84,17 @@ PHPAPI void php_pval_to_variant(pval *pval_arg, VARIANT *var_arg, int codepage T
 			break;
 	}
 
-	if (pval_arg->is_ref) {	/* deprecated, implemented for downwards compatiblity */
-//		type |= VT_BYREF;
-	}
-
-	pval_to_variant_ex(pval_arg, var_arg, type, codepage TSRMLS_CC);
+	php_pval_to_variant_ex2(pval_arg, var_arg, type, codepage TSRMLS_CC);
 }
 
 
 PHPAPI void php_pval_to_variant_ex(pval *pval_arg, VARIANT *var_arg, pval *pval_type, int codepage TSRMLS_DC)
 {
-	pval_to_variant_ex(pval_arg, var_arg, Z_LVAL_P(pval_type), codepage TSRMLS_CC);
+	php_pval_to_variant_ex2(pval_arg, var_arg, Z_LVAL_P(pval_type), codepage TSRMLS_CC);
 }
 
 
-static void pval_to_variant_ex(pval *pval_arg, VARIANT *var_arg, int type, int codepage TSRMLS_DC)
+PHPAPI void php_pval_to_variant_ex2(pval *pval_arg, VARIANT *var_arg, int type, int codepage TSRMLS_DC)
 {
 	OLECHAR *unicode_str;
 
@@ -143,7 +138,7 @@ static void pval_to_variant_ex(pval *pval_arg, VARIANT *var_arg, int type, int c
 						/* Add another value to the safe array */
 						if (SUCCEEDED(SafeArrayPtrOfIndex( safeArray, &i, &v))) {		/* Pointer to output element entry retrieved successfully */
 							if (type) {	/* explicit type */
-							   pval_to_variant_ex(*entry, v, type, codepage TSRMLS_CC);		/* Do the required conversion */
+							   php_pval_to_variant_ex2(*entry, v, type, codepage TSRMLS_CC);		/* Do the required conversion */
 							} else {
 								php_pval_to_variant(*entry, v, codepage TSRMLS_CC);                    /* Do the required conversion */
 							}
@@ -162,12 +157,12 @@ static void pval_to_variant_ex(pval *pval_arg, VARIANT *var_arg, int type, int c
 		switch (V_VT(var_arg)) {
 			case VT_UI1:
 				convert_to_long_ex(&pval_arg);
-				V_UI1(var_arg) = (unsigned char)Z_LVAL_P(pval_arg);
+				V_UI1(var_arg) = (unsigned char) Z_LVAL_P(pval_arg);
 				break;
 
 			case VT_I2:
 				convert_to_long_ex(&pval_arg);
-				V_I2(var_arg) = (short)Z_LVAL_P(pval_arg);
+				V_I2(var_arg) = (short) Z_LVAL_P(pval_arg);
 				break;
 
 			case VT_I4:
@@ -177,7 +172,7 @@ static void pval_to_variant_ex(pval *pval_arg, VARIANT *var_arg, int type, int c
 
 			case VT_R4:
 				convert_to_double_ex(&pval_arg);
-				V_R4(var_arg) = (float)Z_DVAL_P(pval_arg);
+				V_R4(var_arg) = (float) Z_DVAL_P(pval_arg);
 				break;
 
 			case VT_R8:
@@ -188,9 +183,9 @@ static void pval_to_variant_ex(pval *pval_arg, VARIANT *var_arg, int type, int c
 			case VT_BOOL:
 				convert_to_boolean_ex(&pval_arg);
 				if (Z_LVAL_P(pval_arg)) {
-					V_BOOL(var_arg) = TRUE;
+					V_BOOL(var_arg) = VT_TRUE;
 				} else {
-					V_BOOL(var_arg) = FALSE;
+					V_BOOL(var_arg) = VT_FALSE;
 				}
 				break;
 
@@ -208,24 +203,39 @@ static void pval_to_variant_ex(pval *pval_arg, VARIANT *var_arg, int type, int c
 					SYSTEMTIME wintime;
 					struct tm *phptime;
 
-					phptime = gmtime(&(pval_arg->value.lval));
-					memset(&wintime, 0, sizeof(wintime));
+					switch (Z_TYPE_P(pval_arg)) {
+						case IS_DOUBLE:
+							/* already a VariantTime value */
+							V_DATE(var_arg) = Z_DVAL_P(pval_arg);
+							break;
 
-					wintime.wYear = phptime->tm_year + 1900;
-					wintime.wMonth = phptime->tm_mon + 1;
-					wintime.wDay = phptime->tm_mday;
-					wintime.wHour = phptime->tm_hour;
-					wintime.wMinute = phptime->tm_min;
-					wintime.wSecond = phptime->tm_sec;
+						/** @todo
+						case IS_STRING:
+							/* string representation of a time value */
 
-					SystemTimeToVariantTime(&wintime, &V_DATE(var_arg));
+						default:
+							/* a PHP time value ? */
+							convert_to_long_ex(&pval_arg);
+							phptime = gmtime(&(Z_LVAL_P(pval_arg)));
+							memset(&wintime, 0, sizeof(wintime));
+
+							wintime.wYear = phptime->tm_year + 1900;
+							wintime.wMonth = phptime->tm_mon + 1;
+							wintime.wDay = phptime->tm_mday;
+							wintime.wHour = phptime->tm_hour;
+							wintime.wMinute = phptime->tm_min;
+							wintime.wSecond = phptime->tm_sec;
+
+							SystemTimeToVariantTime(&wintime, &V_DATE(var_arg));
+							break;
+					}
 				}
 				break;
 
 			case VT_BSTR:
 				convert_to_string_ex(&pval_arg);
 				unicode_str = php_char_to_OLECHAR(Z_STRVAL_P(pval_arg), Z_STRLEN_P(pval_arg), codepage TSRMLS_CC);
-				V_BSTR(var_arg) = SysAllocString(unicode_str);
+				V_BSTR(var_arg) = SysAllocStringByteLen((char *) unicode_str, Z_STRLEN_P(pval_arg) * sizeof(OLECHAR));
 				efree(unicode_str);
 				break;
 
@@ -288,9 +298,9 @@ static void pval_to_variant_ex(pval *pval_arg, VARIANT *var_arg, int type, int c
 				/* emalloc or malloc ? */
 				V_BOOLREF(var_arg) = (short FAR*) pemalloc(sizeof(short), 1);
 				if (Z_LVAL_P(pval_arg)) {
-					*V_BOOLREF(var_arg) = TRUE;
+					*V_BOOLREF(var_arg) = VT_TRUE;
 				} else {
-					*V_BOOLREF(var_arg) = FALSE;
+					*V_BOOLREF(var_arg) = VT_TRUE;
 				}
 				break;
 
@@ -301,14 +311,14 @@ static void pval_to_variant_ex(pval *pval_arg, VARIANT *var_arg, int type, int c
 
 			case VT_CY|VT_BYREF:
 				convert_to_double_ex(&pval_arg);
-				VarCyFromR8(pval_arg->value.dval, var_arg->pcyVal);
+				VarCyFromR8(Z_DVAL_P(pval_arg), var_arg->pcyVal);
 				break;
 
 			case VT_DATE|VT_BYREF: {
 					SYSTEMTIME wintime;
 					struct tm *phptime;
 
-					phptime = gmtime(&(pval_arg->value.lval));
+					phptime = gmtime(&(Z_LVAL_P(pval_arg)));
 					memset(&wintime, 0, sizeof(wintime));
 
 					wintime.wYear   = phptime->tm_year + 1900;
@@ -370,8 +380,7 @@ static void pval_to_variant_ex(pval *pval_arg, VARIANT *var_arg, int type, int c
 			/*
 				should be, but isn't :)
 
-				if (V_VT(var_arg) != (VT_VARIANT|VT_BYREF))
-				{
+				if (V_VT(var_arg) != (VT_VARIANT|VT_BYREF)) {
 					VariantInit(var_arg);
 				}
 			*/
@@ -621,14 +630,22 @@ PHPAPI int php_variant_to_pval(VARIANT *var_arg, pval *pval_arg, int codepage TS
 			break;
 
 		case VT_BSTR:
+			Z_TYPE_P(pval_arg) = IS_STRING;
+
 			if (V_ISBYREF(var_arg)) {
-				Z_STRVAL_P(pval_arg) = php_OLECHAR_to_char(*V_BSTRREF(var_arg), &Z_STRLEN_P(pval_arg), codepage TSRMLS_CC);
+				if (*V_BSTR(var_arg)) {
+					Z_STRVAL_P(pval_arg) = php_OLECHAR_to_char(*V_BSTRREF(var_arg), &Z_STRLEN_P(pval_arg), codepage TSRMLS_CC);
+				} else {
+					ZVAL_NULL(pval_arg);
+				}
 				efree(V_BSTRREF(var_arg));
 			} else {
-				Z_STRVAL_P(pval_arg) = php_OLECHAR_to_char(V_BSTR(var_arg), &Z_STRLEN_P(pval_arg), codepage TSRMLS_CC);
+				if (V_BSTR(var_arg)) {
+					Z_STRVAL_P(pval_arg) = php_OLECHAR_to_char(V_BSTR(var_arg), &Z_STRLEN_P(pval_arg), codepage TSRMLS_CC);
+				} else {
+					ZVAL_NULL(pval_arg);
+				}
 			}
-
-			Z_TYPE_P(pval_arg) = IS_STRING;
 			break;
 
 		case VT_DATE: {
@@ -669,8 +686,7 @@ PHPAPI int php_variant_to_pval(VARIANT *var_arg, pval *pval_arg, int codepage TS
 
 				hr = V_UNKNOWN(var_arg)->lpVtbl->QueryInterface(var_arg->punkVal, &IID_IDispatch, &V_DISPATCH(var_arg));
 
-				if (FAILED(hr))
-				{
+				if (FAILED(hr)) {
 					char *error_message;
 
 					error_message = php_COM_error_message(hr TSRMLS_CC);
@@ -748,26 +764,40 @@ PHPAPI int php_variant_to_pval(VARIANT *var_arg, pval *pval_arg, int codepage TS
 
 PHPAPI OLECHAR *php_char_to_OLECHAR(char *C_str, uint strlen, int codepage TSRMLS_DC)
 {
+	BOOL error = FALSE;
 	OLECHAR *unicode_str;
 
-	/* request needed buffersize */
-	uint reqSize = MultiByteToWideChar(codepage, MB_PRECOMPOSED | MB_ERR_INVALID_CHARS, C_str, -1, NULL, 0);
+	if (strlen == -1) {
+		/* request needed buffersize */
+		strlen = MultiByteToWideChar(codepage, MB_PRECOMPOSED | MB_ERR_INVALID_CHARS, C_str, -1, NULL, 0);
+	} else {
+		/* \0 terminator */
+		strlen++;
+	}
 
-	if (reqSize) {
-		unicode_str = (OLECHAR *) emalloc(sizeof(OLECHAR) * reqSize);
+	if (strlen >= 0) {
+		unicode_str = (OLECHAR *) emalloc(sizeof(OLECHAR) * strlen);
 
 		/* convert string */
-		MultiByteToWideChar(codepage, MB_PRECOMPOSED | MB_ERR_INVALID_CHARS, C_str, -1, unicode_str, reqSize);
+		error = !MultiByteToWideChar(codepage, MB_PRECOMPOSED | MB_ERR_INVALID_CHARS, C_str, strlen, unicode_str, strlen);
 	} else {
+		/* return a zero-length string */
 		unicode_str = (OLECHAR *) emalloc(sizeof(OLECHAR));
 		*unicode_str = 0;
 
+		error = TRUE;
+	}
+
+	if (error) {
 		switch (GetLastError()) {
 			case ERROR_NO_UNICODE_TRANSLATION:
-				php_error(E_WARNING,"No unicode translation available for the specified string");
+				php_error(E_WARNING, "No unicode translation available for the specified string");
+				break;
+			case ERROR_INSUFFICIENT_BUFFER:
+				php_error(E_WARNING, "Internal Error: Insufficient Buffer");
 				break;
 			default:
-				php_error(E_WARNING,"Error in php_char_to_OLECHAR()");
+				php_error(E_WARNING, "Unknown error in php_char_to_OLECHAR()");
 		}
 	}
 

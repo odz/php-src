@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -64,6 +64,10 @@
 #include <signal.h>
 #endif
 
+#ifdef __riscos__
+#include <unixlib/local.h>
+#endif
+
 #include "zend_compile.h"
 #include "zend_execute.h"
 #include "zend_highlight.h"
@@ -76,13 +80,20 @@
 #define PHP_MODE_HIGHLIGHT	2
 #define PHP_MODE_INDENT		3
 #define PHP_MODE_LINT		4
+#define PHP_MODE_STRIP		5
 
 extern char *ap_php_optarg;
 extern int ap_php_optind;
 
-#define OPTSTRING "aCc:d:ef:g:hilmnqs?vz:"
+#define OPTSTRING "aCc:d:ef:g:hilmnqsw?vz:"
 
 static int _print_module_info(zend_module_entry *module, void *arg TSRMLS_DC)
+{
+	php_printf("%s\n", module->name);
+	return 0;
+}
+
+static int _print_extension_info(zend_extension *module, void *arg TSRMLS_DC)
 {
 	php_printf("%s\n", module->name);
 	return 0;
@@ -250,6 +261,7 @@ static void php_cgi_usage(char *argv0)
 	php_printf("Usage: %s [-q] [-h] [-s [-v] [-i] [-f <file>] |  {<file> [args...]}\n"
 				"  -q             Quiet-mode.  Suppress HTTP Header output.\n"
 				"  -s             Display colour syntax highlighted source.\n"
+				"  -w             Display source with stripped comments and whitespace.\n"
 				"  -f <file>      Parse <file>.  Implies `-q'\n"
 				"  -v             Version number\n"
                 "  -C             Do not chdir to the script's directory\n"
@@ -378,6 +390,12 @@ int main(int argc, char *argv[])
 	char *script_file=NULL;
 	zend_llist global_vars;
 	int interactive=0;
+
+#if FORCE_CGI_REDIRECT
+	int force_redirect = 1;
+	char *redirect_status_env = NULL;
+#endif
+
 /* end of temporary locals */
 #ifdef ZTS
 	zend_compiler_globals *compiler_globals;
@@ -441,21 +459,44 @@ int main(int argc, char *argv[])
 		ap_php_optarg = orig_optarg;
 	}
 
+
+#ifdef ZTS
+	compiler_globals = ts_resource(compiler_globals_id);
+	executor_globals = ts_resource(executor_globals_id);
+	core_globals = ts_resource(core_globals_id);
+	sapi_globals = ts_resource(sapi_globals_id);
+	tsrm_ls = ts_resource(0);
+#endif
+
 	/* startup after we get the above ini override se we get things right */
 	if (php_module_startup(&cgi_sapi_module)==FAILURE) {
+#ifdef ZTS
+		tsrm_shutdown();
+#endif
 		return FAILURE;
 	}
 
 #if FORCE_CGI_REDIRECT
 	/* check force_cgi after startup, so we have proper output */
-	if (cgi) {
+	if (cfg_get_long("cgi.force_redirect", &force_redirect) == FAILURE) {
+        force_redirect = 1;
+	}
+	if (cgi && force_redirect) {
+        if (cfg_get_string("cgi.redirect_status_env", &redirect_status_env) == FAILURE) {
+            redirect_status_env = NULL;
+        }
 		/* Apache will generate REDIRECT_STATUS,
 		 * Netscape and redirect.so will generate HTTP_REDIRECT_STATUS.
 		 * redirect.so and installation instructions available from
 		 * http://www.koehntopp.de/php.
 		 *   -- kk@netuse.de
 		 */
-		if (!getenv("REDIRECT_STATUS") && !getenv ("HTTP_REDIRECT_STATUS")) {
+		if (!getenv("REDIRECT_STATUS") 
+			&& !getenv ("HTTP_REDIRECT_STATUS")
+			/* this is to allow a different env var to be configured
+			    in case some server does something different than above */
+			&& (!redirect_status_env || !getenv(redirect_status_env))
+			) {
 			PUTS("<b>Security Alert!</b>  PHP CGI cannot be accessed directly.\n\
 \n\
 <P>This PHP CGI binary was compiled with force-cgi-redirect enabled.  This\n\
@@ -468,23 +509,20 @@ binary accessible somewhere in your web tree, people will be able to circumvent\
 this is to define doc_root in your php.ini file to something other than your\n\
 top-level DOCUMENT_ROOT.  This way you can separate the part of your web space\n\n\
 which uses PHP from the normal part using .htaccess security.  If you do not have\n\
-any .htaccess restrictions anywhere on your site you can leave doc_root undefined.\n\
+any .htaccess restrictions anywhere on your site you can leave doc_root undefined.\n\n\n\
+If you are running IIS, you may safely set cgi.force_redirect=0 in php.ini.\n\
 \n");
 
 			/* remove that detailed explanation some time */
+#ifdef ZTS
+	        tsrm_shutdown();
+#endif
 
 			return FAILURE;
 		}
 	}
 #endif							/* FORCE_CGI_REDIRECT */
 
-#ifdef ZTS
-	compiler_globals = ts_resource(compiler_globals_id);
-	executor_globals = ts_resource(executor_globals_id);
-	core_globals = ts_resource(core_globals_id);
-	sapi_globals = ts_resource(sapi_globals_id);
-	tsrm_ls = ts_resource(0);
-#endif
 
 	zend_first_try {
 		if (!cgi) {
@@ -507,7 +545,6 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 
 		init_request_info(TSRMLS_C);
 		SG(server_context) = (void *) 1; /* avoid server_context==NULL checks */
-		CG(extended_info) = 0;
 
 		SG(request_info).argv0 = argv0;
 
@@ -588,8 +625,7 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 					php_printf("[PHP Modules]\n");
 					zend_hash_apply_with_argument(&module_registry, (apply_func_arg_t) _print_module_info, NULL TSRMLS_CC);
 					php_printf("\n[Zend Modules]\n");
-					/* zend_llist_apply_with_argument(&zend_extensions, (llist_apply_with_arg_func_t) _print_module_info, NULL TSRMLS_CC); */
-					php_printf("Not Implemented\n");
+					zend_llist_apply_with_argument(&zend_extensions, (llist_apply_with_arg_func_t) _print_extension_info, NULL TSRMLS_CC);
 					php_printf("\n");
 					php_end_ob_buffers(1 TSRMLS_CC);
 					exit(1);
@@ -622,6 +658,10 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 						php_printf("%s\n", PHP_VERSION);
 						php_end_ob_buffers(1 TSRMLS_CC);
 						exit(1);
+						break;
+
+  				case 'w': 
+						behavior=PHP_MODE_STRIP;
 						break;
 
 				case 'z': /* load extension file */
@@ -704,6 +744,11 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 			env_path_translated = getenv("PATH_TRANSLATED");
 #endif
 			if(env_path_translated) {
+#ifdef __riscos__
+				/* Convert path to unix format*/
+				__riscosify_control|=__RISCOSIFY_DONT_CHECK_DIR;
+				env_path_translated=__unixify(env_path_translated,0,NULL,1,0);
+#endif
 				SG(request_info).path_translated = estrdup(env_path_translated);
 			}
 		}
@@ -720,7 +765,9 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 			}
 			file_handle.filename = argv0;
 			file_handle.opened_path = expand_filepath(argv0, NULL TSRMLS_CC);
-		} else if (retval == SUCCESS) {
+		}
+
+		if (file_handle.handle.fp && (file_handle.handle.fp != stdin)) {
 			/* #!php support */
 			c = fgetc(file_handle.handle.fp);
 			if (c == '#') {
@@ -735,7 +782,11 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 
 		switch (behavior) {
 			case PHP_MODE_STANDARD:
-				exit_status = php_execute_script(&file_handle TSRMLS_CC);
+				if (php_execute_script(&file_handle TSRMLS_CC)) {
+					exit_status = EG(exit_status);
+				} else {
+					exit_status = 255;
+				}
 				break;
 			case PHP_MODE_LINT:
 				PG(during_request_startup) = 0;
@@ -745,6 +796,13 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 				} else {
 					zend_printf("Errors parsing %s\n", file_handle.filename);
 				}
+				break;
+			case PHP_MODE_STRIP:
+				if (open_file_for_scanning(&file_handle TSRMLS_CC)==SUCCESS) {
+					zend_strip(TSRMLS_C);
+					fclose(file_handle.handle.fp);
+				}
+				return SUCCESS;
 				break;
 			case PHP_MODE_HIGHLIGHT:
 				{
@@ -782,7 +840,7 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 		}
 
 	} zend_catch {
-		exit_status = -1;
+		exit_status = 255;
 	} zend_end_try();
 
 	php_module_shutdown(TSRMLS_C);
@@ -800,6 +858,6 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

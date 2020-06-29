@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -13,11 +13,11 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
-   |          Stig Sæther Bakken <ssb@guardian.no>                        |
+   |          Stig Sæther Bakken <ssb@fast.no>                            |
    |          David Sklar <sklar@student.net>                             |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_apache.c,v 1.45.2.3 2001/11/13 08:19:43 derick Exp $ */
+/* $Id: php_apache.c,v 1.56 2002/02/28 08:27:19 sebastian Exp $ */
 
 #define NO_REGEX_EXTRA_H
 
@@ -68,6 +68,7 @@ PHP_FUNCTION(apachelog);
 PHP_FUNCTION(apache_note);
 PHP_FUNCTION(apache_lookup_uri);
 PHP_FUNCTION(apache_child_terminate);
+PHP_FUNCTION(apache_setenv);
 
 PHP_MINFO_FUNCTION(apache);
 
@@ -77,6 +78,7 @@ function_entry apache_functions[] = {
 	PHP_FE(apache_note,								NULL)
 	PHP_FE(apache_lookup_uri,						NULL)
 	PHP_FE(apache_child_terminate,					NULL)
+	PHP_FE(apache_setenv,							NULL)
 	{NULL, NULL, NULL}
 };
 
@@ -116,20 +118,19 @@ static PHP_MSHUTDOWN_FUNCTION(apache)
 
 zend_module_entry apache_module_entry = {
 	STANDARD_MODULE_HEADER,
-	"apache",
-	apache_functions,
-	PHP_MINIT(apache),
-	PHP_MSHUTDOWN(apache),
-	NULL,
-	NULL,
-	PHP_MINFO(apache),
+	"apache", 
+	apache_functions, 
+	PHP_MINIT(apache), 
+	PHP_MSHUTDOWN(apache), 
+	NULL, 
+	NULL, 
+	PHP_MINFO(apache), 
 	NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 
-
-/* {{{ proto string child_terminate()
-   Get and set Apache request notes */
+/* {{{ proto string apache_child_terminate()
+   Terminate apache process after this request */
 PHP_FUNCTION(apache_child_terminate)
 {
 #ifndef MULTITHREAD
@@ -366,6 +367,28 @@ PHP_FUNCTION(getallheaders)
 }
 /* }}} */
 
+/* {{{ proto int apache_setenv(string variable, string value [, boolean walk_to_top])
+   Set an Apache subprocess_env variable */
+PHP_FUNCTION(apache_setenv)
+{
+	int var_len, val_len, top=0;
+	char *var = NULL, *val = NULL;
+	request_rec *r = (request_rec *) SG(server_context);
+
+    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|b", &var, &var_len, &val, &val_len, &top) == FAILURE) {
+        RETURN_FALSE;
+	}
+
+	while(top) {
+		if(r->prev) r = r->prev;
+		else break;
+	}
+
+	ap_table_setn(r->subprocess_env, ap_pstrndup(r->pool, var, var_len), ap_pstrndup(r->pool, val, val_len));
+	RETURN_TRUE;
+}
+/* }}} */
+
 /* {{{ proto class apache_lookup_uri(string URI)
    Perform a partial request of the given URI to obtain information about it */
 PHP_FUNCTION(apache_lookup_uri)
@@ -467,6 +490,6 @@ PHP_FUNCTION(apache_exec_uri)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

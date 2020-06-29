@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: filestat.c,v 1.78.2.2 2001/12/13 13:51:42 sterling Exp $ */
+/* $Id: filestat.c,v 1.89 2002/02/28 08:26:45 sebastian Exp $ */
 
 #include "php.h"
 #include "safe_mode.h"
@@ -184,7 +184,7 @@ PHP_FUNCTION(disk_total_space)
 				&TotalNumberOfBytes,
 				&TotalNumberOfFreeBytes) == 0) RETURN_FALSE;
 
-			/* i know - this is ugly, but i works (thies@thieso.net) */
+			/* i know - this is ugly, but i works <thies@thieso.net> */
 			bytestotal  = TotalNumberOfBytes.HighPart *
 				(double) (((unsigned long)1) << 31) * 2.0 +
 				TotalNumberOfBytes.LowPart;
@@ -287,7 +287,7 @@ PHP_FUNCTION(disk_free_space)
 				&TotalNumberOfBytes,
 				&TotalNumberOfFreeBytes) == 0) RETURN_FALSE;
 
-			/* i know - this is ugly, but i works (thies@thieso.net) */
+			/* i know - this is ugly, but i works <thies@thieso.net> */
 			bytesfree  = FreeBytesAvailableToCaller.HighPart *
 				(double) (((unsigned long)1) << 31) * 2.0 +
 				FreeBytesAvailableToCaller.LowPart;
@@ -465,36 +465,30 @@ PHP_FUNCTION(chmod)
 }
 /* }}} */
 
-/* {{{ proto bool touch(string filename [, int time])
+/* {{{ proto bool touch(string filename [, int time [, int atime]])
    Set modification time of file */
 PHP_FUNCTION(touch)
 {
 #if HAVE_UTIME
-	pval **filename, **filetime;
+	pval **filename, **filetime, **fileatime;
 	int ret;
 	struct stat sb;
 	FILE *file;
-	struct utimbuf *newtime = NULL;
+	struct utimbuf newtimebuf;
+	struct utimbuf *newtime = &newtimebuf;
 	int ac = ZEND_NUM_ARGS();
 
 	if (ac == 1 && zend_get_parameters_ex(1, &filename) != FAILURE) {
 #ifndef HAVE_UTIME_NULL
-		newtime = (struct utimbuf *)emalloc(sizeof(struct utimbuf));
-		if (!newtime) {
-			php_error(E_WARNING, "unable to emalloc memory for changing time");
-			return;
-		}
-		newtime->actime = time(NULL);
-		newtime->modtime = newtime->actime;
+		newtime->modtime = newtime->actime = time(NULL);
 #endif
 	} else if (ac == 2 && zend_get_parameters_ex(2, &filename, &filetime) != FAILURE) {
-		newtime = (struct utimbuf *)emalloc(sizeof(struct utimbuf));
-		if (!newtime) {
-			php_error(E_WARNING, "unable to emalloc memory for changing time");
-			return;
-		}
 		convert_to_long_ex(filetime);
-		newtime->actime = Z_LVAL_PP(filetime);
+		newtime->modtime = newtime->actime = Z_LVAL_PP(filetime);
+	} else if (ac == 3 && zend_get_parameters_ex(3, &filename, &filetime, &fileatime) != FAILURE) {
+		convert_to_long_ex(fileatime);
+		convert_to_long_ex(filetime);
+		newtime->actime = Z_LVAL_PP(fileatime);
 		newtime->modtime = Z_LVAL_PP(filetime);
 	} else {
 		WRONG_PARAM_COUNT;
@@ -502,15 +496,11 @@ PHP_FUNCTION(touch)
 	convert_to_string_ex(filename);
 
 	if (PG(safe_mode) &&(!php_checkuid(Z_STRVAL_PP(filename), NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
-		if (newtime) efree(newtime);
 		RETURN_FALSE;
 	}
 
 	/* Check the basedir */
 	if (php_check_open_basedir(Z_STRVAL_PP(filename) TSRMLS_CC)) {
-		if (newtime) {
-			efree(newtime);
-		}
 		RETURN_FALSE;
 	}
 
@@ -520,14 +510,12 @@ PHP_FUNCTION(touch)
 		file = VCWD_FOPEN(Z_STRVAL_PP(filename), "w");
 		if (file == NULL) {
 			php_error(E_WARNING, "unable to create file %s because %s", Z_STRVAL_PP(filename), strerror(errno));
-			if (newtime) efree(newtime);
 			RETURN_FALSE;
 		}
 		fclose(file);
 	}
 
 	ret = VCWD_UTIME(Z_STRVAL_PP(filename), newtime);
-	if (newtime) efree(newtime);
 	if (ret == -1) {
 		php_error(E_WARNING, "utime failed: %s", strerror(errno));
 		RETURN_FALSE;

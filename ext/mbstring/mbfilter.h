@@ -86,7 +86,7 @@
  *
  */
 
-/* $Id: mbfilter.h,v 1.5.2.1 2001/09/07 06:44:21 rasmus Exp $ */
+/* $Id: mbfilter.h,v 1.6 2001/08/25 09:21:43 wez Exp $ */
 
 
 #ifndef MBFL_MBFILTER_H

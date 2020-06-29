@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: ifx.ec,v 1.56.2.1 2001/10/11 23:51:31 ssb Exp $ */
+/* $Id: ifx.ec,v 1.63.2.1 2002/03/22 12:15:21 derick Exp $ */
 
 /* -------------------------------------------------------------------
  * if you want a function reference : "grep '^\*\*' ifx.ec" will give
@@ -301,10 +301,10 @@ EXEC SQL END DECLARE SECTION;
 	IFXG(num_links)--;
 }
 
-static void ifx_free_result(a_result_id)
-char *a_result_id;
+static void ifx_free_result(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
-	return;
+	IFX_RES *Ifx_Result = (IFX_RES *)rsrc->ptr;
+	efree(Ifx_Result);
 }
 
 PHP_INI_BEGIN()
@@ -337,7 +337,7 @@ PHP_MINIT_FUNCTION(ifx)
 	REGISTER_INI_ENTRIES();
 
 	le_result   = zend_register_list_destructors_ex(ifx_free_result,NULL, "informix result",    module_number);
-	le_idresult = zend_register_list_destructors_ex(ifx_free_result,NULL, "informix id result", module_number);
+	le_idresult = zend_register_list_destructors_ex(NULL, NULL, "informix id result", module_number);
 	le_link     = zend_register_list_destructors_ex(_close_ifx_link,NULL, "informix link",      module_number);
 	le_plink    = zend_register_list_destructors_ex(NULL,_close_ifx_plink,"informix persistent link", module_number);
 	ifx_module_entry.type = type;
@@ -774,6 +774,7 @@ EXEC SQL END DECLARE SECTION;
 	sprintf(cursorid, "cursor%x", IFXG(cursorid)); 
 	sprintf(descrpid, "descrp%x", IFXG(cursorid)); 
 
+	EXEC SQL set connection :ifx;
 	PHP_IFX_CHECK_CONNECTION(ifx);
 
 	EXEC SQL PREPARE :statemid FROM :statement;
@@ -1995,8 +1996,8 @@ EXEC SQL BEGIN DECLARE SECTION;
 	short fieldtype;      /* field type      */
 	int   fieldleng;      /* field length    */
 $ifdef HAVE_IFX_IUS;
-	ifx_int8_t  int8_var;
-	lvarchar*lvar_tmp;
+	ifx_int8_t int8_var;
+	lvarchar   *lvar_tmp;
 $endif;
 	short     indicator;
 	int       int_data;
@@ -2770,7 +2771,6 @@ EXEC SQL END DECLARE SECTION;
 	}
 	
 	EXEC SQL DEALLOCATE DESCRIPTOR :descrpid;
-	efree(Ifx_Result);	/* this can be safely done now */
 
 	zend_list_delete(Z_RESVAL_PP(result));
 	RETURN_TRUE;

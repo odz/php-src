@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_virtual_cwd.h,v 1.15 2001/08/05 01:34:40 zeev Exp $ */
+/* $Id: tsrm_virtual_cwd.h,v 1.17 2001/12/11 15:16:20 sebastian Exp $ */
 
 #ifndef VIRTUAL_CWD_H
 #define VIRTUAL_CWD_H
@@ -62,7 +62,13 @@ typedef unsigned short mode_t;
 #endif
 
 #define DEFAULT_SLASH '/'
-#define DEFAULT_DIR_SEPARATOR	':'
+
+#ifdef __riscos__
+#define DEFAULT_DIR_SEPARATOR  ';'
+#else
+#define DEFAULT_DIR_SEPARATOR  ':'
+#endif
+
 #define IS_SLASH(c)	((c) == '/')
 
 #endif

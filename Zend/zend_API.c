@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2002 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -166,7 +166,7 @@ ZEND_API void zend_wrong_param_count(TSRMLS_D)
 
 /* Argument parsing API -- andrei */
 
-static char *zend_zval_type_name(zval *arg)
+ZEND_API char *zend_zval_type_name(zval *arg)
 {
 	switch (Z_TYPE_P(arg)) {
 		case IS_NULL:
@@ -207,7 +207,10 @@ static int zend_check_class(zval *obj, zend_class_entry *expected_ce)
 	}
 
 	for (ce = Z_OBJCE_P(obj); ce != NULL; ce = ce->parent) {
-		if (ce == expected_ce) {
+		/*
+		 * C'est une UGLY HACK.
+		 */
+		if (ce->refcount == expected_ce->refcount) {
 			return 1;
 		}
 	}
@@ -1112,8 +1115,9 @@ void module_destructor(zend_module_entry *module)
 	if (module->type == MODULE_TEMPORARY) {
 		zend_clean_module_rsrc_dtors(module->module_number TSRMLS_CC);
 		clean_module_constants(module->module_number TSRMLS_CC);
-		if (module->request_shutdown_func)
+		if (module->request_shutdown_func) {
 			module->request_shutdown_func(module->type, module->module_number TSRMLS_CC);
+		}
 	}
 
 	if (module->module_started && module->module_shutdown_func) {

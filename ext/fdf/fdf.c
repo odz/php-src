@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: fdf.c,v 1.59.2.1 2001/10/11 23:51:22 ssb Exp $ */
+/* $Id: fdf.c,v 1.63 2001/12/11 15:29:13 sebastian Exp $ */
 
 /* FdfTk lib 2.0 is a Complete C/C++ FDF Toolkit available from
    http://beta1.adobe.com/ada/acrosdk/forms.html. */
@@ -693,7 +693,7 @@ PHP_FUNCTION(fdf_set_javascript_action)
 }
 /* }}} */
 
-/* {{{ fdf_set_encoding(int fdf_document, string encoding)
+/* {{{ proto bool fdf_set_encoding(int fdf_document, string encoding)
    Sets FDF encoding (either "Shift-JIS" or "Unicode") */  
 PHP_FUNCTION(fdf_set_encoding) 
 {
@@ -797,6 +797,6 @@ SAPI_POST_HANDLER_FUNC(fdf_post_handler)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

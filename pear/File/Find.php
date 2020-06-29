@@ -1,9 +1,9 @@
 <?php
 //
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2001 The PHP Group                                |
+// | Copyright (c) 1997-2002 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -13,10 +13,10 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors: Sterling Hughes <sterling@php.net>                          |
+// | Author: Sterling Hughes <sterling@php.net>                           |
 // +----------------------------------------------------------------------+
 //
-// $Id: Find.php,v 1.14.2.3 2001/11/13 01:26:45 ssb Exp $
+// $Id: Find.php,v 1.24 2002/02/28 08:27:12 sebastian Exp $
 //
 
 require_once 'PEAR.php';
@@ -25,7 +25,7 @@ require_once 'PEAR.php';
 *  Commonly needed functions searching directory trees
 *
 * @access public
-* @version $Id: Find.php,v 1.14.2.3 2001/11/13 01:26:45 ssb Exp $
+* @version $Id: Find.php,v 1.24 2002/02/28 08:27:12 sebastian Exp $
 * @package File
 * @author Sterling Hughes <sterling@php.net>
 */
@@ -54,7 +54,7 @@ class File_Find
      * @param string $pattern a string containing the pattern to search
      * the directory for.
      *
-     * @param string $direct_path a string containing the directory path
+     * @param string $dirpath a string containing the directory path
      * to search.
      *
      * @param string $pattern_type a string containing the type of
@@ -93,7 +93,7 @@ class File_Find
     /**
      * Map the directory tree given by the directory_path parameter.
      *
-     * @param string $directory_path contains the directory path that you
+     * @param string $directory contains the directory path that you
      * want to map.
      *
      * @return array a two element array, the first element containing a list
@@ -117,6 +117,58 @@ class File_Find
     }
 
     /**
+     * Map the directory tree given by the directory parameter.
+     *
+     * @param string $directory contains the directory path that you
+     * want to map.
+     *
+     * @return array a multidimensional array containing all subdirectories
+     * and their files. For example:
+     *
+     * Array
+     * (
+     *    [0] => file_1.php
+     *    [1] => file_2.php
+     *    [subdirname] => Array
+     *       (
+     *          [0] => file_1.php
+     *       )
+     * )
+     *
+     * @author Mika Tuupola <tuupola@appelsiini.net>
+     * @access public
+     */
+
+    function &mapTreeMultiple($directory)
+    {   
+
+        $retval = array();
+
+        $directory .= '/';
+        $dh=opendir($directory);
+        while ($entry = readdir($dh)) {
+            if ($entry != "." && $entry != "..") {
+                 array_push($retval, $entry);
+            }
+        }
+
+        closedir($dh);
+     
+        while (list($key, $val) = each($retval)) {
+            $path = $directory . $val;
+            $path = str_replace("//","/",$path);
+      
+            if (!(is_array($val))) {
+                if (is_dir($path)) {
+                    unset($retval[$key]);
+                    $retval[$val] = File_Find::mapTreeMultiple($path);
+                }
+            }
+        }
+        return($retval);
+    }
+
+    /**
      * Search the specified directory tree with the specified pattern.  Return an
      * array containing all matching files (no directories included).
      *
@@ -124,7 +176,7 @@ class File_Find
      *
      * @param string $directory the directory tree to search in.
      *
-     * @param string $regex_type the type of regular expression support to use, either
+     * @param string $type the type of regular expression support to use, either
      * 'php' or 'perl'.
      *
      * @return array a list of files matching the pattern parameter in the the directory
@@ -134,6 +186,7 @@ class File_Find
      * @access public
      */
     function &search ($pattern, $directory, $type='php') {
+        $matches = array();
         list (,$files)  = File_Find::maptree($directory);
         $match_function = File_Find::_determineRegex($pattern, $type);
 

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | dbx module version 1.0                                               |
    +----------------------------------------------------------------------+
@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_dbx.h,v 1.10 2001/08/07 19:09:58 fmk Exp $ */
+/* $Id: php_dbx.h,v 1.12 2001/12/11 15:29:05 sebastian Exp $ */
 
 #ifndef ZEND_PHP_DBX_H
 #define ZEND_PHP_DBX_H
@@ -54,8 +54,8 @@ ZEND_FUNCTION(dbx_sort);
 ZEND_FUNCTION(dbx_compare);
 
 /* 
-  	Declare any global variables you may need between the BEGIN
-	and END macros here:     
+   Declare any global variables you may need between the BEGIN
+   and END macros here:     
 */
 
 /*
@@ -76,7 +76,7 @@ ZEND_END_MODULE_GLOBALS(dbx)
 #define DBXG(v) (dbx_globals.v)
 #endif
 
-#endif	/* ZEND_PHP_DBX_H */
+#endif /* ZEND_PHP_DBX_H */
 
 
 /*

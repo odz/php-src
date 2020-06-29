@@ -15,25 +15,25 @@ require_once "XML/Parser.php";
 
 class __TestParser1 extends XML_Parser {
     function __TestParser1() {
-	$this->XML_Parser();
+        $this->XML_Parser();
     }
     function startHandler($xp, $element, $attribs) {
-	print "<$element";
-	reset($attribs);
-	while (list($key, $val) = each($attribs)) {
-	    $enc = htmlentities($val);
-	    print " $key=\"$enc\"";
-	}
-	print ">";
+        print "<$element";
+        reset($attribs);
+        while (list($key, $val) = each($attribs)) {
+            $enc = htmlentities($val);
+            print " $key=\"$enc\"";
+        }
+        print ">";
     }
     function endHandler($xp, $element) {
-	print "</$element>\n";
+        print "</$element>\n";
     }
     function cdataHandler($xp, $cdata) {
-	print "<![CDATA[$cdata]]>";
+        print "<![CDATA[$cdata]]>";
     }
     function defaultHandler($xp, $cdata) {
-	
+
     }
 }
 error_reporting(1023);

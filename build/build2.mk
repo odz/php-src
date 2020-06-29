@@ -1,7 +1,7 @@
 #  +----------------------------------------------------------------------+
-#  | PHP version 4.0                                                      |
+#  | PHP Version 4                                                        |
 #  +----------------------------------------------------------------------+
-#  | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+#  | Copyright (c) 1997-2002 The PHP Group                                |
 #  +----------------------------------------------------------------------+
 #  | This source file is subject to version 2.02 of the PHP license,      |
 #  | that is bundled with this package in the file LICENSE, and is        |
@@ -11,10 +11,10 @@
 #  | obtain it through the world-wide-web, please send a note to          |
 #  | license@php.net so we can mail you a copy immediately.               |
 #  +----------------------------------------------------------------------+
-#  | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+#  | Author: Sascha Schumann <sascha@schumann.cx>                         |
 #  +----------------------------------------------------------------------+
 #
-# $Id: build2.mk,v 1.21 2001/06/10 13:51:18 sas Exp $ 
+# $Id: build2.mk,v 1.25.2.1 2002/03/07 20:00:33 derick Exp $ 
 #
 
 include generated_lists
@@ -60,7 +60,7 @@ $(makefile_in_files): $(makefile_am_files) aclocal.m4 configure.in $(config_m4_f
 aclocal.m4: configure.in acinclude.m4 dynlib.m4
 	aclocal 2>&1 | $(SUPPRESS_WARNINGS)
 
-SUPPRESS_WARNINGS = (egrep -v '(warning: AC_TRY_RUN called without default to allow cross compiling|AC_PROG_CXXCPP was called before AC_PROG_CXX|.*AM_PROG_LEX.*|defined in acinclude.m4 but never used)'||true)
+SUPPRESS_WARNINGS = (egrep -v '(AC_TRY_RUN called without default to allow cross compiling|AC_PROG_CXXCPP was called before AC_PROG_CXX|.*AM_PROG_LEX.*|defined in acinclude.m4 but never used|AC_PROG_LEX invoked multiple times|AC_PROG_CPP was called before)'||true)
 
 $(config_h_in): configure acconfig.h
 # explicitly remove target since autoheader does not seem to work 

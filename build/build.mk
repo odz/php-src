@@ -1,7 +1,7 @@
 #  +----------------------------------------------------------------------+
-#  | PHP version 4.0                                                      |
+#  | PHP Version 4                                                        |
 #  +----------------------------------------------------------------------+
-#  | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+#  | Copyright (c) 1997-2002 The PHP Group                                |
 #  +----------------------------------------------------------------------+
 #  | This source file is subject to version 2.02 of the PHP license,      |
 #  | that is bundled with this package in the file LICENSE, and is        |
@@ -11,10 +11,10 @@
 #  | obtain it through the world-wide-web, please send a note to          |
 #  | license@php.net so we can mail you a copy immediately.               |
 #  +----------------------------------------------------------------------+
-#  | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+#  | Author: Sascha Schumann <sascha@schumann.cx>                         |
 #  +----------------------------------------------------------------------+
 #
-# $Id: build.mk,v 1.8 2001/05/11 20:09:30 sas Exp $ 
+# $Id: build.mk,v 1.11 2002/02/28 08:25:29 sebastian Exp $ 
 #
 #
 # Makefile to generate build tools
@@ -33,7 +33,7 @@ generated_lists:
 	@echo makefile_am_files = Zend/Makefile.am \
 		TSRM/Makefile.am > $@
 	@echo config_h_files = Zend/acconfig.h TSRM/acconfig.h >> $@
-	@echo config_m4_files = Zend/Zend.m4 TSRM/tsrm.m4 \
+	@echo config_m4_files = Zend/Zend.m4 TSRM/tsrm.m4 TSRM/threads.m4 \
 		Zend/acinclude.m4 ext/*/config*.m4 sapi/*/config.m4 >> $@
 
 $(STAMP): build/buildcheck.sh

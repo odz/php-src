@@ -1,10 +1,8 @@
-dnl $Id: config.m4,v 1.6 2001/05/12 11:08:47 sas Exp $
+dnl $Id: config.m4,v 1.8 2001/11/30 18:59:27 sniper Exp $
 
-AC_MSG_CHECKING(whether to include cpdflib support)
+AC_MSG_CHECKING(for cpdflib support)
 AC_ARG_WITH(cpdflib,
-[  --with-cpdflib[=DIR]    Include cpdflib support (requires cpdflib >= 2).
-                          DIR is the cpdfllib install directory,
-                          defaults to /usr.],
+[  --with-cpdflib[=DIR]    Include cpdflib support (requires cpdflib >= 2).],
 [
   case $withval in
     no)
@@ -13,7 +11,7 @@ AC_ARG_WITH(cpdflib,
       AC_MSG_RESULT(yes)
       PHP_EXTENSION(cpdf)
       AC_CHECK_LIB(cpdf, cpdf_open, [AC_DEFINE(HAVE_CPDFLIB,1,[Whether you have cpdflib])],
-        [AC_MSG_ERROR(Cpdf module requires cpdflib >= 2.)])
+        [AC_MSG_ERROR([Cpdf module requires cpdflib >= 2.])])
       PHP_ADD_LIBRARY(cpdf)
       PHP_ADD_LIBRARY(tiff)
       PHP_ADD_LIBRARY(jpeg)
@@ -59,7 +57,7 @@ AC_ARG_WITH(cpdflib,
 
           LIBS="$LIBS -L$withval/lib"
         AC_CHECK_LIB(cpdf, cpdf_open, [AC_DEFINE(HAVE_CPDFLIB,1,[Whether you have cpdflib])],
-          [AC_MSG_ERROR(Cpdflib module requires cpdflib >= 2.)])
+          [AC_MSG_ERROR([Cpdflib module requires cpdflib >= 2.])])
         LIBS=$old_LIBS
         PHP_ADD_LIBRARY_WITH_PATH(cpdf, $withval/lib)
         PHP_ADD_INCLUDE($CPDFLIB_INCLUDE)

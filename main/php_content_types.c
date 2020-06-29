@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors:                                                             |
+   | Author:                                                              |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_content_types.c,v 1.15 2001/08/05 01:42:44 zeev Exp $ */
+/* $Id: php_content_types.c,v 1.20 2002/02/28 08:27:03 sebastian Exp $ */
 
 #include "php.h"
 #include "SAPI.h"
@@ -27,15 +27,15 @@
 /* {{{ php_post_entries[]
  */
 static sapi_post_entry php_post_entries[] = {
-	{ DEFAULT_POST_CONTENT_TYPE,	sizeof(DEFAULT_POST_CONTENT_TYPE)-1,	sapi_read_standard_form_data,	php_std_post_handler },
-	{ MULTIPART_CONTENT_TYPE,		sizeof(MULTIPART_CONTENT_TYPE)-1,		sapi_read_standard_form_data,	rfc1867_post_handler },
-	{ NULL, 0, NULL }
+	{ DEFAULT_POST_CONTENT_TYPE, sizeof(DEFAULT_POST_CONTENT_TYPE)-1, sapi_read_standard_form_data,	php_std_post_handler },
+	{ MULTIPART_CONTENT_TYPE,    sizeof(MULTIPART_CONTENT_TYPE)-1,    NULL,                         rfc1867_post_handler },
+	{ NULL, 0, NULL, NULL }
 };
 /* }}} */
 
 /* {{{ SAPI_POST_READER_FUNC
  */
-SAPI_POST_READER_FUNC(php_default_post_reader)
+SAPI_API SAPI_POST_READER_FUNC(php_default_post_reader)
 {
 	char *data;
 
@@ -60,6 +60,6 @@ int php_startup_sapi_content_types(void)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

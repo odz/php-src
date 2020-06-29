@@ -6,8 +6,8 @@ DB_mysql fetch test
 <?php
 require_once "DB.php";
 include("mktable.inc");
-include("../fetchrow.inc");
-include("../fetchmodes.inc");
+include(dirname(__FILE__)."/../fetchrow.inc");
+include(dirname(__FILE__)."/../fetchmodes.inc");
 ?>
 --EXPECT--
 testing fetchrow:

@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: clayton collie <clcollie@mindspring.com>                    |
+   | Author: Clayton Collie <clcollie@mindspring.com>                     |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: scanf.c,v 1.11 2001/08/11 17:03:37 zeev Exp $ */
+/* $Id: scanf.c,v 1.15 2002/02/28 08:26:49 sebastian Exp $ */
 
 /*
    scanf.c --
@@ -1219,7 +1219,7 @@ PHPAPI int php_sscanf_internal(	char *string, char *format,
         result = SCAN_ERROR_EOF;
     } else if (numVars) {
         convert_to_long( *return_value );
-        (*return_value)->value.lval = nconversions;
+        Z_LVAL_PP(return_value) = nconversions;
 	} else if (nconversions < totalVars) {
 		/* to do : not all elements converted. we need to prune the list - cc
 		 */		
@@ -1233,8 +1233,8 @@ PHPAPI int php_sscanf_internal(	char *string, char *format,
 static inline void scan_set_error_return(int numVars, pval **return_value)
 {
 	if (numVars) {
-		(*return_value)->type = IS_LONG;
-		(*return_value)->value.lval = SCAN_ERROR_EOF;  /* EOF marker */
+		Z_TYPE_PP(return_value) = IS_LONG;
+		Z_LVAL_PP(return_value) = SCAN_ERROR_EOF;  /* EOF marker */
 	} else {	
 	  /* pval_destructor( *return_value ); */ 
 	  /* convert_to_null calls destructor */
@@ -1248,6 +1248,6 @@ static inline void scan_set_error_return(int numVars, pval **return_value)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

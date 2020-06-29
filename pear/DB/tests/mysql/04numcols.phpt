@@ -6,7 +6,7 @@ DB_mysql::numCols test
 <?php
 require_once "DB.php";
 include("mktable.inc");
-include("../numcols.inc");
+include(dirname(__FILE__)."/../numcols.inc");
 ?>
 --EXPECT--
 1

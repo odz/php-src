@@ -1,4 +1,6 @@
-dnl $Id: config.m4,v 1.35.2.2 2001/11/03 21:26:27 derick Exp $
+dnl
+dnl $Id: config.m4,v 1.38.2.2 2002/03/20 01:58:34 sniper Exp $
+dnl
 
 sinclude(ext/mysql/libmysql/acinclude.m4)
 sinclude(ext/mysql/libmysql/mysql.m4)
@@ -34,12 +36,14 @@ AC_DEFUN(PHP_MYSQL_SOCK,[
 ])
 
 PHP_ARG_WITH(mysql, for MySQL support,
-[  --with-mysql[=DIR]      Include MySQL support. DIR is the MySQL base
-                          directory. If unspecified, the bundled MySQL library
-                          will be used.], yes)
+[  --with-mysql[=DIR]      Include MySQL support. DIR is the MySQL base directory.
+                          If unspecified, the bundled MySQL library will be used.], yes)
 
 if test "$PHP_MYSQL" != "no"; then
   AC_DEFINE(HAVE_MYSQL, 1, [Whether you have MySQL])
+  if test "$PHP_SAFE_MODE" = "yes"; then
+     AC_DEFINE(DISALLOW_MYSQL_LOAD_LOCAL, 1, [Whether to disable load local])
+  fi
   PHP_EXTENSION(mysql,$ext_shared)
 fi
 
@@ -79,10 +83,28 @@ elif test "$PHP_MYSQL" != "no"; then
     AC_MSG_ERROR(Cannot find mysqlclient library under $MYSQL_DIR)
   fi
 
-  if test "$PHP_ZLIB_DIR" != "no"; then
-    PHP_ADD_LIBRARY(z,, MYSQL_SHARED_LIBADD)
-    MYSQL_LIBS="-L$PHP_ZLIB_DIR/lib -z"
-  fi
+  PHP_CHECK_LIBRARY(mysqlclient, mysql_close, [ ],
+  [
+    if test "$PHP_ZLIB_DIR" != "no"; then
+      PHP_ADD_LIBRARY_WITH_PATH(z, $PHP_ZLIB_DIR, MYSQL_SHARED_LIBADD)
+      PHP_CHECK_LIBRARY(mysqlclient, mysql_error, [], [
+        AC_MSG_ERROR([mysql configure failed. Please check config.log for more information.])
+      ], [
+        -L$PHP_ZLIB_DIR/lib -L$MYSQL_LIB_DIR 
+      ])  
+      MYSQL_LIBS="-L$PHP_ZLIB_DIR/lib -z"
+    else
+      PHP_ADD_LIBRARY(z,, MYSQL_SHARED_LIBADD)
+      PHP_CHECK_LIBRARY(mysqlclient, mysql_errno, [], [
+        AC_MSG_ERROR([Try adding --with-zlib-dir=<DIR>. Please check config.log for more information.])
+      ], [
+        -L$MYSQL_LIB_DIR
+      ])   
+      MYSQL_LIBS="-z"
+    fi
+  ], [
+    -L$MYSQL_LIB_DIR 
+  ])
 
   PHP_ADD_LIBRARY_WITH_PATH(mysqlclient, $MYSQL_LIB_DIR, MYSQL_SHARED_LIBADD)
   MYSQL_LIBS="-L$MYSQL_LIB_DIR -lmysqlclient $MYSQL_LIBS"

@@ -3,7 +3,7 @@
 // +---------------------------------------------------------------------+
 // |  PHP version 4.0                                                    |
 // +---------------------------------------------------------------------+
-// |  Copyright (c) 1997-2001 The PHP Group                              |
+// |  Copyright (c) 1997-2002 The PHP Group                              |
 // +---------------------------------------------------------------------+
 // |  This source file is subject to version 2.0 of the PHP license,     |
 // |  that is bundled with this package in the file LICENSE, and is      |
@@ -16,7 +16,7 @@
 // |  Authors:  Sean Grimes <metallic@noworlater.net>                    |
 // +---------------------------------------------------------------------+
 // 
-// $Id: Render.php,v 1.3 2001/03/15 19:44:47 uw Exp $
+// $Id: Render.php,v 1.4 2001/12/11 15:31:48 sebastian Exp $
 
 /**
 * Render class for rendering from XML. 
@@ -28,7 +28,7 @@
 * HTML to PDF, but this is unlikely. 
 * 
 * @author   Sean Grimes <metallic@noworlater.net>
-* @version  $Id: Render.php,v 1.3 2001/03/15 19:44:47 uw Exp $
+* @version  $Id: Render.php,v 1.4 2001/12/11 15:31:48 sebastian Exp $
 * @todo     - Implement the HTML and PDF rendering modes
 *           - Extend the parse() function to what is needed
 *           - Implement filesystem commands

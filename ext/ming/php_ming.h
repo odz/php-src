@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -33,6 +33,7 @@
 extern zend_module_entry ming_module_entry;
 #define ming_module_ptr &ming_module_entry
 
+PHP_RINIT_FUNCTION(ming);
 PHP_MINIT_FUNCTION(ming);
 PHP_MINFO_FUNCTION(ming);
 
@@ -136,6 +137,7 @@ PHP_FUNCTION(swfdisplayitem_setRatio);
 PHP_FUNCTION(swfdisplayitem_addColor);
 PHP_FUNCTION(swfdisplayitem_multColor);
 PHP_FUNCTION(swfdisplayitem_setName);
+PHP_FUNCTION(swfdisplayitem_addAction);
 
 PHP_FUNCTION(swfbutton_init);
 PHP_FUNCTION(swfbutton_setHit);
@@ -156,6 +158,7 @@ PHP_FUNCTION(swfmorph_getShape2);
 
 PHP_FUNCTION(ming_setCubicThreshold);
 PHP_FUNCTION(ming_setScale);
+PHP_FUNCTION(ming_useSWFVersion);
 
 #else
 #define ming_module_ptr NULL

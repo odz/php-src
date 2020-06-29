@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,15 +12,32 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Rasmus Lerdorf                                              |
+   | Author: Rasmus Lerdorf <rasmus@php.net>                              |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_image.h,v 1.6 2001/02/26 06:07:23 andi Exp $ */
+/* $Id: php_image.h,v 1.9.2.1 2002/03/11 19:04:29 helly Exp $ */
 
 #ifndef PHP_IMAGE_H
 #define PHP_IMAGE_H
 
 PHP_FUNCTION(getimagesize);
+
+/* {{{ enum image_filetype
+   This enum is used to have ext/standard/image.c and ext/exif/exif.c use
+   the same constants for file types.
+*/
+typedef enum
+{ IMAGE_FILETYPE_UNKNOWN=0,
+  IMAGE_FILETYPE_GIF=1,
+  IMAGE_FILETYPE_JPEG,
+  IMAGE_FILETYPE_PNG,
+  IMAGE_FILETYPE_SWF,
+  IMAGE_FILETYPE_PSD,
+  IMAGE_FILETYPE_BMP,
+  IMAGE_FILETYPE_TIFF_II, /* intel */
+  IMAGE_FILETYPE_TIFF_MM, /* motorola */
+} image_filetype;
+/* }}} */
 
 #endif /* PHP_IMAGE_H */

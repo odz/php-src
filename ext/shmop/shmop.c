@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Slava Poliakov (hackie@prohost.org)                    	  |
-   |          Ilia Alshanetsky (ilia@prohost.org)                         |
+   | Authors: Slava Poliakov <hackie@prohost.org>                         |
+   |          Ilia Alshanetsky <ilia@prohost.org>                         |
    +----------------------------------------------------------------------+
  */
-/* $Id: shmop.c,v 1.16.2.2 2002/01/09 08:40:13 yohgaki Exp $ */
+/* $Id: shmop.c,v 1.23 2002/02/28 08:26:41 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -242,8 +242,9 @@ PHP_FUNCTION(shmop_read)
 	startaddr = shmop->addr + (*start)->value.lval;
 	bytes = (*count)->value.lval ? (*count)->value.lval : shmop->size-(*start)->value.lval;
 
-	return_string = emalloc(bytes);
+	return_string = emalloc(bytes+1);
 	memcpy(return_string, startaddr, bytes);
+	return_string[bytes] = 0;
 
 	RETURN_STRINGL(return_string, bytes, 0);
 }
@@ -374,6 +375,6 @@ PHP_FUNCTION(shmop_delete)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

@@ -1,9 +1,9 @@
 <?php
 //
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2001 The PHP Group                                |
+// | Copyright (c) 1997-2002 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -64,7 +64,7 @@
 * $new_hcemd5 = new Crypt_HCEMD5($key, '');
 * $cleartext = $new_hcemd5->DecodeMimeSelfRand($ciphertext);
 *
-* @version $Id: HCEMD5.php,v 1.6 2001/08/02 15:23:00 alexmerz Exp $
+* @version $Id: HCEMD5.php,v 1.8 2002/01/19 17:56:33 mj Exp $
 * @access public
 * @package Crypt
 */
@@ -251,8 +251,8 @@ class Crypt_HCEMD5 {
         if (extension_loaded('mhash')) {
             return mhash(MHASH_MD5, $string);
         }
-        
-        return pack('H*', md5(pack('H*', preg_replace('|00$|', '', bin2hex($string)))));
+
+        return pack('H*', md5($string));
     }
     
     /**

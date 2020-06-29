@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors:                                                             |
+   | Author:                                                              |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dns.c,v 1.33 2001/08/11 17:03:36 zeev Exp $ */
+/* $Id: dns.c,v 1.38 2002/02/28 08:26:44 sebastian Exp $ */
 
 /* {{{ includes
  */
@@ -82,7 +82,13 @@ PHP_FUNCTION(gethostbyaddr)
 	addr = php_gethostbyaddr(Z_STRVAL_PP(arg));
 
 	if(addr == NULL) {
+#if HAVE_IPV6 && !defined(__MacOSX__)
+/* MacOSX at this time has support for IPv6, but not inet_pton()
+ * so disabling IPv6 until further notice.  MacOSX 10.1.2 (kalowsky) */
+		php_error(E_WARNING, "Address is not a valid IPv4 or IPv6 address");
+#else
 		php_error(E_WARNING, "Address is not in a.b.c.d form");
+#endif
 		RETVAL_FALSE;
 	} else {
 		RETVAL_STRING(addr, 0);
@@ -94,9 +100,25 @@ PHP_FUNCTION(gethostbyaddr)
  */
 static char *php_gethostbyaddr(char *ip)
 {
+#if HAVE_IPV6 && !defined(__MacOSX__)
+/* MacOSX at this time has support for IPv6, but not inet_pton()
+ * so disabling IPv6 until further notice.  MacOSX 10.1.2 (kalowsky) */
+	struct in6_addr addr6;
+#endif
 	struct in_addr addr;
 	struct hostent *hp;
 
+#if HAVE_IPV6 && !defined(__MacOSX__)
+/* MacOSX at this time has support for IPv6, but not inet_pton()
+ * so disabling IPv6 until further notice.  MacOSX 10.1.2 (kalowsky) */
+	if (inet_pton(AF_INET6, ip, &addr6)) {
+		hp = gethostbyaddr((char *) &addr6, sizeof(addr6), AF_INET6);
+	} else if (inet_pton(AF_INET, ip, &addr)) {
+		hp = gethostbyaddr((char *) &addr, sizeof(addr), AF_INET);
+	} else {
+		return NULL;
+	}
+#else
 	addr.s_addr = inet_addr(ip);
 
 	if (addr.s_addr == -1) {
@@ -104,6 +126,7 @@ static char *php_gethostbyaddr(char *ip)
 	}
 
 	hp = gethostbyaddr((char *) &addr, sizeof(addr), AF_INET);
+#endif
 
 	if (!hp) {
 		return estrdup(ip);
@@ -327,6 +350,6 @@ PHP_FUNCTION(getmxrr)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

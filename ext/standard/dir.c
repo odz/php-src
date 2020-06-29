@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,12 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors:                                                             |
-   | PHP 4.0 patches by Thies C. Arntzen (thies@thieso.net)               |
+   | Author: Thies C. Arntzen <thies@thieso.net>                          |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dir.c,v 1.77 2001/08/11 17:03:36 zeev Exp $ */
+/* $Id: dir.c,v 1.87 2002/03/06 18:31:33 jflemer Exp $ */
 
 /* {{{ includes/startup/misc */
 
@@ -148,13 +147,17 @@ static void _php_do_opendir(INTERNAL_FUNCTION_PARAMETERS, int createobject)
 	}
 	convert_to_string_ex(arg);
 
-	if (php_check_open_basedir((*arg)->value.str.val TSRMLS_CC)) {
+	if (php_check_open_basedir(Z_STRVAL_PP(arg) TSRMLS_CC)) {
+		RETURN_FALSE;
+	}
+	
+	if (PG(safe_mode) &&(!php_checkuid(Z_STRVAL_PP(arg), NULL, CHECKUID_ALLOW_ONLY_FILE))) {
 		RETURN_FALSE;
 	}
 	
 	dirp = emalloc(sizeof(php_dir));
 
-	dirp->dir = VCWD_OPENDIR((*arg)->value.str.val);
+	dirp->dir = VCWD_OPENDIR(Z_STRVAL_PP(arg));
 
 #ifdef PHP_WIN32
 	if (!dirp->dir || dirp->dir->finished) {
@@ -175,7 +178,7 @@ static void _php_do_opendir(INTERNAL_FUNCTION_PARAMETERS, int createobject)
 
 	if (createobject) {
 		object_init_ex(return_value, dir_class_entry_ptr);
-		add_property_stringl(return_value, "path", (*arg)->value.str.val, (*arg)->value.str.len, 1);
+		add_property_stringl(return_value, "path", Z_STRVAL_PP(arg), Z_STRLEN_PP(arg), 1);
 		add_property_resource(return_value, "handle", dirp->id);
 		zend_list_addref(dirp->id);
 	} else {
@@ -184,7 +187,7 @@ static void _php_do_opendir(INTERNAL_FUNCTION_PARAMETERS, int createobject)
 }
 
 /* }}} */
-/* {{{ proto int opendir(string path)
+/* {{{ proto mixed opendir(string path)
    Open a directory and return a dir_handle */
 
 PHP_FUNCTION(opendir)
@@ -202,7 +205,7 @@ PHP_FUNCTION(getdir)
 }
 
 /* }}} */
-/* {{{ proto void closedir([int dir_handle])
+/* {{{ proto void closedir([resource dir_handle])
    Close directory connection identified by the dir_handle */
 
 PHP_FUNCTION(closedir)
@@ -221,21 +224,19 @@ PHP_FUNCTION(closedir)
 
 /* }}} */
 
-#if defined(HAVE_CHROOT) && !defined(ZTS)
-/* {{{ proto int chroot(string directory)
+#if defined(HAVE_CHROOT) && !defined(ZTS) && ENABLE_CHROOT_FUNC
+/* {{{ proto bool chroot(string directory)
    Change root directory */
 
 PHP_FUNCTION(chroot)
 {
-	pval **arg;
-	int ret;
+	char *str;
+	int ret, str_len;
 	
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
-		WRONG_PARAM_COUNT;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &str, &str_len) == FAILURE) {
+		RETURN_FALSE;
 	}
-	convert_to_string_ex(arg);
-
-	ret = chroot((*arg)->value.str.val);
+    ret = chroot(str);
 	
 	if (ret != 0) {
 		php_error(E_WARNING, "chroot: %s (errno %d)", strerror(errno), errno);
@@ -255,23 +256,22 @@ PHP_FUNCTION(chroot)
 /* }}} */
 #endif
 
-/* {{{ proto int chdir(string directory)
+/* {{{ proto bool chdir(string directory)
    Change the current directory */
 
 PHP_FUNCTION(chdir)
 {
-	pval **arg;
-	int ret;
+	char *str;
+	int ret, str_len;
 	
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
-		WRONG_PARAM_COUNT;
-	}
-	convert_to_string_ex(arg);
-
-	if (PG(safe_mode) && !php_checkuid((*arg)->value.str.val, NULL, CHECKUID_ALLOW_ONLY_FILE)) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &str, &str_len) == FAILURE) {
 		RETURN_FALSE;
 	}
-	ret = VCWD_CHDIR((*arg)->value.str.val);
+
+	if (PG(safe_mode) && !php_checkuid(str, NULL, CHECKUID_ALLOW_ONLY_FILE)) {
+		RETURN_FALSE;
+	}
+	ret = VCWD_CHDIR(str);
 	
 	if (ret != 0) {
 		php_error(E_WARNING, "ChDir: %s (errno %d)", strerror(errno), errno);
@@ -282,7 +282,7 @@ PHP_FUNCTION(chdir)
 }
 
 /* }}} */
-/* {{{ proto string getcwd(void)
+/* {{{ proto mixed getcwd(void)
    Gets the current directory */
 
 PHP_FUNCTION(getcwd)
@@ -313,7 +313,7 @@ PHP_FUNCTION(getcwd)
 }
 
 /* }}} */
-/* {{{ proto void rewinddir([int dir_handle])
+/* {{{ proto void rewinddir([resource dir_handle])
    Rewind dir_handle back to the start */
 
 PHP_FUNCTION(rewinddir)
@@ -326,7 +326,7 @@ PHP_FUNCTION(rewinddir)
 	rewinddir(dirp->dir);
 }
 /* }}} */
-/* {{{ proto string readdir([int dir_handle])
+/* {{{ proto string readdir([resource dir_handle])
    Read directory entry from dir_handle */
 
 PHP_NAMED_FUNCTION(php_if_readdir)
@@ -352,6 +352,6 @@ PHP_NAMED_FUNCTION(php_if_readdir)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

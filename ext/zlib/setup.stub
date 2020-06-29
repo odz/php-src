@@ -1,4 +1,4 @@
-# $Source: /repository/php4/ext/zlib/setup.stub,v $
+# $Source: /repository/php4/ext/zlib/Attic/setup.stub,v $
 # $Id: setup.stub,v 1.1 1999/04/22 02:48:28 ssb Exp $
 
 define_option with-zlib 'zlib (>= 1.0.9) support? ' yesnodir \

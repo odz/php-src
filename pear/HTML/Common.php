@@ -1,7 +1,7 @@
 <?php
 /* vim: set expandtab tabstop=4 shiftwidth=4: */
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
 // | Copyright (c) 1997, 1998, 1999, 2000, 2001 The PHP Group             |
 // +----------------------------------------------------------------------+
@@ -13,16 +13,16 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors: Adam Daniel <adaniel1@eesus.jnj.com>                        |
+// | Author: Adam Daniel <adaniel1@eesus.jnj.com>                         |
 // +----------------------------------------------------------------------+
 //
-// $Id: Common.php,v 1.10 2001/08/13 21:04:35 adaniel Exp $
+// $Id: Common.php,v 1.14.2.1 2002/04/09 19:04:19 ssb Exp $
 
 /**
  * Base class for all HTML classes
  *
  * @author      Adam Daniel <adaniel1@eesus.jnj.com>
- * @version     1.5
+ * @version     1.6
  * @since       PHP 4.0.3pl1
  * @abstract
  */
@@ -69,7 +69,7 @@ class HTML_Common {
      */
     function apiVersion()
     {
-        return 1.4;
+        return 1.6;
     } // end func apiVersion
 
     /**
@@ -95,7 +95,7 @@ class HTML_Common {
                 if (is_int($key)) {
                     $strAttr .= ' ' . strtolower($value) . '="' . strtolower($value) . '"';
                 } else {
-                    $strAttr .= ' ' . strtolower($key) . '="' . htmlentities($value) . '"';
+                    $strAttr .= ' ' . strtolower($key) . '="' . htmlspecialchars($value) . '"';
                 }
             }
         }
@@ -220,16 +220,11 @@ class HTML_Common {
      */
     function getAttribute($attr)
     {
-        if (is_array($this->_attributes)) {
-            while (list($key, $value) = each($this->_attributes)) {
-                if (is_int($key) && strtoupper($value) == strtoupper($attr)) {
-                    return true;
-                } elseif (strtolower($key) == strtolower($attr)){
-                    return $value;
-                }
-            }
+        $attr = strtolower($attr);
+        if (is_array($this->_attributes) && isset($this->_attributes[$attr])) {
+            return $this->_attributes[$attr];
         }
-        return false;
+        return;
     } //end func getAttribute
 
     /**
@@ -241,6 +236,19 @@ class HTML_Common {
     {
         $this->_attributes = $this->_parseAttributes($attributes);
     } // end func _setAttributes
+
+    /**
+     * Returns an assoc array of attributes
+     * 
+     * @since     1.6
+     * @access    public
+     * @return    void
+     * @throws    
+     */
+    function getAttributes()
+    {
+        return $this->_attributes;
+    } //end func getAttributes
 
     /**
      * Updates the passed attributes without changing the other existing attributes

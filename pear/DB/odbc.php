@@ -1,9 +1,9 @@
 <?php
 //
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2001 The PHP Group                                |
+// | Copyright (c) 1997-2002 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -13,11 +13,10 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors: Stig Bakken <ssb@fast.no>                                   |
-// |                                                                      |
+// | Author: Stig Bakken <ssb@fast.no>                                    |
 // +----------------------------------------------------------------------+
 //
-// $Id: odbc.php,v 1.36.2.4 2001/11/13 01:26:42 ssb Exp $
+// $Id: odbc.php,v 1.54 2002/02/28 08:27:11 sebastian Exp $
 //
 // Database independent query interface definition for PHP's ODBC
 // extension.
@@ -113,6 +112,10 @@ class DB_odbc extends DB_common
                 );
                 $default_dsn = 'localhost';
                 break;
+            case 'navision':
+                // the Navision driver doesn't support fetch row by number
+                $this->features['limit'] = false;
+                break;
             default:
                 break;
         }
@@ -167,9 +170,11 @@ class DB_odbc extends DB_common
         // Determine which queries that should return data, and which
         // should return an error code only.
         if (DB::isManip($query)) {
+            $this->manip_result = $result; // For affectedRows()
             return DB_OK;
         }
         $this->row[$result] = 0;
+        $this->manip_result = 0;
         return $result;
     }
 
@@ -212,6 +217,7 @@ class DB_odbc extends DB_common
     {
         $row = array();
         if ($rownum !== null) {
+            $rownum++; // ODBC first row is 1
             if (!function_exists('version_compare') || version_compare(phpversion(), "4.0.5", "lt")) {
                 $cols = odbc_fetch_into($result, $rownum, &$row);
             } else {
@@ -248,8 +254,16 @@ class DB_odbc extends DB_common
 
     function freeResult($result)
     {
-        $err = odbc_free_result($result); // XXX ERRORMSG
-        return $err;
+        if (is_resource($result)) {
+            // Always return true
+            return odbc_free_result($result);
+        }
+        if (!isset($this->prepare_tokens[(int)$result])) {
+            return false;
+        }
+        unset($this->prepare_tokens[(int)$result]);
+        unset($this->prepare_types[(int)$result]);
+        return true;
     }
 
     // }}}
@@ -265,6 +279,27 @@ class DB_odbc extends DB_common
     }
 
     // }}}
+    // {{{ affectedRows()
+
+    /**
+    * Returns the number of rows affected by a manipulative query
+    * (INSERT, DELETE, UPDATE)
+    * @return mixed int affected rows, 0 when non manip queries or
+    *               DB error on error
+    */
+    function affectedRows()
+    {
+        if (empty($this->manip_result)) {  // In case of SELECT stms
+            return 0;
+        }
+        $nrows = odbc_num_rows($this->manip_result);
+        if ($nrows == -1) {
+            return $this->odbcRaiseError();
+        }
+        return $nrows;
+    }
+
+    // }}}
     // {{{ numRows()
 
     /**
@@ -276,7 +311,11 @@ class DB_odbc extends DB_common
      */
     function numRows($result)
     {
-        return odbc_num_rows($result);
+        $nrows = odbc_num_rows($result);
+        if ($nrows == -1) {
+            return $this->odbcRaiseError(DB_ERROR_UNSUPPORTED);
+        }
+        return $nrows;
     }
 
     // }}}
@@ -317,10 +356,10 @@ class DB_odbc extends DB_common
      */
     function nextId($seq_name, $ondemand = true)
     {
-        $sqn = preg_replace('/[^a-z0-9_]/i', '_', $seq_name);
+        $seqname = $this->getSequenceName($seq_name);
         $repeat = 0;
         do {
-            $result = $this->query("update ${sqn}_seq set id = id + 1");
+            $result = $this->query("update ${seqname} set id = id + 1");
             if ($ondemand && DB::isError($result) &&
                 $result->getCode() == DB_ERROR_NOT_FOUND) {
                 $repeat = 1;
@@ -328,7 +367,7 @@ class DB_odbc extends DB_common
                 if (DB::isError($result)) {
                     return $result;
                 }
-                $result = $this->query("insert into ${sqn}_seq (id) values(0)");
+                $result = $this->query("insert into ${seqname} (id) values(0)");
             } else {
                 $repeat = 0;
             }
@@ -338,7 +377,7 @@ class DB_odbc extends DB_common
             return $result;
         }
 
-        $result = $this->query("select id from ${sqn}_seq");
+        $result = $this->query("select id from ${seqname}");
         if (DB::isError($result)) {
             return $result;
         }
@@ -356,8 +395,8 @@ class DB_odbc extends DB_common
 
     function createSequence($seq_name)
     {
-        $sqn = preg_replace('/[^a-z0-9_]/i', '_', $seq_name);
-        return $this->query("CREATE TABLE ${sqn}_seq ".
+        $seqname = $this->getSequenceName($seq_name);
+        return $this->query("CREATE TABLE ${seqname} ".
                             '(id bigint NOT NULL,'.
                             ' PRIMARY KEY(id))');
     }
@@ -367,8 +406,8 @@ class DB_odbc extends DB_common
 
     function dropSequence($seq_name)
     {
-        $sqn = preg_replace('/[^a-z0-9_]/i', '_', $seq_name);
-        return $this->query("DROP TABLE ${sqn}_seq");
+        $seqname = $this->getSequenceName($seq_name);
+        return $this->query("DROP TABLE ${seqname}");
     }
 
     // }}}

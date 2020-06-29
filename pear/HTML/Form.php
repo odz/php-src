@@ -1,9 +1,9 @@
 <?php
 //
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2001 The PHP Group                                |
+// | Copyright (c) 1997-2002 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.0 of the PHP license,       |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
 // |          Urs Gehrig <urs@circle.ch>                                  |
 // +----------------------------------------------------------------------+
 //
-// $Id: Form.php,v 1.12.2.2 2001/11/13 01:26:45 ssb Exp $
+// $Id: Form.php,v 1.22.2.2 2002/04/09 19:04:19 ssb Exp $
 //
 // HTML form utility functions.
 //
@@ -38,13 +38,13 @@ class HTML_Form
 {
     // {{{ properties
 
-    /** ACTION attribute of <FORM> tag */
+    /** ACTION attribute of <form> tag */
     var $action;
 
-    /** METHOD attribute of <FORM> tag */
+    /** METHOD attribute of <form> tag */
     var $method;
 
-    /** NAME attribute of <FORM> tag */
+    /** NAME attribute of <form> tag */
     var $name;
 
     /** an array of entries for this form */
@@ -53,26 +53,22 @@ class HTML_Form
     /** DB_storage object, if tied to one */
     var $storageObject;
 
-    /** <FORM ENCODING=""> attribute value */
-    var $encoding;
-
-    /** TARGET attribute of <FORM> tag */
+    /** TARGET attribute of <form> tag */
     var $target;
 
-    /** ENCTYPE attribute of <FORM> tag */
+    /** ENCTYPE attribute of <form> tag */
     var $enctype;
 
     // }}}
 
     // {{{ constructor
 
-    function HTML_Form($action, $method = 'GET', $name = '', $target = '', $enctype = '')
+    function HTML_Form($action, $method = 'get', $name = '', $target = '', $enctype = '')
     {
         $this->action = $action;
         $this->method = $method;
         $this->name = $name;
         $this->fields = array();
-        $this->encoding = '';
         $this->target = $target;
         $this->enctype = $enctype;
     }
@@ -164,35 +160,45 @@ class HTML_Form
     }
 
     // }}}
-
-    // {{{ adding misssing addBlank function
+    // {{{ addBlank()
 
     function addBlank($i,$title = '')
     {
         $this->fields[] = array("blank", $i, $title);
     }
 
+    // }}}
     // {{{ addFile
 
     function addFile($name, $title, $maxsize = HTML_FORM_MAX_FILE_SIZE,
                      $size = HTML_FORM_TEXT_SIZE, $accept = '') 
     {
+        $this->enctype = "multipart/form-data";
         $this->fields[] = array("file", $name, $title, $maxsize, $size, $accept);
     }
 
+    // }}}
+    // {{{ addPlaintext()
+
+    function addPlaintext($title, $text = '&nbsp;')
+    {
+        $this->fields[] = array("plaintext", $title, $text);
+    }
+
+    // }}}
     // {{{ start()
 
     function start()
     {
-        print "<FORM ACTION=\"" . basename($this->action) . "\" METHOD=\"$this->method\"";
+        print "<form action=\"" . basename($this->action) . "\" method=\"$this->method\"";
         if ($this->name) {
-            print " NAME=\"$this->name\"";
+            print " name=\"$this->name\"";
         }
         if ($this->target) {
-            print " TARGET=\"$this->target\"";
+            print " target=\"$this->target\"";
         }
         if ($this->enctype) {
-            print " ENCTYPE=\"$this->enctype\"";
+            print " enctype=\"$this->enctype\"";
         }
         print ">\n";
     }
@@ -211,7 +217,7 @@ class HTML_Form
             $fields[$data[1]] = true;
         }
         $this->displayHidden("_fields", implode(":", array_keys($fields)));
-        print "</FORM>";
+        print "</form>";
     }
 
     // }}}
@@ -222,11 +228,11 @@ class HTML_Form
                          $size = HTML_FORM_TEXT_SIZE, $maxlength = '')
     {
         if (!$maxlength) {
-            print "<INPUT NAME=\"$name\" VALUE=\"$default\" SIZE=\"$size\"";
+            print "<input name=\"$name\" value=\"$default\" size=\"$size\"";
         } else {
-            print "<INPUT NAME=\"$name\" VALUE=\"$default\" SIZE=\"$size\" MAXLENGTH=\"$maxlength\"";
+            print "<input name=\"$name\" value=\"$default\" size=\"$size\" maxlength=\"$maxlength\"";
         }
-        print ">";
+        print " />";
     }
 
     // }}}
@@ -235,12 +241,12 @@ class HTML_Form
     function displayTextRow($name, $title, $default = '',
                             $size = HTML_FORM_TEXT_SIZE, $maxlength = '')
     {
-        print " <TR>\n";
-        print "  <TH ALIGN=\"right\">$title</TH>";
-        print "  <TD>";
+        print " <tr>\n";
+        print "  <th align=\"right\">$title</th>";
+        print "  <td>";
         $this->displayText($name, $default, $size, $maxlength);
-        print "</TD>\n";
-        print " </TR>\n";
+        print "</td>\n";
+        print " </tr>\n";
     }
 
     // }}}
@@ -298,13 +304,13 @@ class HTML_Form
                              $height = 5, $maxlength  = '')
     {
         if (!$maxlength) {
-            print "<TEXTAREA NAME=\"$name\" COLS=\"$width\" ROWS=\"$height\"";
+            print "<textarea name=\"$name\" cols=\"$width\" rows=\"$height\"";
         } else {
-            print "<TEXTAREA NAME=\"$name\" COLS=\"$width\" ROWS=\"$height\" MAXLENGTH=\"$maxlength\"";
+            print "<textarea name=\"$name\" cols=\"$width\" rows=\"$height\" maxlength=\"$maxlength\"";
         }
         print ">";
         print $default;
-        print "</TEXTAREA>";
+        print "</textarea>";
     }
 
     // }}}
@@ -313,12 +319,12 @@ class HTML_Form
     function displayTextareaRow($name, $title, $default = '', $width = 40,
                                 $height = 5, $maxlength = '')
     {
-        print " <TR>\n";
-        print "  <TH ALIGN=\"right\" VALIGN=\"top\">$title</TH>\n";
-        print "  <TD>";
+        print " <tr>\n";
+        print "  <th align=\"right\" valign=\"top\">$title</th>\n";
+        print "  <td>";
         $this->displayTextarea($name, &$default, $width, $height, $maxlength);
-        print "</TD>\n";
-        print " </TR>\n";
+        print "</td>\n";
+        print " </tr>\n";
     }
 
     // }}}
@@ -390,26 +396,26 @@ class HTML_Form
     function displayRadio($name, $value, $default = false)
     {
         if ($default == false) {
-            print "<INPUT type='radio' name=\"$name\" value=\"$value\">";
+            print "<input type='radio' name=\"$name\" value=\"$value\" />";
         } else {
-            print "<INPUT type='radio' name=\"$name\" checked value=\"$value\">";
+            print "<input type='radio' name=\"$name\" checked value=\"$value\" />";
         }
     }
 
-    // }}}displayRadio()
+    // }}}
     // {{{ displayRadioRow()
 
     function displayRadioRow($name, $title, $value, $default = false)
     {
-        print " <TR>\n";
-        print "<TH ALIGN=\"right\">$title</TH>";
-        print "  <TD>";
+        print " <tr>\n";
+        print "<th align=\"right\">$title</th>";
+        print "  <td>";
         $this->displayRadio($name, $value, $default);
-        print "</TD>\n";
-        print " </TR>\n";
+        print "</td>\n";
+        print " </tr>\n";
     }
 
-    // }}}displayRadioRow()
+    // }}}
     // {{{ displayBlank()
 
     function displayBlank()
@@ -417,61 +423,80 @@ class HTML_Form
         print "&nbsp;";
     }
 
-
+    // }}}
     // {{{ displayBlankRow()
 
     function displayBlankRow($i, $title= '')
     {
         if (!$title) {
             for ($j = 0;$j < $i;$j++) {
-                print " <TR>\n";
-                print "  <TH ALIGN=\"right\">&nbsp;</TH>";
-                print "  <TD>";
+                print " <tr>\n";
+                print "  <th align=\"right\">&nbsp;</th>";
+                print "  <td>";
                 $this->displayBlank();
-                print "</TD>\n";
-                print " </TR>\n";
+                print "</td>\n";
+                print " </tr>\n";
             }
         } else {
-            print " <TR>\n";
-            print "  <TH ALIGN=\"right\">$title</TH>";
-            print "  <TD>";
+            print " <tr>\n";
+            print "  <th align=\"right\">$title</th>";
+            print "  <td>";
             $this->displayBlank();
-            print "</TD>\n";
-            print " </TR>\n";
+            print "</td>\n";
+            print " </tr>\n";
         }
     }
 
-    // }}}displayBlankRow()
+    // }}}
     // {{{ displayFile()
 
     function displayFile($name, $maxsize = HTML_FORM_MAX_FILE_SIZE,
                          $size = HTML_FORM_TEXT_SIZE, $accept = '')
     {
-        print "<INPUT TYPE=\"file\" NAME=\"$name\" MAXSIZE=\"$maxsize\" SIZE=\"$size\"";
+        print "<input type=\"file\" name=\"$name\" maxsize=\"$maxsize\" size=\"$size\"";
         if ($accept) {
-            print " ACCEPT=\"$accept\"";
+            print " accept=\"$accept\"";
         }
-        print ">";
+        print "/>";
 
     }
 
-    // }}}displayFile()
-
+    // }}}
     // {{{ displayFileRow()
 
     function displayFileRow($name, $title, $maxsize = HTML_FORM_MAX_FILE_SIZE,
                             $size = HTML_FORM_TEXT_SIZE, $accept = '')
     {
-        print " <TR>\n";
-        print "  <TH ALIGN=\"right\">$title</TH>";
-        print "  <TD>";
+        print " <tr>\n";
+        print "  <th align=\"right\">$title</th>";
+        print "  <td>";
         $this->displayFile($name, $maxsize, $size, $accept);
-        print "</TD>\n";
-        print " </TR>\n";
+        print "</td>\n";
+        print " </tr>\n";
     }
 
-    // }}}displayFileRow()
+    // }}}
+    // {{{ displayPlaintext()
 
+    function displayPlaintext($text = '&nbsp;')
+    {
+        print $text;
+    }
+
+    // }}}
+    // {{{ displayPlaintextRow()
+
+    function displayPlaintextRow($title, $text = '&nbsp;')
+    {
+        print " <tr>\n";
+        print "  <th align=\"right\" valign=\"top\">$title</th>";
+        print "  <td>";
+        $this->displayPlaintext($text);
+        print "</td>\n";
+        print " </tr>\n";
+    }
+
+    // }}}
 
     // {{{ returnText()
 
@@ -636,7 +661,7 @@ class HTML_Form
             $str .= " size=\"$size\"";
         }
         if ($multiple) {
-            $str .= " multiple";
+            $str .= " multiple=\"multiple\"";
         }
         if ($attrib) {
             $str .= " $attrib";
@@ -651,10 +676,10 @@ class HTML_Form
                     if ($multiple && is_array($default)) {
                         if ((is_string(key($default)) && $default[$val]) ||
                             (is_int(key($default)) && in_array($val, $default))) {
-                            $str .= 'selected ';
+                            $str .= 'selected="selected" ';
                         }
                     } elseif ($default == $val) {
-                        $str .= 'selected ';
+                        $str .= 'selected="selected" ';
                     }
                 }
             $str .= "value=\"$val\">$text</option>\n";
@@ -671,7 +696,7 @@ class HTML_Form
                               $blank = '', $multiple = false, $attribs = '')
     {
         $str  = " <tr>\n";
-        $str .= "  <th align=\"right\">$title:</th>\n";
+        $str .= "  <th align=\"right\">$title</th>\n";
         $str .= "  <td>\n";
         $str .= $this->returnSelect($name, $entries, $default, $size, $blank, $multiple, $attribs);
         $str .= "  </td>\n";
@@ -751,6 +776,29 @@ class HTML_Form
     }
 
     // }}}
+    // {{{ returnPlaintext()
+
+    function returnPlaintext($text = '&nbsp;')
+    {
+        return $text;
+    }
+
+    // }}}
+    // {{{ returnPlaintextRow()
+
+    function returnPlaintextRow($title, $text = '&nbsp;')
+    {
+        $str  = " <tr>\n";
+        $str .= "  <th align=\"right\">$title:</th>";
+        $str .= "  <td>";
+        $str .= $this->returnPlaintext($text);
+        $str .= "</td>\n";
+        $str .= " </tr>\n";
+
+        return $str;
+    }
+
+    // }}}
 
     // {{{ display()
 
@@ -802,6 +850,10 @@ class HTML_Form
                 case "select":
                     $params = 8;
                     $defind = 4;
+                    break;
+                case "plaintext":
+                    $params = 2;
+                    $defind = 1;
                     break;
                 default:
                     // unknown field type

@@ -1,8 +1,10 @@
-dnl ## -*- sh -*-
+dnl
+dnl $Id: config.m4,v 1.6.2.2 2002/04/13 00:18:54 sniper Exp $
+dnl
 
 AC_MSG_CHECKING(for Apache 2.0 module support via DSO through APXS)
 AC_ARG_WITH(apxs2,
-[  --with-apxs2[=FILE]     Build shared Apache 2.0 module. FILE is the optional
+[  --with-apxs2[=FILE]     EXPERIMENTAL: Build shared Apache 2.0 module. FILE is the optional
                           pathname to the Apache apxs tool; defaults to "apxs".],[
   if test "$withval" = "yes"; then
     APXS=apxs
@@ -36,6 +38,12 @@ AC_ARG_WITH(apxs2,
     -D*) CPPFLAGS="$CPPFLAGS $flag";;
     esac
   done
+  
+  # Test that we're trying to configure with apache 2.x
+  if test ! -f "$APXS_INCLUDEDIR/ap_mpm.h"; then
+    AC_MSG_ERROR([Use --with-apxs with Apache 1.3.x!])
+  fi
+
   PHP_ADD_INCLUDE($APXS_INCLUDEDIR)
   PHP_SAPI=apache2filter
   INSTALL_IT="$APXS -i -a -n php4 $SAPI_LIBTOOL"

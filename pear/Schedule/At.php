@@ -1,9 +1,9 @@
 <?php
 /* vim: set ts=4 sw=4: */
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2001 The PHP Group                                |
+// | Copyright (c) 1997-2002 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.0 of the PHP license,       |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -13,10 +13,10 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors: Colin Viebrock <colin@easydns.com>                          |
+// | Author: Colin Viebrock <colin@easydns.com>                           |
 // +----------------------------------------------------------------------+
 //
-// $Id: At.php,v 1.3 2001/01/09 21:12:34 cmv Exp $
+// $Id: At.php,v 1.6.2.1 2002/04/09 19:04:25 ssb Exp $
 //
 // Interface to the UNIX "at" program
 
@@ -85,8 +85,7 @@ class Schedule_At extends PEAR {
         $this->_reset();
 
         if ($queue && !preg_match('/^[a-zA-Z]{1,1}$/', $queue) ) {
-            $this->error = new Schedule_At_Error('Invalid queue specification');
-            return $this->error;
+            return $this->raiseError('Invalid queue specification');
         }
 
         $cmd = escapeShellCmd($cmd);
@@ -102,8 +101,7 @@ class Schedule_At extends PEAR {
         $result = $this->_doexec($exec);
 
         if (preg_match('/garbled time/i', $result) ) {
-            $this->error = new Schedule_At_Error('Garbled time');
-            return $this->error;
+            return $this->raiseError('Garbled time');
         }
 
         if (preg_match('/job (\d+) at (.*)/i', $result, $m) ) {
@@ -111,8 +109,7 @@ class Schedule_At extends PEAR {
             $this->job = $m[1];
             return $this->job;
         } else {
-            $this->error = new Schedule_At_Error('Exec Error: '.$result);
-            return $this->error;
+            return $this->raiseError('Exec Error: '.$result);
         }
 
     }
@@ -139,8 +136,7 @@ class Schedule_At extends PEAR {
         $this->_reset();
 
         if ($queue && !preg_match('/^[a-zA-Z]{1,1}$/', $queue) ) {
-            $this->error = new Schedule_At_Error('Invalid queue specification');
-            return $this->error;
+            return $this->raiseError('Invalid queue specification');
         }
 
         $exec = sprintf("%s -l %s",
@@ -184,15 +180,13 @@ class Schedule_At extends PEAR {
         $this->_reset();
 
         if (!$job) {
-            $this->error = new Schedule_At_Error('No job specified');
-            return $this->error;
+            return $this->raiseError('No job specified');
         }
 
         $queue = $this->show();
 
         if (!isset($queue[$job]) ) {
-            $this->error = new Schedule_At_Error('Job ' . $job . ' does not exist');
-            return $this->error;
+            return $this->raiseError('Job ' . $job . ' does not exist');
         }
 
         $exec = sprintf("%s -d %s",
@@ -260,20 +254,4 @@ class Schedule_At extends PEAR {
 
 }
 
-
-
-class Schedule_At_Error extends PEAR_Error
-{
-    var $classname             = 'Schedule_At_Error';
-    var $error_message_prepend = 'Error in Schedule_At';
-                                        
-    function Schedule_At_Error ($message, $code = 0, $mode = PEAR_ERROR_RETURN, $level = E_USER_NOTICE)
-    {
-        $this->PEAR_Error ($message, $code, $mode, $level);
-    }
-
-}        
-                
-
 ?>
-

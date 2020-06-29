@@ -1,7 +1,7 @@
 <?php
 /* vim: set expandtab tabstop=4 shiftwidth=4: */
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
 // | Copyright (c) 1997, 1998, 1999, 2000, 2001 The PHP Group             |
 // +----------------------------------------------------------------------+
@@ -13,10 +13,10 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors: Adam Daniel <adaniel1@eesus.jnj.com>                        |
+// | Author: Adam Daniel <adaniel1@eesus.jnj.com>                         |
 // +----------------------------------------------------------------------+
 //
-// $Id: Select.php,v 1.7 2001/04/12 18:55:58 chagenbu Exp $
+// $Id: Select.php,v 1.10.2.2 2002/04/09 19:04:19 ssb Exp $
 
 require_once 'PEAR.php';
 require_once 'HTML/Common.php';
@@ -73,6 +73,7 @@ class HTML_Select extends HTML_Common
             $attr[] = 'multiple="multiple"';
         }
         $this->updateAttributes($attr);
+        $this->setSelectedValues(array());
     }
     
     /**
@@ -311,13 +312,13 @@ class HTML_Select extends HTML_Common
         $strHtml .=
             '<select' . $this->_getAttrString($this->_attributes) . '>';
         foreach ($this->_options as $option) {
-            if (in_array($option['attr']['value'], $this->_values)) {
+            if (@in_array($option['attr']['value'], $this->_values)) {
                 $option['attr']['selected'] = 'selected';
             }
             $attrString = $this->_getAttrString($option['attr']);
             $strHtml .=
                 '<option' . $attrString . '>' .
-                htmlentities($option['text']) . '</option>';
+                htmlspecialchars($option['text']) . '</option>';
         }
         $strHtml .= '</select>';
         return $strHtml;

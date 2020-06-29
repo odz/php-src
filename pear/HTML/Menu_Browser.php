@@ -1,9 +1,9 @@
 <?php
 //
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2001 The PHP Group                                |
+// | Copyright (c) 1997-2002 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -13,10 +13,10 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors: Ulf Wendel <ulf.wendel@phpdoc.de>                           |
+// | Author: Ulf Wendel <ulf.wendel@phpdoc.de>                            |
 // +----------------------------------------------------------------------+
 //
-// $Id: Menu_Browser.php,v 1.2.2.2 2001/11/13 01:26:46 ssb Exp $
+// $Id: Menu_Browser.php,v 1.6 2002/02/28 08:27:13 sebastian Exp $
 
 /**
 * Simple filesystem browser that can be used to generated menu (3) hashes based on the directory structure.
@@ -45,7 +45,7 @@
 * (title!). Subclass exploreFile() depending on your file format.
 *
 * @author   Ulf Wendel <ulf.wendel@phpdoc.de>
-* @version  $Id: Menu_Browser.php,v 1.2.2.2 2001/11/13 01:26:46 ssb Exp $
+* @version  $Id: Menu_Browser.php,v 1.6 2002/02/28 08:27:13 sebastian Exp $
 */
 class HTML_Menu_Browser {
     /**
@@ -184,7 +184,7 @@ class HTML_Menu_Browser {
                 continue;
             }
             $ffile = $dir . $file;
-            if (is_dir($file)) {
+            if (is_dir($ffile)) {
                 $ffile .= '/';
                 if (file_exists($ffile . $this->index_file)) {
                     $id++;

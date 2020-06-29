@@ -4,7 +4,7 @@ PEAR_Registry
 <?php
 
 error_reporting(E_ALL);
-include "../PEAR/Registry.php";
+include dirname(__FILE__)."/../PEAR/Registry.php";
 PEAR::setErrorHandling(PEAR_ERROR_DIE, "%s\n");
 cleanall();
 
@@ -36,7 +36,7 @@ function cleanall()
 {
 	$dp = opendir(".");
 	while ($ent = readdir($dp)) {
-		if (substr($ent, -4) == ".inf") {
+		if (substr($ent, -4) == ".reg") {
 			unlink($ent);
 		}
 	}

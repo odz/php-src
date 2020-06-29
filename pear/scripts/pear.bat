@@ -3,7 +3,7 @@
 REM ----------------------------------------------------------------------
 REM PHP version 4.0                                                     
 REM ----------------------------------------------------------------------
-REM Copyright (c) 1997-2001 The PHP Group                               
+REM Copyright (c) 1997-2002 The PHP Group                               
 REM ----------------------------------------------------------------------
 REM  This source file is subject to version 2.02 of the PHP license,    
 REM  that is bundled with this package in the file LICENSE, and is      
@@ -16,16 +16,16 @@ REM ----------------------------------------------------------------------
 REM  Authors:     Alexander Merz (alexmerz@php.net)                         
 REM ----------------------------------------------------------------------
 REM
-REM  $Id: pear.bat,v 1.4.2.1 2001/11/13 01:26:51 ssb Exp $
+REM  $Id: pear.bat,v 1.5.2.1 2002/04/09 19:04:25 ssb Exp $
 
 REM change this four lines to match the paths of your system
 REM -------------------
 set PHP_PATH=c:\php
 set PEAR_INSTALL_DIR=c:\php\pear
 set PEAR_EXTENSION_DIR=c:\php\extensions
-set PEAR_DOC_DIR=c:\php\pear
+set PEAR_DOC_DIR=c:\php\pear\docs
 REM -------------------
 set DIRECTORY_SEPARATOR=\
 
-%PHP_PATH%\php.exe -q %PEAR_INSTALL_DIR%\scripts\pearwin.php %1 %2 %3 %4 %5 %6
+%PHP_PATH%\php.exe -q %PEAR_INSTALL_DIR%\scripts\pear.in %1 %2 %3 %4 %5 %6 %7 %8 %9
 @ECHO ON

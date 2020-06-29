@@ -6,7 +6,7 @@ DB_mysql tableInfo test
 <?php
 require_once "DB.php";
 include("mktable.inc");
-include("../tableinfo.inc");
+include(dirname(__FILE__)."/../tableinfo.inc");
 ?>
 --EXPECT--
 testing tableInfo:

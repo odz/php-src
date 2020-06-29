@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,6 +17,8 @@
    |          Zeev Suraski <zeev@zend.com>                                |
    +----------------------------------------------------------------------+
 */
+
+/* $Id: SAPI.c,v 1.129 2002/01/14 13:36:54 sesser Exp $ */
 
 #include <ctype.h>
 #include <sys/stat.h>
@@ -44,9 +46,6 @@
 
 static HashTable known_post_content_types;
 
-SAPI_API void (*sapi_error)(int error_type, const char *message, ...);
-
-
 #ifdef ZTS
 SAPI_API int sapi_globals_id;
 #else
@@ -60,7 +59,6 @@ static void sapi_globals_ctor(sapi_globals_struct *sapi_globals TSRMLS_DC)
 
 /* True globals (no need for thread safety) */
 SAPI_API sapi_module_struct sapi_module;
-SAPI_API void (*sapi_error)(int error_type, const char *message, ...);
 
 
 SAPI_API void sapi_startup(sapi_module_struct *sf)
@@ -162,15 +160,20 @@ static void sapi_read_post_data(TSRMLS_D)
 	if (oldchar) {
 		*(p-1) = oldchar;
 	}
-	post_reader_func(TSRMLS_C);
+
 	SG(request_info).content_type_dup = content_type;
-	if(PG(always_populate_raw_post_data) && sapi_module.default_post_reader) {
-		sapi_module.default_post_reader(TSRMLS_C);
+
+	if(post_reader_func) {
+		post_reader_func(TSRMLS_C);
+
+		if(PG(always_populate_raw_post_data) && sapi_module.default_post_reader) {
+			sapi_module.default_post_reader(TSRMLS_C);
+		}
 	}
 }
 
 
-SAPI_POST_READER_FUNC(sapi_read_standard_form_data)
+SAPI_API SAPI_POST_READER_FUNC(sapi_read_standard_form_data)
 {
 	int read_bytes;
 	int allocated_bytes=SAPI_POST_BLOCK_SIZE+1;
@@ -273,6 +276,7 @@ SAPI_API size_t sapi_apply_default_charset(char **mimetype, size_t len TSRMLS_DC
  */
 SAPI_API void sapi_activate(TSRMLS_D)
 {
+	void (*post_reader_func)(TSRMLS_D);
 	zend_llist_init(&SG(sapi_headers).headers, sizeof(sapi_header_struct), (void (*)(void *)) sapi_free_header, 0);
 	SG(sapi_headers).send_default_content_type = 1;
 
@@ -301,8 +305,21 @@ SAPI_API void sapi_activate(TSRMLS_D)
 		if (SG(request_info).request_method 
 			&& !strcmp(SG(request_info).request_method, "POST")) {
 			if (!SG(request_info).content_type) {
-				sapi_module.sapi_error(E_WARNING, "No content-type in POST request");
 				SG(request_info).content_type_dup = NULL;
+				if(PG(always_populate_raw_post_data)) {
+					SG(request_info).post_entry = NULL;
+					post_reader_func = sapi_module.default_post_reader;
+
+					if(post_reader_func) {
+						post_reader_func(TSRMLS_C);
+
+						if(PG(always_populate_raw_post_data) && sapi_module.default_post_reader) {
+							sapi_module.default_post_reader(TSRMLS_C);
+						}
+					}
+				} else {
+					sapi_module.sapi_error(E_WARNING, "No content-type in POST request");
+				}
 			} else {
 				sapi_read_post_data(TSRMLS_C);
 			}
@@ -488,7 +505,7 @@ SAPI_API int sapi_add_header_ex(char *header_line, uint header_line_len, zend_bo
 								efree(result);
 								conv_len = sprintf(conv_temp," realm=\"%ld\"",myuid);		
 								result = emalloc(ptr_len+conv_len+1);
-								result_len = ptr_len + conv_len;
+								result_len = ptr_len+conv_len;
 								memcpy(result, ptr, ptr_len);	
 								memcpy(result+ptr_len, conv_temp, conv_len);
 								*(result+ptr_len+conv_len) = '\0';
@@ -505,7 +522,7 @@ SAPI_API int sapi_add_header_ex(char *header_line, uint header_line_len, zend_bo
 					efree(result);
 					efree(Z_STRVAL_P(repl_temp));
 					efree(repl_temp);
-				}
+				} 
 #else
 				if(PG(safe_mode)) {
 					myuid = php_getuid();
@@ -669,6 +686,6 @@ SAPI_API char *sapi_getenv(char *name, size_t name_len TSRMLS_DC)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

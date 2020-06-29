@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000, 2001 The PHP Group             |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sterling Hughes <sterling@php.net>                          |
+   | Author: Sterling Hughes <sterling@php.net>                           |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sablot.c,v 1.19.2.5 2001/12/15 13:08:21 mfischer Exp $ */
+/* $Id: sablot.c,v 1.34 2002/02/28 08:27:00 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -161,7 +161,7 @@ PHP_MINIT_FUNCTION(xslt)
 PHP_MINFO_FUNCTION(xslt)
 {
 	php_info_print_table_start();
-	php_info_print_table_header(2, "XSLT support", "enabled");
+	php_info_print_table_row(2, "XSLT support", "enabled");
 	php_info_print_table_end();
 }
 /* }}} */
@@ -233,9 +233,6 @@ PHP_FUNCTION(xslt_set_sax_handlers)
 	     zend_hash_get_current_data(sax_handlers, (void **) &handler) == SUCCESS;
 		 zend_hash_move_forward(sax_handlers)) {
 
-		/* Allocate the handler */
-		SEPARATE_ZVAL(handler);
-
 		key_type = zend_hash_get_current_key(sax_handlers, &string_key, &num_key, 0);
 		if (key_type == HASH_KEY_IS_LONG) {
 			convert_to_string_ex(handler);
@@ -246,18 +243,21 @@ PHP_FUNCTION(xslt_set_sax_handlers)
 
 		/* Document handlers (document start, document end) */
 		if (strcasecmp(string_key, "document") == 0) {
+			SEPARATE_ZVAL(handler);
 			register_sax_handler_pair(&XSLT_SAX(handle).doc_start, 
 			                          &XSLT_SAX(handle).doc_end, 
 			                          handler);
 		}
 		/* Element handlers, start of an element, and end of an element */
 		else if (strcasecmp(string_key, "element") == 0) {
+			SEPARATE_ZVAL(handler);
 			register_sax_handler_pair(&XSLT_SAX(handle).element_start, 
 			                          &XSLT_SAX(handle).element_end, 
 			                          handler);
 		}
 		/* Namespace handlers, start of a namespace, end of a namespace */
 		else if (strcasecmp(string_key, "namespace") == 0) {
+			SEPARATE_ZVAL(handler);
 			register_sax_handler_pair(&XSLT_SAX(handle).namespace_start, 
 			                          &XSLT_SAX(handle).namespace_end, 
 			                          handler);
@@ -317,8 +317,6 @@ PHP_FUNCTION(xslt_set_scheme_handlers)
 	for (zend_hash_internal_pointer_reset(scheme_handlers);
 	     zend_hash_get_current_data(scheme_handlers, (void **) &handler) == SUCCESS;
 	     zend_hash_move_forward(scheme_handlers)) {
-
-		SEPARATE_ZVAL(handler);
 
 		key_type = zend_hash_get_current_key(scheme_handlers, &string_key, &num_key, 0);
 		if (key_type == HASH_KEY_IS_LONG) {
@@ -582,7 +580,7 @@ PHP_FUNCTION(xslt_error)
 	}
 	ZEND_FETCH_RESOURCE(handle, php_xslt *, processor_p, -1, le_xslt_name, le_xslt);
 
-	if (XSLT_ERRSTR(handle)) {
+	if(XSLT_ERRSTR(handle)) {
 		RETURN_STRING(XSLT_ERRSTR(handle), 1);	
 	} else {
 		RETURN_FALSE;
@@ -1267,7 +1265,7 @@ static SAX_RETURN sax_enddoc(void *ctx)
    Make the error code */
 static MH_ERROR error_makecode(void *user_data, SablotHandle proc, int severity, unsigned short facility, unsigned short code)
 {
-	return(0);
+	return 0;
 }
 /* }}} */
 
@@ -1289,7 +1287,7 @@ static MH_ERROR error_log(void *user_data, SablotHandle proc, MH_ERROR code, MH_
 	/* Parse the error array */
 	/* Loop through the error array */
 	if (fields) {
-		while (fields && *fields) {
+		while (*fields) {
 			char *key;  /* Key to for the message */
 			char *val;  /* The message itself */
 			char *ptr;  /* Pointer to the location of the ':' (separator) */
@@ -1309,21 +1307,18 @@ static MH_ERROR error_log(void *user_data, SablotHandle proc, MH_ERROR code, MH_
 			key = emalloc(pos + 1);
 			val = emalloc((len - pos) + 1);
 
-			memcpy(key, *fields, pos);
-			memcpy(val, *fields + pos + 1, len - pos - 1);
-
-			key[pos] = '\0';
-			val[len - pos - 1] = '\0';
+			strlcpy(key, *fields, pos + 1);
+			strlcpy(val, *fields + pos + 1, len - pos);
 
 			/* Check to see whether or not we want to save the data */
 			if (!strcmp(key, "msg")) {
-				errmsg = estrndup(val, len - pos -1);
+				errmsg = estrndup(val, len - pos);
 			}
 			else if (!strcmp(key, "type")) {
-				errtype = estrndup(val, len - pos - 1);
+				errtype = estrndup(val, len - pos);
 			}
 			else if (!strcmp(key, "line")) {
-				errline = estrndup(val, len - pos - 1);
+				errline = estrndup(val, len - pos);
 			}
 			
 			/* Cleanup */
@@ -1334,7 +1329,6 @@ static MH_ERROR error_log(void *user_data, SablotHandle proc, MH_ERROR code, MH_
 			fields++;
 		}
 	}
-
 	
 	/* If no error line is given, then place none in the 
 	   file */
@@ -1378,7 +1372,7 @@ static MH_ERROR error_log(void *user_data, SablotHandle proc, MH_ERROR code, MH_
 			XSLT_LOG(handle).fd = open(XSLT_LOG(handle).path, 
 			                           O_WRONLY|O_CREAT|O_APPEND,
 			                           S_IRUSR|S_IRGRP|S_IROTH|S_IWUSR);
-			if (XSLT_LOG(handle).fd < 0) {
+			if (XSLT_LOG(handle).fd == -1) {
 				php_error(E_WARNING, "Cannot open log file, %s [%d]: %s",
 				          XSLT_LOG(handle).path, errno, strerror(errno));
 				XSLT_LOG(handle).fd = 0;
@@ -1393,12 +1387,12 @@ static MH_ERROR error_log(void *user_data, SablotHandle proc, MH_ERROR code, MH_
 	
 	/* Write the error to the file */
 	error = write(XSLT_LOG(handle).fd, msgbuf, strlen(msgbuf));
-	if (error < 1) {
+	if (error == -1) {
 		php_error(E_WARNING, "Cannot write data to log file, %s, with fd, %d [%d]: %s",
 		          (XSLT_LOG(handle).path ? XSLT_LOG(handle).path : "stderr"),
 		          XSLT_LOG(handle).fd,
-		          error,
-		          strerror(error));
+		          errno,
+		          strerror(errno));
 		return 0;
 	}
 
@@ -1441,13 +1435,13 @@ static MH_ERROR error_print(void *user_data, SablotHandle proc, MH_ERROR code, M
 		ZVAL_LONG(argv[2], code);
 
 		if (fields) {
-			while (fields && *fields) {
+			while (*fields) {
 				char *key;  /* Key to for the message */
 				char *val;  /* The message itself */
 				char *ptr;  /* Pointer to the location of the ':' (separator) */
 				int   pos;  /* Position of the ':' (separator) */
 				int   len;  /* Length of the string */
-			
+				
 				len = strlen(*fields);
 			
 				/* Grab the separator's position */
@@ -1461,10 +1455,8 @@ static MH_ERROR error_print(void *user_data, SablotHandle proc, MH_ERROR code, M
 				key = emalloc(pos + 1);
 				val = emalloc((len - pos) + 1);
 
-				memcpy(key, *fields, pos);
-				memcpy(val, *fields + pos + 1, len - pos - 1);
-				key[pos] = '\0';
-				val[len - pos - 1] = '\0';
+				strlcpy(key, *fields, pos + 1);
+				strlcpy(val, *fields + pos + 1, len - pos);
 
 				/* Add it */				
 				add_assoc_stringl_ex(argv[3], key, pos, val, len - pos - 1, 1);
@@ -1521,20 +1513,17 @@ static MH_ERROR error_print(void *user_data, SablotHandle proc, MH_ERROR code, M
 				key = emalloc(pos + 1);
 				val = emalloc((len - pos) + 1);
 			
-				memcpy(key, *fields, pos);
-				memcpy(val, *fields + pos + 1, len - pos - 1);
-			
-				key[pos] = '\0';
-				val[len - pos - 1] = '\0';
+				strlcpy(key, *fields, pos + 1);
+				strlcpy(val, *fields + pos + 1, len - pos);
 			
 				/* Check to see whether or not we want to save the data */
 				if (!strcmp(key, "msg")) {
-					errmsg = estrdup(val);
+					errmsg = estrndup(val, len - pos);
 				}
 				else if (!strcmp(key, "line")) {
-					errline = estrdup(val);
+					errline = estrndup(val, len - pos);
 				}
-			
+
 				/* Cleanup */
 				if (key) efree(key);
 				if (val) efree(val);
@@ -1546,6 +1535,10 @@ static MH_ERROR error_print(void *user_data, SablotHandle proc, MH_ERROR code, M
 		
 		if (!errline) {
 			errline = estrndup("none", sizeof("none") - 1);
+		}
+
+		if (!errmsg) {
+			errmsg = estrndup("unkown error", sizeof("unkown error") - 1);
 		}
 
 		/* Allocate the message buffer and copy the data onto it */
@@ -1576,6 +1569,6 @@ static MH_ERROR error_print(void *user_data, SablotHandle proc, MH_ERROR code, M
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: noet sw=4 ts=4 fdm=marker
+ * vim<600: noet sw=4 ts=4
  */

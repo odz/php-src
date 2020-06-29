@@ -1,12 +1,11 @@
 <?php
-
 /* vim: set expandtab tabstop=4 shiftwidth=4: */
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997, 1998, 1999, 2000, 2001 The PHP Group             |
+// | Copyright (c) 1997-2002 The PHP Group                                |
 // +----------------------------------------------------------------------+
-// | This source file is subject to version 2.0 of the PHP license,       |
+// | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
 // | available at through the world-wide-web at                           |
 // | http://www.php.net/license/2_02.txt.                                 |
@@ -14,10 +13,10 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors: Andrei Zmievski <andrei@ispi.net>                           |
+// | Author: Andrei Zmievski <andrei@ispi.net>                            |
 // +----------------------------------------------------------------------+
 //
-// $Id: Getopt.php,v 1.3.2.2 2001/11/13 01:26:40 ssb Exp $
+// $Id: Getopt.php,v 1.11 2002/02/28 08:27:06 sebastian Exp $
 
 require_once 'PEAR.php';
 
@@ -54,9 +53,9 @@ class Console_Getopt {
      *
      * Most of the semantics of this function are based on GNU getopt_long().
      *
-     * @param $args array an array of command-line arguments
-     * @param $short_options string specifies the list of allowed short options
-     * @param $long_options array specifies the list of allowed long options
+     * @param array  $args           an array of command-line arguments
+     * @param string $short_options  specifies the list of allowed short options
+     * @param array  $long_options   specifies the list of allowed long options
      *
      * @return array two-element array containing the list of parsed options and
      * the non-option arguments
@@ -66,6 +65,10 @@ class Console_Getopt {
      */
     function getopt($args, $short_options, $long_options = null)
     {
+        // in case you pass directly readPHPArgv() as the first arg
+        if (PEAR::isError($args)) {
+            return $args;
+        }
         $opts     = array();
         $non_opts = array();
 
@@ -77,8 +80,9 @@ class Console_Getopt {
         reset($args);
         while (list($i, $arg) = each($args)) {
 
-            /* The special element '--' means explicit end of options. Treat the
-               rest of the arguments as non-options and end the loop. */
+            /* The special element '--' means explicit end of
+               options. Treat the rest of the arguments as non-options
+               and end the loop. */
             if ($arg == '--') {
                 $non_opts = array_merge($non_opts, array_slice($args, $i + 1));
                 break;
@@ -86,7 +90,9 @@ class Console_Getopt {
 
             if ($arg{0} != '-' || (strlen($arg) > 1 && $arg{1} == '-' && !$long_options)) {
                 $non_opts[] = $arg;
-            } else if (strlen($arg) > 1 && $arg{1} == '-') {
+                //$non_opts = array_merge($non_opts, array_slice($args, $i));
+                //break;
+            } elseif (strlen($arg) > 1 && $arg{1} == '-') {
                 $error = Console_Getopt::_parseLongOption(substr($arg, 2), $long_options, $opts, $args);
                 if (PEAR::isError($error))
                     return $error;
@@ -186,6 +192,29 @@ class Console_Getopt {
 
         return new Getopt_Error("unrecognized option --$opt\n");
     }
+
+    /**
+    * Safely read the $argv PHP array across different PHP configurations.
+    * Will take care on register_globals and register_argc_argv ini directives
+    *
+    * @access public
+    * @return mixed the $argv PHP array or PEAR error if not registered
+    */
+    function readPHPArgv()
+    {
+        global $argv;
+        if (!is_array($argv)) {
+            if (!is_array($_SERVER['argv'])) {
+                if (!is_array($HTTP_SERVER_VARS['argv'])) {
+                    return new Getopt_Error("Could not read cmd args (register_argc_argv=Off?)\n");
+                }
+                return $HTTP_SERVER_VARS['argv'];
+            }
+            return $_SERVER['argv'];
+        }
+        return $argv;
+    }
+
 }
 
 

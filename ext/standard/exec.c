@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,7 +15,7 @@
    | Author: Rasmus Lerdorf                                               |
    +----------------------------------------------------------------------+
  */
-/* $Id: exec.c,v 1.63 2001/08/11 17:03:37 zeev Exp $ */
+/* $Id: exec.c,v 1.66 2001/12/11 15:30:29 sebastian Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -55,11 +55,11 @@ int php_Exec(int type, char *cmd, pval *array, pval *return_value TSRMLS_DC)
 	void (*sig_handler)();
 #endif
 
-	buf = (char*) emalloc(EXEC_INPUT_BUF);
-    if (!buf) {
+	buf = (char *) emalloc(EXEC_INPUT_BUF);
+	if (!buf) {
 		php_error(E_WARNING, "Unable to emalloc %d bytes for exec buffer", EXEC_INPUT_BUF);
 		return -1;
-    }
+	}
 	buflen = EXEC_INPUT_BUF;
 
 	if (PG(safe_mode)) {
@@ -110,6 +110,7 @@ int php_Exec(int type, char *cmd, pval *array, pval *return_value TSRMLS_DC)
 #endif
 			return -1;
 		}
+
 	} else { /* not safe_mode */
 #if PHP_SIGCHILD
 		sig_handler = signal (SIGCHLD, SIG_DFL);
@@ -482,6 +483,6 @@ PHP_FUNCTION(shell_exec)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

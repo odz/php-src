@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    |          Brian Wang          <brian@vividnet.com>                    |
    |          Kaj-Michael Lang    <milang@tal.org>                        |
    |          Antoni Pamies Olive <toni@readysoft.net>                    |
-   |          Rasmus Lerdorf      <rasmus@lerdorf.on.ca>                  |
+   |          Rasmus Lerdorf      <rasmus@php.net>                        |
    |          Chuck Hagenbuch     <chuck@horde.org>                       |
    |          Andrew Skalski      <askalski@chekinc.com>                  |
    |          Hartmut Holzgraefe  <hartmut@six.de>                        |
@@ -25,7 +25,7 @@
    | PHP 4.0 updates:  Zeev Suraski <zeev@zend.com>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_imap.c,v 1.100.2.3 2001/12/07 16:47:59 thies Exp $ */
+/* $Id: php_imap.c,v 1.112 2002/02/28 08:26:16 sebastian Exp $ */
 
 #define IMAP41
 
@@ -52,6 +52,7 @@
 
 #ifdef PHP_WIN32
 #include "winsock.h"
+#include "win32/imap_sendmail.h"
 MAILSTREAM DEFAULTPROTO;
 #endif
 
@@ -135,11 +136,7 @@ function_entry imap_functions[] = {
  	PHP_FE(imap_setacl,								NULL)
 #endif
 
-#ifndef PHP_WIN32
 	PHP_FE(imap_mail,								NULL)
-#else
-	PHP_FALIAS(imap_mail, warn_not_available,		NULL)
-#endif
 
 	PHP_FALIAS(imap_header, 		imap_headerinfo,	NULL)
 	PHP_FALIAS(imap_listmailbox, 	imap_list,			NULL)
@@ -246,10 +243,10 @@ static int add_assoc_object(zval *arg, char *key, zval *tmp)
 {
 	HashTable *symtable;
 	
-	if (arg->type == IS_OBJECT) {
+	if (Z_TYPE_P(arg) == IS_OBJECT) {
 		symtable = Z_OBJPROP_P(arg);
 	} else {
-		symtable = arg->value.ht;
+		symtable = Z_ARRVAL_P(arg);
 	}
 	return zend_hash_update(symtable, key, strlen(key)+1, (void *) &tmp, sizeof(zval *), NULL);
 }
@@ -261,10 +258,10 @@ static inline int add_next_index_object(zval *arg, zval *tmp)
 {
 	HashTable *symtable;
 	
-	if (arg->type == IS_OBJECT) {
+	if (Z_TYPE_P(arg) == IS_OBJECT) {
 		symtable = Z_OBJPROP_P(arg);
 	} else {
-		symtable = arg->value.ht;
+		symtable = Z_ARRVAL_P(arg);
 	}
 
 	return zend_hash_next_index_insert(symtable, (void *) &tmp, sizeof(zval *), NULL); 
@@ -432,28 +429,28 @@ PHP_MINIT_FUNCTION(imap)
 	mail_link(&dummydriver);	/* link in the dummy driver */
 
 	/* lets allow NIL */
-	REGISTER_MAIN_LONG_CONSTANT("NIL", NIL, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("NIL", NIL, CONST_PERSISTENT | CONST_CS);
 
 
 	/* Open Options */
 
-	REGISTER_MAIN_LONG_CONSTANT("OP_DEBUG", OP_DEBUG, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("OP_DEBUG", OP_DEBUG, CONST_PERSISTENT | CONST_CS);
 	/* debug protocol negotiations */
-	REGISTER_MAIN_LONG_CONSTANT("OP_READONLY", OP_READONLY, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("OP_READONLY", OP_READONLY, CONST_PERSISTENT | CONST_CS);
 	/* read-only open */
-	REGISTER_MAIN_LONG_CONSTANT("OP_ANONYMOUS", OP_ANONYMOUS, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("OP_ANONYMOUS", OP_ANONYMOUS, CONST_PERSISTENT | CONST_CS);
 	/* anonymous open of newsgroup */
-	REGISTER_MAIN_LONG_CONSTANT("OP_SHORTCACHE", OP_SHORTCACHE, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("OP_SHORTCACHE", OP_SHORTCACHE, CONST_PERSISTENT | CONST_CS);
 	/* short (elt-only) caching */
-	REGISTER_MAIN_LONG_CONSTANT("OP_SILENT", OP_SILENT, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("OP_SILENT", OP_SILENT, CONST_PERSISTENT | CONST_CS);
 	/* don't pass up events (internal use) */
-	REGISTER_MAIN_LONG_CONSTANT("OP_PROTOTYPE", OP_PROTOTYPE, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("OP_PROTOTYPE", OP_PROTOTYPE, CONST_PERSISTENT | CONST_CS);
 	/* return driver prototype */
-	REGISTER_MAIN_LONG_CONSTANT("OP_HALFOPEN", OP_HALFOPEN, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("OP_HALFOPEN", OP_HALFOPEN, CONST_PERSISTENT | CONST_CS);
 	/* half-open (IMAP connect but no select) */
-	REGISTER_MAIN_LONG_CONSTANT("OP_EXPUNGE", OP_EXPUNGE, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("OP_EXPUNGE", OP_EXPUNGE, CONST_PERSISTENT | CONST_CS);
 	/* silently expunge recycle stream */
-	REGISTER_MAIN_LONG_CONSTANT("OP_SECURE", OP_SECURE, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("OP_SECURE", OP_SECURE, CONST_PERSISTENT | CONST_CS);
 	/* don't do non-secure authentication */
 
 	/* 
@@ -464,105 +461,105 @@ PHP_MINIT_FUNCTION(imap)
 	options and the value for this one conflicts, simply make PHP_EXPUNGE higher at the top of 
 	this file 
 	*/
-	REGISTER_MAIN_LONG_CONSTANT("CL_EXPUNGE", PHP_EXPUNGE, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("CL_EXPUNGE", PHP_EXPUNGE, CONST_PERSISTENT | CONST_CS);
 	/* expunge silently */
 
 
 	/* Fetch options */
 
-	REGISTER_MAIN_LONG_CONSTANT("FT_UID", FT_UID, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("FT_UID", FT_UID, CONST_PERSISTENT | CONST_CS);
 	/* argument is a UID */
-	REGISTER_MAIN_LONG_CONSTANT("FT_PEEK", FT_PEEK, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("FT_PEEK", FT_PEEK, CONST_PERSISTENT | CONST_CS);
 	/* peek at data */
-	REGISTER_MAIN_LONG_CONSTANT("FT_NOT", FT_NOT, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("FT_NOT", FT_NOT, CONST_PERSISTENT | CONST_CS);
 	/* NOT flag for header lines fetch */
-	REGISTER_MAIN_LONG_CONSTANT("FT_INTERNAL", FT_INTERNAL, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("FT_INTERNAL", FT_INTERNAL, CONST_PERSISTENT | CONST_CS);
 	/* text can be internal strings */
-	REGISTER_MAIN_LONG_CONSTANT("FT_PREFETCHTEXT", FT_PREFETCHTEXT, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("FT_PREFETCHTEXT", FT_PREFETCHTEXT, CONST_PERSISTENT | CONST_CS);
 	/* IMAP prefetch text when fetching header */
 
 
 	/* Flagging options */
 
-	REGISTER_MAIN_LONG_CONSTANT("ST_UID", ST_UID, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("ST_UID", ST_UID, CONST_PERSISTENT | CONST_CS);
 	/* argument is a UID sequence */
-	REGISTER_MAIN_LONG_CONSTANT("ST_SILENT", ST_SILENT, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("ST_SILENT", ST_SILENT, CONST_PERSISTENT | CONST_CS);
 	/* don't return results */
-	REGISTER_MAIN_LONG_CONSTANT("ST_SET", ST_SET, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("ST_SET", ST_SET, CONST_PERSISTENT | CONST_CS);
 	/* set vs. clear */
 
 
 	/* Copy options */
 
-	REGISTER_MAIN_LONG_CONSTANT("CP_UID", CP_UID, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("CP_UID", CP_UID, CONST_PERSISTENT | CONST_CS);
 	/* argument is a UID sequence */
-	REGISTER_MAIN_LONG_CONSTANT("CP_MOVE", CP_MOVE, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("CP_MOVE", CP_MOVE, CONST_PERSISTENT | CONST_CS);
 	/* delete from source after copying */
 
 
 	/* Search/sort options */
 
-	REGISTER_MAIN_LONG_CONSTANT("SE_UID", SE_UID, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("SE_UID", SE_UID, CONST_PERSISTENT | CONST_CS);
 	/* return UID */
-	REGISTER_MAIN_LONG_CONSTANT("SE_FREE", SE_FREE, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("SE_FREE", SE_FREE, CONST_PERSISTENT | CONST_CS);
 	/* free search program after finished */
-	REGISTER_MAIN_LONG_CONSTANT("SE_NOPREFETCH", SE_NOPREFETCH, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("SE_NOPREFETCH", SE_NOPREFETCH, CONST_PERSISTENT | CONST_CS);
 	/* no search prefetching */
-	REGISTER_MAIN_LONG_CONSTANT("SO_FREE", SO_FREE, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("SO_FREE", SO_FREE, CONST_PERSISTENT | CONST_CS);
 	/* free sort program after finished */
-	REGISTER_MAIN_LONG_CONSTANT("SO_NOSERVER", SO_NOSERVER, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("SO_NOSERVER", SO_NOSERVER, CONST_PERSISTENT | CONST_CS);
 	/* don't do server-based sort */
 
 
 	/* Status options */
 
-	REGISTER_MAIN_LONG_CONSTANT("SA_MESSAGES", SA_MESSAGES , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("SA_MESSAGES", SA_MESSAGES , CONST_PERSISTENT | CONST_CS);
 	/* number of messages */
-	REGISTER_MAIN_LONG_CONSTANT("SA_RECENT", SA_RECENT, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("SA_RECENT", SA_RECENT, CONST_PERSISTENT | CONST_CS);
 	/* number of recent messages */
-	REGISTER_MAIN_LONG_CONSTANT("SA_UNSEEN", SA_UNSEEN , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("SA_UNSEEN", SA_UNSEEN , CONST_PERSISTENT | CONST_CS);
 	/* number of unseen messages */
-	REGISTER_MAIN_LONG_CONSTANT("SA_UIDNEXT", SA_UIDNEXT, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("SA_UIDNEXT", SA_UIDNEXT, CONST_PERSISTENT | CONST_CS);
 	/* next UID to be assigned */
-	REGISTER_MAIN_LONG_CONSTANT("SA_UIDVALIDITY", SA_UIDVALIDITY , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("SA_UIDVALIDITY", SA_UIDVALIDITY , CONST_PERSISTENT | CONST_CS);
 	/* UID validity value */
-	REGISTER_MAIN_LONG_CONSTANT("SA_ALL", sa_all, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("SA_ALL", sa_all, CONST_PERSISTENT | CONST_CS);
      /* get all status information */
 		
 
 	/* Bits for mm_list() and mm_lsub() */
 
-	REGISTER_MAIN_LONG_CONSTANT("LATT_NOINFERIORS", LATT_NOINFERIORS , CONST_PERSISTENT | CONST_CS);
-	REGISTER_MAIN_LONG_CONSTANT("LATT_NOSELECT", LATT_NOSELECT, CONST_PERSISTENT | CONST_CS);
-	REGISTER_MAIN_LONG_CONSTANT("LATT_MARKED", LATT_MARKED, CONST_PERSISTENT | CONST_CS);
-	REGISTER_MAIN_LONG_CONSTANT("LATT_UNMARKED", LATT_UNMARKED , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("LATT_NOINFERIORS", LATT_NOINFERIORS , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("LATT_NOSELECT", LATT_NOSELECT, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("LATT_MARKED", LATT_MARKED, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("LATT_UNMARKED", LATT_UNMARKED , CONST_PERSISTENT | CONST_CS);
 
 
 	/* Sort functions */
 
-	REGISTER_MAIN_LONG_CONSTANT("SORTDATE", SORTDATE , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("SORTDATE", SORTDATE , CONST_PERSISTENT | CONST_CS);
 	/* date */
-	REGISTER_MAIN_LONG_CONSTANT("SORTARRIVAL", SORTARRIVAL , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("SORTARRIVAL", SORTARRIVAL , CONST_PERSISTENT | CONST_CS);
 	/* arrival date */
-	REGISTER_MAIN_LONG_CONSTANT("SORTFROM", SORTFROM , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("SORTFROM", SORTFROM , CONST_PERSISTENT | CONST_CS);
 	/* from */
-	REGISTER_MAIN_LONG_CONSTANT("SORTSUBJECT", SORTSUBJECT , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("SORTSUBJECT", SORTSUBJECT , CONST_PERSISTENT | CONST_CS);
 	/* subject */
-	REGISTER_MAIN_LONG_CONSTANT("SORTTO", SORTTO , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("SORTTO", SORTTO , CONST_PERSISTENT | CONST_CS);
 	/* to */
-	REGISTER_MAIN_LONG_CONSTANT("SORTCC", SORTCC , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("SORTCC", SORTCC , CONST_PERSISTENT | CONST_CS);
 	/* cc */
-	REGISTER_MAIN_LONG_CONSTANT("SORTSIZE", SORTSIZE , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("SORTSIZE", SORTSIZE , CONST_PERSISTENT | CONST_CS);
 	/* size */
 
-	REGISTER_MAIN_LONG_CONSTANT("TYPETEXT", TYPETEXT , CONST_PERSISTENT | CONST_CS);
-	REGISTER_MAIN_LONG_CONSTANT("TYPEMULTIPART", TYPEMULTIPART , CONST_PERSISTENT | CONST_CS);
-	REGISTER_MAIN_LONG_CONSTANT("TYPEMESSAGE", TYPEMESSAGE , CONST_PERSISTENT | CONST_CS);
-	REGISTER_MAIN_LONG_CONSTANT("TYPEAPPLICATION", TYPEAPPLICATION , CONST_PERSISTENT | CONST_CS);
-	REGISTER_MAIN_LONG_CONSTANT("TYPEAUDIO", TYPEAUDIO , CONST_PERSISTENT | CONST_CS);
-	REGISTER_MAIN_LONG_CONSTANT("TYPEIMAGE", TYPEIMAGE , CONST_PERSISTENT | CONST_CS);
-	REGISTER_MAIN_LONG_CONSTANT("TYPEVIDEO", TYPEVIDEO , CONST_PERSISTENT | CONST_CS);
-	REGISTER_MAIN_LONG_CONSTANT("TYPEOTHER", TYPEOTHER , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("TYPETEXT", TYPETEXT , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("TYPEMULTIPART", TYPEMULTIPART , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("TYPEMESSAGE", TYPEMESSAGE , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("TYPEAPPLICATION", TYPEAPPLICATION , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("TYPEAUDIO", TYPEAUDIO , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("TYPEIMAGE", TYPEIMAGE , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("TYPEVIDEO", TYPEVIDEO , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("TYPEOTHER", TYPEOTHER , CONST_PERSISTENT | CONST_CS);
 	/*
 	TYPETEXT                unformatted text
 	TYPEMULTIPART           multiple part
@@ -574,12 +571,12 @@ PHP_MINIT_FUNCTION(imap)
 	TYPEOTHER               unknown
 	*/
 
-	REGISTER_MAIN_LONG_CONSTANT("ENC7BIT", ENC7BIT , CONST_PERSISTENT | CONST_CS);
-	REGISTER_MAIN_LONG_CONSTANT("ENC8BIT", ENC8BIT , CONST_PERSISTENT | CONST_CS);
-	REGISTER_MAIN_LONG_CONSTANT("ENCBINARY", ENCBINARY , CONST_PERSISTENT | CONST_CS);
-	REGISTER_MAIN_LONG_CONSTANT("ENCBASE64", ENCBASE64, CONST_PERSISTENT | CONST_CS);
-	REGISTER_MAIN_LONG_CONSTANT("ENCQUOTEDPRINTABLE", ENCQUOTEDPRINTABLE , CONST_PERSISTENT | CONST_CS);
-	REGISTER_MAIN_LONG_CONSTANT("ENCOTHER", ENCOTHER , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("ENC7BIT", ENC7BIT , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("ENC8BIT", ENC8BIT , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("ENCBINARY", ENCBINARY , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("ENCBASE64", ENCBASE64, CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("ENCQUOTEDPRINTABLE", ENCQUOTEDPRINTABLE , CONST_PERSISTENT | CONST_CS);
+	REGISTER_LONG_CONSTANT("ENCOTHER", ENCOTHER , CONST_PERSISTENT | CONST_CS);
 	/*
 	ENC7BIT                 7 bit SMTP semantic data
 	ENC8BIT                 8 bit SMTP semantic data
@@ -732,7 +729,7 @@ static void php_imap_do_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 
 		/* Check for an existing connection. */
 		if ((zend_hash_find(&EG(persistent_list), hashed_details, hashed_details_length, (void*) &le) == FAILURE) 
-			|| (le->type != le_pimapchain)
+			|| (Z_TYPE_P(le) != le_pimapchain)
 		) {
 			le = NULL;
 		}
@@ -816,7 +813,7 @@ static void php_imap_do_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 		node->flags = cl_flags;
 
 		/* Update the hash. */
-		new_le.type = le_pimapchain;
+		Z_TYPE(new_le) = le_pimapchain;
 		new_le.ptr = headp;
 		if (need_update	&& 
 				zend_hash_update(&EG(persistent_list), hashed_details,
@@ -2693,13 +2690,18 @@ PHP_FUNCTION(imap_bodystruct)
  	convert_to_long_ex(msg);
 	convert_to_string_ex(section);
 
+	if (!Z_LVAL_PP(msg) || Z_LVAL_PP(msg) < 1 || (unsigned) Z_LVAL_PP(msg) > imap_le_struct->imap_stream->nmsgs) {
+                php_error(E_WARNING, "Bad message number");
+                RETURN_FALSE;
+        }
+
 	if (object_init(return_value) == FAILURE) {
 		RETURN_FALSE;
 	}
 	
 	body=mail_body(imap_le_struct->imap_stream, Z_LVAL_PP(msg), Z_STRVAL_PP(section));
-	if (body->type <= TYPEMAX) {
-		add_property_long(return_value, "type", body->type);
+	if (Z_TYPE_P(body) <= TYPEMAX) {
+		add_property_long(return_value, "type", Z_TYPE_P(body));
 	}
 	if (body->encoding <= ENCMAX) {
 		add_property_long(return_value, "encoding", body->encoding);
@@ -2733,9 +2735,9 @@ PHP_FUNCTION(imap_bodystruct)
 		add_property_long(return_value, "bytes", body->size.bytes);
 	}
 #ifdef IMAP41
-	if (body->disposition.type) {
+	if (Z_TYPE(body->disposition)) {
 		add_property_long(return_value, "ifdisposition", 1);
-		add_property_string(return_value, "disposition", body->disposition.type, 1);
+		add_property_string(return_value, "disposition", Z_TYPE(body->disposition), 1);
 	} else {
 		add_property_long(return_value, "ifdisposition", 0);
 	}
@@ -2964,7 +2966,7 @@ PHP_FUNCTION(imap_mail_compose)
 
 		if (zend_hash_find(Z_ARRVAL_PP(data), "type", sizeof("type"), (void **) &pvalue)== SUCCESS) {
 			convert_to_long_ex(pvalue);
-			bod->type = (short) Z_LVAL_PP(pvalue);
+			Z_TYPE_P(bod) = (short) Z_LVAL_PP(pvalue);
 		}
 		if (zend_hash_find(Z_ARRVAL_PP(data), "encoding", sizeof("encoding"), (void **) &pvalue)== SUCCESS) {
 			convert_to_long_ex(pvalue);
@@ -2990,10 +2992,10 @@ PHP_FUNCTION(imap_mail_compose)
 			convert_to_string_ex(pvalue);
 			bod->description = cpystr(Z_STRVAL_PP(pvalue));
 		}
-		if (zend_hash_find(Z_ARRVAL_PP(data), "disposition.type", sizeof("disposition.type"), (void **) &pvalue)== SUCCESS) {
+		if (zend_hash_find(Z_ARRVAL_PP(data), "Z_TYPE(disposition)", sizeof("Z_TYPE(disposition)"), (void **) &pvalue)== SUCCESS) {
 			convert_to_string_ex(pvalue);
-			bod->disposition.type = (char *) fs_get(Z_STRLEN_PP(pvalue) + 1);
-			memcpy(bod->disposition.type, Z_STRVAL_PP(pvalue), Z_STRLEN_PP(pvalue)+1);
+			Z_TYPE(bod->disposition) = (char *) fs_get(Z_STRLEN_PP(pvalue) + 1);
+			memcpy(Z_TYPE(bod->disposition), Z_STRVAL_PP(pvalue), Z_STRLEN_PP(pvalue)+1);
 		}
 		if (zend_hash_find(Z_ARRVAL_PP(data), "disposition", sizeof("disposition"), (void **) &pvalue)== SUCCESS) {
 			if (Z_TYPE_PP(pvalue) == IS_ARRAY) {
@@ -3050,7 +3052,7 @@ PHP_FUNCTION(imap_mail_compose)
 
 			if (zend_hash_find(Z_ARRVAL_PP(data), "type", sizeof("type"), (void **) &pvalue)== SUCCESS) {
 				convert_to_long_ex(pvalue);
-				bod->type = (short) Z_LVAL_PP(pvalue);
+				Z_TYPE_P(bod) = (short) Z_LVAL_PP(pvalue);
 			}
 			if (zend_hash_find(Z_ARRVAL_PP(data), "encoding", sizeof("encoding"), (void **) &pvalue)== SUCCESS) {
 				convert_to_long_ex(pvalue);
@@ -3076,10 +3078,10 @@ PHP_FUNCTION(imap_mail_compose)
 				convert_to_string_ex(pvalue);
 				bod->description = cpystr(Z_STRVAL_PP(pvalue));
 			}
-			if (zend_hash_find(Z_ARRVAL_PP(data), "disposition.type", sizeof("disposition.type"), (void **) &pvalue)== SUCCESS) {
+			if (zend_hash_find(Z_ARRVAL_PP(data), "Z_TYPE(disposition)", sizeof("Z_TYPE(disposition)"), (void **) &pvalue)== SUCCESS) {
 				convert_to_string_ex(pvalue);
-				bod->disposition.type = (char *) fs_get(Z_STRLEN_PP(pvalue) + 1);
-				memcpy(bod->disposition.type, Z_STRVAL_PP(pvalue), Z_STRLEN_PP(pvalue)+1);
+				Z_TYPE(bod->disposition) = (char *) fs_get(Z_STRLEN_PP(pvalue) + 1);
+				memcpy(Z_TYPE(bod->disposition), Z_STRVAL_PP(pvalue), Z_STRLEN_PP(pvalue)+1);
 			}
 			if (zend_hash_find(Z_ARRVAL_PP(data), "disposition", sizeof("disposition"), (void **) &pvalue)== SUCCESS) {
 				if (Z_TYPE_PP(pvalue) == IS_ARRAY) {
@@ -3145,7 +3147,7 @@ PHP_FUNCTION(imap_mail_compose)
 
 	bod = topbod;
 
-	if (bod && bod->type == TYPEMULTIPART) {	
+	if (bod && Z_TYPE_P(bod) == TYPEMULTIPART) {	
 
 		/* first body part */
 			part = bod->nested.part;	
@@ -3217,7 +3219,6 @@ PHP_FUNCTION(imap_mail_compose)
 /* }}} */
 
 
-#ifndef PHP_WIN32
 /* {{{ _php_imap_mail
  */
 int _php_imap_mail(char *to, char *subject, char *message, char *headers, char *cc, char *bcc, char* rpath)
@@ -3230,8 +3231,8 @@ int _php_imap_mail(char *to, char *subject, char *message, char *headers, char *
 #endif
 
 #ifdef PHP_WIN32
-	if (imap_TSendMail(INI_STR("smtp"), &tsm_err, headers, subject, to, message, cc, bcc, rpath) != SUCCESS) {
-		php_error(E_WARNING, GetSMErrorText(tsm_err));
+	if (imap_TSendMail(INI_STR("SMTP"), &tsm_err, headers, subject, to, message, cc, bcc, rpath) != SUCCESS) {
+		php_error(E_WARNING, "%s", GetSMErrorText(tsm_err));
 		return 0;
 	}
 #else
@@ -3263,9 +3264,7 @@ int _php_imap_mail(char *to, char *subject, char *message, char *headers, char *
 	return 1;
 }
 /* }}} */
-#endif
 
-#ifndef PHP_WIN32
 /* {{{ proto int imap_mail(string to, string subject, string message [, string additional_headers [, string cc [, string bcc [, string rpath]]]])
    Send an email message */
 PHP_FUNCTION(imap_mail)
@@ -3337,7 +3336,6 @@ PHP_FUNCTION(imap_mail)
 	}
 }
 /* }}} */
-#endif
 
 /* {{{ proto array imap_search(int stream_id, string criteria [, long flags])
    Return a list of messages matching the given criteria */
@@ -3500,7 +3498,7 @@ PHP_FUNCTION(imap_mime_header_decode)
 					object_init(myobject);
 					add_property_string(myobject, "charset", "default", 1);
 					add_property_string(myobject, "text", text, 1);
-					zend_hash_next_index_insert(return_value->value.ht, (void *)&myobject, sizeof(zval *), NULL);
+					zend_hash_next_index_insert(Z_ARRVAL_P(return_value), (void *)&myobject, sizeof(zval *), NULL);
 				}
 				if ((encoding_token = (long)php_memnstr(&string[charset_token+2], "?", 1, string+end))) {		/* Find token for encoding */
 					encoding_token -= (long)string;
@@ -3527,7 +3525,7 @@ PHP_FUNCTION(imap_mime_header_decode)
 						object_init(myobject);
 						add_property_string(myobject, "charset", charset, 1);
 						add_property_string(myobject, "text", decode, 1);
-						zend_hash_next_index_insert(return_value->value.ht, (void *)&myobject, sizeof(zval *), NULL);
+						zend_hash_next_index_insert(Z_ARRVAL_P(return_value), (void *)&myobject, sizeof(zval *), NULL);
 						fs_give((void**)&decode);
 						
 						offset = end_token+2;
@@ -3552,7 +3550,7 @@ PHP_FUNCTION(imap_mime_header_decode)
 			object_init(myobject);
 			add_property_string(myobject, "charset", "default", 1);
 			add_property_string(myobject, "text", text, 1);
-			zend_hash_next_index_insert(return_value->value.ht, (void *)&myobject, sizeof(zval *), NULL);
+			zend_hash_next_index_insert(Z_ARRVAL_P(return_value), (void *)&myobject, sizeof(zval *), NULL);
 			
 			offset = end;	/* We have reached the end of the string. */
 		}
@@ -3695,8 +3693,8 @@ void _php_imap_add_body(zval *arg, BODY *body TSRMLS_DC)
 	PARAMETER *par, *dpar;
 	PART *part;
 	
-	if (body->type <= TYPEMAX) {
-		add_property_long(arg, "type", body->type);
+	if (Z_TYPE_P(body) <= TYPEMAX) {
+		add_property_long(arg, "type", Z_TYPE_P(body));
 	}
 
 	if (body->encoding <= ENCMAX) {
@@ -3733,9 +3731,9 @@ void _php_imap_add_body(zval *arg, BODY *body TSRMLS_DC)
 	}
 
 #ifdef IMAP41
-	if (body->disposition.type) {
+	if (Z_TYPE(body->disposition)) {
 		add_property_long(arg, "ifdisposition", 1);
-		add_property_string(arg, "disposition", body->disposition.type, 1);
+		add_property_string(arg, "disposition", Z_TYPE(body->disposition), 1);
 	} else {
 		add_property_long(arg, "ifdisposition", 0);
 	}
@@ -3783,7 +3781,7 @@ void _php_imap_add_body(zval *arg, BODY *body TSRMLS_DC)
 	add_assoc_object(arg, "parameters", parametres);
 
 	/* multipart message ? */
-	if (body->type == TYPEMULTIPART) {
+	if (Z_TYPE_P(body) == TYPEMULTIPART) {
 		MAKE_STD_ZVAL(parametres);
 		array_init(parametres);
 		for (part = body->CONTENT_PART; part; part = part->next) {
@@ -3796,7 +3794,7 @@ void _php_imap_add_body(zval *arg, BODY *body TSRMLS_DC)
 	}
 	
 	/* encapsulated message ? */
-	if ((body->type == TYPEMESSAGE) && (!strcasecmp(body->subtype, "rfc822"))) {
+	if ((Z_TYPE_P(body) == TYPEMESSAGE) && (!strcasecmp(body->subtype, "rfc822"))) {
 		body = body->CONTENT_MSG_BODY;
 		MAKE_STD_ZVAL(parametres);
 		array_init(parametres);
@@ -4079,6 +4077,9 @@ void mm_log(char *str, long errflg)
 	TSRMLS_FETCH();
   
 	/* Author: CJH */
+	if (!(EG(error_reporting) & E_NOTICE)) {
+		return;
+	}
 	if (errflg != NIL) { /* CJH: maybe put these into a more comprehensive log for debugging purposes? */
 		if (IMAPG(imap_errorstack) == NIL) {
 			IMAPG(imap_errorstack) = mail_newerrorlist();
@@ -4141,6 +4142,6 @@ void mm_fatal(char *str)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

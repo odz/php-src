@@ -1,6 +1,6 @@
 <?php
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
 // | Copyright (c) 1997, 1998, 1999, 2000, 2001 The PHP Group             |
 // +----------------------------------------------------------------------+
@@ -12,10 +12,10 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors: Richard Heyes <richard.heyes@heyes-computing.net>           |
+// | Author: Richard Heyes <richard.heyes@heyes-computing.net>            |
 // +----------------------------------------------------------------------+
 //
-// $Id: SearchReplace.php,v 1.2 2001/07/22 14:38:15 mj Exp $
+// $Id: SearchReplace.php,v 1.4 2002/02/28 08:27:13 sebastian Exp $
 //
 // Search and Replace Utility
 //

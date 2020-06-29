@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Stig Sæther Bakken <ssb@guardian.no>                        |
+   | Author: Stig Sæther Bakken <ssb@fast.no>                             |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: formatted_print.c,v 1.40 2001/08/11 17:03:37 zeev Exp $ */
+/* $Id: formatted_print.c,v 1.46 2002/02/28 08:26:45 sebastian Exp $ */
 
 #include <math.h>				/* modf() */
 #include "php.h"
@@ -444,12 +444,12 @@ php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 		}
 	}
 	convert_to_string_ex(args[0]);
-	format = (*args[0])->value.str.val;
+	format = Z_STRVAL_PP(args[0]);
 	result = emalloc(size);
 
 	currarg = 1;
 
-	while (inpos<(*args[0])->value.str.len) {
+	while (inpos<Z_STRLEN_PP(args[0])) {
 		int expprec = 0;
 
 		PRINTF_DEBUG(("sprintf: format[%d]='%c'\n", inpos, format[inpos]));
@@ -552,24 +552,24 @@ php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 				case 's':
 					convert_to_string_ex(args[argnum]);
 					php_sprintf_appendstring(&result, &outpos, &size,
-											 (*args[argnum])->value.str.val,
+											 Z_STRVAL_PP(args[argnum]),
 											 width, precision, padding,
 											 alignment,
-											 (*args[argnum])->value.str.len,
+											 Z_STRLEN_PP(args[argnum]),
 											 0, expprec);
 					break;
 
 				case 'd':
 					convert_to_long_ex(args[argnum]);
 					php_sprintf_appendint(&result, &outpos, &size,
-										  (*args[argnum])->value.lval,
+										  Z_LVAL_PP(args[argnum]),
 										  width, padding, alignment);
 					break;
 
 				case 'u':
 					convert_to_long_ex(args[argnum]);
 					php_sprintf_appenduint(&result, &outpos, &size,
-										  (*args[argnum])->value.lval,
+										  Z_LVAL_PP(args[argnum]),
 										  width, padding, alignment);
 					break;
 
@@ -578,7 +578,7 @@ php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 					/* XXX not done */
 					convert_to_double_ex(args[argnum]);
 					php_sprintf_appenddouble(&result, &outpos, &size,
-											 (*args[argnum])->value.dval,
+											 Z_DVAL_PP(args[argnum]),
 											 width, padding, alignment,
 											 precision, adjusting,
 											 format[inpos]);
@@ -587,13 +587,13 @@ php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 				case 'c':
 					convert_to_long_ex(args[argnum]);
 					php_sprintf_appendchar(&result, &outpos, &size,
-										(char) (*args[argnum])->value.lval TSRMLS_CC);
+										(char) Z_LVAL_PP(args[argnum]) TSRMLS_CC);
 					break;
 
 				case 'o':
 					convert_to_long_ex(args[argnum]);
 					php_sprintf_append2n(&result, &outpos, &size,
-										 (*args[argnum])->value.lval,
+										 Z_LVAL_PP(args[argnum]),
 										 width, padding, alignment, 3,
 										 hexchars, expprec);
 					break;
@@ -601,7 +601,7 @@ php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 				case 'x':
 					convert_to_long_ex(args[argnum]);
 					php_sprintf_append2n(&result, &outpos, &size,
-										 (*args[argnum])->value.lval,
+										 Z_LVAL_PP(args[argnum]),
 										 width, padding, alignment, 4,
 										 hexchars, expprec);
 					break;
@@ -609,7 +609,7 @@ php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 				case 'X':
 					convert_to_long_ex(args[argnum]);
 					php_sprintf_append2n(&result, &outpos, &size,
-										 (*args[argnum])->value.lval,
+										 Z_LVAL_PP(args[argnum]),
 										 width, padding, alignment, 4,
 										 HEXCHARS, expprec);
 					break;
@@ -617,7 +617,7 @@ php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 				case 'b':
 					convert_to_long_ex(args[argnum]);
 					php_sprintf_append2n(&result, &outpos, &size,
-										 (*args[argnum])->value.lval,
+										 Z_LVAL_PP(args[argnum]),
 										 width, padding, alignment, 1,
 										 hexchars, expprec);
 					break;
@@ -687,7 +687,7 @@ PHP_FUNCTION(user_printf)
 }
 /* }}} */
 
-/* {{{ proto int printf(string format, array args)
+/* {{{ proto int vprintf(string format, array args)
    Output a formatted string */
 PHP_FUNCTION(vprintf)
 {
@@ -707,6 +707,6 @@ PHP_FUNCTION(vprintf)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

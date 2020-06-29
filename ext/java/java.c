@@ -1,8 +1,8 @@
  /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,13 +16,18 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: java.c,v 1.58.2.1 2001/10/11 23:51:36 ssb Exp $ */
+/* $Id: java.c,v 1.65 2001/12/11 15:29:47 sebastian Exp $ */
+
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 
 /*
  * This module implements Zend OO syntax overloading support for Java
  * components using JNI and reflection.
  */
-
 
 #include "php.h"
 #include "zend_compile.h"
@@ -280,37 +285,37 @@ static jobject _java_makeObject(pval* arg TSRMLS_DC)
   jmethodID makeArg;
   jclass hashClass;
 
-  switch (arg->type) {
+  switch (Z_TYPE_P(arg)) {
     case IS_STRING:
-      result=(*jenv)->NewByteArray(jenv, arg->value.str.len);
+      result=(*jenv)->NewByteArray(jenv, Z_STRLEN_P(arg));
       (*jenv)->SetByteArrayRegion(jenv, (jbyteArray)result, 0,
-        arg->value.str.len, arg->value.str.val);
+        Z_STRLEN_P(arg), Z_STRVAL_P(arg));
       break;
 
     case IS_OBJECT:
       zend_hash_index_find(Z_OBJPROP_P(arg), 0, (void*)&handle);
-      result = zend_list_find((*handle)->value.lval, &type);
+      result = zend_list_find(Z_LVAL_PP(handle), &type);
       break;
 
     case IS_BOOL:
       makeArg = (*jenv)->GetMethodID(jenv, JG(reflect_class), "MakeArg",
         "(Z)Ljava/lang/Object;");
       result = (*jenv)->CallObjectMethod(jenv, JG(php_reflect), makeArg,
-        (jboolean)(arg->value.lval));
+        (jboolean)(Z_LVAL_P(arg)));
       break;
 
     case IS_LONG:
       makeArg = (*jenv)->GetMethodID(jenv, JG(reflect_class), "MakeArg",
         "(J)Ljava/lang/Object;");
       result = (*jenv)->CallObjectMethod(jenv, JG(php_reflect), makeArg,
-        (jlong)(arg->value.lval));
+        (jlong)(Z_LVAL_P(arg)));
       break;
 
     case IS_DOUBLE:
       makeArg = (*jenv)->GetMethodID(jenv, JG(reflect_class), "MakeArg",
         "(D)Ljava/lang/Object;");
       result = (*jenv)->CallObjectMethod(jenv, JG(php_reflect), makeArg,
-        (jdouble)(arg->value.dval));
+        (jdouble)(Z_DVAL_P(arg)));
       break;
 
     case IS_ARRAY:
@@ -331,28 +336,28 @@ static jobject _java_makeObject(pval* arg TSRMLS_DC)
         "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
 
       /* Iterate through hash */
-      zend_hash_internal_pointer_reset(arg->value.ht);
-      while(zend_hash_get_current_data(arg->value.ht, (void**)&value) == SUCCESS) {
+      zend_hash_internal_pointer_reset(Z_ARRVAL_P(arg));
+      while(zend_hash_get_current_data(Z_ARRVAL_P(arg), (void**)&value) == SUCCESS) {
         jval = _java_makeObject(*value TSRMLS_CC);
 
-        switch (zend_hash_get_current_key(arg->value.ht, &string_key, &num_key, 0)) {
+        switch (zend_hash_get_current_key(Z_ARRVAL_P(arg), &string_key, &num_key, 0)) {
           case HASH_KEY_IS_STRING:
-            key.type = IS_STRING;
-            key.value.str.val = string_key;
-            key.value.str.len = strlen(string_key);
+            Z_TYPE(key) = IS_STRING;
+            Z_STRVAL(key) = string_key;
+            Z_STRLEN(key) = strlen(string_key);
             jkey = _java_makeObject(&key TSRMLS_CC);
             break;
           case HASH_KEY_IS_LONG:
-            key.type = IS_LONG;
-            key.value.lval = num_key;
+            Z_TYPE(key) = IS_LONG;
+            Z_LVAL(key) = num_key;
             jkey = _java_makeObject(&key TSRMLS_CC);
             break;
           default: /* HASH_KEY_NON_EXISTANT */
             jkey = 0;
         }
         jold = (*jenv)->CallObjectMethod(jenv, result, put, jkey, jval);
-        if ((*value)->type != IS_OBJECT) (*jenv)->DeleteLocalRef(jenv, jval);
-        zend_hash_move_forward(arg->value.ht);
+        if (Z_TYPE_PP(value) != IS_OBJECT) (*jenv)->DeleteLocalRef(jenv, jval);
+        zend_hash_move_forward(Z_ARRVAL_P(arg));
       }
 
       break;
@@ -379,7 +384,7 @@ static jobjectArray _java_makeArray(int argc, pval** argv TSRMLS_DC)
   for (i=0; i<argc; i++) {
     arg = _java_makeObject(argv[i] TSRMLS_CC);
     (*jenv)->SetObjectArrayElement(jenv, result, i, arg);
-    if (argv[i]->type != IS_OBJECT) (*jenv)->DeleteLocalRef(jenv, arg);
+    if (Z_TYPE_P(argv[i]) != IS_OBJECT) (*jenv)->DeleteLocalRef(jenv, arg);
   }
   return result;
 }
@@ -387,9 +392,9 @@ static jobjectArray _java_makeArray(int argc, pval** argv TSRMLS_DC)
 
 static int checkError(pval *value)
 {
-  if (value->type == IS_EXCEPTION) {
-    php_error(E_WARNING, "%s", value->value.str.val);
-    efree(value->value.str.val);
+  if (Z_TYPE_P(value) == IS_EXCEPTION) {
+    php_error(E_WARNING, "%s", Z_STRVAL_P(value));
+    efree(Z_STRVAL_P(value));
     ZVAL_FALSE(value);
     return 1;
   };
@@ -422,7 +427,7 @@ void java_call_function_handler(INTERNAL_FUNCTION_PARAMETERS, zend_property_refe
   if (!JG(jenv)) return;
   jenv = JG(jenv);
 
-  if (!strcmp("java", function_name->element.value.str.val)) {
+  if (!strcmp("java", Z_STRVAL(function_name->element))) {
 
     /* construct a Java object:
        First argument is the class name.  Any additional arguments will
@@ -438,7 +443,7 @@ void java_call_function_handler(INTERNAL_FUNCTION_PARAMETERS, zend_property_refe
       return;
     }
 
-    className=(*jenv)->NewStringUTF(jenv, arguments[0]->value.str.val);
+    className=(*jenv)->NewStringUTF(jenv, Z_STRVAL_P(arguments[0]));
     (*jenv)->CallVoidMethod(jenv, JG(php_reflect), co,
       className, _java_makeArray(arg_count-1, arguments+1 TSRMLS_CC), result);
 
@@ -456,8 +461,8 @@ void java_call_function_handler(INTERNAL_FUNCTION_PARAMETERS, zend_property_refe
     jmethodID invoke = (*jenv)->GetMethodID(jenv, JG(reflect_class), "Invoke",
       "(Ljava/lang/Object;Ljava/lang/String;[Ljava/lang/Object;J)V");
     zend_hash_index_find(Z_OBJPROP_P(object), 0, (void**) &handle);
-    obj = zend_list_find((*handle)->value.lval, &type);
-    method = (*jenv)->NewStringUTF(jenv, function_name->element.value.str.val);
+    obj = zend_list_find(Z_LVAL_PP(handle), &type);
+    method = (*jenv)->NewStringUTF(jenv, Z_STRVAL(function_name->element));
     result = (jlong)(long)return_value;
 
     (*jenv)->CallVoidMethod(jenv, JG(php_reflect), invoke,
@@ -475,6 +480,8 @@ void java_call_function_handler(INTERNAL_FUNCTION_PARAMETERS, zend_property_refe
 
 /***************************************************************************/
 
+/* {{{ proto object java_last_exception_get(void)
+	 Get last Java exception */
 PHP_FUNCTION(java_last_exception_get)
 {
   jlong result = 0;
@@ -490,8 +497,12 @@ PHP_FUNCTION(java_last_exception_get)
   (*JG(jenv))->CallVoidMethod(JG(jenv), JG(php_reflect), lastEx, result);
 }
 
+/* }}} */
+
 /***************************************************************************/
 
+/* {{{ proto void java_last_exception_clear(void)
+	 Clear last java extension */
 PHP_FUNCTION(java_last_exception_clear)
 {
   jlong result = 0;
@@ -506,6 +517,8 @@ PHP_FUNCTION(java_last_exception_clear)
 
   (*JG(jenv))->CallVoidMethod(JG(jenv), JG(php_reflect), clearEx);
 }
+
+/* }}} */
 
 /***************************************************************************/
 
@@ -526,14 +539,14 @@ static pval _java_getset_property
   JNIEnv *jenv;
   jenv = JG(jenv);
 
-  propName = (*jenv)->NewStringUTF(jenv, property->element.value.str.val);
+  propName = (*jenv)->NewStringUTF(jenv, Z_STRVAL(property->element));
 
   /* get the object */
   zend_hash_index_find(Z_OBJPROP_P(property_reference->object),
     0, (void **) &pobject);
-  obj = zend_list_find((*pobject)->value.lval, &type);
+  obj = zend_list_find(Z_LVAL_PP(pobject), &type);
   result = (jlong)(long) &presult;
-  presult.type = IS_NULL;
+  Z_TYPE(presult) = IS_NULL;
 
   if (!obj || (type!=le_jobject)) {
     php_error(E_ERROR,
@@ -632,15 +645,15 @@ static PHP_MINFO_FUNCTION(java) {
 
 zend_module_entry java_module_entry = {
     STANDARD_MODULE_HEADER,
-  "java",
-  java_functions,
-  PHP_MINIT(java),
-  PHP_MSHUTDOWN(java),
-  NULL,
-  NULL,
-  PHP_MINFO(java),
+	"java",
+	java_functions,
+	PHP_MINIT(java),
+	PHP_MSHUTDOWN(java),
+	NULL,
+	NULL,
+	PHP_MINFO(java),
 	NO_VERSION_YET,
-  STANDARD_MODULE_PROPERTIES
+	STANDARD_MODULE_PROPERTIES
 };
 
 ZEND_GET_MODULE(java)
@@ -653,11 +666,11 @@ JNIEXPORT void JNICALL Java_net_php_reflect_setResultFromString
   jboolean isCopy;
   jbyte *value = (*jenv)->GetByteArrayElements(jenv, jvalue, &isCopy);
   pval *presult = (pval*)(long)result;
-  presult->type=IS_STRING;
-  presult->value.str.len=(*jenv)->GetArrayLength(jenv, jvalue);
-  presult->value.str.val=emalloc(presult->value.str.len+1);
-  memcpy(presult->value.str.val, value, presult->value.str.len);
-  presult->value.str.val[presult->value.str.len]=0;
+  Z_TYPE_P(presult)=IS_STRING;
+  Z_STRLEN_P(presult)=(*jenv)->GetArrayLength(jenv, jvalue);
+  Z_STRVAL_P(presult)=emalloc(Z_STRLEN_P(presult)+1);
+  memcpy(Z_STRVAL_P(presult), value, Z_STRLEN_P(presult));
+  Z_STRVAL_P(presult)[Z_STRLEN_P(presult)]=0;
   if (isCopy) (*jenv)->ReleaseByteArrayElements(jenv, jvalue, value, 0);
 }
 
@@ -665,24 +678,24 @@ JNIEXPORT void JNICALL Java_net_php_reflect_setResultFromLong
   (JNIEnv *jenv, jclass self, jlong result, jlong value)
 {
   pval *presult = (pval*)(long)result;
-  presult->type=IS_LONG;
-  presult->value.lval=(long)value;
+  Z_TYPE_P(presult)=IS_LONG;
+  Z_LVAL_P(presult)=(long)value;
 }
 
 JNIEXPORT void JNICALL Java_net_php_reflect_setResultFromDouble
   (JNIEnv *jenv, jclass self, jlong result, jdouble value)
 {
   pval *presult = (pval*)(long)result;
-  presult->type=IS_DOUBLE;
-  presult->value.dval=value;
+  Z_TYPE_P(presult)=IS_DOUBLE;
+  Z_DVAL_P(presult)=value;
 }
 
 JNIEXPORT void JNICALL Java_net_php_reflect_setResultFromBoolean
   (JNIEnv *jenv, jclass self, jlong result, jboolean value)
 {
   pval *presult = (pval*)(long)result;
-  presult->type=IS_BOOL;
-  presult->value.lval=value;
+  Z_TYPE_P(presult)=IS_BOOL;
+  Z_LVAL_P(presult)=value;
 }
 
 JNIEXPORT void JNICALL Java_net_php_reflect_setResultFromObject
@@ -693,15 +706,15 @@ JNIEXPORT void JNICALL Java_net_php_reflect_setResultFromObject
   pval *handle;
   TSRMLS_FETCH();
   
-  if (presult->type != IS_OBJECT) {
+  if (Z_TYPE_P(presult) != IS_OBJECT) {
 	object_init_ex(presult, &java_class_entry);
 	presult->is_ref=1;
     presult->refcount=1;
   }
 
   ALLOC_ZVAL(handle);
-  handle->type = IS_LONG;
-  handle->value.lval =
+  Z_TYPE_P(handle) = IS_LONG;
+  Z_LVAL_P(handle) =
     zend_list_insert((*jenv)->NewGlobalRef(jenv, value), le_jobject);
   pval_copy_constructor(handle);
   INIT_PZVAL(handle);
@@ -720,7 +733,7 @@ JNIEXPORT jlong JNICALL Java_net_php_reflect_nextElement
   pval *result;
   pval *handle = (pval*)(long)array;
   ALLOC_ZVAL(result);
-  zend_hash_next_index_insert(handle->value.ht, &result, sizeof(zval *), NULL);
+  zend_hash_next_index_insert(Z_ARRVAL_P(handle), &result, sizeof(zval *), NULL);
   return (jlong)(long)result;
 }
 
@@ -730,7 +743,7 @@ JNIEXPORT jlong JNICALL Java_net_php_reflect_hashIndexUpdate
   pval *result;
   pval *handle = (pval*)(long)array;
   ALLOC_ZVAL(result);
-  zend_hash_index_update(handle->value.ht, (unsigned long)key, 
+  zend_hash_index_update(Z_ARRVAL_P(handle), (unsigned long)key, 
     &result, sizeof(zval *), NULL);
   return (jlong)(long)result;
 }
@@ -743,7 +756,7 @@ JNIEXPORT jlong JNICALL Java_net_php_reflect_hashUpdate
   pval *handle = (pval*)(long)array;
   ALLOC_ZVAL(result);
   Java_net_php_reflect_setResultFromString(jenv, self, (jlong)(long)&pkey, key);
-  zend_hash_update(handle->value.ht, pkey.value.str.val, pkey.value.str.len+1,
+  zend_hash_update(Z_ARRVAL_P(handle), Z_STRVAL(pkey), Z_STRLEN(pkey)+1,
     &result, sizeof(zval *), NULL);
   return (jlong)(long)result;
 }
@@ -753,7 +766,7 @@ JNIEXPORT void JNICALL Java_net_php_reflect_setException
 {
   pval *presult = (pval*)(long)result;
   Java_net_php_reflect_setResultFromString(jenv, self, result, value);
-  presult->type=IS_EXCEPTION;
+  Z_TYPE_P(presult)=IS_EXCEPTION;
 }
 
 JNIEXPORT void JNICALL Java_net_php_reflect_setEnv

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,6 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
+/* $Id: thttpd.c,v 1.63 2001/12/13 11:15:56 sas Exp $ */
 
 #include "php.h"
 #include "SAPI.h"
@@ -23,15 +24,21 @@
 #include "php_thttpd.h"
 #include "php_variables.h"
 #include "version.h"
+#include "php_ini.h"
 
 #include "ext/standard/php_smart_str.h"
 
+#include <sys/time.h>
+#include <sys/types.h>
 #include <sys/uio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 typedef struct {
 	httpd_conn *hc;
-	int post_off;
+	int read_post_data;	
 	void (*on_close)(int);
+	long async_send;
 } php_thttpd_globals;
 
 
@@ -43,6 +50,10 @@ static php_thttpd_globals thttpd_globals;
 #define TG(v) (thttpd_globals.v)
 #endif
 
+PHP_INI_BEGIN()
+	STD_PHP_INI_ENTRY("async_send", "0", PHP_INI_ALL, OnUpdateInt, async_send, php_thttpd_globals, thttpd_globals)
+PHP_INI_END()
+
 static int sapi_thttpd_ub_write(const char *str, uint str_length TSRMLS_DC)
 {
 	int n;
@@ -53,8 +64,17 @@ static int sapi_thttpd_ub_write(const char *str, uint str_length TSRMLS_DC)
 
 		if (n == -1 && errno == EPIPE)
 			php_handle_aborted_connection();
-		if (n == -1 && errno == EAGAIN)
+		if (n == -1 && errno == EAGAIN) {
+			fd_set fdw;
+
+			FD_ZERO(&fdw);
+			FD_SET(TG(hc)->conn_fd, &fdw);
+			n = select(TG(hc)->conn_fd + 1, NULL, &fdw, NULL, NULL);
+			if (n <= 0)
+				php_handle_aborted_connection();
+
 			continue;
+		}
 		if (n <= 0) 
 			return n;
 
@@ -107,6 +127,7 @@ static int sapi_thttpd_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 		vec[n].iov_base = h->header;
 		vec[n++].iov_len = h->header_len;
 		if (n >= COMBINE_HEADERS - 1) {
+			/* XXX: partial writevs are not handled */
 			if (writev(TG(hc)->conn_fd, vec, n) == -1 && errno == EPIPE)
 				php_handle_aborted_connection();
 			n = 0;
@@ -121,6 +142,7 @@ static int sapi_thttpd_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 	vec[n++].iov_len = 2;
 
 	if (n) {
+		/* XXX: partial writevs are not handled */
 		if (writev(TG(hc)->conn_fd, vec, n) == -1 && errno == EPIPE)
 			php_handle_aborted_connection();
 	}
@@ -132,6 +154,7 @@ static int sapi_thttpd_read_post(char *buffer, uint count_bytes TSRMLS_DC)
 {
 	size_t read_bytes = 0, tmp;
 	int c;
+	int n;
 
 	/* to understand this, read cgi_interpose_input() in libhttpd.c */
 	c = TG(hc)->read_idx - TG(hc)->checked_idx;
@@ -143,14 +166,38 @@ static int sapi_thttpd_read_post(char *buffer, uint count_bytes TSRMLS_DC)
 	}
 	
 	count_bytes = MIN(count_bytes, 
-			SG(request_info).content_length - SG(read_post_bytes) - TG(post_off));
+			SG(request_info).content_length - SG(read_post_bytes));
 
 	while (read_bytes < count_bytes) {
 		tmp = recv(TG(hc)->conn_fd, buffer + read_bytes, 
 				count_bytes - read_bytes, 0);
-		if (tmp <= 0) 
+		if (tmp == 0 || (tmp == -1 && errno != EAGAIN))
 			break;
-		read_bytes += tmp;
+		/* A simple "tmp > 0" produced broken code on Solaris/GCC */
+		if (tmp != 0 && tmp != -1)
+			read_bytes += tmp;
+
+		if (tmp == -1 && errno == EAGAIN) {
+			fd_set fdr;
+
+			FD_ZERO(&fdr);
+			FD_SET(TG(hc)->conn_fd, &fdr);
+			n = select(TG(hc)->conn_fd + 1, &fdr, NULL, NULL, NULL);
+			if (n <= 0)
+				php_handle_aborted_connection();
+
+			continue;
+		}
+	}
+
+	TG(read_post_data) += read_bytes;
+
+	/* Hack for user-agents which send a LR or CRLF after POST data */
+	if (TG(read_post_data) >= TG(hc)->contentlength) {
+		char tmpbuf[2];
+	
+		/* we are in non-blocking mode */
+		recv(TG(hc)->conn_fd, tmpbuf, 2, 0);
 	}
 	
 	return read_bytes;
@@ -177,6 +224,12 @@ static void sapi_thttpd_register_variables(zval *track_vars_array TSRMLS_DC)
 	php_register_variable("REQUEST_URI", SG(request_info).request_uri, track_vars_array TSRMLS_CC);
 	php_register_variable("PATH_TRANSLATED", SG(request_info).path_translated, track_vars_array TSRMLS_CC);
 
+	if (TG(hc)->one_one) {
+		php_register_variable("SERVER_PROTOCOL", "HTTP/1.1", track_vars_array TSRMLS_CC);
+	} else {
+		php_register_variable("SERVER_PROTOCOL", "HTTP/1.0", track_vars_array TSRMLS_CC);
+	}
+	
 	p = inet_ntoa(TG(hc)->client_addr.sa_in.sin_addr);
 	/* string representation of IPs are never larger than 512 bytes */
 	if (p) {
@@ -199,9 +252,12 @@ static void sapi_thttpd_register_variables(zval *track_vars_array TSRMLS_DC)
 		php_register_variable(#name, TG(hc)->field, track_vars_array TSRMLS_CC); \
 	}
 
+	CONDADD(QUERY_STRING, query);
+	CONDADD(HTTP_HOST, hdrhost);
 	CONDADD(HTTP_REFERER, referer);
 	CONDADD(HTTP_USER_AGENT, useragent);
 	CONDADD(HTTP_ACCEPT, accept);
+	CONDADD(HTTP_ACCEPT_LANGUAGE, acceptl);
 	CONDADD(HTTP_ACCEPT_ENCODING, accepte);
 	CONDADD(HTTP_COOKIE, cookie);
 	CONDADD(CONTENT_TYPE, contenttype);
@@ -217,11 +273,39 @@ static void sapi_thttpd_register_variables(zval *track_vars_array TSRMLS_DC)
 		php_register_variable("AUTH_TYPE", "Basic", track_vars_array TSRMLS_CC);
 }
 
+static PHP_MINIT_FUNCTION(thttpd)
+{
+	REGISTER_INI_ENTRIES();
+	return SUCCESS;
+}
+
+static zend_module_entry php_thttpd_module = {
+	STANDARD_MODULE_HEADER,
+	"thttpd",
+	NULL,
+	PHP_MINIT(thttpd),
+	NULL,
+	NULL,
+	NULL,
+	NULL, /* info */
+	NULL,
+	STANDARD_MODULE_PROPERTIES
+};
+
+static int php_thttpd_startup(sapi_module_struct *sapi_module)
+{
+	if (php_module_startup(sapi_module) == FAILURE
+			|| zend_startup_module(&php_thttpd_module) == FAILURE) {
+		return FAILURE;
+	}
+	return SUCCESS;
+}
+
 static sapi_module_struct thttpd_sapi_module = {
 	"thttpd",
 	"thttpd",
 	
-	php_module_startup,
+	php_thttpd_startup,
 	php_module_shutdown_wrapper,
 	
 	NULL,									/* activate */
@@ -289,16 +373,6 @@ static void thttpd_request_ctor(TSRMLS_D)
 	SG(request_info).content_length = TG(hc)->contentlength;
 	
 	php_handle_auth_data(TG(hc)->authorization TSRMLS_CC);
-
-	TG(post_off) = TG(hc)->read_idx - TG(hc)->checked_idx;
-
-	/* avoid feeding \r\n from POST data to SAPI */
-	offset = TG(post_off) - SG(request_info).content_length;
-
-	if (offset > 0) {
-		TG(post_off) -= offset;
-		TG(hc)->read_idx -= offset;
-	}
 }
 
 static void thttpd_request_dtor(TSRMLS_D)
@@ -490,6 +564,10 @@ static off_t thttpd_real_php_request(httpd_conn *hc TSRMLS_DC)
 {
 	TG(hc) = hc;
 	hc->bytes_sent = 0;
+
+	TG(read_post_data) = 0;
+	if (hc->method == METHOD_POST)
+		hc->should_linger = 1;
 	
 	thttpd_request_ctor(TSRMLS_C);
 
@@ -537,14 +615,22 @@ void thttpd_set_dont_close(void)
 
 void thttpd_php_init(void)
 {
+	char *ini;
+
 #ifdef ZTS
 	tsrm_startup(1, 1, 0, NULL);
 	ts_allocate_id(&thttpd_globals_id, sizeof(php_thttpd_globals), NULL, NULL);
 	qr_lock = tsrm_mutex_alloc();
 	thttpd_register_on_close(remove_dead_conn);
 #endif
+
+	if ((ini = getenv("PHP_INI_PATH"))) {
+		thttpd_sapi_module.php_ini_path_override = ini;
+	}
+
 	sapi_startup(&thttpd_sapi_module);
 	thttpd_sapi_module.startup(&thttpd_sapi_module);
+	
 	{
 		TSRMLS_FETCH();
 

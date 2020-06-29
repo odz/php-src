@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,12 +12,12 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
+   | Authors: Rasmus Lerdorf <rasmus@php.net>                             |
    |          Jim Winstead <jimw@php.net>                                 |
    |          Hartmut Holzgraefe <hholzgra@php.net>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: http_fopen_wrapper.c,v 1.16.2.3 2001/10/19 18:09:21 edink Exp $ */
+/* $Id: http_fopen_wrapper.c,v 1.23.2.1 2002/03/21 21:53:26 rasmus Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -56,7 +56,7 @@
 #endif
 #endif
 
-#ifdef PHP_WIN32
+#if defined(PHP_WIN32) || defined(__riscos__)
 #undef AF_UNIX
 #endif
 
@@ -66,7 +66,7 @@
 
 #include "php_fopen_wrappers.h"
 
-#define HTTP_HEADER_BLOCK_SIZE		128
+#define HTTP_HEADER_BLOCK_SIZE		256
 
 /* {{{ php_fopen_url_wrap_http
  */
@@ -74,7 +74,7 @@ FILE *php_fopen_url_wrap_http(const char *path, char *mode, int options, int *is
 {
 	FILE *fp=NULL;
 	php_url *resource=NULL;
-	char tmp_line[128];
+	char tmp_line[256];
 	char location[512];
 	char hdr_line[8192];
 	int body = 0;
@@ -327,6 +327,6 @@ FILE *php_fopen_url_wrap_http(const char *path, char *mode, int options, int *is
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

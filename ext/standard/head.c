@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,10 +12,10 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
+   | Author: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                        |
    +----------------------------------------------------------------------+
  */
-/* $Id: head.c,v 1.49 2001/08/13 07:55:38 rasmus Exp $ */
+/* $Id: head.c,v 1.55 2002/02/28 08:26:45 sebastian Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -35,25 +35,19 @@
 
 
 /* Implementation of the language Header() function */
-/* {{{ proto void header(string header[, bool replace])
-   Send a raw HTTP header */
+/* {{{ proto void header(string header [, bool replace])
+   Sends a raw HTTP header */
 PHP_FUNCTION(header)
 {
-	pval **arg1, **arg2;
+	char *header;
+	int header_len;
 	zend_bool replace = 1;
 	
-	if (ZEND_NUM_ARGS() < 1 || ZEND_NUM_ARGS() > 2 
-			|| zend_get_parameters_ex(ZEND_NUM_ARGS(), &arg1, &arg2) == FAILURE) {
-		WRONG_PARAM_COUNT;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|b", &header,
+							  &header_len, &replace) == FAILURE) {
+		return;
 	}
-	switch (ZEND_NUM_ARGS()) {
-		case 2:
-			convert_to_boolean_ex(arg2);
-			replace = Z_BVAL_PP(arg2);
-		case 1:
-			convert_to_string_ex(arg1);
-	}
-	sapi_add_header_ex(Z_STRVAL_PP(arg1), Z_STRLEN_PP(arg1), 1, replace TSRMLS_CC);
+	sapi_add_header_ex(header, header_len, 1, replace TSRMLS_CC);
 }
 /* }}} */
 
@@ -69,69 +63,29 @@ PHPAPI int php_header()
 }
 
 
-
-/* php_set_cookie(name, value, expires, path, domain, secure) */
-/* {{{ proto void setcookie(string name [, string value [, int expires [, string path [, string domain [, string secure]]]]])
-   Send a cookie */
-PHP_FUNCTION(setcookie)
+PHPAPI int php_setcookie(char *name, int name_len, char *value, int value_len, time_t expires, char *path, int path_len, char *domain, int domain_len, int secure TSRMLS_DC)
 {
 	char *cookie, *encoded_value = NULL;
 	int len=sizeof("Set-Cookie: ");
 	time_t t;
 	char *dt;
-	time_t expires = 0;
-	int secure = 0;
-	pval **arg[6];
-	int arg_count;
-	zval **z_name=NULL, **z_value=NULL, **z_path=NULL, **z_domain=NULL;
 
-	arg_count = ZEND_NUM_ARGS();
-	if (arg_count < 1 || arg_count > 6 || zend_get_parameters_array_ex(arg_count, arg) == FAILURE) {
-		WRONG_PARAM_COUNT;
-	}
-	switch (arg_count) {
-		case 6:
-			convert_to_boolean_ex(arg[5]);
-			secure = Z_LVAL_PP(arg[5]);
-			/* break missing intentionally */
-		case 5:
-			convert_to_string_ex(arg[4]);
-			z_domain = arg[4];
-			/* break missing intentionally */
-		case 4:
-			convert_to_string_ex(arg[3]);
-			z_path = arg[3];
-			/* break missing intentionally */
-		case 3:
-			convert_to_long_ex(arg[2]);
-			expires = Z_LVAL_PP(arg[2]);
-			/* break missing intentionally */
-		case 2:
-			convert_to_string_ex(arg[1]);
-			z_value = arg[1];
-			/* break missing intentionally */
-		case 1:
-			convert_to_string_ex(arg[0]);
-			z_name = arg[0];
-			break;
-	}
-	if (z_name) {
-		len += Z_STRLEN_PP(z_name);
-	}
-	if (z_value) {
+	len += name_len;
+	if (value) {
 		int encoded_value_len;
 
-		encoded_value = php_url_encode(Z_STRVAL_PP(z_value), Z_STRLEN_PP(z_value), &encoded_value_len);
+		encoded_value = php_url_encode(value, value_len, &encoded_value_len);
 		len += encoded_value_len;
 	}
-	if (z_path) {
-		len += Z_STRLEN_PP(z_path);
+	if (path) {
+		len += path_len;
 	}
-	if (z_domain) {
-		len += Z_STRLEN_PP(z_domain);
+	if (domain) {
+		len += domain_len;
 	}
 	cookie = emalloc(len + 100);
-	if (z_value && Z_STRLEN_PP(z_value)==0) {
+
+	if (value && value_len == 0) {
 		/* 
 		 * MSIE doesn't delete a cookie when you set it to a null value
 		 * so in order to force cookies to be deleted, even on MSIE, we
@@ -139,10 +93,10 @@ PHP_FUNCTION(setcookie)
 		 */
 		t = time(NULL) - 31536001;
 		dt = php_std_date(t);
-		sprintf(cookie, "Set-Cookie: %s=deleted; expires=%s", Z_STRVAL_PP(z_name), dt);
+		sprintf(cookie, "Set-Cookie: %s=deleted; expires=%s", name, dt);
 		efree(dt);
 	} else {
-		sprintf(cookie, "Set-Cookie: %s=%s", Z_STRVAL_PP(z_name), (z_value && Z_STRVAL_PP(z_value)) ? encoded_value : "");
+		sprintf(cookie, "Set-Cookie: %s=%s", name, value ? encoded_value : "");
 		if (expires > 0) {
 			strcat(cookie, "; expires=");
 			dt = php_std_date(expires);
@@ -155,19 +109,39 @@ PHP_FUNCTION(setcookie)
 		efree(encoded_value);
 	}
 
-	if (z_path && Z_STRLEN_PP(z_path)>0) {
+	if (path && path_len > 0) {
 		strcat(cookie, "; path=");
-		strcat(cookie, Z_STRVAL_PP(z_path));
+		strcat(cookie, path);
 	}
-	if (z_domain && Z_STRLEN_PP(z_domain)>0) {
+	if (domain && domain_len > 0) {
 		strcat(cookie, "; domain=");
-		strcat(cookie, Z_STRVAL_PP(z_domain));
+		strcat(cookie, domain);
 	}
 	if (secure) {
 		strcat(cookie, "; secure");
 	}
 
-	if (sapi_add_header(cookie, strlen(cookie), 0)==SUCCESS) {
+	return sapi_add_header(cookie, strlen(cookie), 0);
+}
+
+
+/* php_set_cookie(name, value, expires, path, domain, secure) */
+/* {{{ proto bool setcookie(string name [, string value [, int expires [, string path [, string domain [, bool secure]]]]])
+   Send a cookie */
+PHP_FUNCTION(setcookie)
+{
+	char *name, *value = NULL, *path = NULL, *domain = NULL;
+	time_t expires = 0;
+	zend_bool secure = 0;
+	int name_len, value_len, path_len, domain_len;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|slssb", &name,
+							  &name_len, &value, &value_len, &expires, &path,
+							  &path_len, &domain, &domain_len, &secure) == FAILURE) {
+		return;
+	}
+
+	if (php_setcookie(name, name_len, value, value_len, expires, path, path_len, domain, domain_len, secure TSRMLS_CC) == SUCCESS) {
 		RETVAL_TRUE;
 	} else {
 		RETVAL_FALSE;
@@ -177,11 +151,13 @@ PHP_FUNCTION(setcookie)
 
 
 /* {{{ proto int headers_sent(void)
-   Return true if headers have already been sent, false otherwise */
+   Returns true if headers have already been sent, false otherwise */
 PHP_FUNCTION(headers_sent)
 {
 	if (ZEND_NUM_ARGS() != 0) {
-		WRONG_PARAM_COUNT;
+		php_error(E_WARNING, "%s() expects no parameters, %d given",
+				  get_active_function_name(TSRMLS_C), ZEND_NUM_ARGS());
+		return;
 	}
 
 	if (SG(headers_sent)) {
@@ -196,6 +172,6 @@ PHP_FUNCTION(headers_sent)
  * Local variables:
  * tab-width: 4
  * c-basic-offset: 4
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78 * End:
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4 * End:
  */

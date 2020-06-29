@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    | PHP 4.0 patches by Zeev Suraski <zeev@zend.com>                      |
    +----------------------------------------------------------------------+
  */
-/* $Id: mod_php4.c,v 1.119.2.2 2001/09/16 15:49:55 thies Exp $ */
+/* $Id: mod_php4.c,v 1.127 2001/12/11 15:31:53 sebastian Exp $ */
 
 #define NO_REGEX_EXTRA_H
 #ifdef WIN32
@@ -587,17 +587,17 @@ static int send_php(request_rec *r, int display_source_mode, char *filename)
  */
 static int send_parsed_php(request_rec * r)
 {
-	int result =  send_php(r, 0, NULL);
+	int result = send_php(r, 0, NULL);
 
 #if MEMORY_LIMIT
-    {
-        char mem_usage[ 32 ];
-        TSRMLS_FETCH();
+	{
+		char *mem_usage;
+		TSRMLS_FETCH();
  
-        sprintf(mem_usage,"%u", (int) AG(allocated_memory_peak));
-		AG(allocated_memory_peak)=0;
-        ap_table_setn(r->notes, "mod_php_memory_usage", ap_pstrdup(r->pool, mem_usage));
-    }
+		mem_usage = ap_psprintf(r->pool, "%u", AG(allocated_memory_peak));
+		AG(allocated_memory_peak) = 0;
+		ap_table_setn(r->notes, "mod_php_memory_usage", mem_usage);
+	}
 #endif
 
 	return result;
@@ -714,7 +714,7 @@ CONST_PREFIX char *php_apache_value_handler_ex(cmd_parms *cmd, HashTable *conf, 
 	memcpy(per_dir_entry.value, arg2, per_dir_entry.value_length);
 	per_dir_entry.value[per_dir_entry.value_length] = 0;
 
-	zend_hash_update((HashTable *) conf, per_dir_entry.key, per_dir_entry.key_length, &per_dir_entry, sizeof(php_per_dir_entry), NULL);
+	zend_hash_update(conf, per_dir_entry.key, per_dir_entry.key_length, &per_dir_entry, sizeof(php_per_dir_entry), NULL);
 	return NULL;
 }
 /* }}} */
@@ -908,6 +908,6 @@ module MODULE_VAR_EXPORT php4_module =
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

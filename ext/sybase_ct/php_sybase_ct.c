@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_sybase_ct.c,v 1.64.2.1 2001/10/11 23:52:07 ssb Exp $ */
+/* $Id: php_sybase_ct.c,v 1.69 2002/03/06 15:59:44 derick Exp $ */
 
 
 #ifdef HAVE_CONFIG_H
@@ -98,7 +98,7 @@ ZEND_DECLARE_MODULE_GLOBALS(sybase)
 
 static int _clean_invalid_results(list_entry *le TSRMLS_DC)
 {
-	if (le->type == le_result) {
+	if (Z_TYPE_P(le) == le_result) {
 		sybase_link *sybase_ptr = ((sybase_result *) le->ptr)->sybase_ptr;
 
 		if (!sybase_ptr->valid) {
@@ -371,7 +371,7 @@ PHP_RSHUTDOWN_FUNCTION(sybase)
 }
 
 
-static int php_sybase_do_connect_internal(sybase_link *sybase, char *host, char *user, char *passwd, char *charset)
+static int php_sybase_do_connect_internal(sybase_link *sybase, char *host, char *user, char *passwd, char *charset, char *appname)
 {
 	CS_LOCALE *tmp_locale;
 	TSRMLS_FETCH();
@@ -395,7 +395,11 @@ static int php_sybase_do_connect_internal(sybase_link *sybase, char *host, char 
 	if (passwd) {
 		ct_con_props(sybase->connection, CS_SET, CS_PASSWORD, passwd, CS_NULLTERM, NULL);
 	}
-	ct_con_props(sybase->connection, CS_SET, CS_APPNAME, SybCtG(appname), CS_NULLTERM, NULL);
+	if (appname) {
+		ct_con_props(sybase->connection, CS_SET, CS_APPNAME, appname, CS_NULLTERM, NULL);
+       } else { 
+		ct_con_props(sybase->connection, CS_SET, CS_APPNAME, SybCtG(appname), CS_NULLTERM, NULL);
+	}
 
 	if (SybCtG(hostname)) {
 		ct_con_props(sybase->connection, CS_SET, CS_HOSTNAME, SybCtG(hostname), CS_NULLTERM, NULL);
@@ -442,17 +446,17 @@ static int php_sybase_do_connect_internal(sybase_link *sybase, char *host, char 
 
 static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 {
-	char *user, *passwd, *host, *charset;
+	char *user, *passwd, *host, *charset, *appname;
 	char *hashed_details;
 	int hashed_details_length;
 	sybase_link *sybase_ptr;
 
 	switch(ZEND_NUM_ARGS()) {
 		case 0: /* defaults */
-			host=user=passwd=charset=NULL;
-			hashed_details_length=6+4;
+			host=user=passwd=charset=appname=NULL;
+			hashed_details_length=6+5;
 			hashed_details = (char *) emalloc(hashed_details_length+1);
-			strcpy(hashed_details, "sybase____");
+			strcpy(hashed_details, "sybase_____");
 			break;
 		case 1: {
 				pval *yyhost;
@@ -462,10 +466,10 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 				}
 				convert_to_string(yyhost);
 				host = Z_STRVAL_P(yyhost);
-				user=passwd=charset=NULL;
-				hashed_details_length = Z_STRLEN_P(yyhost)+6+4;
+				user=passwd=charset=appname=NULL;
+				hashed_details_length = Z_STRLEN_P(yyhost)+6+5;
 				hashed_details = (char *) emalloc(hashed_details_length+1);
-				sprintf(hashed_details, "sybase_%s___", Z_STRVAL_P(yyhost));
+				sprintf(hashed_details, "sybase_%s____", Z_STRVAL_P(yyhost));
 			}
 			break;
 		case 2: {
@@ -478,10 +482,10 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 				convert_to_string(yyuser);
 				host = Z_STRVAL_P(yyhost);
 				user = Z_STRVAL_P(yyuser);
-				passwd=charset=NULL;
-				hashed_details_length = Z_STRLEN_P(yyhost)+Z_STRLEN_P(yyuser)+6+4;
+				passwd=charset=appname=NULL;
+				hashed_details_length = Z_STRLEN_P(yyhost)+Z_STRLEN_P(yyuser)+6+5;
 				hashed_details = (char *) emalloc(hashed_details_length+1);
-				sprintf(hashed_details, "sybase_%s_%s__", Z_STRVAL_P(yyhost), Z_STRVAL_P(yyuser));
+				sprintf(hashed_details, "sybase_%s_%s___", Z_STRVAL_P(yyhost), Z_STRVAL_P(yyuser));
 			}
 			break;
 		case 3: {
@@ -496,10 +500,10 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 				host = Z_STRVAL_P(yyhost);
 				user = Z_STRVAL_P(yyuser);
 				passwd = Z_STRVAL_P(yypasswd);
-				charset=NULL;
-				hashed_details_length = Z_STRLEN_P(yyhost)+Z_STRLEN_P(yyuser)+Z_STRLEN_P(yypasswd)+6+4;
+				charset=appname=NULL;
+				hashed_details_length = Z_STRLEN_P(yyhost)+Z_STRLEN_P(yyuser)+Z_STRLEN_P(yypasswd)+6+5;
 				hashed_details = (char *) emalloc(hashed_details_length+1);
-				sprintf(hashed_details, "sybase_%s_%s_%s_", Z_STRVAL_P(yyhost), Z_STRVAL_P(yyuser), Z_STRVAL_P(yypasswd));
+				sprintf(hashed_details, "sybase_%s_%s_%s__", Z_STRVAL_P(yyhost), Z_STRVAL_P(yyuser), Z_STRVAL_P(yypasswd));
 			}
 			break;
 		case 4: {
@@ -516,9 +520,31 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 				user = Z_STRVAL_P(yyuser);
 				passwd = Z_STRVAL_P(yypasswd);
 				charset = Z_STRVAL_P(yycharset);
-				hashed_details_length = Z_STRLEN_P(yyhost)+Z_STRLEN_P(yyuser)+Z_STRLEN_P(yypasswd)+Z_STRLEN_P(yycharset)+6+4;
+				appname=NULL;
+				hashed_details_length = Z_STRLEN_P(yyhost)+Z_STRLEN_P(yyuser)+Z_STRLEN_P(yypasswd)+Z_STRLEN_P(yycharset)+6+5;
 				hashed_details = (char *) emalloc(hashed_details_length+1);
-				sprintf(hashed_details, "sybase_%s_%s_%s_%s", Z_STRVAL_P(yyhost), Z_STRVAL_P(yyuser), Z_STRVAL_P(yypasswd), Z_STRVAL_P(yycharset));
+				sprintf(hashed_details, "sybase_%s_%s_%s_%s_", Z_STRVAL_P(yyhost), Z_STRVAL_P(yyuser), Z_STRVAL_P(yypasswd), Z_STRVAL_P(yycharset));
+			}
+			break;
+		case 5: {
+				pval *yyhost, *yyuser, *yypasswd, *yycharset, *yyappname;
+
+				if (getParameters(ht, 5, &yyhost, &yyuser, &yypasswd, &yycharset, &yyappname) == FAILURE) {
+					RETURN_FALSE;
+				}
+				convert_to_string(yyhost);
+				convert_to_string(yyuser);
+				convert_to_string(yypasswd);
+				convert_to_string(yycharset);
+				convert_to_string(yyappname);
+				host = Z_STRVAL_P(yyhost);
+				user = Z_STRVAL_P(yyuser);
+				passwd = Z_STRVAL_P(yypasswd);
+				charset = Z_STRVAL_P(yycharset);
+				appname = Z_STRVAL_P(yyappname);
+				hashed_details_length = Z_STRLEN_P(yyhost)+Z_STRLEN_P(yyuser)+Z_STRLEN_P(yypasswd)+Z_STRLEN_P(yycharset)+Z_STRLEN_P(yyappname)+6+5;
+				hashed_details = (char *) emalloc(hashed_details_length+1);
+				sprintf(hashed_details, "sybase_%s_%s_%s_%s_%s", Z_STRVAL_P(yyhost), Z_STRVAL_P(yyuser), Z_STRVAL_P(yypasswd), Z_STRVAL_P(yycharset), Z_STRVAL_P(yyappname));
 			}
 			break;
 		default:
@@ -549,14 +575,14 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			}
 
 			sybase_ptr = (sybase_link *) malloc(sizeof(sybase_link));
-			if (!php_sybase_do_connect_internal(sybase_ptr, host, user, passwd, charset)) {
+			if (!php_sybase_do_connect_internal(sybase_ptr, host, user, passwd, charset, appname)) {
 				free(sybase_ptr);
 				efree(hashed_details);
 				RETURN_FALSE;
 			}
 
 			/* hash it up */
-			new_le.type = le_plink;
+			Z_TYPE(new_le) = le_plink;
 			new_le.ptr = sybase_ptr;
 			if (zend_hash_update(&EG(persistent_list), hashed_details, hashed_details_length+1, (void *) &new_le, sizeof(list_entry), NULL)==FAILURE) {
 				ct_close(sybase_ptr->connection, CS_UNUSED);
@@ -570,7 +596,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 		} else {  /* we do */
 			CS_INT con_status;
 
-			if (le->type != le_plink) {
+			if (Z_TYPE_P(le) != le_plink) {
 				efree(hashed_details);
 				RETURN_FALSE;
 			}
@@ -603,7 +629,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 				 * NULL before trying to use it elsewhere . . .)
 				 */
 				memcpy(&sybase, sybase_ptr, sizeof(sybase_link));
-				if (!php_sybase_do_connect_internal(sybase_ptr, host, user, passwd, charset)) {
+				if (!php_sybase_do_connect_internal(sybase_ptr, host, user, passwd, charset, appname)) {
 					memcpy(sybase_ptr, &sybase, sizeof(sybase_link));
 					efree(hashed_details);
 					RETURN_FALSE;
@@ -624,7 +650,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			int type, link;
 			void *ptr;
 
-			if (index_ptr->type != le_index_ptr) {
+			if (Z_TYPE_P(index_ptr) != le_index_ptr) {
 				efree(hashed_details);
 				RETURN_FALSE;
 			}
@@ -633,7 +659,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			if (ptr && (type==le_link || type==le_plink)) {
 				zend_list_addref(link);
 				Z_LVAL_P(return_value) = SybCtG(default_link) = link;
-				return_value->type = IS_RESOURCE;
+				Z_TYPE_P(return_value) = IS_RESOURCE;
 				efree(hashed_details);
 				return;
 			} else {
@@ -647,7 +673,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 		}
 
 		sybase_ptr = (sybase_link *) emalloc(sizeof(sybase_link));
-		if (!php_sybase_do_connect_internal(sybase_ptr, host, user, passwd, charset)) {
+		if (!php_sybase_do_connect_internal(sybase_ptr, host, user, passwd, charset, appname)) {
 			efree(sybase_ptr);
 			efree(hashed_details);
 			RETURN_FALSE;
@@ -658,7 +684,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 
 		/* add it to the hash */
 		new_index_ptr.ptr = (void *) Z_LVAL_P(return_value);
-		new_index_ptr.type = le_index_ptr;
+		Z_TYPE(new_index_ptr) = le_index_ptr;
 		if (zend_hash_update(&EG(regular_list), hashed_details, hashed_details_length+1, (void *) &new_index_ptr, sizeof(list_entry), NULL)==FAILURE) {
 			ct_close(sybase_ptr->connection, CS_UNUSED);
 			ct_con_drop(sybase_ptr->connection);
@@ -684,7 +710,7 @@ static int php_sybase_get_default_link(INTERNAL_FUNCTION_PARAMETERS)
 }
 
 
-/* {{{ proto int sybase_connect([string host [, string user [, string password [, string charset]]]])
+/* {{{ proto int sybase_connect([string host [, string user [, string password [, string charset [, string appname]]]]])
    Open Sybase server connection */
 PHP_FUNCTION(sybase_connect)
 {
@@ -693,7 +719,7 @@ PHP_FUNCTION(sybase_connect)
 
 /* }}} */
 
-/* {{{ proto int sybase_pconnect([string host [, string user [, string password [, string charset]]]])
+/* {{{ proto int sybase_pconnect([string host [, string user [, string password [, string charset [, string appname]]]]])
    Open persistent Sybase connection */
 PHP_FUNCTION(sybase_pconnect)
 {
@@ -980,9 +1006,9 @@ static sybase_result * php_sybase_fetch_result_set (sybase_link *sybase_ptr)
 			if (indicators[j] == -1) { /* null value */
 				ZVAL_FALSE(&result->data[i][j]);
 			} else {
-				result->data[i][j].value.str.len = lengths[j]-1;  /* we don't need the NULL in the length */
-				result->data[i][j].value.str.val = estrndup(tmp_buffer[j], lengths[j]);
-				result->data[i][j].type = IS_STRING;
+				Z_STRLEN(result->data[i][j]) = lengths[j]-1;  /* we don't need the NULL in the length */
+				Z_STRVAL(result->data[i][j]) = estrndup(tmp_buffer[j], lengths[j]);
+				Z_TYPE(result->data[i][j]) = IS_STRING;
 			}
 		}
 	}
@@ -1010,7 +1036,7 @@ static sybase_result * php_sybase_fetch_result_set (sybase_link *sybase_ptr)
 			result->fields[i].column_source = empty_string;
 			result->fields[i].max_length = datafmt[i].maxlength-1;
 			result->fields[i].numeric = numerics[i];
-			result->fields[i].type = types[i];
+			Z_TYPE(result->fields[i]) = types[i];
 		}
 	}
 
@@ -1082,7 +1108,7 @@ PHP_FUNCTION(sybase_query)
 		/* On Solaris 11.5, ct_command() can be moved outside the
 		 * loop, but not on Linux 11.0.
 		 */
-		if (ct_command(sybase_ptr->cmd, CS_LANG_CMD, (*query)->value.str.val, CS_NULLTERM, CS_UNUSED)!=CS_SUCCEED) {
+		if (ct_command(sybase_ptr->cmd, CS_LANG_CMD, Z_STRVAL_PP(query), CS_NULLTERM, CS_UNUSED)!=CS_SUCCEED) {
 			/* If this didn't work, the connection is screwed but
 			 * ct-lib might not set CS_CONSTAT_DEAD.  So set our own
 			 * flag.  This happens sometimes when the database is restarted
@@ -1250,7 +1276,7 @@ PHP_FUNCTION(sybase_free_result)
 		WRONG_PARAM_COUNT;
 	}
 
-	if (sybase_result_index->type==IS_RESOURCE
+	if (Z_TYPE_P(sybase_result_index)==IS_RESOURCE
 		&& Z_LVAL_P(sybase_result_index)==0) {
 		RETURN_FALSE;
 	}
@@ -1285,7 +1311,7 @@ PHP_FUNCTION(sybase_num_rows)
 	ZEND_FETCH_RESOURCE(result, sybase_result *, &sybase_result_index, -1, "Sybase result", le_result);
 
 	Z_LVAL_P(return_value) = result->num_rows;
-	return_value->type = IS_LONG;
+	Z_TYPE_P(return_value) = IS_LONG;
 }
 
 /* }}} */
@@ -1304,7 +1330,7 @@ PHP_FUNCTION(sybase_num_fields)
 	ZEND_FETCH_RESOURCE(result, sybase_result *, &sybase_result_index, -1, "Sybase result", le_result);
 
 	Z_LVAL_P(return_value) = result->num_fields;
-	return_value->type = IS_LONG;
+	Z_TYPE_P(return_value) = IS_LONG;
 }
 
 /* }}} */
@@ -1366,7 +1392,7 @@ static void php_sybase_fetch_hash(INTERNAL_FUNCTION_PARAMETERS)
 		ALLOC_ZVAL(tmp);
 		*tmp = result->data[result->cur_row][i];
 		INIT_PZVAL(tmp);
-		if (PG(magic_quotes_runtime) && tmp->type == IS_STRING) {
+		if (PG(magic_quotes_runtime) && Z_TYPE_P(tmp) == IS_STRING) {
 			Z_STRVAL_P(tmp) = php_addslashes(Z_STRVAL_P(tmp), Z_STRLEN_P(tmp), &Z_STRLEN_P(tmp), 0 TSRMLS_CC);
 		} else {
 			pval_copy_constructor(tmp);
@@ -1384,7 +1410,7 @@ static void php_sybase_fetch_hash(INTERNAL_FUNCTION_PARAMETERS)
 PHP_FUNCTION(sybase_fetch_object)
 {
 	php_sybase_fetch_hash(INTERNAL_FUNCTION_PARAM_PASSTHRU);
-	if (return_value->type==IS_ARRAY) {
+	if (Z_TYPE_P(return_value)==IS_ARRAY) {
 		object_and_properties_init(return_value, &zend_standard_class_def, Z_ARRVAL_P(return_value));
 	}
 }
@@ -1515,7 +1541,7 @@ PHP_FUNCTION(sybase_fetch_field)
 	add_property_long(return_value, "max_length", result->fields[field_offset].max_length);
 	add_property_string(return_value, "column_source", result->fields[field_offset].column_source, 1);
 	add_property_long(return_value, "numeric", result->fields[field_offset].numeric);
-	add_property_string(return_value, "type", php_sybase_get_field_name(result->fields[field_offset].type), 1);
+	add_property_string(return_value, "type", php_sybase_get_field_name(Z_TYPE(result->fields[field_offset])), 1);
 }
 /* }}} */
 
@@ -1569,7 +1595,7 @@ PHP_FUNCTION(sybase_result)
 		RETURN_FALSE;
 	}
 
-	switch(field->type) {
+	switch(Z_TYPE_P(field)) {
 		case IS_STRING: {
 			int i;
 
@@ -1627,7 +1653,7 @@ PHP_FUNCTION(sybase_affected_rows)
 	ZEND_FETCH_RESOURCE2(sybase_ptr, sybase_link *, &sybase_link_index, id, "Sybase-Link", le_link, le_plink);
 
 	Z_LVAL_P(return_value) = sybase_ptr->affected_rows;
-	return_value->type = IS_LONG;
+	Z_TYPE_P(return_value) = IS_LONG;
 }
 /* }}} */
 

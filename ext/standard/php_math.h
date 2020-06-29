@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,15 +12,18 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Jim Winstead (jimw@php.net)                                 |
-   |          Stig Sæther Bakken <ssb@guardian.no>                        |
+   | Authors: Jim Winstead <jimw@php.net>                                 |
+   |          Stig Sæther Bakken <ssb@fast.no>                            |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_math.h,v 1.7.2.1 2001/08/15 19:11:39 jeroen Exp $ */
+/* $Id: php_math.h,v 1.16 2002/02/28 08:26:47 sebastian Exp $ */
 
 #ifndef PHP_MATH_H
 #define PHP_MATH_H
+
+PHPAPI char *_php_math_number_format(double, int, char , char);
+
 PHP_FUNCTION(sin);
 PHP_FUNCTION(cos);
 PHP_FUNCTION(tan);
@@ -32,6 +35,9 @@ PHP_FUNCTION(pi);
 PHP_FUNCTION(exp);
 PHP_FUNCTION(log);
 PHP_FUNCTION(log10);
+PHP_FUNCTION(is_finite);
+PHP_FUNCTION(is_infinite);
+PHP_FUNCTION(is_nan);
 PHP_FUNCTION(pow);
 PHP_FUNCTION(sqrt);
 PHP_FUNCTION(srand);
@@ -52,6 +58,7 @@ PHP_FUNCTION(hexdec);
 PHP_FUNCTION(octdec);
 PHP_FUNCTION(base_convert);
 PHP_FUNCTION(number_format);
+PHP_FUNCTION(fmod);
 PHP_FUNCTION(deg2rad);
 PHP_FUNCTION(rad2deg);
 

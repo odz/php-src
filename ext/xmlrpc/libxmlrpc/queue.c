@@ -1,4 +1,4 @@
-static const char rcsid[] = "#(@) $Id: queue.c,v 1.1.2.1 2001/10/17 15:32:54 ssb Exp $";
+static const char rcsid[] = "#(@) $Id: queue.c,v 1.3 2001/12/03 22:33:31 shane Exp $";
 
 /* 
  * Date last modified: Jan 2001
@@ -97,7 +97,9 @@ static const char rcsid[] = "#(@) $Id: queue.c,v 1.1.2.1 2001/10/17 15:32:54 ssb
  *
  ****************************************************************/
 
-
+#ifdef _WIN32
+#include "xmlrpc_win32.h"
+#endif
 #include <stdlib.h>
 #include "queue.h"
 
@@ -476,7 +478,7 @@ void *Q_Next(queue *q)
    if(!q)
       return NULL;
 
-   if(q->cursor->next == NULL)
+   if(!q->cursor || q->cursor->next == NULL)
       return NULL;
 
    q->cursor = (node *)q->cursor->next;

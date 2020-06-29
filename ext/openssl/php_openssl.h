@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -13,10 +13,11 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Stig Venaas <venaas@php.net>                                |
+   |          Wez Furlong <wez@thebrainroom.com                           |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_openssl.h,v 1.7 2001/05/04 23:42:10 wez Exp $ */
+/* $Id: php_openssl.h,v 1.10 2001/12/11 15:30:02 sebastian Exp $ */
 
 #ifndef PHP_OPENSSL_H
 #define PHP_OPENSSL_H
@@ -28,11 +29,14 @@ extern zend_module_entry openssl_module_entry;
 PHP_MINIT_FUNCTION(openssl);
 PHP_MSHUTDOWN_FUNCTION(openssl);
 PHP_MINFO_FUNCTION(openssl);
-PHP_FUNCTION(openssl_get_privatekey);
-PHP_FUNCTION(openssl_get_publickey);
-PHP_FUNCTION(openssl_free_key);
-PHP_FUNCTION(openssl_x509_read);
-PHP_FUNCTION(openssl_x509_free);
+
+PHP_FUNCTION(openssl_pkey_get_private);
+PHP_FUNCTION(openssl_pkey_get_public);
+PHP_FUNCTION(openssl_pkey_free);
+PHP_FUNCTION(openssl_pkey_new);
+PHP_FUNCTION(openssl_pkey_export);
+PHP_FUNCTION(openssl_pkey_export_to_file);
+
 PHP_FUNCTION(openssl_sign);
 PHP_FUNCTION(openssl_verify);
 PHP_FUNCTION(openssl_seal);
@@ -48,8 +52,18 @@ PHP_FUNCTION(openssl_pkcs7_sign);
 PHP_FUNCTION(openssl_pkcs7_encrypt);
 
 PHP_FUNCTION(openssl_error_string);
+
+PHP_FUNCTION(openssl_x509_read);
+PHP_FUNCTION(openssl_x509_free);
 PHP_FUNCTION(openssl_x509_parse);
 PHP_FUNCTION(openssl_x509_checkpurpose);
+PHP_FUNCTION(openssl_x509_export);
+PHP_FUNCTION(openssl_x509_export_to_file);
+PHP_FUNCTION(openssl_x509_check_private_key);
+PHP_FUNCTION(openssl_csr_new);
+PHP_FUNCTION(openssl_csr_export);
+PHP_FUNCTION(openssl_csr_export_to_file);
+PHP_FUNCTION(openssl_csr_sign);
 
 #else
 

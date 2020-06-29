@@ -1,9 +1,9 @@
 <?php
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -13,7 +13,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Stig Bakken <ssb@fast.no>                                   |
+   | Author: Stig Bakken <ssb@fast.no>                                    |
    | (based on the PHP 3 test framework by Rasmus Lerdorf)                |
    +----------------------------------------------------------------------+
  */
@@ -24,6 +24,8 @@
  * - implement module skipping for PEAR
  * - do not test PEAR components if base class and/or component class cannot be instanciated
  */
+
+set_time_limit(0);
 
 ob_implicit_flush();
 
@@ -43,12 +45,11 @@ if ($opts['help']) {
     exit;
 }
 */
-set_time_limit(280);
 
 if(!isset($_SERVER['argc'])) {
 	echo "\nWARNING: register_argc_argv seems to be set 'off' in php.ini\n\n";
-}
-        
+}	
+
 @do_testing($_SERVER['argc'], $_SERVER['argv']);
 
 exit;
@@ -103,15 +104,15 @@ function create_found_tests_4_modules_list() {
 function create_modules_2_test_list() {
     global $compiled_in_modules,$modules_2_test,$modules_available;
     foreach ($compiled_in_modules AS $value)
-        if ($modules_2_test[$value]) $modules_available[]=$value;
+        if (isset($modules_2_test[$value])) $modules_available[]=$value;
 }
 
 
 
-function in_path($program)
+function in_path($program, $windows_p)
 {
     global $HTTP_ENV_VARS;
-    if (substr(PHP_OS, 0, 3) == "WIN") {
+    if ($windows_p) {
         $delim = ";";
         $ext = ".exe";
     } else {
@@ -120,6 +121,10 @@ function in_path($program)
     }
     $slash = DIRECTORY_SEPARATOR;
     $path_components = explode($delim, $HTTP_ENV_VARS['PATH']);
+    if ($windows_p) {
+	$cwd = getcwd() . DIRECTORY_SEPARATOR;
+	array_unshift($path_components, "{$cwd}Release_TS_Inline", "{$cwd}Release_TS");
+    }
     foreach ($path_components as $path) {
         $test = "{$path}{$slash}php{$ext}";
         if (@is_executable($test)) {
@@ -156,19 +161,26 @@ function initialize()
         }
     }
 
-    if (isset($GLOBALS["TOP_BUILDDIR"]) && @is_executable($GLOBALS["TOP_BUILDDIR"]."/php{$ext}")) {
-        $php = $GLOBALS["TOP_BUILDDIR"]."/php{$ext}";
+    if (isset($_ENV["TOP_BUILDDIR"]) && @is_executable($_ENV["TOP_BUILDDIR"]."/sapi/cli/php{$ext}")) {
+        $php = $_ENV["TOP_BUILDDIR"]."/sapi/cli/php{$ext}";
+    } elseif (isset($_ENV["TOP_BUILDDIR"]) && @is_executable($_ENV["TOP_BUILDDIR"]."/php{$ext}")) {
+        $php = $_ENV["TOP_BUILDDIR"]."/php{$ext}";
     } elseif (@is_executable("./php{$ext}")) {
         $php = getcwd() . "/php{$ext}";
     }
     if (empty($php)) {
-        $php = in_path("php");
+        $php = in_path("php", $windows_p);
     }
     if (empty($php)) {
         dowriteln("Unable to find PHP executable (php{$ext}).");
         dowriteln("Please build PHP as a CGI executable or make sure it is");
         dowriteln("available in the PATH environment variable.");
         exit;
+    }
+    if ($windows_p) {
+	// modify path to help Windows find DLL files
+	$path = dirname($php) . ";" . getenv("PATH");
+	putenv("PATH={$path}");
     }
 
     create_compiled_in_modules_list();
@@ -231,7 +243,7 @@ function do_testing($argc, &$argv)
             }
         }
     } else {
-        // $dir = $GLOBALS["TOP_SRCDIR"]; // XXX ??? where should this variable be set?
+        // $dir = $_ENV["TOP_SRCDIR"]; // XXX ??? where should this variable be set?
         $dir=str_replace('\\','/',trim(($windows_p ? getenv("TEST_DIR"):`pwd`)));
     }
     if (isset($dir) && $dir) {
@@ -366,6 +378,10 @@ function run_tests_in_dir($dir = '.')
 
 function skip_headers($fp)
 {
+    // "cli" version of PHP does not output headers
+    if (php_sapi_name() == "cli") {
+	return;
+    }
     while (!feof($fp)) {
         if (trim(fgets($fp, 1024)) == "") {
             break;
@@ -528,7 +544,6 @@ function run_test($file)
         delete_tmpfiles();
         return TEST_INTERNAL_ERROR;
     }
-    //echo $cmd;
     $cp = popen($cmd, "r");
     if (!$cp) {
         dowriteln("Error: could not execute: $cmd");

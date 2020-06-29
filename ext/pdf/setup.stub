@@ -1,4 +1,4 @@
-# $Source: /repository/php4/ext/pdf/setup.stub,v $
+# $Source: /repository/php4/ext/pdf/Attic/setup.stub,v $
 # $Id: setup.stub,v 1.1 1999/04/22 02:48:24 ssb Exp $
 
 define_option with-pdflib 'pdflib 0.6 support? ' yesnodir \

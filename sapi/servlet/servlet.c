@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -63,7 +63,7 @@
 #include "zend_indent.h"
 
 JNIEXPORT void JNICALL Java_net_php_reflect_setEnv
-  (JNIEnv *newJenv, jclass self);
+  (JNIEnv *newJenv, jclass self TSRMLS_DC);
 
 typedef struct {
 	JNIEnv *jenv;
@@ -326,11 +326,10 @@ JNIEXPORT void JNICALL Java_net_php_servlet_send
 		((servlet_request*)SG(server_context))->servlet=self;
 		((servlet_request*)SG(server_context))->cookies=0;
 
-		CG(extended_info) = 0;
-
 		/*
 		 * Initialize the request
 		 */
+
 		SETSTRING( SG(request_info).auth_user, authUser );
 		SETSTRING( SG(request_info).request_method, requestMethod );
 		SETSTRING( SG(request_info).query_string, queryString );
@@ -371,7 +370,7 @@ JNIEXPORT void JNICALL Java_net_php_servlet_send
 		/*
 		 * Execute the request
 		 */
-		Java_net_php_reflect_setEnv(jenv, 0);
+		Java_net_php_reflect_setEnv(jenv, 0 TSRMLS_CC);
 
 		if (display_source_mode) {
 			zend_syntax_highlighter_ini syntax_highlighter_ini;
@@ -390,11 +389,9 @@ JNIEXPORT void JNICALL Java_net_php_servlet_send
 		 * Clean up
 		 */
 		
-		FREESTRING(SG(request_info).request_method);
 		FREESTRING(SG(request_info).query_string);
 		FREESTRING(SG(request_info).request_uri);
 		FREESTRING(SG(request_info).path_translated);
-		FREESTRING(SG(request_info).content_type);
 		FREESTRING(((servlet_request*)SG(server_context))->cookies);    
 		efree(SG(server_context));
 		SG(server_context)=0;

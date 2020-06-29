@@ -1,7 +1,7 @@
 #  +----------------------------------------------------------------------+
-#  | PHP version 4.0                                                      |
+#  | PHP Version 4                                                        |
 #  +----------------------------------------------------------------------+
-#  | Copyright (c) 1997-2001 The PHP Group                                |
+#  | Copyright (c) 1997-2002 The PHP Group                                |
 #  +----------------------------------------------------------------------+
 #  | This source file is subject to version 2.02 of the PHP license,      |
 #  | that is bundled with this package in the file LICENSE, and is        |
@@ -11,10 +11,10 @@
 #  | obtain it through the world-wide-web, please send a note to          |
 #  | license@php.net so we can mail you a copy immediately.               |
 #  +----------------------------------------------------------------------+
-#  | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+#  | Author: Sascha Schumann <sascha@schumann.cx>                         |
 #  +----------------------------------------------------------------------+
 #
-# $Id: dynlib.m4,v 1.6 2001/02/26 06:06:47 andi Exp $ 
+# $Id: dynlib.m4,v 1.9 2002/02/28 08:25:27 sebastian Exp $ 
 #
 
 
@@ -32,7 +32,7 @@ AC_DEFUN(LIB_SHARED_MODULE,[
   lib_target="\$(LTLIBRARY_SHARED_NAME)"
   cat >>$1<<EOF
 \$(LTLIBRARY_SHARED_NAME): \$(LTLIBRARY_SHARED_OBJECTS) \$(LTLIBRARY_DEPENDENCIES)
-	\$(SHARED_LIBTOOL) --mode=link \$(COMPILE) \$(LDFLAGS) -o \[$]@ -avoid-version -module -rpath \$(phplibdir) \$(LTLIBRARY_LDFLAGS) \$(LTLIBRARY_OBJECTS) \$(LTLIBRARY_SHARED_LIBADD)
+	\$(SHARED_LIBTOOL) --mode=link \$(CC) \$(COMMON_FLAGS) \$(CFLAGS_CLEAN) \$(EXTRA_CFLAGS) \$(LDFLAGS) -o \[$]@ -avoid-version -module -rpath \$(phplibdir) \$(LTLIBRARY_LDFLAGS) \$(LTLIBRARY_OBJECTS) \$(LTLIBRARY_SHARED_LIBADD)
 	\$(SHARED_LIBTOOL) --mode=install cp \[$]@ \$(phplibdir)
 
 EOF

@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,12 +12,12 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Frank M. Kromann <frank@frontbase.com>                      |
+   | Author: Frank M. Kromann <frank@frontbase.com>                       |
    +----------------------------------------------------------------------+
  */
 
 
-/* $Id: php_mssql.h,v 1.16 2001/07/30 01:56:30 zeev Exp $ */
+/* $Id: php_mssql.h,v 1.20 2002/02/28 08:26:25 sebastian Exp $ */
 
 #ifndef PHP_MSSQL_H
 #define PHP_MSSQL_H
@@ -70,6 +70,7 @@ PHP_FUNCTION(mssql_num_fields);
 PHP_FUNCTION(mssql_fetch_field);
 PHP_FUNCTION(mssql_fetch_row);
 PHP_FUNCTION(mssql_fetch_array);
+PHP_FUNCTION(mssql_fetch_assoc);
 PHP_FUNCTION(mssql_fetch_object);
 PHP_FUNCTION(mssql_field_length);
 PHP_FUNCTION(mssql_field_name);
@@ -114,8 +115,9 @@ ZEND_BEGIN_MODULE_GLOBALS(mssql)
 	long min_error_severity, min_message_severity;
 	long cfg_min_error_severity, cfg_min_message_severity;
 	long compatability_mode, connect_timeout, timeout;
-	void (*get_column_content)(mssql_link *mssql_ptr,int offset,pval *result,int column_type);
+	void (*get_column_content)(mssql_link *mssql_ptr,int offset,pval *result,int column_type  TSRMLS_DC);
 	long textsize, textlimit, batchsize;
+	long datetimeconvert;
 	HashTable *resource_list, *resource_plist;
 ZEND_END_MODULE_GLOBALS(mssql)
 

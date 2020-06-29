@@ -1,4 +1,21 @@
-($Id: README.txt,v 1.9 2001/08/13 21:45:19 sas Exp $)
+
+
+*** IMPORTANT WARNING ***
+
+IRCG WILL NOT WORK WITH APACHE OR ANY OTHER WEB-SERVERS
+OTHER THAN THOSE DESCRIBED BELOW.
+
+PLEASE DO NOT SEND ENQUIRIES TO THE AUTHOR BY ANY MEANS
+CONCERNING UNSUPPORTED CONFIGURATIONS OR ANY OTHER
+SUPPORT QUESTIONS.  WHEN AND IF APPROPIATE, CONTACT THE
+REGULAR PHP MAILING LISTS OR, AT YOUR DISCRETION, ASK ON
+THE IRCG MAILING LIST.
+
+*** IMPORTANT WARNING ***
+
+
+
+($Id: README.txt,v 1.13 2001/12/10 09:56:06 sas Exp $)
 
 STATUS
 
@@ -7,6 +24,7 @@ STATUS
     http://schumann.cx/ircg/
 
 
+	
 INSTALLATION: THE QUICK WAY
 
 
@@ -17,32 +35,36 @@ INSTALLATION: THE QUICK WAY
 2.  Edit some variables at the top of that script:
 
     prefix
-    	The directory where all software gets installed (the user running
-    	the script must have write permission to that directory).
+        The directory where all software is installed in.  Note that
+        the user which runs the script shall have write permissions
+        for that directory.
     
     php4_sourcedir
-       	A very recent checkout of the PHP 4.0 Repository, fully buildconf'd.
+       	A compatible version of the PHP 4.0 source-code, fully buildconf'd.
     
     st_target
-    	The State Threads Target (e.g. freebsd-optimized)
+        The State Threads target (e.g. freebsd-optimized)
 
     st_targetdir
-    	The State Threads Directory name (e.g. FREEBSD_`uname -r`_OPT)
+        The State Threads directory name (e.g. FREEBSD_`uname -r`_OPT)
 
-    thttpd/IRCG/st    (probably don't need to be changed)
-    	The latest version numbers of the respective software
+        On Solaris 2.x, this is the output of "uname -r" minus 3
+        (e.g. 5.8 becomes 2.8).
 
-    State Threads and IRCG currently require GNU make, so if your
-    system make is not GNU make, apply s/make/gmake/ or whatever
-    is appropiate for your system to install_ircg.sh.
+    thttpd, IRCG, st    (usually don't need to be changed)
+        The latest version numbers of the respective software package.
+
+    make
+        The name of GNU make on your system (some packages depend
+        on it).
 
 3.  Run
 
-    	chmod +x install_ircg.sh
-    	./install_ircg.sh
+        chmod +x install_ircg.sh
+        ./install_ircg.sh
 
-    If you have a standard system (i.e. Linux or FreeBSD), the process 
-    should finish without any problem.
+    If you are installing on a common system (e.g. Linux or FreeBSD), the 
+    process should finish without any problem.  
 
     Note 1:  Currently, the shipped patches are in the unified diff
     format.  Some esoteric patch tools cannot handle that format.  On
@@ -56,14 +78,14 @@ INSTALLATION: THE QUICK WAY
     system yourself.. Good luck.
     
 
-    
+
 
 THE LONG AND BORING WAY
 
 
 1.  Install SGI's State Threads Library
 
-    http://oss.sgi.com/projects/state-threads/download/
+    http://state-threads.sourceforge.net/
 
     (Just copy st.h to /usr/include and libst.* to /usr/lib)
     
@@ -73,7 +95,7 @@ THE LONG AND BORING WAY
 
 3.  Download and extract thttpd 2.21b
 
-    http://www.acme.com/software/thttpd/
+    http://www.acme.com/software/thttpd/thttpd-2.21b.tar.gz
 
 4.  Install PHP into thttpd
 
@@ -88,7 +110,8 @@ THE LONG AND BORING WAY
     $ cd thttpd-2.xx
     $ patch -p1 < ../IRCG-x.x/patch_thttpd
 
-    IMPORTANT: It will throw SIGSEGV or SIGBUS otherwise.
+    IMPORTANT: The process will throw a SIGSEGV or SIGBUS if you
+               forget to apply this patch.
 	
 6.  Configure and install thttpd
 
@@ -109,5 +132,5 @@ A highly customizable PHP framework can be found here:
 
     http://schumann.cx/ircg/ircg-php-scripts.tar.gz
 
-Start reading index.php.
+Start by reading index.php.
 

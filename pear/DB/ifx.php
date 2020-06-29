@@ -1,9 +1,9 @@
 <?php
 //
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2001 The PHP Group                                |
+// | Copyright (c) 1997-2002 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -13,10 +13,10 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors:    Tomas V.V.Cox <cox@idecnet.com>                           |
+// | Author: Tomas V.V.Cox <cox@idecnet.com>                              |
 // +----------------------------------------------------------------------+
 //
-// $Id: ifx.php,v 1.10.2.2 2001/11/13 01:26:42 ssb Exp $
+// $Id: ifx.php,v 1.18 2002/02/28 08:27:09 sebastian Exp $
 //
 // Database independent query interface definition for PHP's Informix
 // extension.
@@ -27,7 +27,8 @@
 // http://www.informix.com/answers/english/ierrors.htm
 //
 // TODO:
-//  -set needed env Informix vars on connect
+//  - set needed env Informix vars on connect
+//  - implement native prepare/execute
 
 require_once 'DB/common.php';
 
@@ -244,9 +245,17 @@ class DB_ifx extends DB_common
      */
     function freeResult($result)
     {
-        if (!@ifx_free_result($result)) {
-            return $this->ifxraiseError();
+        if (is_resource($result)) {
+            if (!@ifx_free_result($result)) {
+                return $this->ifxraiseError();
+            }
+            return true;
         }
+        if (!isset($this->prepare_tokens[(int)$result])) {
+            return false;
+        }
+        unset($this->prepare_tokens[(int)$result]);
+        unset($this->prepare_types[(int)$result]);
         return true;
     }
 

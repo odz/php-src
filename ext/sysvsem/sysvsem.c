@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group		                  |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,12 +12,12 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Tom May <tom@go2net.com>					  |
+   | Authors: Tom May <tom@go2net.com>                                    |
    |          Gavin Sherry <gavin@linuxworld.com.au>                      |
    +----------------------------------------------------------------------+
  */
  
-/* $Id: sysvsem.c,v 1.33.2.1 2001/10/11 23:52:08 ssb Exp $ */
+/* $Id: sysvsem.c,v 1.38.2.1 2002/03/28 07:35:09 derick Exp $ */
 
 /* Latest update build anc tested on Linux 2.2.14
  *
@@ -177,16 +177,16 @@ PHP_FUNCTION(sem_get)
 				RETURN_FALSE;
 			}
 			convert_to_long_ex(arg_key);
-			key = (int)(*arg_key)->value.lval;
+			key = (int)Z_LVAL_PP(arg_key);
 			break;
 		case 2:
 			if (zend_get_parameters_ex(2, &arg_key, &arg_max_acquire)==FAILURE) {
 				RETURN_FALSE;
 			}
 			convert_to_long_ex(arg_key);
-			key = (int)(*arg_key)->value.lval;
+			key = (int)Z_LVAL_PP(arg_key);
 			convert_to_long_ex(arg_max_acquire);
-			max_acquire = (int)(*arg_max_acquire)->value.lval;
+			max_acquire = (int)Z_LVAL_PP(arg_max_acquire);
 			break;
 		case 3:
 			if (zend_get_parameters_ex(3, &arg_key, &arg_max_acquire, &arg_perm)==FAILURE) {
@@ -195,9 +195,9 @@ PHP_FUNCTION(sem_get)
 			convert_to_long_ex(arg_key);
 			convert_to_long_ex(arg_max_acquire);
 			convert_to_long_ex(arg_perm);
-			key = (int)(*arg_key)->value.lval;
-			max_acquire = (int)(*arg_max_acquire)->value.lval;
-			perm = (int)(*arg_perm)->value.lval;
+			key = (int)Z_LVAL_PP(arg_key);
+			max_acquire = (int)Z_LVAL_PP(arg_max_acquire);
+			perm = (int)Z_LVAL_PP(arg_perm);
 			break;
 		default:
 			WRONG_PARAM_COUNT;
@@ -299,10 +299,10 @@ PHP_FUNCTION(sem_get)
 	sem_ptr->semid = semid;
 	sem_ptr->count = 0;
 
-	return_value->value.lval = zend_list_insert(sem_ptr, php_sysvsem_module.le_sem);
-	return_value->type = IS_LONG;
+	Z_LVAL_P(return_value) = zend_list_insert(sem_ptr, php_sysvsem_module.le_sem);
+	Z_TYPE_P(return_value) = IS_LONG;
 
-	sem_ptr->id = (int)return_value->value.lval;
+	sem_ptr->id = (int)Z_LVAL_P(return_value);
 }
 /* }}} */
 
@@ -321,7 +321,7 @@ static void php_sysvsem_semop(INTERNAL_FUNCTION_PARAMETERS, int acquire)
 				RETURN_FALSE;
 			}
 			convert_to_long_ex(arg_id);
-			id = (int)(*arg_id)->value.lval;
+			id = (int)Z_LVAL_PP(arg_id);
 			break;
 		default:
 			WRONG_PARAM_COUNT;
@@ -393,7 +393,7 @@ PHP_FUNCTION(sem_remove)
         }
         convert_to_long_ex(arg_id);
 
-        id = (*arg_id)->value.lval;
+        id = Z_LVAL_PP(arg_id);
 
         sem_ptr = (sysvsem_sem *) zend_list_find(id, &type);
 
@@ -411,7 +411,11 @@ PHP_FUNCTION(sem_remove)
                 RETURN_FALSE;
         }
 
-	if(semctl(sem_ptr->semid,NULL,IPC_RMID,NULL)<0) {
+#if HAVE_SEMUN
+		if(semctl(sem_ptr->semid,NULL,IPC_RMID,un)<0) {
+#else
+		if(semctl(sem_ptr->semid,NULL,IPC_RMID,NULL)<0) {
+#endif
                 php_error(E_WARNING, "sem_remove() failed for id %d: %s", id, strerror(errno));
                 RETURN_FALSE;
         }
@@ -433,6 +437,6 @@ PHP_FUNCTION(sem_remove)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

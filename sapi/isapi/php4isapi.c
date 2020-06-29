@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -13,7 +13,7 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Zeev Suraski <zeev@zend.com>                                |
-   | Zeus Support: Ben Mansell <ben@zeus.com>                             |
+   |          Ben Mansell <ben@zeus.com> (Zeus Support)                   |
    +----------------------------------------------------------------------+
  */
 
@@ -481,7 +481,7 @@ static void sapi_isapi_register_server_variables2(char **server_variables, LPEXT
 				recorded_values[p-server_variables] = estrndup(static_variable_buf, variable_len);
 			}
 		} else if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
-			variable_buf = (char *) emalloc(variable_len);
+			variable_buf = (char *) emalloc(variable_len+1);
 			if (lpECB->GetServerVariable(lpECB->ConnID, *p, variable_buf, &variable_len)
 				&& variable_buf[0]) {
 				php_register_variable(*p, variable_buf, track_vars_array TSRMLS_CC);
@@ -801,8 +801,8 @@ DWORD WINAPI HttpExtensionProc(LPEXTENSION_CONTROL_BLOCK lpECB)
 				php_isapi_report_exception(buf, strlen(buf) TSRMLS_CC);
 				my_endthread();
 			}
-#endif
 		}
+#endif
 #ifdef PHP_ENABLE_SEH
 		__try {
 			php_request_shutdown(NULL);

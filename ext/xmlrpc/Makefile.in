@@ -1,4 +1,4 @@
-# $Id: Makefile.in,v 1.2.2.1 2001/10/17 15:32:54 ssb Exp $
+# $Id: Makefile.in,v 1.2 2001/09/10 07:56:22 ssb Exp $
 
 LTLIBRARY_NAME        = libxmlrpc.la
 LTLIBRARY_SOURCES     = xmlrpc-epi-php.c

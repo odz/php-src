@@ -1,9 +1,9 @@
 <?php
 //
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2001 The PHP Group                                |
+// | Copyright (c) 1997-2002 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.0 of the PHP license,       |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -16,10 +16,9 @@
 // | Authors: Sterling Hughes <sterling@php.net>                          |
 // |          Stig Bakken <ssb@fast.no>                                   |
 // |          Tomas V.V.Cox <cox@idecnet.com>                             |
-// |                                                                      |
 // +----------------------------------------------------------------------+
 //
-// $Id: PEAR.php,v 1.13.2.4 2001/11/13 01:26:39 ssb Exp $
+// $Id: PEAR.php,v 1.32.2.2 2002/04/09 19:04:07 ssb Exp $
 //
 
 define('PEAR_ERROR_RETURN',   1);
@@ -45,7 +44,6 @@ $GLOBALS['_PEAR_destructor_object_list'] = array();
 
 //
 // Tests needed: - PEAR inheritance
-//               - destructors
 //
 
 /**
@@ -433,7 +431,7 @@ class PEAR
 
     /**
     * Push a new error handler on top of the error handler options stack. With this
-    * you can easely override the actual error handler for some code and restore
+    * you can easily override the actual error handler for some code and restore
     * it later with popErrorHandling.
     *
     * @param $mode mixed (same as setErrorHandling)

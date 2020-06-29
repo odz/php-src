@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -22,7 +22,7 @@
 #ifndef PHP_SOCKETS_H
 #define PHP_SOCKETS_H
 
-/* $Id: php_sockets.h,v 1.11.2.2 2001/11/12 10:52:16 dbeu Exp $ */
+/* $Id: php_sockets.h,v 1.22 2002/03/06 20:19:09 jason Exp $ */
 
 #if HAVE_SOCKETS
 
@@ -42,12 +42,6 @@ extern zend_module_entry sockets_module_entry;
 PHP_MINIT_FUNCTION(sockets);
 PHP_MINFO_FUNCTION(sockets);
 
-PHP_FUNCTION(socket_fd_alloc);
-PHP_FUNCTION(socket_fd_free);
-PHP_FUNCTION(socket_fd_set);
-PHP_FUNCTION(socket_fd_isset);
-PHP_FUNCTION(socket_fd_clear);
-PHP_FUNCTION(socket_fd_zero);
 PHP_FUNCTION(socket_iovec_alloc);
 PHP_FUNCTION(socket_iovec_free);
 PHP_FUNCTION(socket_iovec_set);
@@ -59,6 +53,7 @@ PHP_FUNCTION(socket_create_listen);
 PHP_FUNCTION(socket_create_pair);
 PHP_FUNCTION(socket_accept);
 PHP_FUNCTION(socket_set_nonblock);
+PHP_FUNCTION(socket_set_block);
 PHP_FUNCTION(socket_listen);
 PHP_FUNCTION(socket_close);
 PHP_FUNCTION(socket_write);
@@ -81,6 +76,7 @@ PHP_FUNCTION(socket_getopt);
 PHP_FUNCTION(socket_setopt);
 PHP_FUNCTION(socket_shutdown);
 PHP_FUNCTION(socket_last_error);
+PHP_FUNCTION(socket_clear_error);
 
 typedef struct php_iovec {
 	struct iovec	*iov_array;
@@ -96,16 +92,6 @@ typedef struct {
 	int		type;
 	int		error;
 } php_socket;
-
-typedef struct {
-	fd_set	set;
-	SOCKET	max_fd;
-} php_fd_set;
-
-typedef struct {
-	long family;
-	char info[256];
-} php_sockaddr_storage;
 
 typedef struct {
 	zend_bool	use_system_read;

@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: main.c,v 1.404.2.5 2001/12/17 21:19:51 derick Exp $ */
+/* $Id: main.c,v 1.429.2.2 2002/03/09 00:26:40 sniper Exp $ */
 
 /* {{{ includes
  */
@@ -230,8 +230,12 @@ PHP_INI_BEGIN()
 	STD_PHP_INI_ENTRY("output_buffering",		"0",		PHP_INI_PERDIR|PHP_INI_SYSTEM,OnUpdateInt,	output_buffering,		php_core_globals,	core_globals)
 	STD_PHP_INI_ENTRY("output_handler",			NULL,		PHP_INI_PERDIR|PHP_INI_SYSTEM,OnUpdateString,	output_handler,		php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("register_argc_argv",	"1",		PHP_INI_ALL,		OnUpdateBool,			register_argc_argv,		php_core_globals,	core_globals)
-	STD_PHP_INI_BOOLEAN("register_globals",		"1",		PHP_INI_ALL,		OnUpdateBool,			register_globals,		php_core_globals,	core_globals)
+	STD_PHP_INI_BOOLEAN("register_globals",		"0",		PHP_INI_ALL,		OnUpdateBool,			register_globals,		php_core_globals,	core_globals)
+#if PHP_SAFE_MODE
+	STD_PHP_INI_BOOLEAN("safe_mode",			"1",		PHP_INI_SYSTEM,		OnUpdateBool,			safe_mode,				php_core_globals,	core_globals)
+#else
 	STD_PHP_INI_BOOLEAN("safe_mode",			"0",		PHP_INI_SYSTEM,		OnUpdateBool,			safe_mode,				php_core_globals,	core_globals)
+#endif
 	STD_PHP_INI_ENTRY("safe_mode_include_dir",	NULL,		PHP_INI_SYSTEM,		OnUpdateString,			safe_mode_include_dir,	php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("safe_mode_gid",			"0",		PHP_INI_SYSTEM,		OnUpdateBool,			safe_mode_gid,				php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("short_open_tag",DEFAULT_SHORT_OPEN_TAG,	PHP_INI_SYSTEM|PHP_INI_PERDIR,		OnUpdateBool,			short_tags,				zend_compiler_globals,	compiler_globals)
@@ -239,6 +243,7 @@ PHP_INI_BEGIN()
 	STD_PHP_INI_BOOLEAN("track_errors",			"0",		PHP_INI_ALL,		OnUpdateBool,			track_errors,			php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("y2k_compliance",		"0",		PHP_INI_ALL,		OnUpdateBool,			y2k_compliance,			php_core_globals,	core_globals)
 
+	STD_PHP_INI_ENTRY("unserialize_callback_func",	NULL,		PHP_INI_ALL,		OnUpdateString,	unserialize_callback_func,	php_core_globals,	core_globals)
 	STD_PHP_INI_ENTRY("arg_separator.output",	"&",		PHP_INI_ALL,		OnUpdateStringUnempty,	arg_separator.output,	php_core_globals,	core_globals)
 	STD_PHP_INI_ENTRY("arg_separator.input",	"&",		PHP_INI_SYSTEM|PHP_INI_PERDIR,	OnUpdateStringUnempty,	arg_separator.input,	php_core_globals,	core_globals)
 
@@ -354,6 +359,50 @@ PHPAPI int php_printf(const char *format, ...)
 }
 /* }}} */
 
+/* {{{ php_html_puts */
+#include "ext/standard/php_smart_str.h"
+
+PHPAPI void php_html_puts(const char *str, uint size TSRMLS_DC)
+{
+	const char *estr;
+	smart_str s = {0};
+
+	for (estr = str + size; str < estr; str++) {
+		switch (*str) {
+			case '\n':
+				smart_str_appendl(&s, "<br />", sizeof("<br />")-1);
+				break;
+			case '<':
+				smart_str_appendl(&s, "&lt;", sizeof("&lt;")-1);
+				break;
+			case '>':
+				smart_str_appendl(&s, "&gt;", sizeof("&gt;")-1);
+				break;
+			case '&':
+				smart_str_appendl(&s, "&amp;", sizeof("&amp;")-1);
+				break;
+
+/* Commented out since this is not necessary */
+/*
+			case ' ':
+				smart_str_appendl(&s, "&nbsp;", sizeof("&nbsp;")-1);
+				break;
+*/
+			case '\t':
+				smart_str_appendl(&s, "&nbsp;&nbsp;&nbsp;&nbsp;", sizeof("&nbsp;&nbsp;&nbsp;&nbsp;")-1);
+				break;
+			default:
+				smart_str_appendc(&s, *str);
+		}
+	}
+
+	if (s.c) {
+		PHPWRITE(s.c, s.len);
+		smart_str_free(&s);
+	}
+}
+/* }}} */
+
 /* {{{ php_error_cb
  extended error handling function */
 static void php_error_cb(int type, const char *error_filename, const uint error_lineno, const char *format, va_list args)
@@ -390,8 +439,6 @@ static void php_error_cb(int type, const char *error_filename, const uint error_
 				error_type_str = "Parse error";
 				break;
 			case E_NOTICE:
-				error_type_str = "Warning";
-				break;
 			case E_USER_NOTICE:
 				error_type_str = "Notice";
 				break;
@@ -418,7 +465,7 @@ static void php_error_cb(int type, const char *error_filename, const uint error_
 			char *error_format;
 
 			error_format = PG(html_errors) ?
-				"<br>\n<b>%s</b>:  %s in <b>%s</b> on line <b>%d</b><br>\n"
+				"<br />\n<b>%s</b>:  %s in <b>%s</b> on line <b>%d</b><br />\n"
 				: "\n%s: %s in %s on line %d\n";
 			if (PG(xmlrpc_errors)) {
 				error_format = do_alloca(1024);
@@ -483,9 +530,9 @@ static void php_error_cb(int type, const char *error_filename, const uint error_
 
 		ALLOC_ZVAL(tmp);
 		INIT_PZVAL(tmp);
-		tmp->value.str.val = (char *) estrndup(buffer, buffer_len);
-		tmp->value.str.len = buffer_len;
-		tmp->type = IS_STRING;
+		Z_STRVAL_P(tmp) = (char *) estrndup(buffer, buffer_len);
+		Z_STRLEN_P(tmp) = buffer_len;
+		Z_TYPE_P(tmp) = IS_STRING;
 		zend_hash_update(EG(active_symbol_table), "php_errormsg", sizeof("php_errormsg"), (void **) & tmp, sizeof(pval *), NULL);
 	}
 }
@@ -666,14 +713,17 @@ int php_request_startup(TSRMLS_D)
 			Z_STRLEN_P(output_handler) = strlen(PG(output_handler));	/* this can be optimized */
 			Z_STRVAL_P(output_handler) = estrndup(PG(output_handler), Z_STRLEN_P(output_handler));
 			Z_TYPE_P(output_handler) = IS_STRING;
-			php_start_ob_buffer(output_handler, 0 TSRMLS_CC);
-		} else if (PG(output_buffering)) {
+			php_start_ob_buffer(output_handler, 0, 1 TSRMLS_CC);
+		}
+		else if (PG(output_buffering)) {
 			if (PG(output_buffering)>1) {
-				php_start_ob_buffer(NULL, PG(output_buffering) TSRMLS_CC);
-			} else {
-				php_start_ob_buffer(NULL, 0 TSRMLS_CC);
+				php_start_ob_buffer(NULL, PG(output_buffering), 1 TSRMLS_CC);
 			}
-		} else if (PG(implicit_flush)) {
+			else {
+				php_start_ob_buffer(NULL, 0, 1 TSRMLS_CC);
+			}
+		}
+		else if (PG(implicit_flush)) {
 			php_start_implicit_flush(TSRMLS_C);
 		}
 
@@ -695,9 +745,11 @@ int php_request_startup(TSRMLS_D)
  */
 void php_request_shutdown_for_exec(void *dummy)
 {
+	TSRMLS_FETCH();
+
 	/* used to close fd's in the 3..255 range here, but it's problematic
 	 */
-	shutdown_memory_manager(1, 1);
+	shutdown_memory_manager(1, 1 TSRMLS_CC);
 }
 /* }}} */
 
@@ -739,7 +791,7 @@ void php_request_shutdown(void *dummy)
 	} zend_end_try();
 
 	zend_try { 
-		shutdown_memory_manager(CG(unclean_shutdown), 0);
+		shutdown_memory_manager(CG(unclean_shutdown), 0 TSRMLS_CC);
 	} zend_end_try();
 
 	zend_try { 
@@ -860,6 +912,8 @@ int php_module_startup(sapi_module_struct *sf)
 	PG(header_is_being_sent) = 0;
 	SG(request_info).headers_only = 0;
 	SG(request_info).argv0 = NULL;
+	SG(request_info).argc=0;
+	SG(request_info).argv=(char **)NULL;
 	PG(connection_status) = PHP_CONNECTION_NORMAL;
 	PG(during_request_startup) = 0;
 
@@ -913,6 +967,7 @@ int php_module_startup(sapi_module_struct *sf)
 
 	REGISTER_MAIN_STRINGL_CONSTANT("PHP_VERSION", PHP_VERSION, sizeof(PHP_VERSION)-1, CONST_PERSISTENT | CONST_CS);
 	REGISTER_MAIN_STRINGL_CONSTANT("PHP_OS", php_os, strlen(php_os), CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_STRINGL_CONSTANT("PHP_SAPI", sapi_module.name, strlen(sapi_module.name), CONST_PERSISTENT | CONST_CS);
 	REGISTER_MAIN_STRINGL_CONSTANT("DEFAULT_INCLUDE_PATH", PHP_INCLUDE_PATH, sizeof(PHP_INCLUDE_PATH)-1, CONST_PERSISTENT | CONST_CS);
 	REGISTER_MAIN_STRINGL_CONSTANT("PEAR_INSTALL_DIR", PEAR_INSTALLDIR, sizeof(PEAR_INSTALLDIR)-1, CONST_PERSISTENT | CONST_CS);
 	REGISTER_MAIN_STRINGL_CONSTANT("PEAR_EXTENSION_DIR", PHP_EXTENSION_DIR, sizeof(PHP_EXTENSION_DIR)-1, CONST_PERSISTENT | CONST_CS);
@@ -1002,7 +1057,7 @@ void php_module_shutdown(TSRMLS_D)
 
 #ifndef ZTS
 	zend_ini_shutdown(TSRMLS_C);
-	shutdown_memory_manager(CG(unclean_shutdown), 1);
+	shutdown_memory_manager(CG(unclean_shutdown), 1 TSRMLS_CC);
 #endif
 
 	module_initialized = 0;
@@ -1194,7 +1249,21 @@ static void php_build_argv(char *s, zval *track_vars_array TSRMLS_DC)
 	INIT_PZVAL(arr);
 
 	/* Prepare argv */
-	if (s && *s) {
+	if (SG(request_info).argc) { /* are we in cli sapi? */
+		int i;
+		for (i=0; i<SG(request_info).argc; i++) {
+			ALLOC_ZVAL(tmp);
+			Z_TYPE_P(tmp) = IS_STRING;
+			Z_STRLEN_P(tmp) = strlen(SG(request_info).argv[i]);
+			Z_STRVAL_P(tmp) = estrndup(SG(request_info).argv[i], Z_STRLEN_P(tmp));
+			INIT_PZVAL(tmp);
+			if (zend_hash_next_index_insert(Z_ARRVAL_P(arr), &tmp, sizeof(pval *), NULL)==FAILURE) {
+				if (Z_TYPE_P(tmp) == IS_STRING) {
+					efree(Z_STRVAL_P(tmp));
+				}
+			}
+		}
+	} else 	if (s && *s) {
 		ss = s;
 		while (ss) {
 			space = strchr(ss, '+');
@@ -1203,14 +1272,14 @@ static void php_build_argv(char *s, zval *track_vars_array TSRMLS_DC)
 			}
 			/* auto-type */
 			ALLOC_ZVAL(tmp);
-			tmp->type = IS_STRING;
-			tmp->value.str.len = strlen(ss);
-			tmp->value.str.val = estrndup(ss, tmp->value.str.len);
+			Z_TYPE_P(tmp) = IS_STRING;
+			Z_STRLEN_P(tmp) = strlen(ss);
+			Z_STRVAL_P(tmp) = estrndup(ss, Z_STRLEN_P(tmp));
 			INIT_PZVAL(tmp);
 			count++;
-			if (zend_hash_next_index_insert(arr->value.ht, &tmp, sizeof(pval *), NULL)==FAILURE) {
-				if (tmp->type == IS_STRING) {
-					efree(tmp->value.str.val);
+			if (zend_hash_next_index_insert(Z_ARRVAL_P(arr), &tmp, sizeof(pval *), NULL)==FAILURE) {
+				if (Z_TYPE_P(tmp) == IS_STRING) {
+					efree(Z_STRVAL_P(tmp));
 				}
 			}
 			if (space) {
@@ -1224,19 +1293,23 @@ static void php_build_argv(char *s, zval *track_vars_array TSRMLS_DC)
 
 	/* prepare argc */
 	ALLOC_ZVAL(argc);
-	argc->value.lval = count;
-	argc->type = IS_LONG;
+	if (SG(request_info).argc) {
+		Z_LVAL_P(argc) = SG(request_info).argc;
+	} else {
+		Z_LVAL_P(argc) = count;
+	}
+	Z_TYPE_P(argc) = IS_LONG;
 	INIT_PZVAL(argc);
 
-	if (PG(register_globals)) {
+	if (PG(register_globals) || SG(request_info).argc) {
 		arr->refcount++;
 		argc->refcount++;
 		zend_hash_update(&EG(symbol_table), "argv", sizeof("argv"), &arr, sizeof(zval *), NULL);
 		zend_hash_add(&EG(symbol_table), "argc", sizeof("argc"), &argc, sizeof(zval *), NULL);
 	}
 
-	zend_hash_update(track_vars_array->value.ht, "argv", sizeof("argv"), &arr, sizeof(pval *), NULL);
-	zend_hash_update(track_vars_array->value.ht, "argc", sizeof("argc"), &argc, sizeof(pval *), NULL);
+	zend_hash_update(Z_ARRVAL_P(track_vars_array), "argv", sizeof("argv"), &arr, sizeof(pval *), NULL);
+	zend_hash_update(Z_ARRVAL_P(track_vars_array), "argc", sizeof("argc"), &argc, sizeof(pval *), NULL);
 }
 /* }}} */
 
@@ -1264,6 +1337,7 @@ PHPAPI int php_execute_script(zend_file_handle *primary_file TSRMLS_DC)
 	zend_file_handle *prepend_file_p, *append_file_p;
 	zend_file_handle prepend_file, append_file;
 	char *old_cwd;
+	int retval = 0;
 
 	EG(exit_status) = 0;
 	if (php_handle_special_queries(TSRMLS_C)) {
@@ -1304,14 +1378,14 @@ PHPAPI int php_execute_script(zend_file_handle *primary_file TSRMLS_DC)
 		} else {
 			append_file_p = NULL;
 		}
-		zend_execute_scripts(ZEND_REQUIRE TSRMLS_CC, NULL, 3, prepend_file_p, primary_file, append_file_p);
+		retval = (zend_execute_scripts(ZEND_REQUIRE TSRMLS_CC, NULL, 3, prepend_file_p, primary_file, append_file_p) == SUCCESS);
 	} zend_end_try();
 
 	if (old_cwd[0] != '\0') {
 		VCWD_CHDIR(old_cwd);
 	}
 	free_alloca(old_cwd);
-	return EG(exit_status);
+	return retval;
 }
 /* }}} */
 
@@ -1400,6 +1474,6 @@ PHPAPI void dummy_indent()
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

@@ -6,7 +6,7 @@ DB_mysql::numRows test
 <?php
 require "connect.inc";
 require "mktable.inc";
-require "../numrows.inc";
+require dirname(__FILE__)."/../numrows.inc";
 ?>
 --EXPECT--
 1
@@ -17,4 +17,3 @@ require "../numrows.inc";
 6
 2
 0
-DB Error: unknown error

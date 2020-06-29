@@ -203,4 +203,38 @@ diff -ur thttpd-2.21b-orig/thttpd.c thttpd-2.21b/thttpd.c
  	    hc->responselen = newlen;
  	    sz = 0;
  	    }
-Only in thttpd-2.21b: thttpd.c~
+diff -ur thttpd-2.21b-plain/mime_encodings.txt thttpd-2.21b/mime_encodings.txt
+--- thttpd-2.21b-plain/mime_encodings.txt	Wed May 10 03:22:28 2000
++++ thttpd-2.21b/mime_encodings.txt	Mon Dec 10 15:10:25 2001
+@@ -3,6 +3,6 @@
+ # A list of file extensions followed by the corresponding MIME encoding.
+ # Extensions not found in the table proceed to the mime_types table.
+ 
+-Z	x-compress
+-gz	x-gzip
++Z	compress
++gz	gzip
+ uu	x-uuencode
+diff -ur thttpd-2.21b-plain/libhttpd.c thttpd-2.21b/libhttpd.c
+--- thttpd-2.21b-plain/libhttpd.c	Tue Apr 24 00:42:40 2001
++++ thttpd-2.21b/libhttpd.c	Mon Dec 10 14:32:26 2001
+@@ -3611,14 +3611,18 @@
+ 	}
+     else
+ 	{
++		char *extraheads = "";
+ 	hc->file_address = mmc_map( hc->expnfilename, &(hc->sb), nowP );
+ 	if ( hc->file_address == (char*) 0 )
+ 	    {
+ 	    httpd_send_err( hc, 500, err500title, "", err500form, hc->encodedurl );
+ 	    return -1;
+ 	    }
++	if (strncmp(hc->decodedurl, "/nocache/", sizeof("/nocache/")-1) == 0) 
++		extraheads = "Expires: Thu, 19 Nov 1981 08:52:00 GMT\r\nCache-Control: no-store, no-cache, must-revalidate, post-check=0, pre-check=0\r\nPragma: no-cache\r\n";
++
+ 	send_mime(
+-	    hc, 200, ok200title, hc->encodings, "", hc->type, hc->sb.st_size,
++	    hc, 200, ok200title, hc->encodings, extraheads, hc->type, hc->sb.st_size,
+ 	    hc->sb.st_mtime );
+ 	}
+ 

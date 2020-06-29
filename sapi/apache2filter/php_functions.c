@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,7 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+   | Author: Sascha Schumann <sascha@schumann.cx>                         |
    +----------------------------------------------------------------------+
  */
 
@@ -45,10 +45,12 @@ static request_rec *php_apache_lookup_uri(INTERNAL_FUNCTION_PARAMETERS)
 	convert_to_string_ex(p1);
 
 	ctx = SG(server_context);
-	return ap_sub_req_lookup_uri(Z_STRVAL_PP(p1), ctx->f->r, NULL);
+	return ap_sub_req_lookup_uri(Z_STRVAL_PP(p1), ctx->f->r, ctx->f->next);
 }
 
-PHP_FUNCTION(apache_sub_req)
+/* {{{ proto bool virtual(string uri)
+ Perform an apache sub-request */
+PHP_FUNCTION(virtual)
 {
 	request_rec *rr;
 
@@ -59,8 +61,10 @@ PHP_FUNCTION(apache_sub_req)
 	
 	if (rr->status == HTTP_OK) {
 		ap_run_sub_req(rr);
+		ap_destroy_sub_req(rr);
 		RETURN_TRUE;
 	}
+	ap_destroy_sub_req(rr);
 	RETURN_FALSE;
 }
 
@@ -99,15 +103,19 @@ PHP_FUNCTION(apache_lookup_uri)
 		ADD_STRING(path_info);
 		ADD_STRING(args);
 
+		ap_destroy_sub_req(rr);
 		return;
 	}
+	ap_destroy_sub_req(rr);
 	RETURN_FALSE;
 }
 
-PHP_FUNCTION(get_all_headers)
+/* {{{ proto array getallheaders(void)
+   Fetch all HTTP request headers */
+PHP_FUNCTION(getallheaders)
 {
 	php_struct *ctx;
-	apr_array_header_t *arr;
+	const apr_array_header_t *arr;
 	char *key, *val;
 
 	if (array_init(return_value) == FAILURE) {
@@ -122,6 +130,7 @@ PHP_FUNCTION(get_all_headers)
 		add_assoc_string(return_value, key, val, 1);
 	APR_ARRAY_FOREACH_CLOSE()
 }
+/* }}} */
 
 PHP_MINFO_FUNCTION(apache)
 {
@@ -129,9 +138,9 @@ PHP_MINFO_FUNCTION(apache)
 
 static function_entry apache_functions[] = {
 	PHP_FE(apache_lookup_uri, NULL)
-	PHP_FE(apache_sub_req, NULL)
-	PHP_FE(get_all_headers, NULL)
-	{0}
+	PHP_FE(virtual, NULL)
+	PHP_FE(getallheaders, NULL)
+	{NULL, NULL, NULL}
 };
 
 static zend_module_entry php_apache_module = {
@@ -151,3 +160,12 @@ int php_apache_register_module(void)
 {
 	return zend_startup_module(&php_apache_module);
 }
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
+ */

@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2002 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -17,11 +17,12 @@
    +----------------------------------------------------------------------+
 */
 
+/* $Id: zend.h,v 1.148 2002/03/04 16:46:55 sebastian Exp $ */
 
 #ifndef ZEND_H
 #define ZEND_H
 
-#define ZEND_VERSION "1.1.1"
+#define ZEND_VERSION "1.2.0"
 
 #ifdef __cplusplus
 #define BEGIN_EXTERN_C() extern "C" {
@@ -74,7 +75,11 @@
 
 # define DL_LOAD(libname)			dlopen(libname, RTLD_LAZY | RTLD_GLOBAL)
 # define DL_UNLOAD					dlclose
-# define DL_FETCH_SYMBOL			dlsym
+# if DLSYM_NEEDS_UNDERSCORE
+#  define DL_FETCH_SYMBOL(h,s)		dlsym((h), "_" ## s)
+# else
+#  define DL_FETCH_SYMBOL			dlsym
+# endif
 # define DL_HANDLE					void *
 # define ZEND_EXTENSIONS_SUPPORT	1
 #elif defined(ZEND_WIN32)
@@ -88,8 +93,19 @@
 # define ZEND_EXTENSIONS_SUPPORT	0
 #endif
 
-#if HAVE_ALLOCA_H
-# include <alloca.h>
+/* AIX requires this to be the first thing in the file.  */
+#ifndef __GNUC__
+# if HAVE_ALLOCA_H
+#  include <alloca.h>
+# else
+#  ifdef _AIX
+ #pragma alloca
+#  else
+#   ifndef alloca /* predefined by HP cc +Olibcalls */
+char *alloca ();
+#   endif
+#  endif
+# endif
 #endif
 
 #if (HAVE_ALLOCA || (defined (__GNUC__) && __GNUC__ >= 2)) && !(defined(ZTS) && defined(ZEND_WIN32))

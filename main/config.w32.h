@@ -30,17 +30,21 @@
 #define HAVE_WDDX 1
 
 /* set to enable the crypt command */
-#define HAVE_CRYPT 0
+#define HAVE_CRYPT 1
+#define PHP_STD_DES_CRYPT 1
+#define PHP_EXT_DES_CRYPT 0
+#define PHP_MD5_CRYPT 0
+#define PHP_BLOWFISH_CRYPT 0
 /* #define HAVE_CRYPT_H 1 */
 
-/* set to enable trans sid */
-#define TRANS_SID 1
-
 /* set to enable force cgi redirect */
-#define FORCE_CGI_REDIRECT 0
+#define FORCE_CGI_REDIRECT 1
 
 /* should be added to runtime config*/
 #define PHP_URL_FOPEN 1
+
+/* set to enable overload extension */
+#define HAVE_OVERLOAD 0
 
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
@@ -56,7 +60,7 @@
 #define CONFIGURATION_FILE_PATH "php.ini"
 #define USE_CONFIG_FILE 1
 
-#define PHP_INCLUDE_PATH	"c:\\php4\\pear"
+#define PHP_INCLUDE_PATH	".;c:\\php4\\pear"
 
 
 /* Undefine if you want stricter XML/SGML compliance by default */

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+   | Author: Sascha Schumann <sascha@schumann.cx>                         |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dba.c,v 1.37.2.1 2001/10/11 23:51:16 ssb Exp $ */
+/* $Id: dba.c,v 1.42 2002/02/28 08:25:57 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -314,15 +314,15 @@ static void php_dba_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 	}
 	
 	for(hptr = handler; hptr->name &&
-			strcasecmp(hptr->name, (*args[2])->value.str.val); hptr++);
+			strcasecmp(hptr->name, Z_STRVAL_PP(args[2])); hptr++);
 
 	if(!hptr->name) {
-		php_error(E_WARNING, "no such handler: %s", (*args[2])->value.str.val);
+		php_error(E_WARNING, "no such handler: %s", Z_STRVAL_PP(args[2]));
 		FREENOW;
 		RETURN_FALSE;
 	}
 
-	switch((*args[1])->value.str.val[0]) {
+	switch(Z_STRVAL_PP(args[1])[0]) {
 		case 'c': 
 			modenr = DBA_CREAT; 
 			break;
@@ -336,14 +336,14 @@ static void php_dba_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			modenr = DBA_TRUNC;
 			break;
 		default:
-			php_error(E_WARNING, "illegal DBA mode: %s", (*args[1])->value.str.val);
+			php_error(E_WARNING, "illegal DBA mode: %s", Z_STRVAL_PP(args[1]));
 			FREENOW;
 			RETURN_FALSE;
 	}
 			
 	info = malloc(sizeof(*info));
 	memset(info, 0, sizeof(info));
-	info->path = strdup((*args[0])->value.str.val);
+	info->path = strdup(Z_STRVAL_PP(args[0]));
 	info->mode = modenr;
 	info->argc = ac - 3;
 	info->argv = args + 3;
@@ -518,6 +518,6 @@ PHP_FUNCTION(dba_sync)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

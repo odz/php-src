@@ -1,7 +1,7 @@
 --TEST--
 DB_Error/DB_Warning test
 --SKIPIF--
-<?php if (!include("DB.php")) print "skip"; ?>
+<?php if (!@include("DB.php")) print "skip"; ?>
 --FILE--
 <?php // -*- C++ -*-
 
@@ -68,11 +68,11 @@ testing different error codes...
 testing different error modes...
 DB Error: unknown error[db_error: message="DB Error: unknown error" code=-1 mode=print level=notice prefix="" info=""]
 
-User Notice: DB Error: syntax error in PEAR.php on line 595
+User Notice: DB Error: syntax error in PEAR.php on line 591
 testing different error serverities...
 
-User Notice: DB Error: syntax error in PEAR.php on line 595
+User Notice: DB Error: syntax error in PEAR.php on line 591
 
-User Warning: DB Error: syntax error in PEAR.php on line 595
+User Warning: DB Error: syntax error in PEAR.php on line 591
 
-User Error: DB Error: syntax error in PEAR.php on line 595
+User Error: DB Error: syntax error in PEAR.php on line 591

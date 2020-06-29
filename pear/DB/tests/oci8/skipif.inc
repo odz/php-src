@@ -3,7 +3,7 @@
 // * the ibase extension is built-in or loadable, AND
 // * there is a database called "test" accessible
 //   with no username/password, AND
-if (!extension_loaded("oci8")) {
+if (!extension_loaded("oci8") && ini_get("enable_dl")) {
   $dlext = (substr(PHP_OS, 0, 3) == "WIN") ? ".dll" : ".so";
   @dl("oci8$dlext");
 }

@@ -1,3 +1,8 @@
+dnl
+dnl $Id: Zend.m4,v 1.30 2001/12/11 09:10:52 sniper Exp $
+dnl
+dnl This file contains Zend specific autoconf functions.
+dnl
 
 AC_DEFUN(LIBZEND_BISON_CHECK,[
 
@@ -5,7 +10,7 @@ if test "$YACC" != "bison -y"; then
     AC_MSG_WARN(You will need bison if you want to regenerate the Zend parser.)
 else
     AC_MSG_CHECKING(bison version)
-    set `bison --version| sed -e 's/^GNU Bison version //' -e 's/\./ /'`
+    set `bison --version| grep 'GNU Bison' | cut -d ' ' -f 4 | sed -e 's/\./ /'`
     if test "${1}" = "1" -a "${2}" -lt "28"; then
         AC_MSG_WARN(You will need bison 1.28 if you want to regenerate the Zend parser (found ${1}.${2}).)
     fi
@@ -21,6 +26,7 @@ AC_REQUIRE([AC_PROG_CC])
 AC_REQUIRE([AC_PROG_CC_C_O])
 AC_REQUIRE([AC_PROG_LEX])
 AC_REQUIRE([AC_HEADER_STDC])
+AC_REQUIRE([AC_PROG_LIBTOOL])
 
 LIBZEND_BISON_CHECK
 
@@ -53,6 +59,19 @@ AC_TYPE_SIGNAL
 
 AC_CHECK_LIB(dl, dlopen, [LIBS="-ldl $LIBS"])
 AC_CHECK_FUNC(dlopen,[AC_DEFINE(HAVE_LIBDL, 1,[ ])])
+
+dnl
+dnl Ugly hack to check if dlsym() requires a leading underscore in symbol name.
+dnl
+AC_MSG_CHECKING([whether dlsym() requires a leading underscore in symbol names])
+_LT_AC_TRY_DLOPEN_SELF([
+  AC_MSG_RESULT(no)
+], [
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(DLSYM_NEEDS_UNDERSCORE, 1, [Define if dlsym() requires a leading underscore in symbol names. ])
+], [
+  AC_MSG_RESULT(no)
+], [])
 
 dnl This is required for QNX and may be some BSD derived systems
 AC_CHECK_TYPE( uint, unsigned int )

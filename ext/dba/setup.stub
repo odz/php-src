@@ -1,4 +1,4 @@
-# $Source: /repository/php4/ext/dba/setup.stub,v $
+# $Source: /repository/php4/ext/dba/Attic/setup.stub,v $
 # $Id: setup.stub,v 1.1 1999/07/21 15:12:32 sas Exp $
 
 define_option with-dba 'dba support?' yesnodir no \

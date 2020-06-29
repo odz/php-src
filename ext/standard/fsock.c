@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: fsock.c,v 1.76 2001/08/11 17:03:37 zeev Exp $ */
+/* $Id: fsock.c,v 1.84.2.2 2002/03/18 22:12:57 derick Exp $ */
 
 /* Synced with php 3.0 revision 1.121 1999-06-18 [ssb] */
 /* Synced with php 3.0 revision 1.133 1999-07-21 [sas] */
@@ -52,7 +52,7 @@
 #include <arpa/inet.h>
 #endif
 #endif
-#ifdef PHP_WIN32
+#if defined(PHP_WIN32) || defined(__riscos__)
 #undef AF_UNIX
 #endif
 #if defined(AF_UNIX)
@@ -60,6 +60,14 @@
 #endif
 #ifdef HAVE_SYS_SELECT_H
 #include <sys/select.h>
+#endif
+
+#ifndef PF_INET
+#define PF_INET AF_INET
+#endif
+
+#ifndef PF_UNIX
+#define PF_UNIX AF_UNIX
 #endif
 
 #include <string.h>
@@ -166,27 +174,27 @@ static void php_fsockopen(INTERNAL_FUNCTION_PARAMETERS, int persistent) {
 		WRONG_PARAM_COUNT;
 	}
 	switch(arg_count) {
-		case 5:
-			convert_to_double_ex(args[4]);
-			conv = (unsigned long) ((*args[4])->value.dval * 1000000.0);
-			timeout.tv_sec = conv / 1000000;
-			timeout.tv_usec = conv % 1000000;
-			/* fall-through */
-		case 4:
-			zval_dtor(*args[3]);
-			ZVAL_STRING(*args[3], "", 1);
-			/* fall-through */
-		case 3:
-			zval_dtor(*args[2]);
-			ZVAL_LONG(*args[2], 0);
-			break;
+	case 5:
+		convert_to_double_ex(args[4]);
+		conv = (unsigned long) (Z_DVAL_PP(args[4]) * 1000000.0);
+		timeout.tv_sec = conv / 1000000;
+		timeout.tv_usec = conv % 1000000;
+		/* fall-through */
+	case 4:
+		zval_dtor(*args[3]);
+		ZVAL_STRING(*args[3], "", 1);
+		/* fall-through */
+	case 3:
+		zval_dtor(*args[2]);
+		ZVAL_LONG(*args[2], 0);
+		break;
 	}
 	convert_to_string_ex(args[0]);
 	convert_to_long_ex(args[1]);
-	portno = (unsigned short) (*args[1])->value.lval;
+	portno = (unsigned short) Z_LVAL_PP(args[1]);
 
-	key = emalloc((*args[0])->value.str.len + 10);
-	sprintf(key, "%s:%d", (*args[0])->value.str.val, portno);
+	key = emalloc(Z_STRLEN_PP(args[0]) + 10);
+	sprintf(key, "%s:%d", Z_STRVAL_PP(args[0]), portno);
 
 	if (persistent && zend_hash_find(&FG(ht_fsock_keys), key, strlen(key) + 1,
 				(void *) &sockp) == SUCCESS) {
@@ -204,8 +212,7 @@ static void php_fsockopen(INTERNAL_FUNCTION_PARAMETERS, int persistent) {
 			udp = 1;
 		}
 
-		socketd = socket(AF_INET, udp ? SOCK_DGRAM : SOCK_STREAM, 0);
-
+		socketd = socket(PF_INET, udp ? SOCK_DGRAM : SOCK_STREAM, 0);
 		if (socketd == SOCK_ERR) {
 			CLOSE_SOCK(1);
 			RETURN_FALSE;
@@ -213,14 +220,14 @@ static void php_fsockopen(INTERNAL_FUNCTION_PARAMETERS, int persistent) {
 
 		server.sin_family = AF_INET;
 
-		if(php_lookup_hostname(udp ? &(*args[0])->value.str.val[6] : (*args[0])->value.str.val, &server.sin_addr)) {
+		if(php_lookup_hostname(udp ? &Z_STRVAL_PP(args[0])[6] : Z_STRVAL_PP(args[0]), &server.sin_addr)) {
 			CLOSE_SOCK(1);
 			RETURN_FALSE;
 		}
 
 		server.sin_port = htons(portno);
 
-		if (php_connect_nonb(socketd, (struct sockaddr *)&server, sizeof(server), &timeout) == SOCK_CONN_ERR) {
+		if (php_connect_nonb(socketd, (struct sockaddr *) &server, sizeof(server), &timeout) == SOCK_CONN_ERR) {
 			CLOSE_SOCK(1);
 
 			if (arg_count>2) {
@@ -237,15 +244,15 @@ static void php_fsockopen(INTERNAL_FUNCTION_PARAMETERS, int persistent) {
 	} else {
 		/* Unix domain socket.  s->strval is socket name. */
 		struct  sockaddr_un unix_addr;
-		socketd = socket(AF_UNIX, SOCK_STREAM, 0);
+		socketd = socket(PF_UNIX, SOCK_STREAM, 0);
 		if (socketd == SOCK_ERR) {
 			CLOSE_SOCK(1);
 			RETURN_FALSE;
 		}
 
-		memset(&unix_addr, (char)0, sizeof(unix_addr));
+		memset(&unix_addr, 0, sizeof(unix_addr));
 		unix_addr.sun_family = AF_UNIX;
-		strlcpy(unix_addr.sun_path, (*args[0])->value.str.val, sizeof(unix_addr.sun_path));
+		strlcpy(unix_addr.sun_path, Z_STRVAL_PP(args[0]), sizeof(unix_addr.sun_path));
 
 		if (php_connect_nonb(socketd, (struct sockaddr *) &unix_addr, sizeof(unix_addr), &timeout) == SOCK_CONN_ERR) {
 			CLOSE_SOCK(1);
@@ -262,39 +269,29 @@ static void php_fsockopen(INTERNAL_FUNCTION_PARAMETERS, int persistent) {
 #endif /* AF_UNIX */
 	}
 
-#if 0
-	if ((fp = fdopen (socketd, "r+")) == NULL){
-		RETURN_LONG(-6);  /* FIXME */
-	}
-
-#ifdef HAVE_SETVBUF
-	if ((setvbuf(fp, NULL, _IONBF, 0)) != 0){
-		RETURN_LONG(-7);  /* FIXME */
-	}
-#endif
-#endif
-
-	*sock=socketd;
+	*sock = socketd;
 	if (persistent) {
 		zend_hash_update(&FG(ht_fsock_keys), key, strlen(key) + 1,
 				sock, sizeof(*sock), NULL);
 		zend_hash_update(&FG(ht_fsock_socks), (char *) sock, sizeof(*sock),
 				key, strlen(key) + 1, NULL);
 	}
-	if(key) efree(key);
+    
+	if (key) 
+		efree(key);
 
 	ZEND_REGISTER_RESOURCE(return_value, sock, php_file_le_socket());
 }
 /* }}} */
 
-/* {{{ proto int fsockopen(string hostname, int port [, int errno [, string errstr [, double timeout]]])
+/* {{{ proto int fsockopen(string hostname, int port [, int errno [, string errstr [, float timeout]]])
    Open Internet or Unix domain socket connection */
 PHP_FUNCTION(fsockopen)
 {
 	php_fsockopen(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0);
 }
 /* }}} */
-/* {{{ proto int pfsockopen(string hostname, int port [, int errno [, string errstr [, double timeout]]])
+/* {{{ proto int pfsockopen(string hostname, int port [, int errno [, string errstr [, float timeout]]])
    Open persistent Internet or Unix domain socket connection */
 PHP_FUNCTION(pfsockopen)
 {
@@ -481,6 +478,14 @@ static size_t php_sockread_internal(php_sockbuf *sock)
 	/* read at a maximum sock->chunk_size */
 	nr_bytes = recv(sock->socket, buf, sock->chunk_size, 0);
 	if(nr_bytes > 0) {
+
+		/* try to avoid ever expanding buffer */
+		if (sock->readpos > 0) {
+			memmove(sock->readbuf, READPTR(sock), sock->readbuflen - sock->readpos);
+			sock->writepos -= sock->readpos;
+			sock->readpos = 0;
+		}
+
 		if(sock->writepos + nr_bytes > sock->readbuflen) {
 			sock->readbuflen += sock->chunk_size;
 			sock->readbuf = perealloc(sock->readbuf, sock->readbuflen,
@@ -498,6 +503,7 @@ static size_t php_sockread_internal(php_sockbuf *sock)
 
 static void php_sockread_total(php_sockbuf *sock, size_t maxread)
 {
+	sock->timeout_event = 0;
 	while(!sock->eof && TOREAD(sock) < maxread && !sock->timeout_event) {
 		php_sockread_internal(sock);
 	}
@@ -558,6 +564,8 @@ static char * php_sock_fgets_internal(char * buf, size_t maxlen, php_sockbuf * s
 	}
 
 	SEARCHCR();
+
+	sock->timeout_event = 0;
 
 	if(!p) {
 		if(sock->is_blocked) {
@@ -769,6 +777,6 @@ PHP_RSHUTDOWN_FUNCTION(fsock)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

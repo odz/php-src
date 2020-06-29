@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0							  |
+   | PHP Version 4  							  |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group				  |
+   | Copyright (c) 1997-2002 The PHP Group				  |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,	  |
    | that is bundled with this package in the file LICENSE, and is	  |
@@ -17,7 +17,7 @@
 */
 
 /* Debugging */
-/* #define DEBUG_FASTCGI 1 */
+/* #define DEBUG_FASTCGI 1  */
 
 /* Two configurables for the FastCGI runner.
  *
@@ -49,7 +49,13 @@
 #if HAVE_UNISTD_H
 #include <unistd.h>
 #endif
+#ifdef PHP_WIN32
+#include <io.h>
+#include <fcntl.h>
+#include "win32/php_registry.h"
+#else
 #include <sys/wait.h>
+#endif
 #include <sys/stat.h>
 
 #if HAVE_SYS_TYPES_H
@@ -59,10 +65,16 @@
 #include <signal.h>
 #endif
 
+#ifndef S_ISREG
+#define S_ISREG(mode) ((mode) & _S_IFREG)
+#endif
+
 FCGX_Stream *in, *out, *err;
 FCGX_ParamArray envp;
 char *path_info = NULL;
+#ifndef PHP_WIN32
 struct sigaction act, old_term, old_quit, old_int;
+#endif
 
 /* Our original environment from when the FastCGI first started */
 char **orig_env;
@@ -119,7 +131,7 @@ static void sapi_fastcgi_send_header(sapi_header_struct *sapi_header, void *serv
 
 static int sapi_fastcgi_read_post(char *buffer, uint count_bytes TSRMLS_DC)
 {
-	size_t read_bytes = 0, tmp;
+	size_t read_bytes = 0;
 	int c;
 	char *pos = buffer;
 
@@ -141,21 +153,22 @@ static char *sapi_fastcgi_read_cookies(TSRMLS_D)
 
 static void sapi_fastcgi_register_variables(zval *track_vars_array TSRMLS_DC)
 {
-	char *self = getenv("REQUEST_URI");
-	char *ptr = strchr( self, '?' );
-
-	/*
-	 * note that the environment will already have been set up
-	 * via fastcgi_module_main(), below.
-	 *
-	 * fastcgi_module_main() -> php_request_startup() ->
-	 * php_hash_environment() -> php_import_environment_variables()
+	/* In CGI mode, we consider the environment to be a part of the server
+	 * variables
 	 */
+	php_import_environment_variables(track_vars_array TSRMLS_CC);
 
-	/* strip query string off this */
-	if ( ptr ) *ptr = 0;
-	php_register_variable( "PHP_SELF", getenv("REQUEST_URI"), track_vars_array TSRMLS_CC);
-	if ( ptr ) *ptr = '?';
+	/* Build the special-case PHP_SELF variable for the CGI version */
+	php_register_variable("PHP_SELF", (SG(request_info).request_uri ? SG(request_info).request_uri:""), track_vars_array TSRMLS_CC);
+}
+
+
+static void sapi_fastcgi_log_message(char *message)
+{
+#ifdef DEBUG_FASTCGI
+	fprintf( stderr, "Log Message: %s\n", message );
+#endif
+	FCGX_FPrintF(err, "%s\n", message);
 }
 
 
@@ -183,7 +196,7 @@ static sapi_module_struct fastcgi_sapi_module = {
 	sapi_fastcgi_read_cookies,
 
 	sapi_fastcgi_register_variables,
-	NULL,									/* Log message */
+	sapi_fastcgi_log_message,
 
 	NULL,									/* Block interruptions */
 	NULL,									/* Unblock interruptions */
@@ -194,11 +207,30 @@ static sapi_module_struct fastcgi_sapi_module = {
 static void fastcgi_module_main(TSRMLS_D)
 {
 	zend_file_handle file_handle;
+	int c, retval = FAILURE;
 
 	file_handle.type = ZEND_HANDLE_FILENAME;
 	file_handle.filename = SG(request_info).path_translated;
 	file_handle.free_filename = 0;
 	file_handle.opened_path = NULL;
+
+	/* eat the bang line */
+	if (SG(request_info).path_translated) {
+		retval = php_fopen_primary_script(&file_handle TSRMLS_CC);
+	}
+
+	if (retval == SUCCESS) {
+		/* #!php support */
+		c = fgetc(file_handle.handle.fp);
+		if (c == '#') {
+			while (c != 10 && c != 13) {
+				c = fgetc(file_handle.handle.fp);	/* skip to end of line */
+			}
+			CG(zend_lineno)++;
+		} else {
+			rewind(file_handle.handle.fp);
+		}
+	}
 
 	if (php_request_startup(TSRMLS_C) == SUCCESS) {
 		php_execute_script(&file_handle TSRMLS_CC);
@@ -207,7 +239,7 @@ static void fastcgi_module_main(TSRMLS_D)
 }
 
 
-static void init_request_info( TSRMLS_D )
+static int init_request_info( TSRMLS_D )
 {
 	char *content_length = getenv("CONTENT_LENGTH");
 	char *content_type = getenv( "CONTENT_TYPE" );
@@ -215,16 +247,23 @@ static void init_request_info( TSRMLS_D )
 	struct stat st;
 	char *pi = getenv( "PATH_INFO" );
 	char *pt = getenv( "PATH_TRANSLATED" );
+	if (!pt) {
+		pt = getenv("SCRIPT_FILENAME"); // apache mod_fastcgi sets this
+	}
 	path_info = strdup( pi );
 
 	SG(request_info).request_method = getenv("REQUEST_METHOD");
 	SG(request_info).query_string = getenv("QUERY_STRING");
 	SG(request_info).request_uri = path_info;
+	if (!SG(request_info).request_uri) {
+		SG(request_info).request_uri = getenv("SCRIPT_NAME");
+	}
 	SG(request_info).content_type = ( content_type ? content_type : "" );
 	SG(request_info).content_length = (content_length?atoi(content_length):0);
 	SG(sapi_headers).http_response_code = 200;
 
 	SG(request_info).path_translated = pt;
+	if (!pt) return -1;
 	/*
 	 * if the file doesn't exist, try to extract PATH_INFO out
 	 * of it by stat'ing back through the '/'
@@ -266,12 +305,13 @@ static void init_request_info( TSRMLS_D )
 #endif
 	php_handle_auth_data(auth TSRMLS_CC);
 
-
+	return 0;
 }
 
 
 void fastcgi_php_init(void)
 {
+	TSRMLS_FETCH();
 	sapi_startup(&fastcgi_sapi_module);
 	fastcgi_sapi_module.startup(&fastcgi_sapi_module);
 	SG(server_context) = (void *) 1;
@@ -279,6 +319,7 @@ void fastcgi_php_init(void)
 
 void fastcgi_php_shutdown(void)
 {
+	TSRMLS_FETCH();
 	if (SG(server_context) != NULL) {
 		fastcgi_sapi_module.shutdown(&fastcgi_sapi_module);
 		sapi_shutdown();
@@ -291,16 +332,17 @@ void fastcgi_php_shutdown(void)
  */
 void fastcgi_cleanup(int signal)
 {
-	int i;
 
 #ifdef DEBUG_FASTCGI
 	fprintf( stderr, "FastCGI shutdown, pid %d\n", getpid() );
 #endif
 
+#ifndef PHP_WIN32
 	sigaction( SIGTERM, &old_term, 0 );
 
 	/* Kill all the processes in our process group */
 	kill( -pgroup, SIGTERM );
+#endif
 
 	/* We should exit at this point, but MacOSX doesn't seem to */
 	exit( 0 );
@@ -310,16 +352,25 @@ void fastcgi_cleanup(int signal)
 int main(int argc, char *argv[])
 {
 	int exit_status = SUCCESS;
+#ifndef PHP_WIN32
 	int c, i, len;
 	zend_file_handle file_handle;
 	char *s;
+	int status;
+#endif
 	char *argv0=NULL;
 	char *script_file=NULL;
 	zend_llist global_vars;
 	int max_requests = 500;
 	int requests = 0;
-	int status;
 	int env_size, cgi_env_size;
+#ifdef ZTS
+	zend_compiler_globals *compiler_globals;
+	zend_executor_globals *executor_globals;
+	php_core_globals *core_globals;
+	sapi_globals_struct *sapi_globals;
+	void ***tsrm_ls;
+#endif
 
 #ifdef DEBUG_FASTCGI
 	fprintf( stderr, "Initialising now, pid %d!\n", getpid() );
@@ -355,12 +406,28 @@ int main(int argc, char *argv[])
 				    20000419 */
 #endif
 #endif
-
+	
+#ifdef ZTS
+	tsrm_startup(1, 1, 0, NULL);
+#endif
 	sapi_startup(&fastcgi_sapi_module);
+#ifdef PHP_WIN32
+	_fmode = _O_BINARY;			/*sets default for file streams to binary */
+	setmode(_fileno(stdin), O_BINARY);		/* make the stdio mode be binary */
+	setmode(_fileno(stdout), O_BINARY);		/* make the stdio mode be binary */
+	setmode(_fileno(stderr), O_BINARY);		/* make the stdio mode be binary */
+#endif
 
 	if (php_module_startup(&fastcgi_sapi_module)==FAILURE) {
 		return FAILURE;
 	}
+#ifdef ZTS
+	compiler_globals = ts_resource(compiler_globals_id);
+	executor_globals = ts_resource(executor_globals_id);
+	core_globals = ts_resource(core_globals_id);
+	sapi_globals = ts_resource(sapi_globals_id);
+	tsrm_ls = ts_resource(0);
+#endif
 
 	/* How many times to run PHP scripts before dying */
 	if( getenv( "PHP_FCGI_MAX_REQUESTS" )) {
@@ -372,6 +439,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
+#ifndef PHP_WIN32
 	/* Pre-fork, if required */
 	if( getenv( "PHP_FCGI_CHILDREN" )) {
 		children = atoi( getenv( "PHP_FCGI_CHILDREN" ));
@@ -446,6 +514,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
+#endif /* WIN32 */
+
 	/* Main FastCGI loop */
 #ifdef DEBUG_FASTCGI
 	fprintf( stderr, "Going into accept loop\n" );
@@ -469,9 +539,14 @@ int main(int argc, char *argv[])
 			cgi_env, (cgi_env_size+1)*sizeof(char *) );
 		environ = merge_env;
 
-		init_request_info(TSRMLS_C);
+		if (init_request_info(TSRMLS_C)!=0) {
+			/* we received some invalid environment */
+			//char *b = "Can't init the request\n";
+			//sapi_fastcgi_ub_write(b, strlen(b) TSRMLS_C);
+			//FCGX_Finish();
+			//break;
+		}
 		SG(server_context) = (void *) 1; /* avoid server_context==NULL checks */
-		CG(extended_info) = 0;		      
 		SG(request_info).argv0 = argv0;		       
 		zend_llist_init(&global_vars, sizeof(char *), NULL, 0);
 
@@ -494,6 +569,9 @@ int main(int argc, char *argv[])
 		}
 	}
 
+#ifdef ZTS
+	tsrm_shutdown();
+#endif
 #ifdef DEBUG_FASTCGI
 	fprintf( stderr, "Exiting...\n" );
 #endif

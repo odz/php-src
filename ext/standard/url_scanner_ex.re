@@ -1,8 +1,8 @@
 /*
   +----------------------------------------------------------------------+
-  | PHP version 4.0                                                      |
+  | PHP Version 4                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2001 The PHP Group                                |
+  | Copyright (c) 1997-2002 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 2.02 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -12,13 +12,11 @@
   | obtain it through the world-wide-web, please send a note to          |
   | license@php.net so we can mail you a copy immediately.               |
   +----------------------------------------------------------------------+
-  | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+  | Author: Sascha Schumann <sascha@schumann.cx>                         |
   +----------------------------------------------------------------------+
 */
 
 #include "php.h"
-
-#ifdef TRANS_SID
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -100,7 +98,7 @@ alpha = [a-zA-Z];
 	
 static inline void append_modified_url(smart_str *url, smart_str *dest, smart_str *name, smart_str *val, const char *separator)
 {
-	register const char *p, *q, *r;
+	register const char *p, *q;
 	const char *bash = NULL;
 	const char *sep = "?";
 	
@@ -114,7 +112,7 @@ scan:
   (any\[:?#])+		{ goto scan; }
 */
 done:
-  
+	
 	/* Don't modify URLs of the format "#mark" */
 	if (bash && bash - url->c == 0) {
 		smart_str_append(dest, url);
@@ -134,6 +132,7 @@ done:
 	if (bash)
 		smart_str_appendl(dest, bash, q - bash);
 }
+
 
 #undef YYFILL
 #undef YYCTYPE
@@ -231,7 +230,7 @@ static inline void handle_val(STD_PARA, char quotes, char type)
 #define scdebug(x)
 #endif
 
-static inline void mainloop(url_adapt_state_ex_t *ctx, const char *newdata, size_t newlen TSRMLS_DC)
+static inline void xx_mainloop(url_adapt_state_ex_t *ctx, const char *newdata, size_t newlen TSRMLS_DC)
 {
 	char *end, *q;
 	char *xp;
@@ -316,22 +315,6 @@ stop:
 	ctx->buf.len = rest;
 }
 
-char *url_adapt_flush(size_t *newlen TSRMLS_DC)
-{
-	char *ret = NULL;
-	url_adapt_state_ex_t *ctx;
-	
-	ctx = &BG(url_adapt_state_ex);
-	
-	if (ctx->buf.len) {
-		ret = ctx->buf.c;
-		*newlen = ctx->buf.len;
-		ctx->buf.c = 0;
-		ctx->buf.len = 0;
-	}
-
-	return ret;
-}
 
 char *url_adapt_single_url(const char *url, size_t urllen, const char *name, const char *value, size_t *newlen TSRMLS_DC)
 {
@@ -352,26 +335,34 @@ char *url_adapt_single_url(const char *url, size_t urllen, const char *name, con
 	return buf.c;
 }
 
-char *url_adapt_ext(const char *src, size_t srclen, const char *name, const char *value, size_t *newlen TSRMLS_DC)
+char *url_adapt_ext(const char *src, size_t srclen, const char *name, const char *value, size_t *newlen, zend_bool do_flush TSRMLS_DC)
 {
-	char *ret;
 	url_adapt_state_ex_t *ctx;
+	char *retval;
 
 	ctx = &BG(url_adapt_state_ex);
 
 	smart_str_sets(&ctx->q_name, name);
 	smart_str_sets(&ctx->q_value, value);
-	mainloop(ctx, src, srclen TSRMLS_CC);
+	xx_mainloop(ctx, src, srclen TSRMLS_CC);
 
 	*newlen = ctx->result.len;
-	if (!ctx->result.c) 
+	if (!ctx->result.c) {
 		smart_str_appendl(&ctx->result, "", 0);
+	}
 	smart_str_0(&ctx->result);
+	if (do_flush) {
+		smart_str_appendl(&ctx->result, ctx->buf.c, ctx->buf.len);
+		*newlen += ctx->buf.len;
+		smart_str_free(&ctx->buf);
+	}
+	retval = ctx->result.c;
+	ctx->result.c = NULL;
 	ctx->result.len = 0;
-	return ctx->result.c;
+	return retval;
 }
 
-PHP_RINIT_FUNCTION(url_scanner)
+int php_url_scanner_ex_activate(TSRMLS_D)
 {
 	url_adapt_state_ex_t *ctx;
 	
@@ -382,7 +373,7 @@ PHP_RINIT_FUNCTION(url_scanner)
 	return SUCCESS;
 }
 
-PHP_RSHUTDOWN_FUNCTION(url_scanner)
+int php_url_scanner_ex_deactivate(TSRMLS_D)
 {
 	url_adapt_state_ex_t *ctx;
 	
@@ -415,5 +406,3 @@ PHP_MSHUTDOWN_FUNCTION(url_scanner)
 	free(BG(url_adapt_state_ex).tags);
 	return SUCCESS;
 }
-
-#endif

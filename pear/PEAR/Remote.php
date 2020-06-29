@@ -1,9 +1,9 @@
 <?php
 //
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2001 The PHP Group                                |
+// | Copyright (c) 1997-2002 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -13,13 +13,13 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors: Stig Bakken <ssb@fast.no>                                   |
-// |                                                                      |
+// | Author: Stig Bakken <ssb@fast.no>                                    |
 // +----------------------------------------------------------------------+
 //
-// $Id: Remote.php,v 1.4.2.1 2001/11/13 01:26:49 ssb Exp $
+// $Id: Remote.php,v 1.10.2.2 2002/04/09 19:04:23 ssb Exp $
 
 require_once 'PEAR.php';
+require_once 'PEAR/Config.php';
 
 /**
  * This is a class for doing remote operations against the central
@@ -29,16 +29,16 @@ class PEAR_Remote extends PEAR
 {
     // {{{ properties
 
-    var $config_object = null;
+    var $config = null;
 
     // }}}
 
     // {{{ PEAR_Remote(config_object)
 
-    function PEAR_Remote($config_object)
+    function PEAR_Remote(&$config)
     {
         $this->PEAR();
-        $this->config_object = $config_object;
+        $this->config = &$config;
     }
 
     // }}}
@@ -50,9 +50,11 @@ class PEAR_Remote extends PEAR
         if (!extension_loaded("xmlrpc")) {
             return $this->raiseError("xmlrpc support not loaded");
         }
-        $params = array_slice(func_get_args(), 1);
+        $params = func_get_args();
+        array_shift($params);
+        $method = str_replace("_", ".", $method);
         $request = xmlrpc_encode_request($method, $params);
-        $server_host = $this->config_object->get("master_server");
+        $server_host = $this->config->get("master_server");
         if (empty($server_host)) {
             return $this->raiseError("PEAR_Remote::call: no master_server configured");
         }
@@ -62,13 +64,34 @@ class PEAR_Remote extends PEAR
             return $this->raiseError("PEAR_Remote::call: fsockopen(`$server_host', $server_port) failed");
         }
         $len = strlen($request);
-        fwrite($fp, ("POST /xmlrpc.php HTTP/1.0\r\n".
-                     "Host: $server_host:$server_port\r\n".
-                     "Content-type: text/xml\r\n".
-                     "Content-length: $len\r\n".
-                     "\r\n$request"));
+        $req_headers = "Host: $server_host:$server_port\r\n" .
+             "Content-type: text/xml\r\n" .
+             "Content-length: $len\r\n";
+        $username = $this->config->get('username');
+        $password = $this->config->get('password');
+        if ($username && $password) {
+            $tmp = base64_encode("$username:$password");
+            $req_headers .= "Authorization: Basic $tmp\r\n";
+        }
+        fwrite($fp, ("POST /xmlrpc.php HTTP/1.0\r\n$req_headers\r\n$request"));
         $response = '';
-        while (trim(fgets($fp, 2048)) != ''); // skip headers
+        $line1 = fgets($fp, 2048);
+        if (!preg_match('!^HTTP/[0-9\.]+ (\d+) (.*)!', $line1, $matches)) {
+            return $this->raiseError("PEAR_Remote: invalid HTTP response from XML-RPC server");
+        }
+        switch ($matches[1]) {
+            case "200":
+                break;
+            case "401":
+                if ($username && $password) {
+                    return $this->raiseError("PEAR_Remote: authorization failed", 401);
+                } else {
+                    return $this->raiseError("PEAR_Remote: authorization required, please log in first", 401);
+                }
+            default:
+                return $this->raiseError("PEAR_Remote: unexpected HTTP response", (int)$matches[1], null, null, "$matches[1] $matches[2]");
+        }
+        while (trim(fgets($fp, 2048)) != ''); // skip rest of headers
         while ($chunk = fread($fp, 10240)) {
             $response .= $chunk;
         }
@@ -85,15 +108,23 @@ class PEAR_Remote extends PEAR
                 if ($ret['message']  === '') $ret['message']  = null;
                 if ($ret['userinfo'] === '') $ret['userinfo'] = null;
                 if (strtolower($class) == 'db_error') {
-                    return $this->raiseError(DB::errorMessage($ret['code']),
+                    $ret = $this->raiseError(DB::errorMessage($ret['code']),
                                              $ret['code'], null, null,
                                              $ret['userinfo']);
                 } else {
-                    return $this->raiseError($ret['message'], $ret['code'],
+                    $ret = $this->raiseError($ret['message'], $ret['code'],
                                              null, null, $ret['userinfo']);
                 }
             }
+        } elseif (is_array($ret) && sizeof($ret) == 1 &&
+                  isset($ret[0]['faultString']) &&
+                  isset($ret[0]['faultCode'])) {
+            extract($ret[0]);
+            $faultString = "XML-RPC Server Fault: " .
+                 str_replace("\n", " ", $faultString);
+            return $this->raiseError($faultString, $faultCode);
         }
+        return $ret;
     }
 
     // }}}

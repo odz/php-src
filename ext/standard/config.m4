@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.30 2001/06/07 12:18:02 rasmus Exp $ -*- sh -*-
+dnl $Id: config.m4,v 1.31.2.2 2002/04/13 00:17:37 sniper Exp $ -*- sh -*-
 
 divert(3)dnl
 
@@ -203,7 +203,11 @@ AC_ARG_WITH(regex,
 [
   case $withval in 
     system)
-      REGEX_TYPE=system
+      if test "$PHP_SAPI" = "apache" || test "$PHP_SAPI" = "apache2filter"; then
+        REGEX_TYPE=php
+      else
+        REGEX_TYPE=system
+      fi
       ;;
     apache)
       REGEX_TYPE=apache
@@ -228,5 +232,17 @@ AC_ARG_WITH(system-regex,
     REGEX_TYPE=php
   fi
 ])
+
+
+PHP_ARG_ENABLE(aggregate, whether to enable aggregation support,
+[  --enable-aggregate      EXPERIMENTAL: Enable user-space aggregation support.], no)
+
+if test "$PHP_AGGREGATE" != "no"; then
+  AC_DEFINE(HAVE_AGGREGATE, 1, [ ])
+fi
+
+if test "$PHP_SAPI" = "cgi"; then
+  AC_DEFINE(ENABLE_CHROOT_FUNC, 1, [Whether to enable chroot() function])
+fi
 
 PHP_EXTENSION(standard)

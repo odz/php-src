@@ -6,7 +6,7 @@ DB_ibase::simpleQuery test
 <?php
 require_once "DB.php";
 include("mktable.inc");
-include("../simplequery.inc");
+include(dirname(__FILE__)."/../simplequery.inc");
 ?>
 --EXPECT--
 resource

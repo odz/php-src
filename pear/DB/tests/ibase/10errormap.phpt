@@ -6,7 +6,7 @@ DB_ibase error mapping
 <?php
 require "connect.inc";
 require "mktable.inc";
-require "../errors.inc";
+require dirname(__FILE__)."/../errors.inc";
 ?>
 --EXPECT--
 Trying to provoke DB_ERROR_NOSUCHTABLE

@@ -1,6 +1,6 @@
 
 ZEND_DIR = $(srcdir)/Zend
-SUBDIRS = Zend main ext sapi $(TSRM_DIR) $(REGEX_DIR) . $(PEAR_DIR)
+SUBDIRS = Zend main ext sapi $(TSRM_DIR) $(REGEX_DIR) $(CLI_DIR) . $(PEAR_DIR)
 
 LTLIBRARY_NAME = libphp4.la
 LTLIBRARY_SOURCES = stub.c
@@ -14,7 +14,7 @@ LTLIBRARY_DEPENDENCIES = \
 		$(TSRM_LIB)
 
 LTLIBRARY_LDFLAGS = -rpath $(phptempdir) $(EXTRA_LDFLAGS) $(LDFLAGS) $(PHP_RPATHS)
-LTLIBRARY_LIBADD = $(LTLIBRARY_DEPENDENCIES) $(EXTRA_LIBS)
+LTLIBRARY_LIBADD = $(LTLIBRARY_DEPENDENCIES) $(EXTRA_LIBS) $(ZEND_EXTRA_LIBS)
 
 PROGRAM_NAME         = php
 PROGRAM_SOURCES      = stub.c
@@ -51,12 +51,16 @@ install-modules:
 	cp modules/* $(INSTALL_ROOT)$(moduledir) >/dev/null 2>&1 || true
 
 install-tester:
-	-$(mkinstalldirs) $(datadir)
-	$(INSTALL) -m 755 $(srcdir)/run-tests.php $(INSTALL_ROOT)$(datadir)
+	@echo "Installing regression tester"
+	@$(mkinstalldirs) $(PEAR_INSTALLDIR)
+	@$(INSTALL) -m 755 $(srcdir)/run-tests.php $(INSTALL_ROOT)$(PEAR_INSTALLDIR)
 
 install-pear: install-modules
 	(cd pear && $(MAKE) install)
 
 install-su: install-pear install-tester
+
+clean-modules:
+	rm -f modules/*
 
 .NOEXPORT:

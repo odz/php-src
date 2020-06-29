@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Stig Sæther Bakken <ssb@guardian.no>                         |
+   | Author: Stig Sæther Bakken <ssb@fast.no>                             |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: uniqid.c,v 1.25 2001/08/11 17:03:37 zeev Exp $ */
+/* $Id: uniqid.c,v 1.31 2002/02/28 08:26:49 sebastian Exp $ */
 
 #include "php.h"
 
@@ -38,34 +38,30 @@
 #include "php_lcg.h"
 #include "uniqid.h"
 
-#define MORE_ENTROPY (argc == 2 && (*flags)->value.lval)
-
-/* {{{ proto string uniqid(string prefix, [bool more_entropy])
-   Generate a unique id */
+/* {{{ proto string uniqid(string prefix [, bool more_entropy])
+   Generates a unique ID */
 PHP_FUNCTION(uniqid)
 {
 #ifdef HAVE_GETTIMEOFDAY
-	pval **prefix, **flags;
+	char *prefix;
+	zend_bool more_entropy = 0;
 	char uniqid[138];
-	int sec, usec, argc;
+	int sec, usec, argc, prefix_len;
 	struct timeval tv;
 
 	argc = ZEND_NUM_ARGS();
-	if (argc < 1 || argc > 2 || zend_get_parameters_ex(argc, &prefix, &flags)) {
-		WRONG_PARAM_COUNT;
-	}
-	convert_to_string_ex(prefix);
-	if (argc == 2) {
-		convert_to_boolean_ex(flags);
+	if (zend_parse_parameters(argc TSRMLS_CC, "s|b", &prefix, &prefix_len,
+							  &more_entropy)) {
+		return;
 	}
 
 	/* Do some bounds checking since we are using a char array. */
-	if ((*prefix)->value.str.len > 114) {
+	if (prefix_len > 114) {
 		php_error(E_WARNING, "The prefix to uniqid should not be more than 114 characters.");
 		return;
 	}
 #if HAVE_USLEEP && !defined(PHP_WIN32)
-	if (!MORE_ENTROPY) {
+	if (!more_entropy) {
 		usleep(1);
 	}
 #endif
@@ -76,10 +72,10 @@ PHP_FUNCTION(uniqid)
 	/* The max value usec can have is 0xF423F, so we use only five hex
 	 * digits for usecs.
 	 */
-	if (MORE_ENTROPY) {
-		sprintf(uniqid, "%s%08x%05x%.8f", (*prefix)->value.str.val, sec, usec, php_combined_lcg(TSRMLS_C) * 10);
+	if (more_entropy) {
+		sprintf(uniqid, "%s%08x%05x%.8f", prefix, sec, usec, php_combined_lcg(TSRMLS_C) * 10);
 	} else {
-		sprintf(uniqid, "%s%08x%05x", (*prefix)->value.str.val, sec, usec);
+		sprintf(uniqid, "%s%08x%05x", prefix, sec, usec);
 	}
 
 	RETURN_STRING(uniqid, 1);
@@ -98,6 +94,6 @@ function_entry uniqid_functions[] = {
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

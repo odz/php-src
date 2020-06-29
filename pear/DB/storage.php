@@ -1,9 +1,9 @@
 <?php
 //
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2001 The PHP Group                                |
+// | Copyright (c) 1997-2002 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -13,11 +13,10 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors: Stig Bakken <stig@php.net>                                  |
-// |                                                                      |
+// | Author: Stig Bakken <stig@php.net>                                   |
 // +----------------------------------------------------------------------+
 //
-// $Id: storage.php,v 1.23.2.2 2001/11/13 01:26:43 ssb Exp $
+// $Id: storage.php,v 1.28 2002/02/28 08:27:11 sebastian Exp $
 //
 // DB_storage: a class that lets you return SQL data as objects that
 // can be manipulated and that updates the database accordingly.
@@ -204,7 +203,7 @@ class DB_storage extends PEAR
      */
     function toString()
     {
-        $info = get_class(&$this);
+        $info = get_class($this);
         $info .= " (table=";
         $info .= $this->_table;
         $info .= ", keycolumn=";
@@ -264,7 +263,7 @@ class DB_storage extends PEAR
      */
     function &create($table, &$data)
     {
-        $classname = get_class(&$this);
+        $classname = get_class($this);
         $obj = new $classname($table);
         reset($data);
         while (list($name, $value) = each($data)) {
@@ -341,9 +340,9 @@ class DB_storage extends PEAR
                 $valid = @call_user_func($this->_validator,
                                          $this->_table,
                                          $property,
-                                         &$newvalue,
-                                         &$this->$property,
-                                         &$this);
+                                         $newvalue,
+                                         $this->$property,
+                                         $this);
             }
             if ($valid) {
                 $this->$property = $newvalue;
@@ -407,7 +406,7 @@ class DB_storage extends PEAR
                 implode(', ', $vars) . ' WHERE ' .
                 $this->_makeWhere();
             $stmt = $this->_dbh->prepare($query);
-            $res = $this->_dbh->execute($stmt, &$params);
+            $res = $this->_dbh->execute($stmt, $params);
             if (DB::isError($res)) {
                 return $res;
             }

@@ -1,9 +1,9 @@
 <?php
 //
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2001 The PHP Group                                |
+// | Copyright (c) 1997-2002 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -13,10 +13,10 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors: Colin Viebrock <colin@easyDNS.com>                          |
+// | Author: Colin Viebrock <colin@easyDNS.com>                           |
 // +----------------------------------------------------------------------+
 //
-// $Id: Dig.php,v 1.2 2001/03/13 17:40:24 cmv Exp $
+// $Id: Dig.php,v 1.4 2002/02/28 08:27:15 sebastian Exp $
 //
 // A nice friendly OO interface to dig
 //

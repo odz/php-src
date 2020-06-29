@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: cybercash.c,v 1.14.2.1 2001/10/11 23:51:13 ssb Exp $ */
+/* $Id: cybercash.c,v 1.18 2001/12/11 15:28:58 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -72,7 +72,7 @@ PHP_MINFO_FUNCTION(cybercash)
 }
 /* }}} */
 
-/* {{{ proto cybercash_encr(string wmk, string sk, string data)
+/* {{{ proto array cybercash_encr(string wmk, string sk, string data)
    Cybercash encrypt */
 PHP_FUNCTION(cybercash_encr)
 {
@@ -225,6 +225,6 @@ PHP_FUNCTION(cybercash_base64_decode)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Onn Ben-Zvi <onn@zend.com>                                  |
+   | Author: Onn Ben-Zvi <onn@zend.com>                                   |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: fribidi.c,v 1.7.2.2 2001/10/11 23:51:24 ssb Exp $ */
+/* $Id: fribidi.c,v 1.13 2002/02/28 08:26:08 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -192,7 +192,7 @@ PHP_FUNCTION(fribidi_log2vis)
 			fribidi_isiri_3342_to_unicode(inString, u_logical_str);
 			break;
 		default:
-			zend_error(E_ERROR,"unknown character set %d<BR>", Z_LVAL_PP(parameter3));
+			zend_error(E_ERROR,"unknown character set %d<br />", Z_LVAL_PP(parameter3));
 	}
 	
 	
@@ -229,7 +229,7 @@ PHP_FUNCTION(fribidi_log2vis)
 			fribidi_unicode_to_isiri_3342(u_visual_str, len , outString);
 			break;
 		default:
-			zend_error(E_ERROR,"unknown character set %d<BR>", Z_LVAL_PP(parameter3));
+			zend_error(E_ERROR,"unknown character set %d<br />", Z_LVAL_PP(parameter3));
 	}
 	
 
@@ -252,6 +252,6 @@ PHP_FUNCTION(fribidi_log2vis)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2002 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -1088,7 +1088,7 @@ ZEND_API int zend_hash_get_current_data_ex(HashTable *ht, void **pData, HashPosi
 
 
 ZEND_API int zend_hash_sort(HashTable *ht, sort_func_t sort_func,
-							compare_func_t compar, int renumber)
+							compare_func_t compar, int renumber TSRMLS_DC)
 {
 	Bucket **arTmp;
 	Bucket *p;
@@ -1111,7 +1111,7 @@ ZEND_API int zend_hash_sort(HashTable *ht, sort_func_t sort_func,
 		i++;
 	}
 
-	(*sort_func)((void *) arTmp, i, sizeof(Bucket *), compar);
+	(*sort_func)((void *) arTmp, i, sizeof(Bucket *), compar TSRMLS_CC);
 
 	HANDLE_BLOCK_INTERRUPTIONS();
 	ht->pListHead = arTmp[0];
@@ -1212,7 +1212,7 @@ ZEND_API int zend_hash_compare(HashTable *ht1, HashTable *ht2, compare_func_t co
 				}
 			}
 		}
-		result = compar(p1->pData, pData2);
+		result = compar(p1->pData, pData2 TSRMLS_CC);
 		if (result!=0) {
 			HASH_UNPROTECT_RECURSION(ht1); 
 			HASH_UNPROTECT_RECURSION(ht2); 
@@ -1230,7 +1230,7 @@ ZEND_API int zend_hash_compare(HashTable *ht1, HashTable *ht2, compare_func_t co
 }
 
 
-ZEND_API int zend_hash_minmax(HashTable *ht, int (*compar) (const void *, const void *), int flag, void **pData)
+ZEND_API int zend_hash_minmax(HashTable *ht, compare_func_t compar, int flag, void **pData TSRMLS_DC)
 {
 	Bucket *p, *res;
 
@@ -1244,11 +1244,11 @@ ZEND_API int zend_hash_minmax(HashTable *ht, int (*compar) (const void *, const 
 	res = p = ht->pListHead;
 	while ((p = p->pListNext)) {
 		if (flag) {
-			if (compar(&res, &p) < 0) { /* max */
+			if (compar(&res, &p TSRMLS_CC) < 0) { /* max */
 				res = p;
 			}
 		} else {
-			if (compar(&res, &p) > 0) { /* min */
+			if (compar(&res, &p TSRMLS_CC) > 0) { /* min */
 				res = p;
 			}
 		}

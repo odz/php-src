@@ -50,7 +50,11 @@ static my_bool	mysql_client_init=0;
 uint		mysql_port=0;
 my_string	mysql_unix_port=0;
 
+#ifndef DISALLOW_MYSQL_LOAD_LOCAL
 #define CLIENT_CAPABILITIES	(CLIENT_LONG_PASSWORD | CLIENT_LONG_FLAG | CLIENT_LOCAL_FILES | CLIENT_TRANSACTIONS)
+#else 
+#define CLIENT_CAPABILITIES	(CLIENT_LONG_PASSWORD | CLIENT_LONG_FLAG | CLIENT_TRANSACTIONS) 
+#endif 
 
 #ifdef __WIN__
 #define CONNECT_TIMEOUT 20
@@ -1385,7 +1389,7 @@ mysql_real_connect(MYSQL *mysql,const char *host, const char *user,
     charset_name=charset_name_buff;
     sprintf(charset_name,"%d",mysql->server_language);	/* In case of errors */
     if (!(mysql->charset =
-	  get_charset((uint8) mysql->server_language, MYF(MY_WME))))
+	  get_charset((uint8) mysql->server_language, MYF(0))))
       mysql->charset = default_charset_info; /* shouldn't be fatal */
 
   }

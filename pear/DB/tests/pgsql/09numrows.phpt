@@ -17,4 +17,3 @@ require "../numrows.inc";
 6
 2
 0
-DB Error: unknown error

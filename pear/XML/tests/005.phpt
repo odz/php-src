@@ -23,21 +23,21 @@ class TestEncodings1 extends XML_Parser {
     var $output = '';
 
     function TestEncodings1($to, $from) {
-	$this->XML_Parser($from, 'event', $to);
+        $this->XML_Parser($from, 'event', $to);
     }
     function startHandler($xp, $elem, $attribs) {
-	$this->output .= "<$elem>";
+        $this->output .= "<$elem>";
     }
     function endHandler($xp, $elem) {
-	$this->output .= "</$elem>";
+        $this->output .= "</$elem>";
     }
     function cdataHandler($xp, $data) {
-	$this->output .= $data;
+        $this->output .= $data;
     }
     function test($data) {
-//	$this->output = '';
-	$this->parseString($data, true);
-	return $this->output;
+        // $this->output = '';
+        $this->parseString($data, true);
+        return $this->output;
     }
 }
 
@@ -54,14 +54,14 @@ foreach ($input as $srcenc => $string) {
         if ($srcenc == $tgtenc) {
             continue;
         }
-    	print "Testing $srcenc -> $tgtenc: ";
-    	$p =& new TestEncodings1($tgtenc, $srcenc);
-    	$e = $p->test($input[$srcenc]);
-    	if (PEAR::isError($e)) {
-    	    printf("OOPS: %s\n", $e->getMessage());
-    	} else {
-    	    var_dump($e);
-    	}
+        print "Testing $srcenc -> $tgtenc: ";
+        $p =& new TestEncodings1($tgtenc, $srcenc);
+        $e = $p->test($input[$srcenc]);
+        if (PEAR::isError($e)) {
+            printf("OOPS: %s\n", $e->getMessage());
+        } else {
+            var_dump($e);
+        }
     }
 }
 

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dbx_pgsql.h,v 1.7 2001/08/07 19:09:58 fmk Exp $ */
+/* $Id: dbx_pgsql.h,v 1.10 2001/12/11 15:29:05 sebastian Exp $ */
 
 #ifndef ZEND_DBX_PGSQL_H
 #define ZEND_DBX_PGSQL_H
@@ -27,26 +27,26 @@
 
 #include "php.h"
 
-int dbx_pgsql_connect(zval ** rv, zval ** host, zval ** db, zval ** username, zval ** password, INTERNAL_FUNCTION_PARAMETERS);
-    /* returns connection handle as resource on success or 0 as long on failure */
-int dbx_pgsql_pconnect(zval ** rv, zval ** host, zval ** db, zval ** username, zval ** password, INTERNAL_FUNCTION_PARAMETERS);
-    /* returns persistent connection handle as resource on success or 0 as long on failure */
-int dbx_pgsql_close(zval ** rv, zval ** dbx_handle, INTERNAL_FUNCTION_PARAMETERS);
-    /* returns 1 as long on success or 0 as long on failure */
-int dbx_pgsql_query(zval ** rv, zval ** dbx_handle, zval ** db_name, zval ** sql_statement, INTERNAL_FUNCTION_PARAMETERS);
-    /* returns 1 as long or a result identifier as resource on success  or 0 as long on failure */
-int dbx_pgsql_getcolumncount(zval ** rv, zval ** result_handle, INTERNAL_FUNCTION_PARAMETERS);
-    /* returns column-count as long on success or 0 as long on failure */
-int dbx_pgsql_getcolumnname(zval ** rv, zval ** result_handle, long column_index, INTERNAL_FUNCTION_PARAMETERS);
-    /* returns column-name as string on success or 0 as long on failure */
-int dbx_pgsql_getcolumntype(zval ** rv, zval ** result_handle, long column_index, INTERNAL_FUNCTION_PARAMETERS);
-    /* returns column-type as string on success or 0 as long on failure */
-int dbx_pgsql_getrow(zval ** rv, zval ** result_handle, long row_number, INTERNAL_FUNCTION_PARAMETERS);
-    /* returns array[0..columncount-1] as strings on success or 0 as long on failure */
-int dbx_pgsql_error(zval ** rv, zval ** dbx_handle, INTERNAL_FUNCTION_PARAMETERS);
-    /* returns string */
+int dbx_pgsql_connect(zval **rv, zval **host, zval **db, zval **username, zval **password, INTERNAL_FUNCTION_PARAMETERS);
+	/* returns connection handle as resource on success or 0 as long on failure */
+int dbx_pgsql_pconnect(zval **rv, zval **host, zval **db, zval **username, zval **password, INTERNAL_FUNCTION_PARAMETERS);
+	/* returns persistent connection handle as resource on success or 0 as long on failure */
+int dbx_pgsql_close(zval **rv, zval **dbx_handle, INTERNAL_FUNCTION_PARAMETERS);
+	/* returns 1 as long on success or 0 as long on failure */
+int dbx_pgsql_query(zval **rv, zval **dbx_handle, zval **db_name, zval **sql_statement, INTERNAL_FUNCTION_PARAMETERS);
+	/* returns 1 as long or a result identifier as resource on success  or 0 as long on failure */
+int dbx_pgsql_getcolumncount(zval **rv, zval **result_handle, INTERNAL_FUNCTION_PARAMETERS);
+	/* returns column-count as long on success or 0 as long on failure */
+int dbx_pgsql_getcolumnname(zval **rv, zval **result_handle, long column_index, INTERNAL_FUNCTION_PARAMETERS);
+	/* returns column-name as string on success or 0 as long on failure */
+int dbx_pgsql_getcolumntype(zval **rv, zval **result_handle, long column_index, INTERNAL_FUNCTION_PARAMETERS);
+	/* returns column-type as string on success or 0 as long on failure */
+int dbx_pgsql_getrow(zval **rv, zval **result_handle, long row_number, INTERNAL_FUNCTION_PARAMETERS);
+	/* returns array[0..columncount-1] as strings on success or 0 as long on failure */
+int dbx_pgsql_error(zval **rv, zval **dbx_handle, INTERNAL_FUNCTION_PARAMETERS);
+	/* returns string */
 
-#endif	/* ZEND_DBX_PGSQL_H */
+#endif /* ZEND_DBX_PGSQL_H */
 
 /*
  * Local variables:

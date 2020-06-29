@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
  */
 
 
-/* $Id: php_main.h,v 1.15 2001/08/05 16:21:33 sas Exp $ */
+/* $Id: php_main.h,v 1.19 2002/03/04 18:46:55 sas Exp $ */
 
 
 #ifndef PHP_MAIN_H
@@ -44,6 +44,8 @@ PHPAPI int php_lint_script(zend_file_handle *file TSRMLS_DC);
 
 PHPAPI void php_handle_aborted_connection(void);
 PHPAPI int php_handle_auth_data(const char *auth TSRMLS_DC);
+
+PHPAPI void php_html_puts(const char *str, uint siz TSRMLS_DC);
 
 extern void php_call_shutdown_functions(void);
 

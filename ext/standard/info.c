@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,12 +12,12 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
+   | Authors: Rasmus Lerdorf <rasmus@php.net>                             |
    |          Zeev Suraski <zeev@zend.com>                                |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: info.c,v 1.153.2.1 2001/10/11 23:52:05 ssb Exp $ */
+/* $Id: info.c,v 1.167.2.1 2002/03/14 18:39:37 zeev Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -27,6 +27,7 @@
 #include "credits.h"
 #include "SAPI.h"
 #include <time.h>
+#include "php_main.h"
 #if !defined(PHP_WIN32)
 #include "build-defs.h"
 #endif
@@ -65,37 +66,37 @@ static void php_print_gpcse_array(char *name, uint name_length TSRMLS_DC)
 	ulong num_key;
 
 	if (zend_hash_find(&EG(symbol_table), name, name_length+1, (void **) &data)!=FAILURE
-		&& ((*data)->type==IS_ARRAY)) {
-		zend_hash_internal_pointer_reset((*data)->value.ht);
-		while (zend_hash_get_current_data((*data)->value.ht, (void **) &tmp) == SUCCESS) {
+		&& (Z_TYPE_PP(data)==IS_ARRAY)) {
+		zend_hash_internal_pointer_reset(Z_ARRVAL_PP(data));
+		while (zend_hash_get_current_data(Z_ARRVAL_PP(data), (void **) &tmp) == SUCCESS) {
 			PUTS("<tr valign=\"baseline\" bgcolor=\"" PHP_CONTENTS_COLOR "\">");
 			PUTS("<td bgcolor=\"" PHP_ENTRY_NAME_COLOR "\"><b>");
 			PUTS(name);
 			PUTS("[\"");
-			switch (zend_hash_get_current_key((*data)->value.ht, &string_key, &num_key, 0)) {
+			switch (zend_hash_get_current_key(Z_ARRVAL_PP(data), &string_key, &num_key, 0)) {
 				case HASH_KEY_IS_STRING:
-					zend_html_puts(string_key, strlen(string_key));
+					php_html_puts(string_key, strlen(string_key) TSRMLS_CC);
 					break;
 				case HASH_KEY_IS_LONG:
 					php_printf("%ld", num_key);
 					break;
 			}
 			PUTS("\"]</b></td><td>");
-			if ((*tmp)->type == IS_ARRAY) {
+			if (Z_TYPE_PP(tmp) == IS_ARRAY) {
 				PUTS("<pre>");
 				zend_print_zval_r(*tmp, 0);
 				PUTS("</pre>");
-			} else if ((*tmp)->type != IS_STRING) {
+			} else if (Z_TYPE_PP(tmp) != IS_STRING) {
 				tmp2 = **tmp;
 				zval_copy_ctor(&tmp2);
 				convert_to_string(&tmp2);
-				zend_html_puts(tmp2.value.str.val, tmp2.value.str.len);
+				php_html_puts(Z_STRVAL(tmp2), Z_STRLEN(tmp2) TSRMLS_CC);
 				zval_dtor(&tmp2);
 			} else {
-				zend_html_puts((*tmp)->value.str.val, (*tmp)->value.str.len);
+				php_html_puts(Z_STRVAL_PP(tmp), Z_STRLEN_PP(tmp) TSRMLS_CC);
 			}
 			PUTS("&nbsp;</td></tr>\n");
-			zend_hash_move_forward((*data)->value.ht);
+			zend_hash_move_forward(Z_ARRVAL_PP(data));
 		}
 	}
 }
@@ -174,7 +175,9 @@ PHPAPI void php_print_info(int flag TSRMLS_DC)
 			}
 			if ((ta->tm_mon==3) && (ta->tm_mday==1)) {
 				PUTS("?="PHP_EGG_LOGO_GUID"\" border=0 align=\"right\" alt=\"Thies!\"></a>");
-			} else {
+			} else if ((ta->tm_mon==11) && (ta->tm_mday==25)) {
+				PUTS("?="PHP_XMAS_LOGO_GUID"\" border=0 align=\"right\" alt=\"Happy X-mas!\"></a>");
+			} else { 
 				PUTS("?="PHP_LOGO_GUID"\" border=0 align=\"right\" alt=\"PHP Logo\"></a>");
 			}
 		}
@@ -182,7 +185,7 @@ PHPAPI void php_print_info(int flag TSRMLS_DC)
 		php_info_print_box_end();
 		php_info_print_table_start();
 		php_info_print_table_row(2, "System", php_uname );
-		php_info_print_table_row(2, "Build Date", __DATE__ );
+		php_info_print_table_row(2, "Build Date", __DATE__ " " __TIME__ );
 #ifdef CONFIGURE_COMMAND
 		php_info_print_table_row(2, "Configure Command", CONFIGURE_COMMAND );
 #endif
@@ -199,9 +202,9 @@ PHPAPI void php_print_info(int flag TSRMLS_DC)
 		php_info_print_table_row(2, "Configuration File (php.ini) Path", php_ini_opened_path?php_ini_opened_path:PHP_CONFIG_FILE_PATH);
 
 #if ZEND_DEBUG
-		php_info_print_table_row(2, "ZEND_DEBUG", "enabled" );
+		php_info_print_table_row(2, "Debug Build", "yes" );
 #else
-		php_info_print_table_row(2, "ZEND_DEBUG", "disabled" );
+		php_info_print_table_row(2, "Debug Build", "no" );
 #endif
 
 #ifdef ZTS
@@ -225,8 +228,8 @@ PHPAPI void php_print_info(int flag TSRMLS_DC)
 			}
 			PUTS("?="ZEND_LOGO_GUID"\" border=\"0\" align=\"right\" alt=\"Zend logo\"></a>\n");
 		}
-		php_printf("This program makes use of the Zend Scripting Language Engine:<br>");
-		zend_html_puts(zend_version, strlen(zend_version));
+		php_printf("This program makes use of the Zend Scripting Language Engine:<br />");
+		php_html_puts(zend_version, strlen(zend_version) TSRMLS_CC);
 		php_info_print_box_end();
 		efree(php_uname);
 	}
@@ -238,7 +241,7 @@ PHPAPI void php_print_info(int flag TSRMLS_DC)
 			PUTS(SG(request_info).request_uri);
 		}
 		PUTS("?=PHPB8B5F2A0-3C92-11d3-A3A9-4C7B08C10000\">");
-		PUTS("PHP 4.0 Credits");
+		PUTS("PHP 4 Credits");
 		PUTS("</a></h1>\n");
 	}
 
@@ -290,16 +293,16 @@ PHPAPI void php_print_info(int flag TSRMLS_DC)
 		php_info_print_table_start();
 		php_info_print_table_header(2, "Variable", "Value");
 		if (zend_hash_find(&EG(symbol_table), "PHP_SELF", sizeof("PHP_SELF"), (void **) &data) != FAILURE) {
-			php_info_print_table_row(2, "PHP_SELF", (*data)->value.str.val);
+			php_info_print_table_row(2, "PHP_SELF", Z_STRVAL_PP(data));
 		}
 		if (zend_hash_find(&EG(symbol_table), "PHP_AUTH_TYPE", sizeof("PHP_AUTH_TYPE"), (void **) &data) != FAILURE) {
-			php_info_print_table_row(2, "PHP_AUTH_TYPE", (*data)->value.str.val);
+			php_info_print_table_row(2, "PHP_AUTH_TYPE", Z_STRVAL_PP(data));
 		}
 		if (zend_hash_find(&EG(symbol_table), "PHP_AUTH_USER", sizeof("PHP_AUTH_USER"), (void **) &data) != FAILURE) {
-			php_info_print_table_row(2, "PHP_AUTH_USER", (*data)->value.str.val);
+			php_info_print_table_row(2, "PHP_AUTH_USER", Z_STRVAL_PP(data));
 		}
 		if (zend_hash_find(&EG(symbol_table), "PHP_AUTH_PW", sizeof("PHP_AUTH_PW"), (void **) &data) != FAILURE) {
-			php_info_print_table_row(2, "PHP_AUTH_PW", (*data)->value.str.val);
+			php_info_print_table_row(2, "PHP_AUTH_PW", Z_STRVAL_PP(data));
 		}
 		php_print_gpcse_array("_FORM", sizeof("_FORM")-1 TSRMLS_CC);
 		php_print_gpcse_array("_GET", sizeof("_GET")-1 TSRMLS_CC);
@@ -343,7 +346,7 @@ PHPAPI void php_info_print_table_start()
 
 PHPAPI void php_info_print_table_end()
 {
-	php_printf("</table><br>\n");
+	php_printf("</table><br />\n");
 
 }
 
@@ -404,6 +407,7 @@ PHPAPI void php_info_print_table_row(int num_cols, ...)
 	int i;
 	va_list row_elements;
 	char *row_element;
+	TSRMLS_FETCH();
 
 	va_start(row_elements, num_cols);
 
@@ -417,7 +421,7 @@ PHPAPI void php_info_print_table_row(int num_cols, ...)
 		if (!row_element || !*row_element) {
 			php_printf("&nbsp;");
 		} else {
-			zend_html_puts(row_element, strlen(row_element));
+			php_html_puts(row_element, strlen(row_element) TSRMLS_CC);
 		}
 
 		php_printf("%s</td>", (i==0?"</b>":""));
@@ -463,7 +467,7 @@ PHP_FUNCTION(phpinfo)
 	}
 
 	if(!argc) {
-		flag = 0xFFFFFFFF;
+		flag = PHP_INFO_ALL;
 	}
 
 	php_print_info(flag TSRMLS_CC);
@@ -481,7 +485,7 @@ PHP_FUNCTION(phpversion)
     int argc = ZEND_NUM_ARGS();
 
 	if (argc == 0) {
-    RETURN_STRING(PHP_VERSION, 1);
+        RETURN_STRING(PHP_VERSION, 1);
 	} else if (argc == 1 && zend_get_parameters_ex(1, &arg) == SUCCESS) {
         char *version;
         convert_to_string_ex(arg);
@@ -508,7 +512,7 @@ PHP_FUNCTION(phpcredits)
 	}
 
 	if(!argc) {
-		flag = 0xFFFFFFFF;
+		flag = PHP_CREDITS_ALL;
 	} 
 
 	php_print_credits(flag);
@@ -587,6 +591,6 @@ PHP_FUNCTION(php_uname)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

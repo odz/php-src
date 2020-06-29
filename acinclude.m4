@@ -1,8 +1,24 @@
-dnl $Id: acinclude.m4,v 1.138.2.1 2001/11/18 00:33:19 derick Exp $
+dnl $Id: acinclude.m4,v 1.157.2.5 2002/03/21 20:25:24 sniper Exp $
 dnl
 dnl This file contains local autoconf functions.
 
 sinclude(dynlib.m4)
+
+dnl
+dnl Disable building CLI
+dnl
+AC_DEFUN(PHP_DISABLE_CLI,[
+  disable_cli=1
+])
+	
+dnl
+dnl Separator into the configure --help display.
+dnl 
+AC_DEFUN(PHP_HELP_SEPARATOR,[
+AC_ARG_ENABLE([],[
+$1
+],[])
+])
 
 dnl
 dnl PHP_TARGET_RDYNAMIC
@@ -34,7 +50,7 @@ AC_DEFUN(PHP_REMOVE_USR_LIB,[
   done
   $1=[$]ac_new_flags
 ])
-    
+
 AC_DEFUN(PHP_SETUP_OPENSSL,[
   if test "$PHP_OPENSSL" = "no"; then
     PHP_OPENSSL="/usr/local/ssl /usr/local /usr /usr/local/openssl"
@@ -48,21 +64,21 @@ AC_DEFUN(PHP_SETUP_OPENSSL,[
   done
 
   if test -z "$OPENSSL_DIR"; then
-    AC_MSG_ERROR(Cannot find OpenSSL's <evp.h>)
+    AC_MSG_ERROR([Cannot find OpenSSL's <evp.h>])
   fi
 
   old_CPPFLAGS=$CPPFLAGS
   CPPFLAGS=-I$OPENSSL_INC
-  AC_MSG_CHECKING(for OpenSSL version)
+  AC_MSG_CHECKING([for OpenSSL version])
   AC_EGREP_CPP(yes,[
   #include <openssl/opensslv.h>
   #if OPENSSL_VERSION_NUMBER >= 0x0090500fL
   yes
   #endif
   ],[
-    AC_MSG_RESULT(>= 0.9.5)
+    AC_MSG_RESULT([>= 0.9.5])
   ],[
-    AC_MSG_ERROR(OpenSSL version 0.9.5 or greater required.)
+    AC_MSG_ERROR([OpenSSL version 0.9.5 or greater required.])
   ])
   CPPFLAGS=$old_CPPFLAGS
 
@@ -71,13 +87,13 @@ AC_DEFUN(PHP_SETUP_OPENSSL,[
   AC_CHECK_LIB(crypto, CRYPTO_free, [
     PHP_ADD_LIBRARY(crypto)
   ],[
-    AC_MSG_ERROR(libcrypto not found!)
+    AC_MSG_ERROR([libcrypto not found!])
   ])
 
   AC_CHECK_LIB(ssl, SSL_CTX_set_ssl_version, [
     PHP_ADD_LIBRARY(ssl)
   ],[
-    AC_MSG_ERROR(libssl not found!)
+    AC_MSG_ERROR([libssl not found!])
   ])
   PHP_ADD_INCLUDE($OPENSSL_INC)
 ])
@@ -178,6 +194,9 @@ AC_DEFUN(PHP_SHLIB_SUFFIX_NAME,[
   *hpux*)
 	SHLIB_SUFFIX_NAME=sl
 	;;
+  *darwin*)
+	SHLIB_SUFFIX_NAME=dylib
+	;;
   esac
 ])
 
@@ -236,6 +255,8 @@ AC_DEFUN(PHP_MISSING_PREAD_DECL,[
       ],[
         ac_cv_pread=no
       ])
+    ],[
+      ac_cv_pread=no
     ])
   ])
   ])
@@ -270,6 +291,8 @@ AC_DEFUN(PHP_MISSING_PWRITE_DECL,[
       ],[
         ac_cv_pwrite=no
       ])
+    ],[
+      ac_cv_pwrite=no
     ])
   ])
   ])
@@ -280,7 +303,7 @@ AC_DEFUN(PHP_MISSING_PWRITE_DECL,[
 ])
 
 AC_DEFUN(PHP_MISSING_TIME_R_DECL,[
-  AC_MSG_CHECKING(for missing declarations of reentrant functions)
+  AC_MSG_CHECKING([for missing declarations of reentrant functions])
   AC_TRY_COMPILE([#include <time.h>],[struct tm *(*func)() = localtime_r],[
     :
   ],[
@@ -306,7 +329,7 @@ AC_DEFUN(PHP_MISSING_TIME_R_DECL,[
   ],[
     AC_DEFINE(MISSING_STRTOK_R_DECL,1,[Whether strtok_r is declared])
   ])
-  AC_MSG_RESULT(done)
+  AC_MSG_RESULT([done])
 ])
 
 dnl
@@ -347,7 +370,9 @@ if test "$php_always_shared" = "yes"; then
   test "[$]$1" = "no" && $1=yes
 fi
 
-AC_MSG_RESULT($ext_output)
+if test -n "$2"; then
+  AC_MSG_RESULT([$ext_output])
+fi
 ])
 
 dnl
@@ -361,9 +386,11 @@ PHP_REAL_ARG_WITH([$1],[$2],[$3],[$4],PHP_[]translit($1,a-z0-9-,A-Z0-9_))
 ])
 
 AC_DEFUN(PHP_REAL_ARG_WITH,[
-AC_MSG_CHECKING($2)
+if test -n "$2"; then
+  AC_MSG_CHECKING([$2])
+fi
 AC_ARG_WITH($1,[$3],$5=[$]withval,$5=ifelse($4,,no,$4))
-PHP_ARG_ANALYZE($5)
+PHP_ARG_ANALYZE($5,[$2])
 ])
 
 dnl
@@ -377,9 +404,11 @@ PHP_REAL_ARG_ENABLE([$1],[$2],[$3],[$4],PHP_[]translit($1,a-z-,A-Z_))
 ])
 
 AC_DEFUN(PHP_REAL_ARG_ENABLE,[
-AC_MSG_CHECKING($2)
+if test -n "$2"; then
+  AC_MSG_CHECKING([$2])
+fi
 AC_ARG_ENABLE($1,[$3],$5=[$]enableval,$5=ifelse($4,,no,$4))
-PHP_ARG_ANALYZE($5)
+PHP_ARG_ANALYZE($5,[$2])
 ])
 
 AC_DEFUN(PHP_MODULE_PTR,[
@@ -488,7 +517,7 @@ AC_DEFUN(PHP_GEN_CONFIG_VARS,[
   echo creating config_vars.mk
   > config_vars.mk
   for i in $PHP_VAR_SUBST; do
-    eval echo "$i = \$$i" >> config_vars.mk
+    eval echo "$i = \$$i" | sed 's%#%\\#%g' >> config_vars.mk
   done
 ])
 
@@ -511,7 +540,7 @@ dnl PHP_CONFIGURE_PART(MESSAGE)
 dnl Idea borrowed from mm
 AC_DEFUN(PHP_CONFIGURE_PART,[
   AC_MSG_RESULT()
-  AC_MSG_RESULT(${T_MD}$1${T_ME})
+  AC_MSG_RESULT([${T_MD}$1${T_ME}])
 ])
 
 AC_DEFUN(PHP_PROG_SENDMAIL,[
@@ -523,13 +552,13 @@ fi
 
 AC_DEFUN(PHP_RUNPATH_SWITCH,[
 dnl check for -R, etc. switch
-AC_MSG_CHECKING(if compiler supports -R)
+AC_MSG_CHECKING([if compiler supports -R])
 AC_CACHE_VAL(php_cv_cc_dashr,[
 	SAVE_LIBS=$LIBS
 	LIBS="-R /usr/lib $LIBS"
 	AC_TRY_LINK([], [], php_cv_cc_dashr=yes, php_cv_cc_dashr=no)
 	LIBS=$SAVE_LIBS])
-AC_MSG_RESULT($php_cv_cc_dashr)
+AC_MSG_RESULT([$php_cv_cc_dashr])
 if test $php_cv_cc_dashr = "yes"; then
 	ld_runpath_switch=-R
 else
@@ -539,7 +568,7 @@ else
 		LIBS="-Wl,-rpath,/usr/lib $LIBS"
 		AC_TRY_LINK([], [], php_cv_cc_rpath=yes, php_cv_cc_rpath=no)
 		LIBS=$SAVE_LIBS])
-	AC_MSG_RESULT($php_cv_cc_rpath)
+	AC_MSG_RESULT([$php_cv_cc_rpath])
 	if test $php_cv_cc_rpath = "yes"; then
 		ld_runpath_switch=-Wl,-rpath,
 	else
@@ -600,7 +629,7 @@ dnl
 AC_DEFUN(PHP_BUILD_THREAD_SAFE,[
   enable_experimental_zts=yes
   if test "$pthreads_working" != "yes"; then
-    AC_MSG_ERROR(ZTS currently requires working POSIX threads. We were unable to verify that your system supports Pthreads.)
+    AC_MSG_ERROR([ZTS currently requires working POSIX threads. We were unable to verify that your system supports Pthreads.])
   fi
 ])
 
@@ -826,14 +855,14 @@ AC_DEFUN(PHP_CHECK_CC_OPTION,[
   ac_php_compile="${CC-cc} -$opt -o conftest $CFLAGS $CPPFLAGS conftest.$ac_ext 2>&1"
   if eval $ac_php_compile 2>&1 | egrep "$opt" > /dev/null 2>&1 ; then
     eval php_cc_$var=no
-	AC_MSG_RESULT(no)
+	AC_MSG_RESULT([no])
   else
     if eval ./conftest 2>/dev/null ; then
       eval php_cc_$var=yes
-	  AC_MSG_RESULT(yes)
+	  AC_MSG_RESULT([yes])
     else
       eval php_cc_$var=no
-	  AC_MSG_RESULT(no)
+	  AC_MSG_RESULT([no])
     fi
   fi
 ])
@@ -850,8 +879,8 @@ elif test "$REGEX_TYPE" = "system"; then
   AC_DEFINE(REGEX,0,[ ])
 fi
 
-AC_MSG_CHECKING(which regex library to use)
-AC_MSG_RESULT($REGEX_TYPE)
+AC_MSG_CHECKING([which regex library to use])
+AC_MSG_RESULT([$REGEX_TYPE])
 
 PHP_SUBST(REGEX_DIR)
 PHP_SUBST(REGEX_LIB)
@@ -865,10 +894,10 @@ AC_DEFUN(PHP_MISSING_FCLOSE_DECL,[
   AC_MSG_CHECKING([for fclose declaration])
   AC_TRY_COMPILE([#include <stdio.h>],[int (*func)() = fclose],[
     AC_DEFINE(MISSING_FCLOSE_DECL,0,[ ])
-    AC_MSG_RESULT(ok)
+    AC_MSG_RESULT([ok])
   ],[
     AC_DEFINE(MISSING_FCLOSE_DECL,1,[ ])
-    AC_MSG_RESULT(missing)
+    AC_MSG_RESULT([missing])
   ])
 ])
 
@@ -893,13 +922,16 @@ AC_DEFUN(PHP_AC_BROKEN_SPRINTF,[
 ])
 
 dnl
-dnl PHP_EXTENSION(extname [, shared])
+dnl PHP_EXTENSION(extname [, shared [,sapi_class]])
 dnl
 dnl Includes an extension in the build.
 dnl
 dnl "extname" is the name of the ext/ subdir where the extension resides
 dnl "shared" can be set to "shared" or "yes" to build the extension as
-dnl a dynamically loadable library.
+dnl a dynamically loadable library. Optional parameter "sapi_class" can
+dnl be set to "cli" to mark extension build only with CLI or CGI sapi's.
+dnl If "nocli" is passed the extension will be built only with a non-cli
+dnl sapi.
 dnl
 AC_DEFUN(PHP_EXTENSION,[
   EXT_SUBDIRS="$EXT_SUBDIRS $1"
@@ -914,15 +946,32 @@ dnl ---------------------------------------------- External Module
     ext_srcdir=$abs_srcdir
   fi
 
-  if test "$2" != "shared" && test "$2" != "yes"; then
+  if test "$2" != "shared" && test "$2" != "yes" && test "$3" != "cli"; then
 dnl ---------------------------------------------- Static module
     LIB_BUILD($ext_builddir)
-    EXT_LTLIBS="$EXT_LTLIBS $ext_builddir/lib$1.la"
+    EXT_LTLIBS="$EXT_LTLIBS $abs_builddir/$ext_builddir/lib$1.la"
     EXT_STATIC="$EXT_STATIC $1"
-  else 
+    if test "$3" != "nocli"; then
+      EXT_CLI_LTLIBS="$EXT_CLI_LTLIBS $abs_builddir/$ext_builddir/lib$1.la"
+      EXT_CLI_STATIC="$EXT_CLI_STATIC $1"
+    fi
+  else
+    if test "$2" = "shared" || test "$2" = "yes"; then
 dnl ---------------------------------------------- Shared module
-    LIB_BUILD($ext_builddir,yes)
-    AC_DEFINE_UNQUOTED([COMPILE_DL_]translit($1,a-z-,A-Z_), 1, Whether to build $1 as dynamic module)
+      LIB_BUILD($ext_builddir,yes)
+      AC_DEFINE_UNQUOTED([COMPILE_DL_]translit($1,a-z-,A-Z_), 1, Whether to build $1 as dynamic module)
+    fi
+  fi
+
+  if test "$2" != "shared" && test "$2" != "yes" && test "$3" = "cli"; then
+dnl ---------------------------------------------- CLI only static module
+    LIB_BUILD($ext_builddir)
+    if test "$PHP_SAPI" = "cgi"; then
+      EXT_LTLIBS="$EXT_LTLIBS $abs_builddir/$ext_builddir/lib$1.la"
+      EXT_STATIC="$EXT_STATIC $1"
+    fi
+    EXT_CLI_LTLIBS="$EXT_CLI_LTLIBS $abs_builddir/$ext_builddir/lib$1.la"
+    EXT_CLI_STATIC="$EXT_CLI_STATIC $1"
   fi
 
   PHP_FAST_OUTPUT($ext_builddir/Makefile)
@@ -936,7 +985,7 @@ dnl Must be run after all --with-NN options that let the user
 dnl choose dynamic extensions, and after the gcc test.
 dnl
 AC_DEFUN(PHP_SOLARIS_PIC_WEIRDNESS,[
-  AC_MSG_CHECKING(whether -fPIC is required)
+  AC_MSG_CHECKING([whether -fPIC is required])
   if test -n "$EXT_SHARED"; then
     os=`uname -sr 2>/dev/null`
     case $os in
@@ -945,12 +994,12 @@ AC_DEFUN(PHP_SOLARIS_PIC_WEIRDNESS,[
 	    gcc*|egcs*) CFLAGS="$CFLAGS -fPIC";;
 	    *) CFLAGS="$CFLAGS -fpic";;
 	  esac
-	  AC_MSG_RESULT(yes);;
+	  AC_MSG_RESULT([yes]);;
 	*)
-	  AC_MSG_RESULT(no);;
+	  AC_MSG_RESULT([no]);;
     esac
   else
-    AC_MSG_RESULT(no)
+    AC_MSG_RESULT([no])
   fi
 ])
 
@@ -990,7 +1039,7 @@ AC_DEFUN(PHP_SYS_LFS,
 [dnl
   # If available, prefer support for large files unless the user specified
   # one of the CPPFLAGS, LDFLAGS, or LIBS variables.
-  AC_MSG_CHECKING(whether large file support needs explicit enabling)
+  AC_MSG_CHECKING([whether large file support needs explicit enabling])
   ac_getconfs=''
   ac_result=yes
   ac_set=''
@@ -1012,7 +1061,7 @@ AC_DEFUN(PHP_SYS_LFS,
   case "$ac_result$ac_set" in
     yes?*) ac_result="yes, but $ac_set is already set, so use its settings"
   esac
-  AC_MSG_RESULT($ac_result)
+  AC_MSG_RESULT([$ac_result])
   case $ac_result in
     yes)
       for ac_shellvar in $ac_shellvars; do
@@ -1095,7 +1144,7 @@ AC_DEFUN(PHP_FOPENCOOKIE,[
 									   ],
 	                   [ cookie_io_functions_t cookie; ],
                      [ have_cookie_io_functions_t=yes ],
-										 [ ] )
+										 [] )
 
 		  if test "$have_cookie_io_functions_t" = "yes" ; then
         cookie_io_functions_t=cookie_io_functions_t
@@ -1121,4 +1170,97 @@ AC_DEFUN(PHP_FOPENCOOKIE,[
       fi      
 
   	fi
+])
+
+
+dnl
+dnl PHP_CHECK_LIBRARY(library, function [, action-found [, action-not-found [, extra-libs]]])
+dnl
+dnl Wrapper for AC_CHECK_LIB
+dnl
+AC_DEFUN(PHP_CHECK_LIBRARY, [
+  save_old_LDFLAGS=$LDFLAGS
+  LDFLAGS="$5 $LDFLAGS"
+  AC_CHECK_LIB([$1],[$2],[
+    LDFLAGS=$save_old_LDFLAGS
+    $3
+  ],[
+    LDFLAGS=$save_old_LDFLAGS
+    $4
+  ])dnl
+])
+
+
+dnl 
+dnl PHP_SETUP_ICONV(shared-add [, action-found [, action-not-found]])
+dnl
+dnl Common setup macro for iconv
+dnl
+AC_DEFUN(PHP_SETUP_ICONV, [
+  found_iconv=no
+  unset ICONV_DIR
+
+  dnl
+  dnl Check libc first if no path is provided in --with-iconv
+  dnl
+  if test "$PHP_ICONV" = "yes"; then
+    AC_CHECK_FUNC(iconv, [
+      found_iconv=yes
+    ],[
+      AC_CHECK_FUNC(libiconv,[
+        AC_DEFINE(HAVE_LIBICONV, 1, [ ])
+        found_iconv=yes
+      ])
+    ])
+  fi
+
+  dnl
+  dnl Check external libs for iconv funcs
+  dnl
+  if test "$found_iconv" = "no"; then
+   
+    for i in $PHP_ICONV /usr/local /usr; do
+      if test -r $i/include/giconv.h; then
+        AC_DEFINE(HAVE_GICONV_H, 1, [ ])
+        ICONV_DIR=$i
+        iconv_lib_name=giconv
+        break
+      elif test -r $i/include/iconv.h; then
+        ICONV_DIR=$i
+        iconv_lib_name=iconv
+        break
+      fi
+    done
+
+    if test -z "$ICONV_DIR"; then
+      AC_MSG_ERROR([Please specify the install prefix of iconv with --with-iconv=<DIR>])
+    fi
+  
+    if test -f $ICONV_DIR/lib/lib$iconv_lib_name.a ||
+       test -f $ICONV_DIR/lib/lib$iconv_lib_name.$SHLIB_SUFFIX_NAME
+    then
+      PHP_CHECK_LIBRARY($iconv_lib_name, libiconv, [
+        found_iconv=yes
+        AC_DEFINE(HAVE_LIBICONV, 1, [ ])
+      ], [
+        PHP_CHECK_LIBRARY($iconv_lib_name, iconv, [
+          found_iconv=yes
+        ], [], [
+          -L$ICONV_DIR/lib
+        ])
+      ], [
+        -L$ICONV_DIR/lib
+      ])
+    fi
+  fi
+  
+  if test "$found_iconv" = "yes"; then
+    if test -n "$ICONV_DIR"; then
+      AC_DEFINE(HAVE_ICONV, 1, [ ])
+      PHP_ADD_LIBRARY_WITH_PATH($iconv_lib_name, $ICONV_DIR/lib, $1)
+      PHP_ADD_INCLUDE($ICONV_DIR/include)
+    fi
+    $2
+ifelse([$3],[],,[else $3])
+  fi
 ])

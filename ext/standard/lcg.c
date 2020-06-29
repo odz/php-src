@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+   | Author: Sascha Schumann <sascha@schumann.cx>                         |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: lcg.c,v 1.24 2001/08/11 17:03:37 zeev Exp $ */
+/* $Id: lcg.c,v 1.32 2002/02/28 08:26:46 sebastian Exp $ */
 
 #include "php.h"
 #include "php_lcg.h"
@@ -25,11 +25,16 @@
 #include <unistd.h>
 #endif
 
+#ifdef PHP_WIN32
+#include "win32/time.h"
+#else
+#include <sys/time.h>
+#endif
+
 #ifdef ZTS
 int lcg_globals_id;
 #else
 static php_lcg_globals lcg_globals;
-static int php_lcg_initialized = 0;
 #endif
  
 
@@ -46,7 +51,7 @@ static int php_lcg_initialized = 0;
 
 #define MODMULT(a, b, c, m, s) q = s/a;s=b*(s-a*q)-c*q;if(s<0)s+=m
 
-double php_combined_lcg(TSRMLS_D)
+PHPAPI double php_combined_lcg(TSRMLS_D)
 {
 	php_int32 q;
 	php_int32 z;
@@ -55,41 +60,55 @@ double php_combined_lcg(TSRMLS_D)
 	MODMULT(52774, 40692, 3791, 2147483399L, LCG(s2));
 
 	z = LCG(s1) - LCG(s2);
-	if(z < 1) {
+	if (z < 1) {
 		z += 2147483562;
 	}
 
 	return z * 4.656613e-10;
 }
 
-static void lcg_init_globals(php_lcg_globals *lcg_globals_p TSRMLS_DC)
+static void lcg_seed(TSRMLS_D)
 {
-	LCG(s1) = 1;
+	struct timeval tv;
+
+	if (gettimeofday(&tv, NULL) == 0) {
+		LCG(s1) = tv.tv_sec ^ (~tv.tv_usec);
+	} else {
+		LCG(s1) = 1;
+	}
 #ifdef ZTS
 	LCG(s2) = (long) tsrm_thread_id();
 #else
 	LCG(s2) = (long) getpid();
 #endif
+
+	LCG(seeded) = 1;
 }
 
-#ifdef ZTS
+static void lcg_init_globals(php_lcg_globals *lcg_globals_p TSRMLS_DC)
+{
+	LCG(seeded) = 0;
+}
+
 PHP_MINIT_FUNCTION(lcg)
 {
+#ifdef ZTS
 	ts_allocate_id(&lcg_globals_id, sizeof(php_lcg_globals), (ts_allocate_ctor) lcg_init_globals, NULL);
+#else
+	lcg_init_globals(&lcg_globals);
+#endif
 	return SUCCESS;
 }
-#else 
+
 PHP_RINIT_FUNCTION(lcg)
 {
-	if (!php_lcg_initialized) {
-		lcg_init_globals(&lcg_globals TSRMLS_CC);
-		php_lcg_initialized = 1;
+	if (!LCG(seeded)) {
+		lcg_seed(TSRMLS_C);
 	}
 	return SUCCESS;
 }
-#endif
 
-/* {{{ proto double lcg_value()
+/* {{{ proto float lcg_value()
    Returns a value from the combined linear congruential generator */
 PHP_FUNCTION(lcg_value)
 {
@@ -102,6 +121,6 @@ PHP_FUNCTION(lcg_value)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

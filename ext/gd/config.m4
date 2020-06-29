@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.71.2.4 2002/02/26 17:52:36 rasmus Exp $
+dnl $Id: config.m4,v 1.83.2.1 2002/03/07 22:27:14 hirokawa Exp $
 dnl
 
 AC_DEFUN(PHP_GD_JPEG,[
@@ -12,16 +12,20 @@ AC_DEFUN(PHP_GD_JPEG,[
       test -f $i/lib/libjpeg.$SHLIB_SUFFIX_NAME -o -f $i/lib/libjpeg.a && GD_JPEG_DIR=$i
     done
 
-    AC_CHECK_LIB(jpeg,jpeg_read_header,
+    if test -z "$GD_JPEG_DIR"; then
+      AC_MSG_ERROR([libjpeg.(a|so) not found.])
+    fi
+
+    PHP_CHECK_LIBRARY(jpeg,jpeg_read_header,
     [
       PHP_ADD_LIBRARY_WITH_PATH(jpeg, $GD_JPEG_DIR/lib, GD_SHARED_LIBADD)
     ],[
-      AC_MSG_ERROR(Problem with libjpeg.(a|so). Please check config.log for more information.) 
+      AC_MSG_ERROR([Problem with libjpeg.(a|so). Please check config.log for more information.]) 
     ],[
       -L$GD_JPEG_DIR/lib
     ])
   else 
-    AC_MSG_RESULT(If configure fails try --with-jpeg-dir=<DIR>)
+    AC_MSG_RESULT([If configure fails try --with-jpeg-dir=<DIR>])
   fi
 ])
 
@@ -35,21 +39,26 @@ AC_DEFUN(PHP_GD_PNG,[
       test -f $i/lib/libpng.$SHLIB_SUFFIX_NAME -o -f $i/lib/libpng.a && GD_PNG_DIR=$i
     done
 
+    if test -z "$GD_PNG_DIR"; then
+      AC_MSG_ERROR([libpng.(a|so) not found.])
+    fi
+
     if test "$PHP_ZLIB_DIR" = "no"; then
-      AC_MSG_ERROR(PNG support requires ZLIB. Use --with-zlib-dir=<DIR>)
+      AC_MSG_ERROR([PNG support requires ZLIB. Use --with-zlib-dir=<DIR>])
     fi
     
-    AC_CHECK_LIB(png,png_info_init,
+    PHP_CHECK_LIBRARY(png,png_write_image,
     [
       PHP_ADD_LIBRARY_WITH_PATH(z, $PHP_ZLIB_DIR/lib, GD_SHARED_LIBADD)
       PHP_ADD_LIBRARY_WITH_PATH(png, $GD_PNG_DIR/lib, GD_SHARED_LIBADD)
     ],[
-      AC_MSG_ERROR(Problem with libpng.(a|so) or libz.(a|so). Please check config.log for more information.) 
+      AC_MSG_ERROR([Problem with libpng.(a|so) or libz.(a|so). Please check config.log for more information.]) 
     ],[
       -L$PHP_ZLIB_DIR/lib -lz -L$GD_PNG_DIR/lib
     ])
+
   else 
-    AC_MSG_RESULT(If configure fails try --with-png-dir=<DIR> and --with-zlib-dir=<DIR>)
+    AC_MSG_RESULT([If configure fails try --with-png-dir=<DIR> and --with-zlib-dir=<DIR>])
   fi
 ])
 
@@ -58,16 +67,21 @@ AC_DEFUN(PHP_GD_XPM,[
   [  --with-xpm-dir=DIR        GD: Set the path to libXpm install prefix.])
 
   if test "$PHP_XPM_DIR" != "no"; then
+
     for i in /usr /usr/local /usr/X11R6 $PHP_XPM_DIR; do
       test -f $i/lib/libXpm.$SHLIB_SUFFIX_NAME -o -f $i/lib/libXpm.a && GD_XPM_DIR=$i
     done
 
-    AC_CHECK_LIB(Xpm,XpmFreeXpmImage, 
+    if test -z "$GD_XPM_DIR"; then
+      AC_MSG_ERROR([libXpm.(a|so) not found.])
+    fi
+
+    PHP_CHECK_LIBRARY(Xpm,XpmFreeXpmImage, 
     [
       PHP_ADD_LIBRARY_WITH_PATH(Xpm, $GD_XPM_DIR/lib, GD_SHARED_LIBADD)
       PHP_ADD_LIBRARY_WITH_PATH(X11, $GD_XPM_DIR/lib, GD_SHARED_LIBADD)
     ],[
-      AC_MSG_ERROR(Problem with libXpm.(a|so) or libX11.(a|so). Please check config.log for more information.) 
+      AC_MSG_ERROR([Problem with libXpm.(a|so) or libX11.(a|so). Please check config.log for more information.]) 
     ],[
       -L$GD_XPM_DIR/lib -lX11
     ])
@@ -77,7 +91,7 @@ AC_DEFUN(PHP_GD_XPM,[
 ])
 
 AC_DEFUN(PHP_GD_FREETYPE1,[
-  PHP_ARG_WITH(ttf,whether to include include FreeType 1.x support,
+  PHP_ARG_WITH(ttf,for FreeType 1.x support,
   [  --with-ttf[=DIR]          GD: Include FreeType 1.x support])
   
   if test "$PHP_TTF" != "no"; then
@@ -103,7 +117,7 @@ AC_DEFUN(PHP_GD_FREETYPE1,[
       fi
       PHP_ADD_INCLUDE($TTF_INC_DIR)
     else
-      AC_MSG_RESULT(no - FreeType 2.x is to be used instead)
+      AC_MSG_RESULT([no - FreeType 2.x is to be used instead])
     fi
   fi
 ])
@@ -126,42 +140,43 @@ AC_DEFUN(PHP_GD_FREETYPE2,[
       AC_DEFINE(USE_GD_IMGSTRTTF, 1, [ ])
       AC_DEFINE(HAVE_LIBFREETYPE,1,[ ])
     else
-      AC_MSG_ERROR(freetype2 not found!)
+      AC_MSG_ERROR([freetype2 not found!])
     fi
   else 
-    AC_MSG_RESULT(If configure fails try --with-freetype-dir=<DIR>)
+    AC_MSG_RESULT([If configure fails try --with-freetype-dir=<DIR>])
   fi
 ])
 
 AC_DEFUN(PHP_GD_T1LIB,[
-  PHP_ARG_WITH(t1lib, whether to include T1lib support,
+  PHP_ARG_WITH(t1lib, for T1lib support,
   [  --with-t1lib[=DIR]        GD: Include T1lib support.])
 
   if test "$PHP_T1LIB" != "no"; then
+
     for i in /usr /usr/local $PHP_T1LIB; do
-      test -f "$i/include/t1lib.h" && T1_DIR=$i
+      test -f "$i/include/t1lib.h" && GD_T1_DIR=$i
     done
 
-    if test -n "$T1_DIR"; then
-      AC_CHECK_LIB(t1, T1_LoadFont, 
-      [
-        AC_DEFINE(HAVE_LIBT1,1,[ ])
-        PHP_ADD_INCLUDE("$T1_DIR/include")
-        PHP_ADD_LIBRARY_WITH_PATH(t1, "$T1_DIR/lib", GD_SHARED_LIBADD)
-      ],[
-        AC_MSG_ERROR(Problem with libt1.(a|so). Please check config.log for more information.) 
-      ],[
-        -L$T1_DIR/lib
-      ])
-    else
-      AC_MSG_ERROR(Your t1lib distribution is not installed correctly. Please reinstall it.) 
+    if test -z "$GD_T1_DIR"; then
+      AC_MSG_ERROR([Your t1lib distribution is not installed correctly. Please reinstall it.]) 
     fi
+
+    PHP_CHECK_LIBRARY(t1, T1_LoadFont, 
+    [
+      AC_DEFINE(HAVE_LIBT1,1,[ ])
+      PHP_ADD_INCLUDE("$GD_T1_DIR/include")
+      PHP_ADD_LIBRARY_WITH_PATH(t1, "$GD_T1_DIR/lib", GD_SHARED_LIBADD)
+    ],[
+      AC_MSG_ERROR([Problem with libt1.(a|so). Please check config.log for more information.]) 
+    ],[
+      -L$GD_T1_DIR/lib
+    ])
   fi
 ])
 
 AC_DEFUN(PHP_GD_TTSTR,[
-  PHP_ARG_ENABLE(gd-native-ttf, whether to enable truetype string function in gd,
-  [  --enable-gd-native-ttf    GD: Enable TrueType string function in gd])
+  PHP_ARG_ENABLE(gd-native-ttf, whether to enable truetype string function in GD,
+  [  --enable-gd-native-ttf    GD: Enable TrueType string function.])
   
   if test "$PHP_GD_NATIVE_TTF" = "yes"; then
     AC_DEFINE(USE_GD_IMGSTRTTF, 1, [ ])
@@ -169,34 +184,29 @@ AC_DEFUN(PHP_GD_TTSTR,[
 ])
 
 AC_DEFUN(PHP_GD_CHECK_VERSION,[
-  save_LIBS="$LIBS"
-  LIBS="$GD_SHARED_LIBADD $LIBS" 
-  AC_CHECK_LIB(gd, gdImageString16,        [AC_DEFINE(HAVE_LIBGD13, 1, [ ])])
-  AC_CHECK_LIB(gd, gdImagePaletteCopy,     [AC_DEFINE(HAVE_LIBGD15, 1, [ ])])
-  AC_CHECK_LIB(gd, gdImageCreateFromPng,   [AC_DEFINE(HAVE_GD_PNG,  1, [ ])])
-  AC_CHECK_LIB(gd, gdImageCreateFromGif,   [AC_DEFINE(HAVE_GD_GIF_READ,   1, [ ])])
-  AC_CHECK_LIB(gd, gdImageGif,             [AC_DEFINE(HAVE_GD_GIF_CREATE, 1, [ ])])
-  AC_CHECK_LIB(gd, gdImageWBMP,            [AC_DEFINE(HAVE_GD_WBMP, 1, [ ])])
-  AC_CHECK_LIB(gd, gdImageCreateFromJpeg,  [AC_DEFINE(HAVE_GD_JPG,  1, [ ])])
-  AC_CHECK_LIB(gd, gdImageCreateFromXpm,   [AC_DEFINE(HAVE_GD_XPM,  1, [ ])])
-  AC_CHECK_LIB(gd, gdImageCreateFromGd2,   [AC_DEFINE(HAVE_GD_GD2,  1, [ ])])
-  AC_CHECK_LIB(gd, gdImageCreateTrueColor, [AC_DEFINE(HAVE_LIBGD20, 1, [ ])])
-  AC_CHECK_LIB(gd, gdImageSetTile,         [AC_DEFINE(HAVE_GD_IMAGESETTILE,  1, [ ])])
-  AC_CHECK_LIB(gd, gdImageSetBrush,        [AC_DEFINE(HAVE_GD_IMAGESETBRUSH, 1, [ ])])
-  AC_CHECK_LIB(gd, gdImageStringTTF,       [AC_DEFINE(HAVE_GD_STRINGTTF,     1, [ ])])
-  AC_CHECK_LIB(gd, gdImageStringFT,        [AC_DEFINE(HAVE_GD_STRINGFT,      1, [ ])])
-  AC_CHECK_LIB(gd, gdImageStringFTEx,      [AC_DEFINE(HAVE_GD_STRINGFTEX,    1, [ ])])
-  AC_CHECK_LIB(gd, gdImageColorClosestHWB, [AC_DEFINE(HAVE_COLORCLOSESTHWB,     1, [ ])])
-  AC_CHECK_LIB(gd, gdImageColorResolve,    [AC_DEFINE(HAVE_GDIMAGECOLORRESOLVE, 1, [ ])])
-  AC_CHECK_LIB(gd, gdImageGifCtx,          [AC_DEFINE(HAVE_GD_GIF_CTX,  1, [ ])])
-  LIBS=$save_LIBS
+  PHP_CHECK_LIBRARY(gd, gdImageString16,        [AC_DEFINE(HAVE_LIBGD13,             1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
+  PHP_CHECK_LIBRARY(gd, gdImagePaletteCopy,     [AC_DEFINE(HAVE_LIBGD15,             1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
+  PHP_CHECK_LIBRARY(gd, gdImageCreateFromPng,   [AC_DEFINE(HAVE_GD_PNG,              1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
+  PHP_CHECK_LIBRARY(gd, gdImageCreateFromGif,   [AC_DEFINE(HAVE_GD_GIF_READ,         1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
+  PHP_CHECK_LIBRARY(gd, gdImageGif,             [AC_DEFINE(HAVE_GD_GIF_CREATE,       1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
+  PHP_CHECK_LIBRARY(gd, gdImageWBMP,            [AC_DEFINE(HAVE_GD_WBMP,             1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
+  PHP_CHECK_LIBRARY(gd, gdImageCreateFromJpeg,  [AC_DEFINE(HAVE_GD_JPG,              1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
+  PHP_CHECK_LIBRARY(gd, gdImageCreateFromXpm,   [AC_DEFINE(HAVE_GD_XPM,              1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
+  PHP_CHECK_LIBRARY(gd, gdImageCreateFromGd2,   [AC_DEFINE(HAVE_GD_GD2,              1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
+  PHP_CHECK_LIBRARY(gd, gdImageCreateTrueColor, [AC_DEFINE(HAVE_LIBGD20,             1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
+  PHP_CHECK_LIBRARY(gd, gdImageSetTile,         [AC_DEFINE(HAVE_GD_IMAGESETTILE,     1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
+  PHP_CHECK_LIBRARY(gd, gdImageSetBrush,        [AC_DEFINE(HAVE_GD_IMAGESETBRUSH,    1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
+  PHP_CHECK_LIBRARY(gd, gdImageStringTTF,       [AC_DEFINE(HAVE_GD_STRINGTTF,        1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
+  PHP_CHECK_LIBRARY(gd, gdImageStringFT,        [AC_DEFINE(HAVE_GD_STRINGFT,         1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
+  PHP_CHECK_LIBRARY(gd, gdImageStringFTEx,      [AC_DEFINE(HAVE_GD_STRINGFTEX,       1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
+  PHP_CHECK_LIBRARY(gd, gdImageColorClosestHWB, [AC_DEFINE(HAVE_COLORCLOSESTHWB,     1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
+  PHP_CHECK_LIBRARY(gd, gdImageColorResolve,    [AC_DEFINE(HAVE_GDIMAGECOLORRESOLVE, 1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
+  PHP_CHECK_LIBRARY(gd, gdImageGifCtx,          [AC_DEFINE(HAVE_GD_GIF_CTX,          1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
 ])
 
 
-PHP_ARG_WITH(gd, whether to include GD support,
-[  --with-gd[=DIR]         Include GD support (DIR is GD's install dir).
-                          Set DIR to "shared" to build as a dl, or 
-                          "shared,DIR" to build as a dl and still specify DIR.])
+PHP_ARG_WITH(gd, for GD support,
+[  --with-gd[=DIR]         Include GD support (DIR is GD's install dir).])
 
 if test "$PHP_GD" != "no"; then
 
@@ -213,31 +223,29 @@ dnl Various checks for GD features
   PHP_GD_FREETYPE1
   PHP_GD_T1LIB
 
-  case $PHP_GD in
-    yes)
-      PHP_ADD_LIBRARY(gd,, GD_SHARED_LIBADD)
-      PHP_GD_CHECK_VERSION
-      AC_DEFINE(HAVE_LIBGD,1,[ ])
-	;;
-    *)
-dnl A whole whack of possible places where these might be
-      for i in include/gd1.3 include/gd include gd1.3 gd ""; do
-        test -f $PHP_GD/$i/gd.h && GD_INCLUDE=$PHP_GD/$i
-      done
+  if test "$PHP_GD" = "yes"; then
+    GD_SEARCH_PATHS="/usr/local /usr"
+  else
+    GD_SEARCH_PATHS=$PHP_GD
+  fi
 
-      for i in lib/gd1.3 lib/gd lib gd1.3 gd ""; do
-        test -f $PHP_GD/$i/libgd.$SHLIB_SUFFIX_NAME -o -f $PHP_GD/$i/libgd.a && GD_LIB=$PHP_GD/$i
-      done
+  for j in $GD_SEARCH_PATHS; do
+    for i in include/gd1.3 include/gd include gd1.3 gd ""; do
+      test -f $j/$i/gd.h && GD_INCLUDE=$j/$i
+    done
 
-      if test -n "$GD_INCLUDE" && test -n "$GD_LIB" ; then
-        PHP_ADD_LIBRARY_WITH_PATH(gd, $GD_LIB, GD_SHARED_LIBADD)
-        AC_DEFINE(HAVE_LIBGD,1,[ ])
-        PHP_GD_CHECK_VERSION
-      else
-        AC_MSG_ERROR([Unable to find libgd.(a|so) anywhere under $withval])
-      fi 
-    ;;
-  esac
+    for i in lib/gd1.3 lib/gd lib gd1.3 gd ""; do
+      test -f $j/$i/libgd.$SHLIB_SUFFIX_NAME -o -f $j/$i/libgd.a && GD_LIB=$j/$i
+    done
+  done
+
+  if test -n "$GD_INCLUDE" -a -n "$GD_LIB" ; then
+    PHP_ADD_LIBRARY_WITH_PATH(gd, $GD_LIB, GD_SHARED_LIBADD)
+    AC_DEFINE(HAVE_LIBGD,1,[ ])
+    PHP_GD_CHECK_VERSION
+  else
+    AC_MSG_ERROR([Unable to find libgd.(a|so) anywhere under $withval])
+  fi 
 
 dnl NetBSD package structure
   if test -f /usr/pkg/include/gd/gd.h -a -z "$GD_INCLUDE" ; then

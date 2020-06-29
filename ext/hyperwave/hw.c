@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Uwe Steinmann                                               |
+   | Author: Uwe Steinmann <Uwe.Steinmann@fernuni-hagen.de>               |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: hw.c,v 1.94.2.1 2001/10/11 23:51:27 ssb Exp $ */
+/* $Id: hw.c,v 1.103 2002/02/28 08:26:15 sebastian Exp $ */
 
 #include <stdlib.h>
 #include <errno.h>
@@ -216,7 +216,7 @@ PHP_MINIT_FUNCTION(hw)
 	le_socketp = zend_register_list_destructors_ex(_close_hw_link, NULL, "hyperwave link", module_number);
 	le_psocketp = zend_register_list_destructors_ex(NULL, _close_hw_plink, "hyperwave link persistent", module_number);
 	le_document = zend_register_list_destructors_ex(_free_hw_document, NULL, "hyperwave document", module_number);
-	hw_module_entry.type = type;
+	Z_TYPE(hw_module_entry) = type;
 
 	REGISTER_LONG_CONSTANT("HW_ATTR_LANG", HW_ATTR_LANG, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("HW_ATTR_NR", HW_ATTR_NR, CONST_CS | CONST_PERSISTENT);
@@ -287,7 +287,7 @@ int make_return_objrec(pval **return_value, char **objrecs, int count)
 	add_assoc_long(stat_arr, "FullCollectionHeadNr", fullcollheadnr);
 
 	/* Add the stat array */
-	zend_hash_next_index_insert((*return_value)->value.ht, &stat_arr, sizeof(zval), NULL);
+	zend_hash_next_index_insert(Z_ARRVAL_PP(return_value), &stat_arr, sizeof(zval), NULL);
 
 	return 0;
 }
@@ -319,9 +319,9 @@ int make2_return_array_from_objrec(pval **return_value, char *objrec, zval *sarr
 	}
 
 	if (array_init(*return_value) == FAILURE) {
-		(*return_value)->type = IS_STRING;
-		(*return_value)->value.str.val = empty_string;
-		(*return_value)->value.str.len = 0;
+		Z_TYPE_PP(return_value) = IS_STRING;
+		Z_STRVAL_PP(return_value) = empty_string;
+		Z_STRLEN_PP(return_value) = 0;
 		return -1;
 	}
 
@@ -345,17 +345,17 @@ int make2_return_array_from_objrec(pval **return_value, char *objrec, zval *sarr
 			str++;
 		*str = '\0';
 		str++;
-		if(zend_hash_find(spec_arr->value.ht, attrname, strlen(attrname)+1, (void **) &dataptr) == FAILURE) {
+		if(zend_hash_find(Z_ARRVAL_P(spec_arr), attrname, strlen(attrname)+1, (void **) &dataptr) == FAILURE) {
 			add_assoc_string(*return_value, attrname, str, 1);
 		} else {
 			zval *newarr;
 			data = *dataptr;
-			spec = data->value.lval;
+			spec = Z_LVAL_P(data);
 
-			if(zend_hash_find((*return_value)->value.ht, attrname, strlen(attrname)+1, (void **) &dataptr) == FAILURE) {
+			if(zend_hash_find(Z_ARRVAL_PP(return_value), attrname, strlen(attrname)+1, (void **) &dataptr) == FAILURE) {
 				MAKE_STD_ZVAL(newarr);
 				array_init(newarr);
-				zend_hash_add((*return_value)->value.ht, attrname, strlen(attrname)+1, &newarr, sizeof(zval *), NULL);
+				zend_hash_add(Z_ARRVAL_PP(return_value), attrname, strlen(attrname)+1, &newarr, sizeof(zval *), NULL);
 			} else {
 				newarr = *dataptr;
 			}
@@ -392,8 +392,8 @@ int make2_return_array_from_objrec(pval **return_value, char *objrec, zval *sarr
 	if(NULL == sarr){
 /*
 		spec_arr->refcount--;
-		zend_hash_destroy(spec_arr->value.ht);
-		efree(spec_arr->value.ht);
+		zend_hash_destroy(Z_ARRVAL_P(spec_arr));
+		efree(Z_ARRVAL_P(spec_arr));
 */
 		zval_dtor(spec_arr);
 		efree(spec_arr);
@@ -425,9 +425,9 @@ int make_return_array_from_objrec(pval **return_value, char *objrec) {
 	MAKE_STD_ZVAL(group_arr);
 
 	if (array_init(*return_value) == FAILURE) {
-		(*return_value)->type = IS_STRING;
-		(*return_value)->value.str.val = empty_string;
-		(*return_value)->value.str.len = 0;
+		Z_TYPE_PP(return_value) = IS_STRING;
+		Z_STRVAL_PP(return_value) = empty_string;
+		Z_STRLEN_PP(return_value) = 0;
 		return -1;
 	}
 
@@ -494,7 +494,7 @@ int make_return_array_from_objrec(pval **return_value, char *objrec) {
 
 	/* Add the title array, if we have one */
 	if(hasTitle) {
-		zend_hash_update((*return_value)->value.ht, "Title", 6, &title_arr, sizeof(zval *), NULL);
+		zend_hash_update(Z_ARRVAL_PP(return_value), "Title", 6, &title_arr, sizeof(zval *), NULL);
 
 	} else {
 		efree(title_arr);
@@ -503,7 +503,7 @@ int make_return_array_from_objrec(pval **return_value, char *objrec) {
 
 	if(hasDescription) {
 	/* Add the description array, if we have one */
-		zend_hash_update((*return_value)->value.ht, "Description", 12, &desc_arr, sizeof(zval *), NULL);
+		zend_hash_update(Z_ARRVAL_PP(return_value), "Description", 12, &desc_arr, sizeof(zval *), NULL);
 
 	} else {
 		efree(desc_arr);
@@ -511,7 +511,7 @@ int make_return_array_from_objrec(pval **return_value, char *objrec) {
 
 	if(hasKeyword) {
 	/* Add the keyword array, if we have one */
-		zend_hash_update((*return_value)->value.ht, "Keyword", 8, &keyword_arr, sizeof(zval *), NULL);
+		zend_hash_update(Z_ARRVAL_PP(return_value), "Keyword", 8, &keyword_arr, sizeof(zval *), NULL);
 
 	} else {
 		efree(keyword_arr);
@@ -519,7 +519,7 @@ int make_return_array_from_objrec(pval **return_value, char *objrec) {
 
 	if(hasGroup) {
 	/* Add the Group array, if we have one */
-		zend_hash_update((*return_value)->value.ht, "Group", 6, &group_arr, sizeof(zval *), NULL);
+		zend_hash_update(Z_ARRVAL_PP(return_value), "Group", 6, &group_arr, sizeof(zval *), NULL);
 
 	} else {
 		efree(group_arr);
@@ -572,25 +572,25 @@ static char * make_objrec_from_array(HashTable *lht) {
 /*		if(HASH_KEY_IS_STRING == keytype) { */
 			zend_hash_get_current_data(lht, (void **) &keydataptr);
 			keydata = *keydataptr;
-			switch(keydata->type) {
+			switch(Z_TYPE_P(keydata)) {
 				case IS_STRING:
 					if(HASH_KEY_IS_STRING == keytype)
-						snprintf(str, BUFFERLEN, "%s=%s\n", key, keydata->value.str.val);
+						snprintf(str, BUFFERLEN, "%s=%s\n", key, Z_STRVAL_P(keydata));
 					else
-						snprintf(str, BUFFERLEN, "%s\n", keydata->value.str.val);
+						snprintf(str, BUFFERLEN, "%s\n", Z_STRVAL_P(keydata));
 					break;
 				case IS_LONG:
 					if(HASH_KEY_IS_STRING == keytype)
-						snprintf(str, BUFFERLEN, "%s=0x%lX\n", key, keydata->value.lval);
+						snprintf(str, BUFFERLEN, "%s=0x%lX\n", key, Z_LVAL_P(keydata));
 					else
-						snprintf(str, BUFFERLEN, "0x%lX\n", keydata->value.lval);
+						snprintf(str, BUFFERLEN, "0x%lX\n", Z_LVAL_P(keydata));
 					break;
 				case IS_ARRAY: {
 					int i, len, keylen, count;
 					char *strarr, *ptr, *ptr1;
-					count = zend_hash_num_elements(keydata->value.ht);
+					count = zend_hash_num_elements(Z_ARRVAL_P(keydata));
 					if(count > 0) {
-						strarr = make_objrec_from_array(keydata->value.ht);
+						strarr = make_objrec_from_array(Z_ARRVAL_P(keydata));
 						len = strlen(strarr) - 1;
 						keylen = strlen(key);
 						if(NULL == (ptr = malloc(len + 1 + count*(keylen+1)))) {
@@ -646,9 +646,9 @@ static int * make_ints_from_array(HashTable *lht) {
 		return NULL;
 	for(i=0; i<count; i++) {
 		zend_hash_get_current_data(lht, (void **) &keydata);
-		switch((*keydata)->type) {
+		switch(Z_TYPE_PP(keydata)) {
 			case IS_LONG:
-				objids[i] = (*keydata)->value.lval;
+				objids[i] = Z_LVAL_PP(keydata);
 				break;
 			default:
 				objids[i] = 0;
@@ -674,9 +674,9 @@ static char **make_strs_from_array(HashTable *arrht) {
 	/* Iterate through hash */
 	while(zend_hash_get_current_data(arrht, (void **) &dataptr) == SUCCESS) {
 		data = *dataptr;
-		switch(data->type) {
+		switch(Z_TYPE_P(data)) {
 			case IS_STRING:
-				*ptr = estrdup(data->value.str.val);
+				*ptr = estrdup(Z_STRVAL_P(data));
 /*fprintf(stderr, "carr[] = %s\n", *ptr); */
 				break;
 			default:
@@ -726,20 +726,20 @@ static void php_hw_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 
 	/* Host: */
 	convert_to_string_ex(argv[0]);
-	host = (char *) estrndup((*argv[0])->value.str.val, (*argv[0])->value.str.len);
+	host = (char *) estrndup(Z_STRVAL_PP(argv[0]), Z_STRLEN_PP(argv[0]));
 
 	/* Port: */
 	convert_to_long_ex(argv[1]);
-	port = (*argv[1])->value.lval;
+	port = Z_LVAL_PP(argv[1]);
 
 	/* Username and Password */
 	if(argc > 2) {
 		/* Username */
 		convert_to_string_ex(argv[2]);
-		username = (char *) estrndup((*argv[2])->value.str.val, (*argv[2])->value.str.len);
+		username = (char *) estrndup(Z_STRVAL_PP(argv[2]), Z_STRLEN_PP(argv[2]));
 		/* Password */
 		convert_to_string_ex(argv[3]);
-		password = (char *) estrndup((*argv[3])->value.str.val, (*argv[3])->value.str.len);
+		password = (char *) estrndup(Z_STRVAL_PP(argv[3]), Z_STRLEN_PP(argv[3]));
 	}
 
 	/* Create identifier string for connection */
@@ -819,7 +819,7 @@ static void php_hw_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			ptr->username = strdup("anonymous");
 	
 			new_le.ptr = (void *) ptr;
-			new_le.type = le_psocketp;
+			Z_TYPE(new_le) = le_psocketp;
 
 			if (zend_hash_update(&EG(persistent_list), hashed_details, hashed_details_length+1, (void *) &new_le, sizeof(list_entry), NULL)==FAILURE) {
 				php_error(E_ERROR, "Could not hash table with connection details");
@@ -835,14 +835,14 @@ static void php_hw_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			HwSG(num_persistent)++;
 		} else {
 			/*php_printf("Found already open connection\n"); */
-			if (le->type != le_psocketp) {
+			if (Z_TYPE_P(le) != le_psocketp) {
 				RETURN_FALSE;
 			}
 			ptr = le->ptr;
 		}
 
-		return_value->value.lval = zend_list_insert(ptr, le_psocketp);
-		return_value->type = IS_RESOURCE;
+		Z_LVAL_P(return_value) = zend_list_insert(ptr, le_psocketp);
+		Z_TYPE_P(return_value) = IS_RESOURCE;
 	
 	} else {
 		list_entry *index_ptr, new_index_ptr;
@@ -856,14 +856,14 @@ static void php_hw_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			int type, link;
 			void *ptr;
 	
-			if (index_ptr->type != le_index_ptr) {
+			if (Z_TYPE_P(index_ptr) != le_index_ptr) {
 				RETURN_FALSE;
 			}
 			link = (int) index_ptr->ptr;
 			ptr = (hw_connection *) zend_list_find(link, &type);   /* check if the link is still there */
 			if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
-				return_value->value.lval = HwSG(default_link) = link;
-				return_value->type = IS_LONG;
+				Z_LVAL_P(return_value) = HwSG(default_link) = link;
+				Z_TYPE_P(return_value) = IS_LONG;
 				efree(hashed_details);
 				if(username) efree(username);
 				if(password) efree(password);
@@ -913,11 +913,11 @@ static void php_hw_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 		ptr->hostname = strdup(host);
 		ptr->username = strdup("anonymous");
 	
-		return_value->value.lval = zend_list_insert(ptr, le_socketp);
-		return_value->type = IS_RESOURCE;
+		Z_LVAL_P(return_value) = zend_list_insert(ptr, le_socketp);
+		Z_TYPE_P(return_value) = IS_RESOURCE;
 	
-		new_index_ptr.ptr = (void *) return_value->value.lval;
-		new_index_ptr.type = le_index_ptr;
+		new_index_ptr.ptr = (void *) Z_LVAL_P(return_value);
+		Z_TYPE(new_index_ptr) = le_index_ptr;
 		if (zend_hash_update(&EG(regular_list), hashed_details, hashed_details_length+1, (void *) &new_index_ptr, sizeof(list_entry), NULL)==FAILURE) {
 			php_error(E_ERROR, "Could not update connection details in hash table");
 			if(host) efree(host);
@@ -929,7 +929,7 @@ static void php_hw_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 
 	efree(hashed_details);
 	if(host) efree(host);
-	HwSG(default_link)=return_value->value.lval;
+	HwSG(default_link)=Z_LVAL_P(return_value);
 
 	/* At this point we have a working connection. If userdata was given
 	   we are also indentified.
@@ -982,7 +982,7 @@ PHP_FUNCTION(hw_close)
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long_ex(arg1);
-	id=(*arg1)->value.lval;
+	id=Z_LVAL_PP(arg1);
 	ptr = zend_list_find(id, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -1006,7 +1006,7 @@ PHP_FUNCTION(hw_info)
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long_ex(arg1);
-	id=(*arg1)->value.lval;
+	id=Z_LVAL_PP(arg1);
 	ptr = zend_list_find(id, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -1017,9 +1017,9 @@ PHP_FUNCTION(hw_info)
 		php_printf("%s\n", str);
 		efree(str);
 		*/
-		return_value->value.str.len = strlen(str);
-		return_value->value.str.val = str;
-		return_value->type = IS_STRING;
+		Z_STRLEN_P(return_value) = strlen(str);
+		Z_STRVAL_P(return_value) = str;
+		Z_TYPE_P(return_value) = IS_STRING;
 		return;
 		}
 	RETURN_FALSE;
@@ -1038,7 +1038,7 @@ PHP_FUNCTION(hw_error)
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long_ex(arg1);
-	id=(*arg1)->value.lval;
+	id=Z_LVAL_PP(arg1);
 	ptr = zend_list_find(id, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -1061,7 +1061,7 @@ PHP_FUNCTION(hw_errormsg)
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long_ex(arg1);
-	id=(*arg1)->value.lval;
+	id=Z_LVAL_PP(arg1);
 	ptr = zend_list_find(id, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -1336,8 +1336,8 @@ PHP_FUNCTION(hw_root)
 		WRONG_PARAM_COUNT;
 	}
 
-	return_value->value.lval = 0;
-	return_value->type = IS_LONG;
+	Z_LVAL_P(return_value) = 0;
+	Z_TYPE_P(return_value) = IS_LONG;
 }
 /* }}} */
 
@@ -1352,7 +1352,7 @@ char *php_hw_command(INTERNAL_FUNCTION_PARAMETERS, int comm) {
 		return NULL;
 	}
 	convert_to_long_ex(arg1);
-	link=(*arg1)->value.lval;
+	link=Z_LVAL_PP(arg1);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", link);
@@ -1380,9 +1380,9 @@ PHP_FUNCTION(hw_stat)
 	if(object == NULL)
 		RETURN_FALSE;
 
-	return_value->value.str.val = object;
-	return_value->value.str.len = strlen(object);
-	return_value->type = IS_STRING;
+	Z_STRVAL_P(return_value) = object;
+	Z_STRLEN_P(return_value) = strlen(object);
+	Z_TYPE_P(return_value) = IS_STRING;
 }
 /* }}} */
 
@@ -1493,7 +1493,7 @@ php_printf("%s\n", ptr);
 		add_assoc_string(user_arr, "TotalTime", name, 1);
 
 		/* Add the user array */
-		zend_hash_index_update(return_value->value.ht, i++, &user_arr, sizeof(pval), NULL);
+		zend_hash_index_update(Z_ARRVAL_P(return_value), i++, &user_arr, sizeof(pval), NULL);
 
 		attrname = php_strtok_r(NULL, "\n", &strtok_buf);
 	}
@@ -1517,9 +1517,9 @@ PHP_FUNCTION(hw_dummy)
 	convert_to_long_ex(arg1);
 	convert_to_long_ex(arg2);
 	convert_to_long_ex(arg3);
-	link=(*arg1)->value.lval;
-	id=(*arg2)->value.lval;
-	msgid=(*arg3)->value.lval;
+	link=Z_LVAL_PP(arg1);
+	id=Z_LVAL_PP(arg2);
+	msgid=Z_LVAL_PP(arg3);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -1533,9 +1533,9 @@ PHP_FUNCTION(hw_dummy)
 		RETURN_FALSE;
 
 php_printf("%s", object);
-	return_value->value.str.val = object;
-	return_value->value.str.len = strlen(object);
-	return_value->type = IS_STRING;
+	Z_STRVAL_P(return_value) = object;
+	Z_STRLEN_P(return_value) = strlen(object);
+	Z_TYPE_P(return_value) = IS_STRING;
 	}
 }
 /* }}} */
@@ -1556,7 +1556,7 @@ PHP_FUNCTION(hw_getobject)
 		WRONG_PARAM_COUNT;
 
 	convert_to_long_ex(argv[0]);
-	if((*argv[1])->type == IS_ARRAY) {
+	if(Z_TYPE_PP(argv[1]) == IS_ARRAY) {
 		multi = 1;
 		convert_to_array_ex(argv[1]);
 	} else {
@@ -1566,11 +1566,11 @@ PHP_FUNCTION(hw_getobject)
 
 	if(argc == 3) {
 		convert_to_string_ex(argv[2]);
-		query = (*argv[2])->value.str.val;
+		query = Z_STRVAL_PP(argv[2]);
 	} else
 		query = NULL;
 
-	link=(*argv[0])->value.lval;
+	link=Z_LVAL_PP(argv[0]);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", link);
@@ -1584,7 +1584,7 @@ PHP_FUNCTION(hw_getobject)
 		HashTable *lht;
 		zval **keydata;
 
-		lht = (*argv[1])->value.ht;
+		lht = Z_ARRVAL_PP(argv[1]);
 		if(0 == (count = zend_hash_num_elements(lht))) {
 			RETURN_FALSE;
 		}
@@ -1593,12 +1593,12 @@ PHP_FUNCTION(hw_getobject)
 		zend_hash_internal_pointer_reset(lht);
 		for(i=0; i<count; i++) {
 			zend_hash_get_current_data(lht, (void **) &keydata);
-			switch((*keydata)->type) {
+			switch(Z_TYPE_PP(keydata)) {
 				case IS_LONG:
-					ids[i] = (*keydata)->value.lval;
+					ids[i] = Z_LVAL_PP(keydata);
 					break;
 				default:
-					ids[i] = (*keydata)->value.lval;
+					ids[i] = Z_LVAL_PP(keydata);
 			}
 			zend_hash_move_forward(lht);
 		}
@@ -1620,7 +1620,7 @@ PHP_FUNCTION(hw_getobject)
 		
 	} else {
 		char *object = NULL;
-		id=(*argv[1])->value.lval;
+		id=Z_LVAL_PP(argv[1]);
 		if (0 != (ptr->lasterror = send_getobject(ptr->socket, id, &object)))
 			RETURN_FALSE;
 
@@ -1644,9 +1644,9 @@ PHP_FUNCTION(hw_insertobject)
 	convert_to_long(arg1);
 	convert_to_string(arg2);
 	convert_to_string(arg3);
-	link=arg1->value.lval;
-	objrec=arg2->value.str.val;
-	parms=arg3->value.str.val;
+	link=Z_LVAL_P(arg1);
+	objrec=Z_STRVAL_P(arg2);
+	parms=Z_STRVAL_P(arg3);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", link);
@@ -1677,8 +1677,8 @@ PHP_FUNCTION(hw_getandlock)
 	}
 	convert_to_long(arg1);
 	convert_to_long(arg2);
-	link=arg1->value.lval;
-	id=arg2->value.lval;
+	link=Z_LVAL_P(arg1);
+	id=Z_LVAL_P(arg2);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -1709,8 +1709,8 @@ PHP_FUNCTION(hw_unlock)
 	}
 	convert_to_long(arg1);
 	convert_to_long(arg2);
-	link=arg1->value.lval;
-	id=arg2->value.lval;
+	link=Z_LVAL_P(arg1);
+	id=Z_LVAL_P(arg2);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -1738,8 +1738,8 @@ PHP_FUNCTION(hw_deleteobject)
 	}
 	convert_to_long(arg1);
 	convert_to_long(arg2);
-	link=arg1->value.lval;
-	id=arg2->value.lval;
+	link=Z_LVAL_P(arg1);
+	id=Z_LVAL_P(arg2);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -1770,9 +1770,9 @@ PHP_FUNCTION(hw_changeobject)
 	convert_to_long(arg1); /* Connection */
 	convert_to_long(arg2); /* object ID */
 	convert_to_array(arg3); /* Array with new attributes */
-	link=arg1->value.lval;
-	id=arg2->value.lval;
-	newobjarr=arg3->value.ht;
+	link=Z_LVAL_P(arg1);
+	id=Z_LVAL_P(arg2);
+	newobjarr=Z_ARRVAL_P(arg3);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -1794,12 +1794,12 @@ PHP_FUNCTION(hw_changeobject)
 		zend_hash_get_current_key(newobjarr, &key, &ind, 0);
 		zend_hash_get_current_data(newobjarr, (void *) &dataptr);
 		data = *dataptr;
-		switch(data->type) {
+		switch(Z_TYPE_P(data)) {
 			case IS_STRING:
-				if(strlen(data->value.str.val) == 0)
+				if(strlen(Z_STRVAL_P(data)) == 0)
 					snprintf(newattribute, BUFFERLEN, "rem %s", key);
 				else
-					snprintf(newattribute, BUFFERLEN, "add %s=%s", key, data->value.str.val);
+					snprintf(newattribute, BUFFERLEN, "add %s=%s", key, Z_STRVAL_P(data));
 				noinsert = 0;
 				break;
 			default:
@@ -1869,13 +1869,13 @@ PHP_FUNCTION(hw_modifyobject)
 	convert_to_array_ex(argv[3]); /* Array with attributes to add */
 	if(argc == 5) {
 		convert_to_long_ex(argv[4]);
-		mode = (*argv[4])->value.lval;
+		mode = Z_LVAL_PP(argv[4]);
 	} else
 		mode = 0;
-	link=(*argv[0])->value.lval;
-	id=(*argv[1])->value.lval;
-	remobjarr=(*argv[2])->value.ht;
-	addobjarr=(*argv[3])->value.ht;
+	link=Z_LVAL_PP(argv[0]);
+	id=Z_LVAL_PP(argv[1]);
+	remobjarr=Z_ARRVAL_PP(argv[2]);
+	addobjarr=Z_ARRVAL_PP(argv[3]);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -1894,10 +1894,10 @@ PHP_FUNCTION(hw_modifyobject)
 			zend_hash_get_current_key(addobjarr, &key, &ind, 0);
 			zend_hash_get_current_data(addobjarr, (void *) &dataptr);
 			data = *dataptr;
-			switch(data->type) {
+			switch(Z_TYPE_P(data)) {
 				case IS_STRING:
-					if(strlen(data->value.str.val) > 0) {
-						snprintf(addattribute, BUFFERLEN, "add %s=%s", key, data->value.str.val);
+					if(strlen(Z_STRVAL_P(data)) > 0) {
+						snprintf(addattribute, BUFFERLEN, "add %s=%s", key, Z_STRVAL_P(data));
 /* fprintf(stderr, "add: %s\n", addattribute); */
 						noinsert = 0;
 					}
@@ -1905,9 +1905,9 @@ PHP_FUNCTION(hw_modifyobject)
 				case IS_ARRAY: {
 					int i, len, keylen, count;
 					char *strarr, *ptr, *ptr1;
-					count = zend_hash_num_elements(data->value.ht);
+					count = zend_hash_num_elements(Z_ARRVAL_P(data));
 					if(count > 0) {
-						strarr = make_objrec_from_array(data->value.ht);
+						strarr = make_objrec_from_array(Z_ARRVAL_P(data));
 						len = strlen(strarr) - 1;
 						keylen = strlen(key);
 						if(NULL == (ptr = malloc(len + 1 + count*(keylen+1+4)))) {
@@ -1962,10 +1962,10 @@ PHP_FUNCTION(hw_modifyobject)
 			zend_hash_get_current_key(remobjarr, &key, &ind, 0);
 			zend_hash_get_current_data(remobjarr, (void *) &dataptr);
 			data = *dataptr;
-			switch(data->type) {
+			switch(Z_TYPE_P(data)) {
 				case IS_STRING:
-					if(strlen(data->value.str.val) > 0) {
-						snprintf(remattribute, BUFFERLEN, "rem %s=%s", key, data->value.str.val);
+					if(strlen(Z_STRVAL_P(data)) > 0) {
+						snprintf(remattribute, BUFFERLEN, "rem %s=%s", key, Z_STRVAL_P(data));
 						noinsert = 0;
 					} else {
 						snprintf(remattribute, BUFFERLEN, "rem %s", key);
@@ -1975,9 +1975,9 @@ PHP_FUNCTION(hw_modifyobject)
 				case IS_ARRAY: {
 					int i, len, keylen, count;
 					char *strarr, *ptr, *ptr1;
-					count = zend_hash_num_elements(data->value.ht);
+					count = zend_hash_num_elements(Z_ARRVAL_P(data));
 					if(count > 0) {
-						strarr = make_objrec_from_array(data->value.ht);
+						strarr = make_objrec_from_array(Z_ARRVAL_P(data));
 						len = strlen(strarr) - 1;
 						keylen = strlen(key);
 						if(NULL == (ptr = malloc(len + 1 + count*(keylen+1+4)))) {
@@ -2094,16 +2094,16 @@ void php_hw_mvcp(INTERNAL_FUNCTION_PARAMETERS, int mvcp) {
 	convert_to_long(arg1);
 	convert_to_array(arg2);
 	convert_to_long(arg3);
-	link=arg1->value.lval;
-	src_arr=arg2->value.ht;
+	link=Z_LVAL_P(arg1);
+	src_arr=Z_ARRVAL_P(arg2);
 	switch(mvcp) {
 		case MOVE: /* Move also has fromID, which is arg3 --> arg4 becomes destID */
 			convert_to_long(arg4);
-			from=arg3->value.lval;
-			dest=arg4->value.lval;
+			from=Z_LVAL_P(arg3);
+			dest=Z_LVAL_P(arg4);
 			break;
 		case COPY: /* No fromID for Copy needed --> arg3 is destID */
-			dest=arg3->value.lval;
+			dest=Z_LVAL_P(arg3);
 			from = 0;
 			break;
 	}
@@ -2132,16 +2132,16 @@ void php_hw_mvcp(INTERNAL_FUNCTION_PARAMETERS, int mvcp) {
 		zval *keydata, **keydataptr;
 		zend_hash_get_current_data(src_arr, (void **) &keydataptr);
 		keydata = *keydataptr;
-		if(keydata->type == IS_LONG) {
-			if(0 != (ptr->lasterror = send_getobject(ptr->socket, keydata->value.lval, &objrec))) {
+		if(Z_TYPE_P(keydata) == IS_LONG) {
+			if(0 != (ptr->lasterror = send_getobject(ptr->socket, Z_LVAL_P(keydata), &objrec))) {
 				efree(collIDs);
 				efree(docIDs);
 				RETURN_FALSE;
 			}
 			if(0 == fnAttributeCompare(objrec, "DocumentType", "collection"))
-				collIDs[collIDcount++] = keydata->value.lval;
+				collIDs[collIDcount++] = Z_LVAL_P(keydata);
 			else
-				docIDs[docIDcount++] = keydata->value.lval;
+				docIDs[docIDcount++] = Z_LVAL_P(keydata);
 			efree(objrec);
 		}
 		zend_hash_move_forward(src_arr);
@@ -2205,20 +2205,20 @@ PHP_FUNCTION(hw_gettext)
 	mode = 0;
 	urlprefix = NULL;
 	if(argc == 3) {
-		switch(argv[2]->type) {
+		switch(Z_TYPE_P(argv[2])) {
 			case IS_LONG:
 				convert_to_long(argv[2]);
-				rootid = argv[2]->value.lval;
+				rootid = Z_LVAL_P(argv[2]);
 				mode = 1;
 				break;
 			case IS_STRING:	
 				convert_to_string(argv[2]);
-				urlprefix = argv[2]->value.str.val;
+				urlprefix = Z_STRVAL_P(argv[2]);
 				break;
 		}
 	}
-	link=argv[0]->value.lval;
-	id=argv[1]->value.lval;
+	link=Z_LVAL_P(argv[0]);
+	id=Z_LVAL_P(argv[1]);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -2239,8 +2239,8 @@ PHP_FUNCTION(hw_gettext)
 	doc->attributes = attributes;
 	doc->bodytag = bodytag;
 	doc->size = count;
-	return_value->value.lval = zend_list_insert(doc, le_document);
-	return_value->type = IS_LONG;
+	Z_LVAL_P(return_value) = zend_list_insert(doc, le_document);
+	Z_TYPE_P(return_value) = IS_LONG;
 	}
 }
 /* }}} */
@@ -2259,7 +2259,7 @@ PHP_FUNCTION(hw_edittext)
 	}
 	convert_to_long(arg1);
 	convert_to_long(arg2);
-	link=arg1->value.lval;
+	link=Z_LVAL_P(arg1);
 	ptr = zend_list_find(link, &type);
 
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
@@ -2267,7 +2267,7 @@ PHP_FUNCTION(hw_edittext)
 		RETURN_FALSE;
 	}
 
-	doc=arg2->value.lval;
+	doc=Z_LVAL_P(arg2);
 	docptr = zend_list_find(doc, &type);
 
 	if(!docptr || (type!=le_document)) {
@@ -2302,8 +2302,8 @@ PHP_FUNCTION(hw_getcgi)
 	}
 	convert_to_long(arg1);
 	convert_to_long(arg2);
-	link=arg1->value.lval;
-	id=arg2->value.lval;
+	link=Z_LVAL_P(arg1);
+	id=Z_LVAL_P(arg2);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -2343,8 +2343,8 @@ PHP_FUNCTION(hw_getcgi)
 	doc->attributes = attributes;
 	doc->bodytag = NULL;
 	doc->size = count;
-	return_value->value.lval = zend_list_insert(doc, le_document);
-	return_value->type = IS_LONG;
+	Z_LVAL_P(return_value) = zend_list_insert(doc, le_document);
+	Z_TYPE_P(return_value) = IS_LONG;
 	}
 }
 #undef BUFFERLEN
@@ -2364,8 +2364,8 @@ PHP_FUNCTION(hw_getremote)
 	}
 	convert_to_long(arg1);
 	convert_to_long(arg2);
-	link=arg1->value.lval;
-	id=arg2->value.lval;
+	link=Z_LVAL_P(arg1);
+	id=Z_LVAL_P(arg2);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -2385,8 +2385,8 @@ PHP_FUNCTION(hw_getremote)
 	doc->attributes = attributes;
 	doc->bodytag = NULL;
 	doc->size = count;
-	return_value->value.lval = zend_list_insert(doc, le_document);
-	return_value->type = IS_LONG;
+	Z_LVAL_P(return_value) = zend_list_insert(doc, le_document);
+	Z_TYPE_P(return_value) = IS_LONG;
 	}
 }
 /* }}} */
@@ -2405,8 +2405,8 @@ PHP_FUNCTION(hw_getremotechildren)
 	}
 	convert_to_long(arg1);
 	convert_to_string(arg2);
-	link=arg1->value.lval;
-	objrec=arg2->value.str.val;
+	link=Z_LVAL_P(arg1);
+	objrec=Z_STRVAL_P(arg2);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", link);
@@ -2474,8 +2474,8 @@ php_printf("count = %d, remainder = <HR>%s---<HR>", count, remainder);
 		doc->attributes = strdup(objrec);
 		doc->bodytag = NULL;
 		doc->size = strlen(doc->data);
-		return_value->value.lval = zend_list_insert(doc, le_document);
-		return_value->type = IS_LONG;
+		Z_LVAL_P(return_value) = zend_list_insert(doc, le_document);
+		Z_TYPE_P(return_value) = IS_LONG;
 	} else {
 		if (array_init(return_value) == FAILURE) {
 			efree(offsets);
@@ -2509,8 +2509,8 @@ PHP_FUNCTION(hw_setlinkroot)
 	}
 	convert_to_long(arg1);
 	convert_to_long(arg2);
-	link = arg1->value.lval;
-	rootid = arg2->value.lval;
+	link = Z_LVAL_P(arg1);
+	rootid = Z_LVAL_P(arg2);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", link);
@@ -2555,8 +2555,8 @@ PHP_FUNCTION(hw_pipedocument)
 	convert_to_long(arg1);
 	convert_to_long(arg2);
 	
-	link=arg1->value.lval;
-	id=arg2->value.lval;
+	link=Z_LVAL_P(arg1);
+	id=Z_LVAL_P(arg2);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", link);
@@ -2566,7 +2566,7 @@ PHP_FUNCTION(hw_pipedocument)
 	/* check for the array with urlprefixes */
 	if(argc == 3) {
 		convert_to_array(arg3);
-		prefixarray =arg3->value.ht;
+		prefixarray =Z_ARRVAL_P(arg3);
 		if((prefixarray == NULL) || (zend_hash_num_elements(prefixarray) != 5)) {
 			php_error(E_WARNING, "You must provide 5 urlprefixes (you have provided %d)", zend_hash_num_elements(prefixarray));
 			RETURN_FALSE;
@@ -2582,19 +2582,19 @@ PHP_FUNCTION(hw_pipedocument)
 			zend_hash_get_current_key(prefixarray, &key, &ind, 0);
 			zend_hash_get_current_data(prefixarray, (void *) &dataptr);
 			data = *dataptr;
-			if (data->type != IS_STRING) {
+			if (Z_TYPE_P(data) != IS_STRING) {
 				php_error(E_WARNING, "%s must be a String", key);
 				RETURN_FALSE;
 			} else if ( strcmp(key, "HW_DEFAULT_LINK") == 0 ) {
-				urlprefix[HW_DEFAULT_LINK] = data->value.str.val;
+				urlprefix[HW_DEFAULT_LINK] = Z_STRVAL_P(data);
 			} else if ( strcmp(key, "HW_IMAGE_LINK") == 0 ) {
-				urlprefix[HW_IMAGE_LINK] = data->value.str.val;
+				urlprefix[HW_IMAGE_LINK] = Z_STRVAL_P(data);
 			} else if ( strcmp(key, "HW_BACKGROUND_LINK") == 0 ) {
-				urlprefix[HW_BACKGROUND_LINK] = data->value.str.val;
+				urlprefix[HW_BACKGROUND_LINK] = Z_STRVAL_P(data);
 			} else if ( strcmp(key, "HW_INTAG_LINK") == 0 ) {
-				urlprefix[HW_INTAG_LINK] = data->value.str.val;
+				urlprefix[HW_INTAG_LINK] = Z_STRVAL_P(data);
 			} else if ( strcmp(key, "HW_APPLET_LINK") == 0 ) {
-				urlprefix[HW_APPLET_LINK] = data->value.str.val;
+				urlprefix[HW_APPLET_LINK] = Z_STRVAL_P(data);
 			} else {
 				php_error(E_WARNING, "%s is not a valid urlprefix", key);
 				RETURN_FALSE;
@@ -2634,8 +2634,8 @@ PHP_FUNCTION(hw_pipedocument)
 	doc->bodytag = bodytag;
 	doc->size = count;
 /* fprintf(stderr, "size = %d\n", count); */
-	return_value->value.lval = zend_list_insert(doc, le_document);
-	return_value->type = IS_LONG;
+	Z_LVAL_P(return_value) = zend_list_insert(doc, le_document);
+	Z_TYPE_P(return_value) = IS_LONG;
 	}
 }
 /* }}} */
@@ -2664,12 +2664,12 @@ PHP_FUNCTION(hw_oldpipedocument)
 	convert_to_long(argv[1]);
 /*	if(argc == 3) {
 		convert_to_long(argv[2]);
-		rootid = argv[2]->value.lval;
+		rootid = Z_LVAL_P(argv[2]);
 		if(rootid != 0)
 			mode = 1;
 	}
-*/	link=argv[0]->value.lval;
-	id=argv[1]->value.lval;
+*/	link=Z_LVAL_P(argv[0]);
+	id=Z_LVAL_P(argv[1]);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", link);
@@ -2703,8 +2703,8 @@ PHP_FUNCTION(hw_oldpipedocument)
 	doc->bodytag = bodytag;
 	doc->size = count;
 /* fprintf(stderr, "size = %d\n", count); */
-	return_value->value.lval = zend_list_insert(doc, le_document);
-	return_value->type = IS_LONG;
+	Z_LVAL_P(return_value) = zend_list_insert(doc, le_document);
+	Z_TYPE_P(return_value) = IS_LONG;
 	}
 }
 /* }}} */
@@ -2729,8 +2729,8 @@ PHP_FUNCTION(hw_pipecgi)
 	}
 	convert_to_long(arg1);
 	convert_to_long(arg2);
-	link=arg1->value.lval;
-	id=arg2->value.lval;
+	link=Z_LVAL_P(arg1);
+	id=Z_LVAL_P(arg2);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -2769,8 +2769,8 @@ PHP_FUNCTION(hw_pipecgi)
 	doc->attributes = attributes;
 	doc->bodytag = NULL;
 	doc->size = count;
-	return_value->value.lval = zend_list_insert(doc, le_document);
-	return_value->type = IS_LONG;
+	Z_LVAL_P(return_value) = zend_list_insert(doc, le_document);
+	Z_TYPE_P(return_value) = IS_LONG;
 	}
 }
 #undef BUFFERLEN
@@ -2795,15 +2795,15 @@ PHP_FUNCTION(hw_insertdocument)
 	convert_to_long(arg1);
 	convert_to_long(arg2);
 	convert_to_long(arg3);
-	link=arg1->value.lval;
-	id=arg2->value.lval;
+	link=Z_LVAL_P(arg1);
+	id=Z_LVAL_P(arg2);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find connection identifier %d", link);
 		RETURN_FALSE;
 	}
 
-	doc=arg3->value.lval;
+	doc=Z_LVAL_P(arg3);
 	docptr = zend_list_find(doc, &type);
 	if(!docptr || (type!=le_document)) {
 		php_error(E_WARNING, "Unable to find document identifier %d", doc);
@@ -2845,19 +2845,19 @@ PHP_FUNCTION(hw_new_document)
 	doc = malloc(sizeof(hw_document));
 	if(NULL == doc)
 		RETURN_FALSE;
-	doc->data = malloc(arg3->value.lval+1);
+	doc->data = malloc(Z_LVAL_P(arg3)+1);
 	if(NULL == doc->data) {
 		free(doc);
 		RETURN_FALSE;
 	}
-	memcpy(doc->data, arg2->value.str.val, arg3->value.lval);
+	memcpy(doc->data, Z_STRVAL_P(arg2), Z_LVAL_P(arg3));
 	ptr = doc->data;
-	ptr[arg3->value.lval] = '\0';
-	doc->attributes = strdup(arg1->value.str.val);
+	ptr[Z_LVAL_P(arg3)] = '\0';
+	doc->attributes = strdup(Z_STRVAL_P(arg1));
 	doc->bodytag = NULL;
-	doc->size = arg3->value.lval;
-	return_value->value.lval = zend_list_insert(doc, le_document);
-	return_value->type = IS_LONG;
+	doc->size = Z_LVAL_P(arg3);
+	Z_LVAL_P(return_value) = zend_list_insert(doc, le_document);
+	Z_TYPE_P(return_value) = IS_LONG;
 }
 /* }}} */
 
@@ -2884,7 +2884,7 @@ PHP_FUNCTION(hw_new_document_from_file)
 	convert_to_string_ex(arg1);
 	convert_to_string_ex(arg2);
 
-	fp = php_fopen_wrapper((*arg2)->value.str.val, "r", use_include_path|ENFORCE_SAFE_MODE, &issock, &socketd, NULL TSRMLS_CC);
+	fp = php_fopen_wrapper(Z_STRVAL_PP(arg2), "r", use_include_path|ENFORCE_SAFE_MODE, &issock, &socketd, NULL TSRMLS_CC);
 	if (!fp && !socketd){
 		if (issock != BAD_URL) {
 			char *tmp = estrndup(Z_STRVAL_PP(arg2), Z_STRLEN_PP(arg2));
@@ -2911,9 +2911,9 @@ PHP_FUNCTION(hw_new_document_from_file)
 		fstat(fd, &sbuf);
 
 		if (sbuf.st_size > BUFSIZE) {
-/*			off = ftell(fp); */
-			len = sbuf.st_size;/* - off; */
-			p = mmap(0, len, PROT_READ, MAP_PRIVATE, fd, off);
+			off = ftell(fp);
+			len = sbuf.st_size - off;
+			p = mmap(0, len, PROT_READ, MAP_SHARED, fd, off);
 			if (p != (void *) MAP_FAILED) {
 				doc->data = malloc(len);
 				if(NULL == doc->data) {
@@ -2921,7 +2921,7 @@ PHP_FUNCTION(hw_new_document_from_file)
 					free(doc);
 					RETURN_FALSE;
 				}
-				memcpy(p, doc->data, len);
+				memcpy(doc->data, p, len);
 				munmap(p, len);
 				bcount = len;
 				doc->size = len;
@@ -2956,11 +2956,11 @@ PHP_FUNCTION(hw_new_document_from_file)
 	doc->data = realloc(doc->data, bcount+1);
 	ptr = doc->data;
 	ptr[bcount] = '\0';
-	doc->attributes = strdup((*arg1)->value.str.val);
+	doc->attributes = strdup(Z_STRVAL_PP(arg1));
 	doc->bodytag = NULL;
 	doc->size = bcount;
-	return_value->value.lval = zend_list_insert(doc, le_document);
-	return_value->type = IS_LONG;
+	Z_LVAL_P(return_value) = zend_list_insert(doc, le_document);
+	Z_TYPE_P(return_value) = IS_LONG;
 }
 /* }}} */
 #undef BUFSIZE
@@ -2977,7 +2977,7 @@ PHP_FUNCTION(hw_free_document)
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long(arg1);
-	id=arg1->value.lval;
+	id=Z_LVAL_P(arg1);
 	ptr = zend_list_find(id, &type);
 	if(!ptr || (type!=le_document)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -3004,7 +3004,7 @@ PHP_FUNCTION(hw_output_document)
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long(arg1);
-	id=arg1->value.lval;
+	id=Z_LVAL_P(arg1);
 	ptr = zend_list_find(id, &type);
 	if(!ptr || (type!=le_document)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -3038,7 +3038,7 @@ PHP_FUNCTION(hw_document_bodytag)
 		RETURN_FALSE;
 	
 	convert_to_long(argv[0]);
-	id=argv[0]->value.lval;
+	id=Z_LVAL_P(argv[0]);
 	ptr = zend_list_find(id, &type);
 	if(!ptr || (type!=le_document)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -3047,17 +3047,17 @@ PHP_FUNCTION(hw_document_bodytag)
 
 	if(argc == 2) {
 		convert_to_string(argv[1]);
-		str=argv[1]->value.str.val;
+		str=Z_STRVAL_P(argv[1]);
 	}
 
 	if(str != NULL) {
-		temp = emalloc(argv[1]->value.str.len + strlen(ptr->bodytag) + 2);
+		temp = emalloc(Z_STRLEN_P(argv[1]) + strlen(ptr->bodytag) + 2);
 		strcpy(temp, ptr->bodytag);
 		strcpy(temp+strlen(ptr->bodytag)-1, str);
-		strcpy(temp+strlen(ptr->bodytag)-1+argv[1]->value.str.len, ">\n");
+		strcpy(temp+strlen(ptr->bodytag)-1+Z_STRLEN_P(argv[1]), ">\n");
 		RETURN_STRING(temp, 0);
 	} else {
-//fprintf(stderr, "hw_document_bodytag: %s (%s)\n", ptr->bodytag, ptr->attributes);
+/* fprintf(stderr, "hw_document_bodytag: %s (%s)\n", ptr->bodytag, ptr->attributes); */
 		if(ptr->bodytag) {
 			RETURN_STRING(ptr->bodytag, 1);
 		} else {
@@ -3083,7 +3083,7 @@ PHP_FUNCTION(hw_document_content)
 		RETURN_FALSE;
 	
 	convert_to_long(argv[0]);
-	id=argv[0]->value.lval;
+	id=Z_LVAL_P(argv[0]);
 	ptr = zend_list_find(id, &type);
 	if(!ptr || (type!=le_document)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -3112,7 +3112,7 @@ PHP_FUNCTION(hw_document_setcontent)
 	
 	convert_to_long(argv[0]);
 	convert_to_string(argv[1]);
-	id=argv[0]->value.lval;
+	id=Z_LVAL_P(argv[0]);
 	ptr = zend_list_find(id, &type);
 	if(!ptr || (type!=le_document)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -3120,7 +3120,7 @@ PHP_FUNCTION(hw_document_setcontent)
 	}
 
 	str = ptr->data;
-	if(NULL != (ptr->data = strdup(argv[1]->value.str.val))) {
+	if(NULL != (ptr->data = strdup(Z_STRVAL_P(argv[1])))) {
 		ptr->size = strlen(ptr->data);
 		free(str);
 		RETURN_TRUE;
@@ -3147,7 +3147,7 @@ PHP_FUNCTION(hw_document_size)
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long(arg1);
-	id=arg1->value.lval;
+	id=Z_LVAL_P(arg1);
 	ptr = zend_list_find(id, &type);
 	if(!ptr || (type!=le_document)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -3174,7 +3174,7 @@ PHP_FUNCTION(hw_document_attributes)
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long(arg1);
-	id=arg1->value.lval;
+	id=Z_LVAL_P(arg1);
 	ptr = zend_list_find(id, &type);
 	if(!ptr || (type!=le_document)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -3201,8 +3201,8 @@ PHP_FUNCTION(hw_getparentsobj)
 	}
 	convert_to_long(arg1);
 	convert_to_long(arg2);
-	link=arg1->value.lval;
-	id=arg2->value.lval;
+	link=Z_LVAL_P(arg1);
+	id=Z_LVAL_P(arg2);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -3236,8 +3236,8 @@ PHP_FUNCTION(hw_getparents)
 	}
 	convert_to_long(arg1);
 	convert_to_long(arg2);
-	link=arg1->value.lval;
-	id=arg2->value.lval;
+	link=Z_LVAL_P(arg1);
+	id=Z_LVAL_P(arg2);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -3282,8 +3282,8 @@ PHP_FUNCTION(hw_children)
 	}
 	convert_to_long_ex(arg1);
 	convert_to_long_ex(arg2);
-	link=(*arg1)->value.lval;
-	id=(*arg2)->value.lval;
+	link=Z_LVAL_PP(arg1);
+	id=Z_LVAL_PP(arg2);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -3329,8 +3329,8 @@ PHP_FUNCTION(hw_childrenobj)
 	}
 	convert_to_long_ex(arg1);
 	convert_to_long_ex(arg2);
-	link=(*arg1)->value.lval;
-	id=(*arg2)->value.lval;
+	link=Z_LVAL_PP(arg1);
+	id=Z_LVAL_PP(arg2);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -3364,8 +3364,8 @@ PHP_FUNCTION(hw_getchildcoll)
 	}
 	convert_to_long_ex(arg1);
 	convert_to_long_ex(arg2);
-	link=(*arg1)->value.lval;
-	id=(*arg2)->value.lval;
+	link=Z_LVAL_PP(arg1);
+	id=Z_LVAL_PP(arg2);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -3411,8 +3411,8 @@ PHP_FUNCTION(hw_getchildcollobj)
 	}
 	convert_to_long_ex(arg1);
 	convert_to_long_ex(arg2);
-	link=(*arg1)->value.lval;
-	id=(*arg2)->value.lval;
+	link=Z_LVAL_PP(arg1);
+	id=Z_LVAL_PP(arg2);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -3445,8 +3445,8 @@ PHP_FUNCTION(hw_docbyanchor)
 	}
 	convert_to_long_ex(arg1);
 	convert_to_long_ex(arg2);
-	link=(*arg1)->value.lval;
-	id=(*arg2)->value.lval;
+	link=Z_LVAL_PP(arg1);
+	id=Z_LVAL_PP(arg2);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -3477,8 +3477,8 @@ PHP_FUNCTION(hw_docbyanchorobj)
 	}
 	convert_to_long_ex(arg1);
 	convert_to_long_ex(arg2);
-	link=(*arg1)->value.lval;
-	id=(*arg2)->value.lval;
+	link=Z_LVAL_PP(arg1);
+	id=Z_LVAL_PP(arg2);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -3517,9 +3517,9 @@ PHP_FUNCTION(hw_getobjectbyquery)
 	convert_to_long_ex(arg1);
 	convert_to_string_ex(arg2);
 	convert_to_long_ex(arg3);
-	link=(*arg1)->value.lval;
-	query=(*arg2)->value.str.val;
-	maxhits=(*arg3)->value.lval;
+	link=Z_LVAL_PP(arg1);
+	query=Z_STRVAL_PP(arg2);
+	maxhits=Z_LVAL_PP(arg3);
 	if (maxhits < 0) maxhits=0x7FFFFFFF;
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
@@ -3561,9 +3561,9 @@ PHP_FUNCTION(hw_getobjectbyqueryobj)
 	convert_to_long_ex(arg1);
 	convert_to_string_ex(arg2);
 	convert_to_long_ex(arg3);
-	link=(*arg1)->value.lval;
-	query=(*arg2)->value.str.val;
-	maxhits=(*arg3)->value.lval;
+	link=Z_LVAL_PP(arg1);
+	query=Z_STRVAL_PP(arg2);
+	maxhits=Z_LVAL_PP(arg3);
 	if (maxhits < 0) maxhits=0x7FFFFFFF;
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
@@ -3601,10 +3601,10 @@ PHP_FUNCTION(hw_getobjectbyquerycoll)
 	convert_to_long_ex(arg2);
 	convert_to_string_ex(arg3);
 	convert_to_long_ex(arg4);
-	link=(*arg1)->value.lval;
-	id=(*arg2)->value.lval;
-	query=(*arg3)->value.str.val;
-	maxhits=(*arg4)->value.lval;
+	link=Z_LVAL_PP(arg1);
+	id=Z_LVAL_PP(arg2);
+	query=Z_STRVAL_PP(arg3);
+	maxhits=Z_LVAL_PP(arg4);
 	if (maxhits < 0) maxhits=0x7FFFFFFF;
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
@@ -3647,10 +3647,10 @@ PHP_FUNCTION(hw_getobjectbyquerycollobj)
 	convert_to_long_ex(arg2);
 	convert_to_string_ex(arg3);
 	convert_to_long_ex(arg4);
-	link=(*arg1)->value.lval;
-	id=(*arg2)->value.lval;
-	query=(*arg3)->value.str.val;
-	maxhits=(*arg4)->value.lval;
+	link=Z_LVAL_PP(arg1);
+	id=Z_LVAL_PP(arg2);
+	query=Z_STRVAL_PP(arg3);
+	maxhits=Z_LVAL_PP(arg4);
 	if (maxhits < 0) maxhits=0x7FFFFFFF;
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
@@ -3688,9 +3688,9 @@ PHP_FUNCTION(hw_getobjectbyftquery)
 	convert_to_long_ex(arg1);
 	convert_to_string_ex(arg2);
 	convert_to_long_ex(arg3);
-	link=(*arg1)->value.lval;
-	query=(*arg2)->value.str.val;
-	maxhits=(*arg3)->value.lval;
+	link=Z_LVAL_PP(arg1);
+	query=Z_STRVAL_PP(arg2);
+	maxhits=Z_LVAL_PP(arg3);
 	if (maxhits < 0) maxhits=0x7FFFFFFF;
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
@@ -3733,9 +3733,9 @@ PHP_FUNCTION(hw_getobjectbyftqueryobj)
 	convert_to_long_ex(arg1);
 	convert_to_string_ex(arg2);
 	convert_to_long_ex(arg3);
-	link=(*arg1)->value.lval;
-	query=(*arg2)->value.str.val;
-	maxhits=(*arg3)->value.lval;
+	link=Z_LVAL_PP(arg1);
+	query=Z_STRVAL_PP(arg2);
+	maxhits=Z_LVAL_PP(arg3);
 	if (maxhits < 0) maxhits=0x7FFFFFFF;
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
@@ -3774,10 +3774,10 @@ PHP_FUNCTION(hw_getobjectbyftquerycoll)
 	convert_to_long_ex(arg2);
 	convert_to_string_ex(arg3);
 	convert_to_long_ex(arg4);
-	link=(*arg1)->value.lval;
-	id=(*arg2)->value.lval;
-	query=(*arg3)->value.str.val;
-	maxhits=(*arg4)->value.lval;
+	link=Z_LVAL_PP(arg1);
+	id=Z_LVAL_PP(arg2);
+	query=Z_STRVAL_PP(arg3);
+	maxhits=Z_LVAL_PP(arg4);
 	if (maxhits < 0) maxhits=0x7FFFFFFF;
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
@@ -3821,10 +3821,10 @@ PHP_FUNCTION(hw_getobjectbyftquerycollobj)
 	convert_to_long_ex(arg2);
 	convert_to_string_ex(arg3);
 	convert_to_long_ex(arg4);
-	link=(*arg1)->value.lval;
-	id=(*arg2)->value.lval;
-	query=(*arg3)->value.str.val;
-	maxhits=(*arg4)->value.lval;
+	link=Z_LVAL_PP(arg1);
+	id=Z_LVAL_PP(arg2);
+	query=Z_STRVAL_PP(arg3);
+	maxhits=Z_LVAL_PP(arg4);
 	if (maxhits < 0) maxhits=0x7FFFFFFF;
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
@@ -3859,8 +3859,8 @@ PHP_FUNCTION(hw_getchilddoccoll)
 	}
 	convert_to_long_ex(arg1);
 	convert_to_long_ex(arg2);
-	link=(*arg1)->value.lval;
-	id=(*arg2)->value.lval;
+	link=Z_LVAL_PP(arg1);
+	id=Z_LVAL_PP(arg2);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -3899,8 +3899,8 @@ PHP_FUNCTION(hw_getchilddoccollobj)
 	}
 	convert_to_long_ex(arg1);
 	convert_to_long_ex(arg2);
-	link=(*arg1)->value.lval;
-	id=(*arg2)->value.lval;
+	link=Z_LVAL_PP(arg1);
+	id=Z_LVAL_PP(arg2);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -3935,8 +3935,8 @@ PHP_FUNCTION(hw_getanchors)
 	}
 	convert_to_long_ex(arg1);
 	convert_to_long_ex(arg2);
-	link=(*arg1)->value.lval;
-	id=(*arg2)->value.lval;
+	link=Z_LVAL_PP(arg1);
+	id=Z_LVAL_PP(arg2);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -3975,8 +3975,8 @@ PHP_FUNCTION(hw_getanchorsobj)
 	}
 	convert_to_long_ex(arg1);
 	convert_to_long_ex(arg2);
-	link=(*arg1)->value.lval;
-	id=(*arg2)->value.lval;
+	link=Z_LVAL_PP(arg1);
+	id=Z_LVAL_PP(arg2);
 	ptr = (hw_connection *) zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", id);
@@ -4007,16 +4007,16 @@ PHP_FUNCTION(hw_getusername)
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long_ex(arg1);
-	link = (*arg1)->value.lval;
+	link = Z_LVAL_PP(arg1);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", link);
 		RETURN_FALSE;
 	}
 
-	return_value->value.str.val = estrdup(ptr->username);
-	return_value->value.str.len = strlen(ptr->username);
-	return_value->type = IS_STRING;
+	Z_STRVAL_P(return_value) = estrdup(ptr->username);
+	Z_STRLEN_P(return_value) = strlen(ptr->username);
+	Z_TYPE_P(return_value) = IS_STRING;
 }
 /* }}} */
 
@@ -4035,9 +4035,9 @@ PHP_FUNCTION(hw_identify)
 	convert_to_long_ex(arg1);
 	convert_to_string_ex(arg2);
 	convert_to_string_ex(arg3);
-	link = (*arg1)->value.lval;
-	name=(*arg2)->value.str.val;
-	passwd=(*arg3)->value.str.val;
+	link = Z_LVAL_PP(arg1);
+	name=Z_STRVAL_PP(arg2);
+	passwd=Z_STRVAL_PP(arg3);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", link);
@@ -4055,9 +4055,9 @@ PHP_FUNCTION(hw_identify)
 		RETURN_FALSE;
 	}
 
-	return_value->value.str.val = userdata;
-	return_value->value.str.len = strlen(userdata);
-	return_value->type = IS_STRING;
+	Z_STRVAL_P(return_value) = userdata;
+	Z_STRLEN_P(return_value) = strlen(userdata);
+	Z_TYPE_P(return_value) = IS_STRING;
 	if(ptr->username) free(ptr->username);
 	str = userdata;
 	while((*str != 0) && (*str != ' '))
@@ -4081,14 +4081,14 @@ PHP_FUNCTION(hw_objrec2array)
 			if(zend_get_parameters_ex(1, &arg1) == FAILURE)
 				WRONG_PARAM_COUNT;
 			convert_to_string_ex(arg1);
-			make2_return_array_from_objrec(&return_value, (*arg1)->value.str.val, NULL);
+			make2_return_array_from_objrec(&return_value, Z_STRVAL_PP(arg1), NULL);
 			break;
 		case 2:
 			if(zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE)
 				WRONG_PARAM_COUNT;
 			convert_to_array_ex(arg2);
 			convert_to_string_ex(arg1);
-			make2_return_array_from_objrec(&return_value, (*arg1)->value.str.val, *arg2);
+			make2_return_array_from_objrec(&return_value, Z_STRVAL_PP(arg1), *arg2);
 			break;
 		default:
 			WRONG_PARAM_COUNT;
@@ -4107,7 +4107,7 @@ PHP_FUNCTION(hw_array2objrec)
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_array_ex(arg1);
-	objrec = make_objrec_from_array((*arg1)->value.ht);
+	objrec = make_objrec_from_array(Z_ARRVAL_PP(arg1));
 	if(objrec) {
 		retobj = estrdup(objrec);
 		free(objrec);
@@ -4133,22 +4133,22 @@ PHP_FUNCTION(hw_incollections)
 	convert_to_array_ex(arg2);
 	convert_to_array_ex(arg3);
 	convert_to_long_ex(arg4);
-	link = (*arg1)->value.lval;
-	retcoll=(*arg4)->value.lval;
+	link = Z_LVAL_PP(arg1);
+	retcoll=Z_LVAL_PP(arg4);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", link);
 		RETURN_FALSE;
 	}
 
-	cobjids = zend_hash_num_elements((*arg2)->value.ht);
-	if(NULL == (objectIDs = make_ints_from_array((*arg2)->value.ht))) {
+	cobjids = zend_hash_num_elements(Z_ARRVAL_PP(arg2));
+	if(NULL == (objectIDs = make_ints_from_array(Z_ARRVAL_PP(arg2)))) {
 		php_error(E_WARNING, "Could not create Int Array from Array\n");
 		RETURN_FALSE;
 	}
 
-	ccollids = zend_hash_num_elements((*arg3)->value.ht);
-	if(NULL == (collIDs = make_ints_from_array((*arg3)->value.ht))) {
+	ccollids = zend_hash_num_elements(Z_ARRVAL_PP(arg3));
+	if(NULL == (collIDs = make_ints_from_array(Z_ARRVAL_PP(arg3)))) {
 		php_error(E_WARNING, "Could not create Int Array from Array\n");
 		efree(objectIDs);
 		RETURN_FALSE;
@@ -4194,15 +4194,15 @@ PHP_FUNCTION(hw_inscoll)
 	convert_to_long_ex(arg1);
 	convert_to_long_ex(arg2);
 	convert_to_array_ex(arg3);
-	link = (*arg1)->value.lval;
-	id=(*arg2)->value.lval;
+	link = Z_LVAL_PP(arg1);
+	id=Z_LVAL_PP(arg2);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", link);
 		RETURN_FALSE;
 	}
 
-	if(NULL == (objrec = make_objrec_from_array((*arg3)->value.ht))) {
+	if(NULL == (objrec = make_objrec_from_array(Z_ARRVAL_PP(arg3)))) {
 		php_error(E_WARNING, "Could not create Object Record from Array\n");
 		RETURN_FALSE;
 	}
@@ -4239,12 +4239,12 @@ PHP_FUNCTION(hw_insdoc)
 	convert_to_string_ex(argv[2]);
 	if(argc == 4) {
 		convert_to_string_ex(argv[3]);
-		text = (*argv[3])->value.str.val;
+		text = Z_STRVAL_PP(argv[3]);
 	} else {
 		text = NULL;
 	}
-	link = (*argv[0])->value.lval;
-	id = (*argv[1])->value.lval;
+	link = Z_LVAL_PP(argv[0]);
+	id = Z_LVAL_PP(argv[1]);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", link);
@@ -4252,7 +4252,7 @@ PHP_FUNCTION(hw_insdoc)
 	}
 
 	set_swap(ptr->swap_on);
-        objrec = (*argv[2])->value.str.val;
+        objrec = Z_STRVAL_PP(argv[2]);
 	if (0 != (ptr->lasterror = send_insdoc(ptr->socket, id, objrec, text, &newid))) {
 		RETURN_FALSE;
 	}
@@ -4276,8 +4276,8 @@ PHP_FUNCTION(hw_getsrcbydestobj)
 	}
 	convert_to_long_ex(arg1);
 	convert_to_long_ex(arg2);
-	link=(*arg1)->value.lval;
-	id=(*arg2)->value.lval;
+	link=Z_LVAL_PP(arg1);
+	id=Z_LVAL_PP(arg2);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", link);
@@ -4310,9 +4310,9 @@ PHP_FUNCTION(hw_mapid)
 	convert_to_long_ex(arg1);
 	convert_to_long_ex(arg2);
 	convert_to_long_ex(arg3);
-	link=(*arg1)->value.lval;
-	servid=(*arg2)->value.lval;
-	id=(*arg3)->value.lval;
+	link=Z_LVAL_PP(arg1);
+	servid=Z_LVAL_PP(arg2);
+	id=Z_LVAL_PP(arg3);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", link);
@@ -4345,10 +4345,10 @@ PHP_FUNCTION(hw_getrellink)
 	convert_to_long_ex(arg2);
 	convert_to_long_ex(arg3);
 	convert_to_long_ex(arg4);
-	link=(*arg1)->value.lval;
-	rootid=(*arg2)->value.lval;
-	sourceid=(*arg3)->value.lval;
-	destid=(*arg4)->value.lval;
+	link=Z_LVAL_PP(arg1);
+	rootid=Z_LVAL_PP(arg2);
+	sourceid=Z_LVAL_PP(arg3);
+	destid=Z_LVAL_PP(arg4);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", link);
@@ -4398,7 +4398,7 @@ PHP_FUNCTION(hw_insertanchors)
 	convert_to_long_ex(arg1);
 	convert_to_array_ex(arg2);
 	convert_to_array_ex(arg3);
-	docid=(*arg1)->value.lval;
+	docid=Z_LVAL_PP(arg1);
 	hwdoc = zend_list_find(docid, &type);
 	if(!hwdoc || (type!=le_document)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", docid);
@@ -4409,7 +4409,7 @@ PHP_FUNCTION(hw_insertanchors)
 	if(argc == 4) {
 		int i;
 		convert_to_array_ex(arg4);
-		prefixarray =(*arg4)->value.ht;
+		prefixarray =Z_ARRVAL_PP(arg4);
 		if((prefixarray == NULL) || (zend_hash_num_elements(prefixarray) != 5)) {
 			php_error(E_WARNING, "You must provide 5 urlprefixes (you have provided %d)", zend_hash_num_elements(prefixarray));
 			RETURN_FALSE;
@@ -4425,19 +4425,19 @@ PHP_FUNCTION(hw_insertanchors)
 			zend_hash_get_current_key(prefixarray, &key, &ind, 0);
 			zend_hash_get_current_data(prefixarray, (void *) &dataptr);
 			data = *dataptr;
-			if (data->type != IS_STRING) {
+			if (Z_TYPE_P(data) != IS_STRING) {
 				php_error(E_WARNING, "%s must be a String", key);
 				RETURN_FALSE;
 			} else if ( strcmp(key, "HW_DEFAULT_LINK") == 0 ) {
-				urlprefix[HW_DEFAULT_LINK] = data->value.str.val;
+				urlprefix[HW_DEFAULT_LINK] = Z_STRVAL_P(data);
 			} else if ( strcmp(key, "HW_IMAGE_LINK") == 0 ) {
-				urlprefix[HW_IMAGE_LINK] = data->value.str.val;
+				urlprefix[HW_IMAGE_LINK] = Z_STRVAL_P(data);
 			} else if ( strcmp(key, "HW_BACKGROUND_LINK") == 0 ) {
-				urlprefix[HW_BACKGROUND_LINK] = data->value.str.val;
+				urlprefix[HW_BACKGROUND_LINK] = Z_STRVAL_P(data);
 			} else if ( strcmp(key, "HW_INTAG_LINK") == 0 ) {
-				urlprefix[HW_INTAG_LINK] = data->value.str.val;
+				urlprefix[HW_INTAG_LINK] = Z_STRVAL_P(data);
 			} else if ( strcmp(key, "HW_APPLET_LINK") == 0 ) {
-				urlprefix[HW_APPLET_LINK] = data->value.str.val;
+				urlprefix[HW_APPLET_LINK] = Z_STRVAL_P(data);
 			} else {
 				php_error(E_WARNING, "%s is not a valid urlprefix", key);
 				RETURN_FALSE;
@@ -4448,15 +4448,15 @@ PHP_FUNCTION(hw_insertanchors)
 		urlprefix = NULL;
 	}
 
-	if(zend_hash_num_elements((*arg2)->value.ht) != zend_hash_num_elements((*arg3)->value.ht)) {
+	if(zend_hash_num_elements(Z_ARRVAL_PP(arg2)) != zend_hash_num_elements(Z_ARRVAL_PP(arg3))) {
 		php_error(E_WARNING, "Unequal number of elments in arrays");
 		RETURN_FALSE;
 	}
 
 	/* Turn PHP-Array of strings into C-Array of strings */
-	arrht = (*arg2)->value.ht;
+	arrht = Z_ARRVAL_PP(arg2);
 	anchorrecs = make_strs_from_array(arrht);
-	arrht = (*arg3)->value.ht;
+	arrht = Z_ARRVAL_PP(arg3);
 	dest = make_strs_from_array(arrht);
 
 	if (0 != (error = send_insertanchors(&(hwdoc->data), &count, anchorrecs, dest, zend_hash_num_elements(arrht), urlprefix, &bodytag))) {
@@ -4494,7 +4494,7 @@ PHP_FUNCTION(hw_connection_info)
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long_ex(arg1);
-	link=(*arg1)->value.lval;
+	link=Z_LVAL_PP(arg1);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "Unable to find file identifier %d", link);
@@ -4535,6 +4535,6 @@ void print_msg(hg_msg *msg, char *str, int txt)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

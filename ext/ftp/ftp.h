@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,24 +12,26 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors:                                                             |
-   |          Andrew Skalski      <askalski@chek.com>                     |
+   | Authors: Andrew Skalski <askalski@chek.com>                          |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ftp.h,v 1.17 2001/07/17 05:53:03 jason Exp $ */
+/* $Id: ftp.h,v 1.21 2002/02/28 08:26:10 sebastian Exp $ */
 
 #ifndef	FTP_H
 #define	FTP_H
+
+#include "php_network.h"
 
 #include <stdio.h>
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
 
-/* XXX these should be configurable at runtime XXX */
+#define	FTP_DEFAULT_TIMEOUT	90
+
+/* XXX this should be configurable at runtime XXX */
 #define	FTP_BUFSIZE	4096
-#define	FTP_TIMEOUT	90
 
 typedef enum ftptype {
 	FTPTYPE_ASCII,
@@ -39,7 +41,7 @@ typedef enum ftptype {
 typedef struct ftpbuf
 {
 	int		fd;			/* control connection */
-	struct in_addr	localaddr;		/* local inet address */
+	php_sockaddr_storage	localaddr;	/* local address */
 	int		resp;			/* last response code */
 	char		inbuf[FTP_BUFSIZE];	/* last response text */
 	char		*extra;			/* extra characters */
@@ -49,7 +51,8 @@ typedef struct ftpbuf
 	char		*syst;			/* cached system type */
 	ftptype_t	type;			/* current transfer type */
 	int		pasv;			/* 0=off; 1=pasv; 2=ready */
-	struct sockaddr_in	pasvaddr;	/* passive mode address */
+	php_sockaddr_storage	pasvaddr;	/* passive mode address */
+	long	timeout_sec;	/* User configureable timeout (seconds) */
 } ftpbuf_t;
 
 typedef struct databuf
@@ -64,7 +67,7 @@ typedef struct databuf
 /* open a FTP connection, returns ftpbuf (NULL on error)
  * port is the ftp port in network byte order, or 0 for the default
  */
-ftpbuf_t*	ftp_open(const char *host, short port);
+ftpbuf_t*	ftp_open(const char *host, short port, long timeout_sec);
 
 /* quits from the ftp session (it still needs to be closed)
  * return true on success, false on error

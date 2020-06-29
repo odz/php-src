@@ -73,6 +73,11 @@ EXTENSION:           thttpd
 MAINTENANCE:         Unknown
 STATUS:              Unknown
 -------------------------------------------------------------------------------
+EXTENSION:           webjames
+PRIMARY MAINTAINER:  Alex Waugh <alex@alexwaugh.com>
+MAINTENANCE:         Maintained
+STATUS:              Experimental
+-------------------------------------------------------------------------------
 
 
 == Database extensions ==
@@ -87,6 +92,13 @@ EXTENSION:           dbase
 PRIMARY MAINTAINER:  Jim Winstead <jimw@php.net>
 MAINTENANCE:         Odd Fixes
 STATUS:              Working
+-------------------------------------------------------------------------------
+EXTENSION:           dbx
+PRIMARY MAINTAINER:  Marc Boeren <M.Boeren@guidance.nl>
+MAINTENANCE:         Maintained
+STATUS:              Working
+SINCE:               4.0.6
+COMMENT:             DB abstraction for odbc, mysql, pgsql, mssql, fbsql and more, see documentation
 -------------------------------------------------------------------------------
 EXTENSION:           filepro
 MAINTENANCE:         Unknown
@@ -117,6 +129,12 @@ EXTENSION:           msql
 MAINTENANCE:         Unknown
 STATUS:              Working
 -------------------------------------------------------------------------------
+EXTENSION:           msession
+PRIMARY MAINTAINER   Mark L. Woodward mlwmohawk@mohawksoft.com
+MAINTENANCE:         Maintained
+STATUS:              Working/Experimental
+COMMENT:             Tested on Linux, should work on other UNIX platforms. Backend server code can compile under Windows.
+-------------------------------------------------------------------------------
 EXTENSION:           mssql
 PRIMARY MAINTAINER:  Frank M. Kromann <fmk@swwwing.com>
 MAINTENANCE:         Maintained
@@ -128,9 +146,10 @@ MAINTENANCE:         Unknown
 STATUS:              Working
 -------------------------------------------------------------------------------
 EXTENSION:           pgsql
-PRIMARY MAINTAINER:  Jouni Ahto <jouni.ahto@exdec.fi>
-MAINTENANCE:         Odd fixes
+PRIMARY MAINTAINER:  Yasuo Ohgaki <yohgaki@php.net>
+MAINTENANCE:         Maintained
 STATUS:              Working
+COMMENT:             Use PostgreSQL 7.0.x or later. PostgreSQL 6.5.3 or less have fatal bug.
 -------------------------------------------------------------------------------
 EXTENSION:           sybase
 MAINTENANCE:         Unknown
@@ -146,7 +165,7 @@ MAINTENANCE:         Maintained
 STATUS:              Working
 -------------------------------------------------------------------------------
 EXTENSION:           odbc
-PRIMARY MAINTAINER:  Andreas Karajannis <Karajannis@gmd.de>
+PRIMARY MAINTAINER:  Daniel R. Kalowsky <kalowsky@php.net>
 MAINTENANCE:         Maintained
 STATUS:              Working
 COMMENT:             Working except for persistent connections
@@ -178,12 +197,14 @@ STATUS:              Working
 SINCE:               4.0.3
 -------------------------------------------------------------------------------
 EXTENSION:           calendar
-MAINTENANCE:         Unknown
-STATUS:              Unknown
+PRIMARY MAINTAINER:  Hartmut Holzgraefe <hartmut@six.de>
+MAINTENANCE:         Odd Fixes
+STATUS:              Working
 -------------------------------------------------------------------------------
 EXTENSION:           com
-MAINTENANCE:         Unknown
-STATUS:              Unknown
+PRIMARY MAINTAINER:  Harald Radi <h.radi@nme.at>
+MAINTENANCE:         Maintained
+STATUS:              Working
 -------------------------------------------------------------------------------
 EXTENSION:           cpdf
 PRIMARY MAINTAINER:  Uwe Steinmann <steinm@php.net>
@@ -217,9 +238,10 @@ MAINTENANCE:         Maintained
 STATUS:              Experimental
 -------------------------------------------------------------------------------
 EXTENSION:           exif
-MAINTENANCE:         Unknown
-STATUS:              Unknown
-SINCE:               4.0.1
+PRIMARY MAINTAINER:  Marcus Boerger <helly@php.net>
+MAINTENANCE:         Maintained
+STATUS:              Working
+SINCE:               4.2
 -------------------------------------------------------------------------------
 EXTENSION:           fdf
 PRIMARY MAINTAINER:  Uwe Steinmann <steinm@php.net>
@@ -259,8 +281,13 @@ MAINTENANCE:         Maintained
 STATUS:              Working
 -------------------------------------------------------------------------------
 EXTENSION:           ldap
-PRIMARY MAINTAINER:  Rasmus Lerdorf <rasmus@php.net>
-MAINTENANCE:         Odd Fixes
+PRIMARY MAINTAINER:  Stig Venaas <venaas@php.net>
+MAINTENANCE:         Maintained
+STATUS:              Working
+-------------------------------------------------------------------------------
+EXTENSION:           mbstring
+PRIMARY MAINTAINER:  Rui Hirokawa <hirokawa@php.net>
+MAINTENANCE:         Maintained
 STATUS:              Working
 -------------------------------------------------------------------------------
 EXTENSION:           mcal
@@ -269,7 +296,7 @@ MAINTENANCE:         Odd Fixes
 STATUS:              Working
 -------------------------------------------------------------------------------
 EXTENSION:           mcrypt
-PRIMARY MAINTAINER:  Sascha Schumann <sascha@schumann.cx>
+PRIMARY MAINTAINER:  Derick Rethans <d.rethans@jdimedia.nl>
 MAINTENANCE:         Maintained
 STATUS:              Working
 -------------------------------------------------------------------------------
@@ -291,8 +318,13 @@ MAINTENANCE:         Maintained
 STATUS:              Experimental
 SINCE:               4.0.4
 -------------------------------------------------------------------------------
+EXTENSION:           overload
+PRIMARY MAINTAINER:  Andrei Zmievski <andrei@php.net>
+MAINTENANCE:         Maintained
+STATUS:              Experimental
+-------------------------------------------------------------------------------
 EXTENSION:           pcre
-PRIMARY MAINTAINER:  Andrei Zmievski <andrei@ispi.net>
+PRIMARY MAINTAINER:  Andrei Zmievski <andrei@php.net>
 MAINTENANCE:         Maintained
 STATUS:              Working
 -------------------------------------------------------------------------------
@@ -341,7 +373,7 @@ STATUS:              Working
 -------------------------------------------------------------------------------
 EXTENSION:           sablot
 PRIMARY MAINTAINER:  Sterling Hughes <sterling@php.net>
-MAINTENANCE:         Maintained
+MAINTENANCE:         Obsolete
 STATUS:              Experimental
 SINCE:               4.0.3
 -------------------------------------------------------------------------------
@@ -357,8 +389,8 @@ MAINTENANCE:         Maintained
 STATUS:              Working
 -------------------------------------------------------------------------------
 EXTENSION:           shmop
-PRIMARY MAINTAINER:  Unknown
-MAINTENANCE:         Unknown
+PRIMARY MAINTAINER:  Ilia Alshanetsky <iliaa@php.net>
+MAINTENANCE:         Maintained
 STATUS:              Experimental
 SINCE:               4.0.3
 -------------------------------------------------------------------------------
@@ -393,13 +425,18 @@ STATUS:              Experimental
 SINCE:               4.0.5
 -------------------------------------------------------------------------------
 EXTENSION:           wddx
-PRIMARY MAINTAINER:  Andrei Zmievski <andrei@ispi.net>
+PRIMARY MAINTAINER:  Andrei Zmievski <andrei@php.net>
 MAINTENANCE:         Maintained
 STATUS:              Working
 -------------------------------------------------------------------------------
 EXTENSION:           xml
 PRIMARY MAINTAINER:  Thies C. Arntzen <thies@thieso.net>
 MAINTENANCE:         Maintained
+STATUS:              Working
+-------------------------------------------------------------------------------
+EXTENSION:           xslt
+PRIMARY MAINTAINER:  Sterling Hughes <sterling@php.net>
+MAINTENANC:          Maintained
 STATUS:              Working
 -------------------------------------------------------------------------------
 EXTENSION:           yaz

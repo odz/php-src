@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,12 +12,12 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
+   | Authors: Rasmus Lerdorf <rasmus@php.net>                             |
    |          Zeev Suraski <zeev@zend.com>                                |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: credits.c,v 1.11 2001/08/05 15:55:42 sas Exp $ */
+/* $Id: credits.c,v 1.17 2002/02/28 08:26:44 sebastian Exp $ */
 
 #include "php.h"
 #include "info.h"
@@ -36,7 +36,7 @@ PHPAPI void php_print_credits(int flag)
 
 	php_info_print_style();
 
-	PUTS("<h1 align=\"center\">PHP 4.0 Credits</h1>\n");
+	PUTS("<h1 align=\"center\">PHP 4 Credits</h1>\n");
 
 	if (flag & PHP_CREDITS_GROUP) {
 		/* Group */
@@ -54,9 +54,9 @@ PHPAPI void php_print_credits(int flag)
 		php_info_print_table_row(1, "Andi Gutmans, Rasmus Lerdorf, Zeev Suraski");
 		php_info_print_table_end();
 
-		/* PHP 4.0 Language */
+		/* PHP 4 Language */
 		php_info_print_table_start();
-		php_info_print_table_colspan_header(2, "PHP 4.0 Authors");
+		php_info_print_table_colspan_header(2, "PHP 4 Authors");
 		php_info_print_table_header(2, "Contribution", "Authors");
 		CREDIT_LINE("Zend Scripting Language Engine", "Andi Gutmans, Zeev Suraski");
 		CREDIT_LINE("Extension Module API", "Andi Gutmans, Zeev Suraski, Andrei Zmievski");
@@ -89,7 +89,7 @@ PHPAPI void php_print_credits(int flag)
 	if (flag & PHP_CREDITS_DOCS) {
 		php_info_print_table_start();
 		php_info_print_table_header(1, "PHP Documentation Team");
-		php_info_print_table_row(1, "Jouni Ahto, Alexander Aulbach, Stig Bakken, Rasmus Lerdorf, Egon Schmid, Zeev Suraski, Lars Torben Wilson, Jim Winstead");
+		php_info_print_table_row(1, "Jouni Ahto, Alexander Aulbach, Stig Bakken, Rasmus Lerdorf, Egon Schmid, Lars Torben Wilson, Jim Winstead");
 		php_info_print_table_row(1, "Edited by:  Stig Bakken and Egon Schmid");
 		php_info_print_table_end();
 	}
@@ -97,7 +97,7 @@ PHPAPI void php_print_credits(int flag)
 	if (flag & PHP_CREDITS_QA) {
 		php_info_print_table_start();
 		php_info_print_table_header(1, "PHP Quality Assurance Team");
-		php_info_print_table_row(1, "Andre Langhorst, Hellekin O. Wolf, Jalal Pushman, James Moore, Jani Taskinen, Joey Smith, Olivier Cahagne, Phil Driscoll, Sebastian Bergmann, Zak Greant");
+		php_info_print_table_row(1, "Andre Langhorst, Derick Rethans, Hellekin O. Wolf, Jalal Pushman, James Moore, Jani Taskinen, Joey Smith, Olivier Cahagne, Phil Driscoll, Sebastian Bergmann, Zak Greant");
 		php_info_print_table_end();
 	}
 
@@ -105,7 +105,7 @@ PHPAPI void php_print_credits(int flag)
 		/* Website Team */
 		php_info_print_table_start();
 		php_info_print_table_header(1, "PHP Website Team");
-		php_info_print_table_row(1, "Hojtsy Gabor, Colin Viebrock, Jim Winstead");
+		php_info_print_table_row(1, "Gabor Hojtsy, Colin Viebrock, Jim Winstead");
 		php_info_print_table_end();
 	}
 
@@ -120,6 +120,6 @@ PHPAPI void php_print_credits(int flag)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

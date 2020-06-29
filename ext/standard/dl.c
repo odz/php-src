@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: dl.c,v 1.59.2.1 2001/10/23 01:19:59 zeev Exp $ */
+/* $Id: dl.c,v 1.66.2.1 2002/03/25 23:22:05 sniper Exp $ */
 
 #include "php.h"
 #include "dl.h"
@@ -58,7 +58,7 @@ PHP_FUNCTION(dl)
 	pval **file;
 
 #ifdef ZTS
-	if (strcmp(sapi_module.name, "cgi")!=0) {
+	if ((strcmp(sapi_module.name, "cgi")!=0) && (strcmp(sapi_module.name, "cli")!=0)) {
 		php_error(E_ERROR, "dl() is not supported in multithreaded Web servers - use extension statements in your php.ini");
 	}
 #endif
@@ -120,15 +120,15 @@ void php_dl(pval *file, int type, pval *return_value TSRMLS_DC)
 	if (extension_dir && extension_dir[0]){
 		int extension_dir_len = strlen(extension_dir);
 
-		libpath = emalloc(extension_dir_len+file->value.str.len+2);
+		libpath = emalloc(extension_dir_len+Z_STRLEN_P(file)+2);
 
 		if (IS_SLASH(extension_dir[extension_dir_len-1])) {
-			sprintf(libpath, "%s%s", extension_dir, file->value.str.val); /* SAFE */
+			sprintf(libpath, "%s%s", extension_dir, Z_STRVAL_P(file)); /* SAFE */
 		} else {
-			sprintf(libpath, "%s/%s", extension_dir, file->value.str.val); /* SAFE */
+			sprintf(libpath, "%s/%s", extension_dir, Z_STRVAL_P(file)); /* SAFE */
 		}
 	} else {
-		libpath = estrndup(file->value.str.val, file->value.str.len);
+		libpath = estrndup(Z_STRVAL_P(file), Z_STRLEN_P(file));
 	}
 
 	/* load dynamic symbol */
@@ -155,23 +155,61 @@ void php_dl(pval *file, int type, pval *return_value TSRMLS_DC)
 
 	if (!get_module) {
 		DL_UNLOAD(handle);
-		php_error(error_type, "Invalid library (maybe not a PHP library) '%s' ", file->value.str.val);
+		php_error(error_type, "Invalid library (maybe not a PHP library) '%s' ", Z_STRVAL_P(file));
 		RETURN_FALSE;
 	}
 	module_entry = get_module();
 	if ((module_entry->zend_debug != ZEND_DEBUG) || (module_entry->zts != USING_ZTS)
 		|| (module_entry->zend_api != ZEND_MODULE_API_NO)) {
-		php_error(error_type,
-					"%s: Unable to initialize module\n"
-					"Module compiled with debug=%d, thread-safety=%d module API=%d\n"
-					"PHP compiled with debug=%d, thread-safety=%d module API=%d\n"
-					"These options need to match\n",
-					module_entry->name, module_entry->zend_debug, module_entry->zts, module_entry->zend_api,
-					ZEND_DEBUG, USING_ZTS, ZEND_MODULE_API_NO);
-		DL_UNLOAD(handle);
-		RETURN_FALSE;
+		/* Check for pre-4.1.0 module which has a slightly different module_entry structure :( */
+			struct pre_4_1_0_module_entry {
+				  char *name;
+				  zend_function_entry *functions;
+				  int (*module_startup_func)(INIT_FUNC_ARGS);
+				  int (*module_shutdown_func)(SHUTDOWN_FUNC_ARGS);
+				  int (*request_startup_func)(INIT_FUNC_ARGS);
+				  int (*request_shutdown_func)(SHUTDOWN_FUNC_ARGS);
+				  void (*info_func)(ZEND_MODULE_INFO_FUNC_ARGS);
+				  int (*global_startup_func)(void);
+				  int (*global_shutdown_func)(void);
+				  int globals_id;
+				  int module_started;
+				  unsigned char type;
+				  void *handle;
+				  int module_number;
+				  unsigned char zend_debug;
+				  unsigned char zts;
+				  unsigned int zend_api;
+			};
+
+			char *name;
+			int zend_api;
+			unsigned char zend_debug, zts;
+
+			if((  ((struct pre_4_1_0_module_entry *)module_entry)->zend_api > 20000000)
+			   &&(((struct pre_4_1_0_module_entry *)module_entry)->zend_api < 20010901)) {
+				name       = ((struct pre_4_1_0_module_entry *)module_entry)->name;
+				zend_api   = ((struct pre_4_1_0_module_entry *)module_entry)->zend_api;
+				zend_debug = ((struct pre_4_1_0_module_entry *)module_entry)->zend_debug;
+				zts        = ((struct pre_4_1_0_module_entry *)module_entry)->zts; 
+			} else {			
+				name       = module_entry->name;
+				zend_api   = module_entry->zend_api;
+				zend_debug = module_entry->zend_debug;
+				zts        = module_entry->zts; 
+			}
+
+			php_error(error_type,
+					  "%s: Unable to initialize module\n"
+					  "Module compiled with module API=%d, debug=%d, thread-safety=%d\n"
+					  "PHP    compiled with module API=%d, debug=%d, thread-safety=%d\n"
+					  "These options need to match\n",
+					  name, zend_api, zend_debug, zts,
+					  ZEND_MODULE_API_NO, ZEND_DEBUG, USING_ZTS);		
+			DL_UNLOAD(handle);
+			RETURN_FALSE;
 	}
-	module_entry->type = type;
+	Z_TYPE_P(module_entry) = type;
 	module_entry->module_number = zend_next_free_module();
 	if (module_entry->module_startup_func) {
 		if (module_entry->module_startup_func(type, module_entry->module_number TSRMLS_CC)==FAILURE) {
@@ -208,15 +246,15 @@ PHP_MINFO_FUNCTION(dl)
 
 #else
 
-void php_dl(pval *file, int type, pval *return_value)
+void php_dl(pval *file, int type, pval *return_value TSRMLS_DC)
 {
-	php_error(E_WARNING, "Cannot dynamically load %s - dynamic modules are not supported", file->value.str.val);
+	php_error(E_WARNING, "Cannot dynamically load %s - dynamic modules are not supported", Z_STRVAL_P(file));
 	RETURN_FALSE;
 }
 
 PHP_MINFO_FUNCTION(dl)
 {
-	PUTS("Dynamic Library support not available<br>.\n");
+	PUTS("Dynamic Library support not available<br />.\n");
 }
 
 #endif
@@ -226,6 +264,6 @@ PHP_MINFO_FUNCTION(dl)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

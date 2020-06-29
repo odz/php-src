@@ -1,4 +1,6 @@
-dnl $Id: config.m4,v 1.19 2001/05/21 19:47:15 sniper Exp $
+dnl
+dnl $Id: config.m4,v 1.22 2001/12/25 14:36:06 venaas Exp $
+dnl
 
 AC_DEFUN(PHP_LDAP_CHECKS, [
   if test -f $1/include/ldap.h; then
@@ -15,10 +17,9 @@ AC_DEFUN(PHP_LDAP_CHECKS, [
     LDAP_LIBDIR=$1/lib
   fi
 ])
-                          
-PHP_ARG_WITH(ldap,whether to include LDAP support,
-[  --with-ldap[=DIR]       Include LDAP support.  DIR is the LDAP base 
-                          install directory.])
+
+PHP_ARG_WITH(ldap,for LDAP support,
+[  --with-ldap[=DIR]       Include LDAP support.])
 
 if test "$PHP_LDAP" != "no"; then
 
@@ -90,4 +91,18 @@ if test "$PHP_LDAP" != "no"; then
   PHP_ADD_INCLUDE($LDAP_INCDIR)
   PHP_SUBST(LDAP_SHARED_LIBADD)
   AC_DEFINE(HAVE_LDAP,1,[ ])
+
+  dnl Check for 3 arg ldap_set_rebind_proc
+  _SAVE_CPPFLAGS=$CPPFLAGS
+  CPPFLAGS="$CPPFLAGS -I$LDAP_INCDIR"
+  AC_CACHE_CHECK([for 3 arg ldap_set_rebind_proc], ac_cv_3arg_setrebindproc,
+  [AC_TRY_COMPILE([#include <ldap.h>], [ldap_set_rebind_proc(0,0,0)],
+  ac_cv_3arg_setrebindproc=yes, ac_cv_3arg_setrebindproc=no)])
+  if test "$ac_cv_3arg_setrebindproc" = yes; then
+    AC_DEFINE(HAVE_3ARG_SETREBINDPROC,1,[Whether 3 arg set_rebind_proc()])
+  fi
+  CPPFLAGS=$_SAVE_CPPFLAGS
+
+  dnl Solaris 2.8 claims to be 2004 API, but doesn't have ldap_parse_reference
+  AC_CHECK_FUNCS(ldap_parse_reference)
 fi 

@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2002 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -406,7 +406,7 @@ ZEND_API void start_memory_manager(TSRMLS_D)
 	AG(phead) = AG(head) = NULL;
 	
 #if MEMORY_LIMIT
-	AG(memory_limit) = 1<<30;		/* rediculous limit, effectively no limit */
+	AG(memory_limit) = 1<<30;		/* ridiculous limit, effectively no limit */
 	AG(allocated_memory) = 0;
 	AG(memory_exhausted) = 0;
 	AG(allocated_memory_peak) = 0;
@@ -445,7 +445,7 @@ ZEND_API void start_memory_manager(TSRMLS_D)
 }
 
 
-ZEND_API void shutdown_memory_manager(int silent, int clean_cache)
+ZEND_API void shutdown_memory_manager(int silent, int clean_cache TSRMLS_DC)
 {
 	zend_mem_header *p, *t;
 	unsigned int fci, i, j;
@@ -453,7 +453,6 @@ ZEND_API void shutdown_memory_manager(int silent, int clean_cache)
 	int had_leaks = 0;
 #endif
 	zend_fast_cache_list_entry *fast_cache_list_entry, *next_fast_cache_list_entry;
-	TSRMLS_FETCH();
 
 #if defined(ZEND_WIN32) && !ZEND_DEBUG
 	if (clean_cache && AG(memory_heap)) {

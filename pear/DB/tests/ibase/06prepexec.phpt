@@ -6,7 +6,7 @@ DB_ibase::prepare/execute test
 <?php
 require_once "DB.php";
 include("mktable.inc");
-include("../prepexe.inc");
+include(dirname(__FILE__)."/../prepexe.inc");
 ?>
 --EXPECT--
 sth1,sth2,sth3 created

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,10 +12,10 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Stig Venaas <venaas@uninett.no>                             |
+   | Author: Stig Venaas <venaas@uninett.no>                              |
    +----------------------------------------------------------------------+
  */
-/* $Id: network.c,v 1.20 2001/08/10 20:18:42 jeroen Exp $ */
+/* $Id: network.c,v 1.30 2002/02/28 08:27:03 sebastian Exp $ */
 
 #include "php.h"
 
@@ -37,6 +37,10 @@
 #include <fcntl.h>
 #endif
 
+#ifdef HAVE_SYS_SELECT_H
+#include <sys/select.h>
+#endif
+
 #ifndef PHP_WIN32
 #include <netinet/in.h>
 #include <netdb.h>
@@ -51,7 +55,7 @@ int		 inet_aton(const char *, struct in_addr *);
 
 #include "php_network.h"
 
-#ifdef PHP_WIN32
+#if defined(PHP_WIN32) || defined(__riscos__)
 #undef AF_UNIX
 #endif
 
@@ -126,30 +130,34 @@ static void php_network_freeaddresses(struct sockaddr **sal)
 /* }}} */
 
 /* {{{ php_network_getaddresses
+ * Returns number of addresses, 0 for none/error
  */
 static int php_network_getaddresses(const char *host, struct sockaddr ***sal)
 {
 	struct sockaddr **sap;
+	int n;
 
 	if (host == NULL) {
-		return -1;
+		return 0;
 	}
 
 	{
 #ifdef HAVE_GETADDRINFO
 		struct addrinfo hints, *res, *sai;
-		int n;
 
 		memset(&hints, '\0', sizeof(hints));
 		hints.ai_family = AF_UNSPEC;
 		if ((n = getaddrinfo(host, NULL, &hints, &res))) {
 			php_error(E_WARNING, "php_network_getaddresses: getaddrinfo failed: %s", PHP_GAI_STRERROR(n));
-			return -1;
+			return 0;
+		} else if (res == NULL) {
+			php_error(E_WARNING, "php_network_getaddresses: getaddrinfo failed (null result pointer)");
+			return 0;
 		}
 
 		sai = res;
-		for (n=2; (sai = sai->ai_next) != NULL; n++);
-		*sal = emalloc(n * sizeof(*sal));
+		for (n = 1; (sai = sai->ai_next) != NULL; n++);
+		*sal = emalloc((n + 1) * sizeof(*sal));
 		sai = res;
 		sap = *sal;
 		do {
@@ -180,7 +188,7 @@ static int php_network_getaddresses(const char *host, struct sockaddr ***sal)
 			host_info = gethostbyname(host);
 			if (host_info == NULL) {
 				php_error(E_WARNING, "php_network_getaddresses: gethostbyname failed");
-				return -1;
+				return 0;
 			}
 			in = *((struct in_addr *) host_info->h_addr);
 		}
@@ -191,16 +199,17 @@ static int php_network_getaddresses(const char *host, struct sockaddr ***sal)
 		(*sap)->sa_family = AF_INET;
 		((struct sockaddr_in *)*sap)->sin_addr = in;
 		sap++;
+		n = 1;
 #endif
 	}
 	*sap = NULL;
-	return 0;
+	return n;
 }
 /* }}} */
 
 /* {{{ php_connect_nonb */
 PHPAPI int php_connect_nonb(int sockfd,
-						struct sockaddr *addr,
+						const struct sockaddr *addr,
 						socklen_t addrlen,
 						struct timeval *timeout)
 {
@@ -280,20 +289,25 @@ ok:
  * port, returns the created socket on success, else returns -1.
  * timeout gives timeout in seconds, 0 means blocking mode.
  */
-int php_hostconnect(char *host, unsigned short port, int socktype, int timeout)
+int php_hostconnect(const char *host, unsigned short port, int socktype, int timeout)
 {	
-	int s;
+	int n, repeatto, s;
 	struct sockaddr **sal, **psal;
 	struct timeval timeoutval;
 	
-	if (php_network_getaddresses(host, &sal))
+	n = php_network_getaddresses(host, &sal);
+
+	if (n == 0)
 		return -1;
 	
-	if (timeout)	{
-		timeoutval.tv_sec = timeout;
-		timeoutval.tv_usec = 0;
+	/* is this a good idea? 5s? */
+	repeatto = timeout / n > 5;
+	if (repeatto) {
+		timeout /= n;
 	}
-	
+	timeoutval.tv_sec = timeout;
+	timeoutval.tv_usec = 0;
+
 	psal = sal;
 	while (*sal != NULL) {
 		s = socket((*sal)->sa_family, socktype, 0);
@@ -330,6 +344,10 @@ int php_hostconnect(char *host, unsigned short port, int socktype, int timeout)
 			close (s);
 		}
 		sal++;
+		if (repeatto) {
+			timeoutval.tv_sec = timeout;
+			timeoutval.tv_usec = 0;
+		}
 	}
 	php_network_freeaddresses(psal);
 	php_error(E_WARNING, "php_hostconnect: connect failed");
@@ -341,11 +359,60 @@ int php_hostconnect(char *host, unsigned short port, int socktype, int timeout)
 }
 /* }}} */
 
+/* {{{ php_any_addr
+ * Fills the any (wildcard) address into php_sockaddr_storage
+ */
+void php_any_addr(int family, php_sockaddr_storage *addr, unsigned short port)
+{
+	memset(addr, 0, sizeof(php_sockaddr_storage));
+	switch (family) {
+#ifdef HAVE_IPV6
+	case AF_INET6: {
+		struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *) addr;
+		sin6->sin6_family = AF_INET6;
+		sin6->sin6_port = htons(port);
+		sin6->sin6_addr = in6addr_any;
+		break;
+	}
+#endif
+	case AF_INET: {
+		struct sockaddr_in *sin = (struct sockaddr_in *) addr;
+		sin->sin_family = AF_INET;
+		sin->sin_port = htons(port);
+		sin->sin_addr.s_addr = INADDR_ANY;
+		break;
+	}
+	}
+}
+/* }}} */
+
+/* {{{ php_sockaddr_size
+ * Returns the size of struct sockaddr_xx for the family
+ */
+int php_sockaddr_size(php_sockaddr_storage *addr)
+{
+	switch (((struct sockaddr *)addr)->sa_family) {
+	case AF_INET:
+		return sizeof(struct sockaddr_in);
+#ifdef HAVE_IPV6
+	case AF_INET6:
+		return sizeof(struct sockaddr_in6);
+#endif
+#ifdef AF_UNIX
+	case AF_UNIX:
+		return sizeof(struct sockaddr_un);
+#endif
+	default:
+		return 0;
+	}
+}
+/* }}} */
+
 /*
  * Local variables:
  * tab-width: 8
  * c-basic-offset: 8
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

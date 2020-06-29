@@ -1,8 +1,8 @@
 /*
   +----------------------------------------------------------------------+
-  | PHP version 4.0                                                      |
+  | PHP Version 4                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2001 The PHP Group                                |
+  | Copyright (c) 1997-2002 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 2.02 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -12,7 +12,7 @@
   | obtain it through the world-wide-web, please send a note to          |
   | license@php.net so we can mail you a copy immediately.               |
   +----------------------------------------------------------------------+
-  | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+  | Author: Sascha Schumann <sascha@schumann.cx>                         |
   +----------------------------------------------------------------------+
 */
 
@@ -21,10 +21,10 @@
 
 PHP_MINIT_FUNCTION(url_scanner_ex);
 PHP_MSHUTDOWN_FUNCTION(url_scanner_ex);
-PHP_RSHUTDOWN_FUNCTION(url_scanner_ex);
-PHP_RINIT_FUNCTION(url_scanner_ex);
+int php_url_scanner_ex_activate(TSRMLS_D);
+int php_url_scanner_ex_deactivate(TSRMLS_D);
 
-char *url_adapt_ext_ex(const char *src, size_t srclen, const char *name, const char *value, size_t *newlen TSRMLS_DC);
+char *url_adapt_ext_ex(const char *src, size_t srclen, const char *name, const char *value, size_t *newlen, zend_bool do_flush TSRMLS_DC);
 
 char *url_adapt_single_url(const char *url, size_t urllen, const char *name, const char *value, size_t *newlen TSRMLS_DC);
 

@@ -5,7 +5,7 @@
 //   with no username/password, AND
 // * we have create/drop privileges on the entire "test"
 //   database
-if (!extension_loaded("mysql")) {
+if (!extension_loaded("mysql") && ini_get("enable_dl")) {
   $dlext = (substr(PHP_OS, 0, 3) == "WIN") ? ".dll" : ".so";
   @dl("mysql$dlext");
 }

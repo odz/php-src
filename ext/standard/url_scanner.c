@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,11 +15,9 @@
    | Author: Hartmut Holzgraefe <hartmut@six.de>                          |
    +----------------------------------------------------------------------+
  */
-/* $Id: url_scanner.c,v 1.33 2001/07/28 11:36:19 zeev Exp $ */
+/* $Id: url_scanner.c,v 1.37 2001/12/11 15:30:37 sebastian Exp $ */
 
 #include "php.h"
-
-#ifdef TRANS_SID
 
 #include "php_globals.h"
 
@@ -34,14 +32,14 @@
 #define BUFSIZE 256
 #endif
 
-PHP_RINIT_FUNCTION(url_scanner)
+int php_url_scanner_activate(TSRMLS_D)
 {
 	url_adapt(NULL,0,NULL,NULL);
 	return SUCCESS;
 }
 
 
-PHP_RSHUTDOWN_FUNCTION(url_scanner)
+int php_url_scanner_deactivate(TSRMLS_D)
 {
 	url_adapt(NULL,0,NULL,NULL);
 	return SUCCESS;
@@ -373,13 +371,12 @@ char *url_adapt(const char *src, size_t srclen, const char *data, size_t *newlen
 	return out;
 }
 /* }}} */
-#endif
 
 /*
  * Local variables:
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

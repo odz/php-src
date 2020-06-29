@@ -41,7 +41,7 @@ require_once 'PEAR.php';
 * the author of libcrypt decides to name things internally.
 *
 *
-* @version  $Id: CBC.php,v 1.9.2.3 2001/12/20 17:29:21 cmv Exp $
+* @version  $Id: CBC.php,v 1.13 2001/12/20 17:20:24 cmv Exp $
 * @author   Colin Viebrock <colin@easydns.com>
 * @author   Mike Glover <mpg4@duluoz.net>
 * @access   public

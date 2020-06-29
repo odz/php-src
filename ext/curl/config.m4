@@ -1,5 +1,6 @@
-dnl $Id: config.m4,v 1.8.2.1 2001/11/13 11:53:01 derick Exp $
-dnl config.m4 for extension CURL
+dnl
+dnl $Id: config.m4,v 1.12 2001/11/30 18:59:29 sniper Exp $
+dnl
 
 PHP_ARG_WITH(curl, for CURL support,
 [  --with-curl[=DIR]       Include CURL support])
@@ -24,26 +25,30 @@ if test "$PHP_CURL" != "no"; then
   fi
 
   CURL_CONFIG="curl-config"
-  AC_MSG_CHECKING(for cURL greater than 7.8.1)
+  AC_MSG_CHECKING(for cURL 7.9 or greater)
 
   if ${CURL_DIR}/bin/curl-config --libs print > /dev/null 2>&1; then
     CURL_CONFIG=${CURL_DIR}/bin/curl-config
+  else
+    if ${CURL_DIR}/curl-config --libs print > /dev/null 2>&1; then
+       CURL_CONFIG=${CURL_DIR}/curl-config
+    fi
   fi
 
   curl_version_full=`$CURL_CONFIG --version`
   curl_version=`echo ${curl_version_full} | sed -e 's/libcurl //' | awk 'BEGIN { FS = "."; } { printf "%d", ($1 * 1000 + $2) * 1000 + $3;}'`
-  if test "$curl_version" -ge 7008001; then
+  if test "$curl_version" -ge 7009000; then
     AC_MSG_RESULT($curl_version_full)
     CURL_LIBS=`$CURL_CONFIG --libs`
   else
-    AC_MSG_ERROR(cURL version 7.8.1 or later is required to compile php with cURL support)
+    AC_MSG_ERROR(cURL version 7.9 or later is required to compile php with cURL support)
   fi
 
   PHP_ADD_INCLUDE($CURL_DIR/include)
   PHP_EVAL_LIBLINE($CURL_LIBS, CURL_SHARED_LIBADD)
   PHP_ADD_LIBRARY_WITH_PATH(curl, $CURL_DIR/lib, CURL_SHARED_LIBADD)
 
-  AC_CHECK_LIB(curl,curl_easy_perform, 
+  PHP_CHECK_LIBRARY(curl,curl_easy_perform, 
   [ 
     AC_DEFINE(HAVE_CURL,1,[ ])
   ],[

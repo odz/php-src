@@ -1,14 +1,14 @@
 --TEST--
 Session Object Deserialization
 --FILE--
-<?
+<?php
 
 class foo {
 	var $bar = "ok";
 	function method() { $this->yes++; }
 }
 
-session_id("test");
+session_id("abtest");
 session_start();
 session_decode('baz|O:3:"foo":2:{s:3:"bar";s:2:"ok";s:3:"yes";i:1;}arr|a:1:{i:3;O:3:"foo":2:{s:3:"bar";s:2:"ok";s:3:"yes";i:1;}}');
 

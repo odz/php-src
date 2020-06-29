@@ -1,10 +1,14 @@
-dnl $Id: config.m4,v 1.25.2.1 2001/09/07 00:28:27 sniper Exp $
+dnl
+dnl $Id: config.m4,v 1.28 2002/02/04 12:08:39 thies Exp $
+dnl
 
 AC_DEFUN(AC_ORACLE_VERSION,[
   AC_MSG_CHECKING([Oracle version])
   if test -s "$ORACLE_DIR/orainst/unix.rgs"; then
   	ORACLE_VERSION=`grep '"ocommon"' $ORACLE_DIR/orainst/unix.rgs | sed 's/[ ][ ]*/:/g' | cut -d: -f 6 | cut -c 2-4`
 	test -z "$ORACLE_VERSION" && ORACLE_VERSION=7.3
+  elif test -f $ORACLE_DIR/lib/libclntsh.$SHLIB_SUFFIX_NAME.9.0; then
+    ORACLE_VERSION=9.0
   elif test -f $ORACLE_DIR/lib/libclntsh.$SHLIB_SUFFIX_NAME.8.0; then
     ORACLE_VERSION=8.1
   elif test -f $ORACLE_DIR/lib/libclntsh.$SHLIB_SUFFIX_NAME.1.0; then
@@ -138,7 +142,7 @@ if test "$PHP_ORACLE" != "no"; then
   	  PHP_ADD_LIBRARY_WITH_PATH(clntsh, $ORACLE_DIR/lib, ORACLE_SHARED_LIBADD)
 	  ;;
 
-	8.1)
+	8.1|9.0)
   	  PHP_ADD_LIBRARY(clntsh, 1, ORACLE_SHARED_LIBADD)
   	  PHP_ADD_LIBPATH($ORACLE_DIR/lib, ORACLE_SHARED_LIBADD)
 	  ;;

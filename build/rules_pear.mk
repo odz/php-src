@@ -1,7 +1,7 @@
 #  +----------------------------------------------------------------------+
-#  | PHP version 4.0                                                      |
+#  | PHP Version 4                                                        |
 #  +----------------------------------------------------------------------+
-#  | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+#  | Copyright (c) 1997-2002 The PHP Group                                |
 #  +----------------------------------------------------------------------+
 #  | This source file is subject to version 2.02 of the PHP license,      |
 #  | that is bundled with this package in the file LICENSE, and is        |
@@ -11,10 +11,10 @@
 #  | obtain it through the world-wide-web, please send a note to          |
 #  | license@php.net so we can mail you a copy immediately.               |
 #  +----------------------------------------------------------------------+
-#  | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+#  | Author: Sascha Schumann <sascha@schumann.cx>                         |
 #  +----------------------------------------------------------------------+
 #
-# $Id: rules_pear.mk,v 1.14 2001/03/13 17:54:38 andrei Exp $ 
+# $Id: rules_pear.mk,v 1.16 2002/02/28 08:25:37 sebastian Exp $ 
 #
 
 include $(top_srcdir)/build/rules_common.mk

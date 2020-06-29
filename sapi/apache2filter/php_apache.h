@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,7 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+   | Author: Sascha Schumann <sascha@schumann.cx>                         |
    +----------------------------------------------------------------------+
  */
 
@@ -21,14 +21,16 @@
 
 typedef struct php_struct {
 	int state;
-	apr_bucket_brigade *bb;
-	ap_filter_t *f;
+	request_rec *r;
+	ap_filter_t *f; /* downstream output filters after the PHP filter. */
 	/* Length of post_data buffer */
 	int post_len;
 	/* Index for reading from buffer */
 	int post_idx;
 	/* Buffer for request body filter */
 	char *post_data;
+	/* Whether or not we've processed PHP in the output filters yet. */
+	int request_processed;
 } php_struct;
 
 int php_apache_register_module(void);

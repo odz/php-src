@@ -1,5 +1,5 @@
 #  +----------------------------------------------------------------------+
-#  | PHP version 4.0                                                      |
+#  | PHP Version 4                                                        |
 #  +----------------------------------------------------------------------+
 #  | Copyright (c) 2000 The PHP Group                                     |
 #  +----------------------------------------------------------------------+
@@ -11,10 +11,10 @@
 #  | obtain it through the world-wide-web, please send a note to          |
 #  | license@php.net so we can mail you a copy immediately.               |
 #  +----------------------------------------------------------------------+
-#  | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+#  | Author: Sascha Schumann <sascha@schumann.cx>                         |
 #  +----------------------------------------------------------------------+
 #
-# $Id: mkdep.awk,v 1.3 2000/08/24 11:56:54 sas Exp $
+# $Id: mkdep.awk,v 1.5 2002/02/28 08:25:35 sebastian Exp $
 #
 # Usage:
 #

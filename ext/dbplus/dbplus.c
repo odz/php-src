@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000, 2001 The PHP Group             |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,8 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Hartmut Holzgraefe <hartmut@six.de>                         |
-   |                                                                      |
+   | Author: Hartmut Holzgraefe <hartmut@six.de>                          |
    +----------------------------------------------------------------------+
  */
 
@@ -239,51 +238,6 @@ PHP_MINFO_FUNCTION(dbplus)
 
 /* }}} */
 
-#if 0
-/* {{{ proto int dbplus_open(string name, int writing, int searchpath)
-
-    */
-PHP_FUNCTION(dbplus_open)
-{
-    relf *conn;
-
-    zval **name, **writing, **searchpath;
-    if (ZEND_NUM_ARGS() != 3 || zend_get_parameters_ex(3, &name, &writing, &searchpath) == FAILURE){
-        WRONG_PARAM_COUNT;
-    }
-
-    convert_to_string_ex(name);
-    convert_to_long_ex(writing);
-    convert_to_long_ex(searchpath);
-
-    conn = cdb_open(Z_STRVAL_PP(name), Z_LVAL_PP(writing), Z_LVAL_PP(searchpath));
-    if(conn == NULL) {
-        /* TODO error handling */
-        RETURN_FALSE;
-    }
-
-    ZEND_REGISTER_RESOURCE(return_value, conn, le_dbplus);
-}
-
-/* }}} */
-
-/* {{{ proto void dbplus_close(int conn)
-    */
-PHP_FUNCTION(dbplus_close)
-{
-    zval **conn;
-    if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &conn) == FAILURE){
-        WRONG_PARAM_COUNT;
-    }
-
-    convert_to_long_ex(conn);
-
-    /* TODO resource type check */
-
-    zend_list_delete(Z_LVAL_PP(conn));  
-}
-/* }}} */
-#endif
 
 /*
  * Local variables:

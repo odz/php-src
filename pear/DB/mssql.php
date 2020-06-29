@@ -1,9 +1,9 @@
 <?php
 //
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2001 The PHP Group                                |
+// | Copyright (c) 1997-2002 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -13,10 +13,10 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors: Sterling Hughes <sterling@php.net>                          |
+// | Author: Sterling Hughes <sterling@php.net>                           |
 // +----------------------------------------------------------------------+
 //
-// $Id: mssql.php,v 1.24.2.3 2001/11/13 01:26:42 ssb Exp $
+// $Id: mssql.php,v 1.40 2002/02/28 08:27:10 sebastian Exp $
 //
 // Database independent query interface definition for PHP's Microsoft SQL Server
 // extension.
@@ -52,9 +52,11 @@ class DB_mssql extends DB_common
 
     function connect($dsninfo, $persistent = false)
     {
-        if (!DB::assertExtension('mssql') && !DB::assertExtension('sybase'))
+        if (!DB::assertExtension('mssql') && !DB::assertExtension('sybase')
+            && !DB::assertExtension('sybase_ct'))
+        {
             return $this->raiseError(DB_ERROR_EXTENSION_NOT_FOUND);
-
+        }
         $this->dsn = $dsninfo;
         $user = $dsninfo['username'];
         $pw = $dsninfo['password'];
@@ -156,11 +158,13 @@ class DB_mssql extends DB_common
             $ar = @mssql_fetch_row($result);
         }
         if (!$ar) {
+            /* This throws informative error messages,
+               don't use it for now
             if ($msg = mssql_get_last_message()) {
                 return $this->raiseError($msg);
-            } else {
-                return null;
             }
+            */
+            return null;
         }
         return DB_OK;
     }
@@ -288,11 +292,11 @@ class DB_mssql extends DB_common
      */
     function nextId($seq_name, $ondemand = true)
     {
-        $sqn = preg_replace('/[^a-z0-9_]/i', '_', $seq_name);
+        $seqname = $this->getSequenceName($seq_name);
         $repeat = 0;
         do {
             $this->pushErrorHandling(PEAR_ERROR_RETURN);
-            $result = $this->query("INSERT INTO ${sqn}_seq (vapor) VALUES (0)");
+            $result = $this->query("INSERT INTO $seqname (vapor) VALUES (0)");
             $this->popErrorHandling();
             if ($ondemand && DB::isError($result) &&
                 ($result->getCode() == DB_ERROR || $result->getCode() == DB_ERROR_NOSUCHTABLE))
@@ -303,7 +307,7 @@ class DB_mssql extends DB_common
                     return $result;
                 }
             } else {
-                $result = $this->query("SELECT @@IDENTITY FROM ${sqn}_seq");
+                $result = $this->query("SELECT @@IDENTITY FROM $seqname");
                 $repeat = 0;
             }
         } while ($repeat);
@@ -319,8 +323,8 @@ class DB_mssql extends DB_common
 
     function createSequence($seq_name)
     {
-        $sqn = preg_replace('/[^a-z0-9_]/i', '_', $seq_name);
-        return $this->query("CREATE TABLE ${sqn}_seq".
+        $seqname = $this->getSequenceName($seq_name);
+        return $this->query("CREATE TABLE $seqname ".
                             '([id] [int] IDENTITY (1, 1) NOT NULL ,' .
                             '[vapor] [int] NULL)');
     }
@@ -329,8 +333,8 @@ class DB_mssql extends DB_common
 
     function dropSequence($seq_name)
     {
-        $sqn = preg_replace('/[^a-z0-9_]/i', '_', $seq_name);
-        return $this->query("DROP TABLE ${sqn}_seq");
+        $seqname = $this->getSequenceName($seq_name);
+        return $this->query("DROP TABLE $seqname");
     }
     // }}}
 

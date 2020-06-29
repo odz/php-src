@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -19,7 +19,7 @@
  */
 
 
-/* $Id: datetime.c,v 1.75.2.1 2001/12/14 10:08:43 sterling Exp $ */
+/* $Id: datetime.c,v 1.83 2002/03/04 11:11:25 stas Exp $ */
 
 
 #include "php.h"
@@ -182,10 +182,13 @@ void php_mktime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 #else
 	    /*
 	    ** If correcting for daylight savings time, we set the adjustment to
-		** the value of timezone - 3600 seconds. Otherwise, we need to overcorrect and
-		** set the adjustment to the main timezone + 3600 seconds.
+		** the value of timezone - 3600 seconds.
 	    */
-	    gmadjust = -(is_dst ? timezone - 3600 : timezone + 3600);
+#ifdef __CYGWIN__
+	    gmadjust = -(is_dst ? _timezone - 3600 : _timezone);
+#else
+	    gmadjust = -(is_dst ? timezone - 3600 : timezone);
+#endif
 #endif
 		seconds += gmadjust;
 	}
@@ -252,7 +255,11 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 	} else {
 		ta = php_localtime_r(&the_time, &tmbuf);
 #if !HAVE_TM_GMTOFF
+#ifdef __CYGWIN__
+		tzone = _timezone;
+#else
 		tzone = timezone;
+#endif
 		tname[0] = tzname[0];
 #endif
 	}
@@ -587,7 +594,11 @@ PHP_FUNCTION(localtime)
 			assoc_array = Z_LVAL_PP(assoc_array_arg);
 			break;
 	}
-	ta = php_localtime_r(&timestamp, &tmbuf);
+	if (NULL == (ta = php_localtime_r(&timestamp, &tmbuf))) {
+		php_error(E_WARNING, "%s(): invalid local time",
+				  get_active_function_name(TSRMLS_C));
+		RETURN_FALSE;
+	}
 	if (array_init(return_value) == FAILURE) {
 		php_error(E_ERROR, "Cannot prepare return array from localtime");
 		RETURN_FALSE;

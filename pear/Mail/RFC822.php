@@ -1,9 +1,9 @@
 <?php
 //
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2001 The PHP Group                                |
+// | Copyright (c) 1997-2002 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -38,7 +38,7 @@ require_once ('PEAR.php');
 *
 * @author  Richard Heyes <richard@phpguru.org>
 * @author  Chuck Hagenbuch <chuck@horde.org>
-* @version $Revision: 1.9.2.2 $
+* @version $Revision: 1.18.2.1 $
 * @package Mail
 */
 
@@ -105,6 +105,12 @@ class Mail_RFC822 extends PEAR{
      * @var boolean $mailRFC822
      */
     var $mailRFC822 = true;
+    
+    /**
+    * A limit after which processing stops
+    * @var int $limit
+    */
+    var $limit = null;
 
 
     /**
@@ -119,12 +125,13 @@ class Mail_RFC822 extends PEAR{
      * 
      * @return object Mail_RFC822 A new Mail_RFC822 object.
      */
-    function Mail_RFC822($address = null, $default_domain = null, $nest_groups = null, $validate = null)
+    function Mail_RFC822($address = null, $default_domain = null, $nest_groups = null, $validate = null, $limit = null)
     {
         if (isset($address))        $this->address        = $address;
         if (isset($default_domain)) $this->default_domain = $default_domain;
         if (isset($nest_groups))    $this->nestGroups     = $nest_groups;
         if (isset($validate))       $this->validate       = $validate;
+        if (isset($limit))          $this->limit          = $limit;
     }
 
 
@@ -140,11 +147,11 @@ class Mail_RFC822 extends PEAR{
      * 
      * @return array A structured array of addresses.
      */
-    function parseAddressList($address = null, $default_domain = null, $nest_groups = null, $validate = null)
+    function parseAddressList($address = null, $default_domain = null, $nest_groups = null, $validate = null, $limit = null)
     {
 
         if (!isset($this->mailRFC822)) {
-            $obj = new Mail_RFC822($address, $default_domain, $nest_groups, $validate);
+            $obj = new Mail_RFC822($address, $default_domain, $nest_groups, $validate, $limit);
             return $obj->parseAddressList();
         }
 
@@ -152,17 +159,28 @@ class Mail_RFC822 extends PEAR{
         if (isset($default_domain)) $this->default_domain = $default_domain;
         if (isset($nest_groups))    $this->nestGroups     = $nest_groups;
         if (isset($validate))       $this->validate       = $validate;
+        if (isset($limit))          $this->limit          = $limit;
 
         $this->structure  = array();
         $this->addresses  = array();
         $this->error      = null;
         $this->index      = null;
 
-        if (!$this->_splitAddresses($this->address) || isset($this->error)) {
+        while ($this->address = $this->_splitAddresses($this->address)) {
+            continue;
+        }
+        
+        if ($this->address === false || isset($this->error)) {
             return $this->raiseError($this->error);
         }
 
+        // Reset timer since large amounts of addresses can take a long time to
+        // get here
+        set_time_limit(30);
+
+        // Loop through all the addresses
         for ($i = 0; $i < count($this->addresses); $i++){
+
             if (($return = $this->_validateAddress($this->addresses[$i])) === false
                 || isset($this->error)) {
                 return $this->raiseError($this->error);
@@ -174,7 +192,7 @@ class Mail_RFC822 extends PEAR{
                 $this->structure[] = $return;
             }
         }
-        
+
         return $this->structure;
     }
 
@@ -185,8 +203,12 @@ class Mail_RFC822 extends PEAR{
      * @param string $address The addresses to split.
      * @return boolean Success or failure.
      */
-    function _splitAddresses($address = '')
+    function _splitAddresses($address)
     {
+
+        if (!empty($this->limit) AND count($this->addresses) == $this->limit) {
+            return '';
+        }
 
         if ($this->_isGroup($address) && !isset($this->error)) {
             $split_char = ';';
@@ -237,14 +259,13 @@ class Mail_RFC822 extends PEAR{
         // chars, then there is another address.
         if ($is_group && substr($address, 0, 1) == ','){
             $address = trim(substr($address, 1));
-            $this->_splitAddresses($address);
-            return true;
+            return $address;
 
         } elseif (strlen($address) > 0) {
-            $this->_splitAddresses($address);
-            return true;
+            return $address;
+
         } else {
-            return true;
+            return '';
         }
 
         // If you got here then something's off
@@ -829,5 +850,19 @@ class Mail_RFC822 extends PEAR{
         return $local_part;
     }
 
+    /**
+    * Returns an approximate count of how many addresses are
+    * in the given string. This is APPROXIMATE as it only splits
+    * based on a comma which has no preceding backslash. Could be
+    * useful as large amounts of addresses will end up producing
+    * *large* structures when used with parseAddressList().
+    *
+    * @param  string $data Addresses to count
+    * @return int          Approximate count
+    */
+    function approximateCount($data)
+    {
+        return count(preg_split('/(?<!\\\\),/', $data));
+    }
 }
 ?>

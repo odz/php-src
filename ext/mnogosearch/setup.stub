@@ -1,4 +1,4 @@
-# $Source: /repository/php4/ext/mnogosearch/setup.stub,v $
+# $Source: /repository/php4/ext/mnogosearch/Attic/setup.stub,v $
 # $Id: setup.stub,v 1.2 2001/01/31 14:04:29 gluke Exp $
 
 define_option with-mnogosearch 'mnoGoSearch support?' yesnodir \

@@ -1,7 +1,7 @@
 <?php
 /* vim: set expandtab tabstop=4 shiftwidth=4: */
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
 // | Copyright (c) 1997, 1998, 1999, 2000, 2001 The PHP Group             |
 // +----------------------------------------------------------------------+
@@ -13,10 +13,10 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors: Adam Daniel <adaniel1@eesus.jnj.com>                        |
+// | Author: Adam Daniel <adaniel1@eesus.jnj.com>                         |
 // +----------------------------------------------------------------------+
 //
-// $Id: Page.php,v 1.3.2.3 2001/11/13 01:26:46 ssb Exp $
+// $Id: Page.php,v 1.8 2002/02/28 08:27:13 sebastian Exp $
 
 require_once "HTML/Common.php";
 
@@ -84,39 +84,52 @@ class HTML_Page extends HTML_Common {
         $strName = "";
         $strContent = "";
         $intCounter = 0;
+		$strHtml = "";
         if ($this->_comment) {
             $strHtml = "<!-- $this->_comment -->\n";
         }
-        $strHtml .= "<HTML>\n";
-        $strHtml .= "<HEAD>\n";
-        $strHtml .= "<TITLE>$this->_title</TITLE>\n";
+        $strHtml .= "<html>\n";
+        $strHtml .= "<head>\n";
+        $strHtml .= "<title> $this->_title </title>\n";
         for(reset($this->_metaTags); $strName = key($this->_metaTags); next($this->_metaTags)) {
             $strContent = pos($this->_metaTags);
-            $strHtml .= "<META name=\"$strName\" content=\"$strContent\">\n";
+            $strHtml .= "<meta name=\"$strName\" content=\"$strContent\">\n";
         }
         for($intCounter=0; $intCounter<count($this->_styleSheets); $intCounter++) {
             $strStyleSheet = $this->_styleSheets[$intCounter];
-            $strHtml .= "<LINK rel=\"stylesheet\" href=\"$strStyleSheet\" type=\"text/css\">\n"; 
+            $strHtml .= "<link rel=\"stylesheet\" href=\"$strStyleSheet\" type=\"text/css\">\n"; 
         }
         for($intCounter=0; $intCounter<count($this->_scripts); $intCounter++) {
             $strType = $this->_scripts[$intCounter]["type"];
             $strSrc = $this->_scripts[$intCounter]["src"];
-            $strHtml .= "<SCRIPT language=\"$strType\" src=\"$strSrc\"></SCRIPT>\n"; 
+            $strHtml .= "<script language=\"$strType\" src=\"$strSrc\"></SCRIPT>\n"; 
         }
-        $strHtml .= "</HEAD>\n";
+        $strHtml .= "</head>\n";
         $strAttr = $this->_getAttrString($this->_attributes);
-        $strHtml .= "<BODY $strAttr>\n";
+        $strHtml .= "<body $strAttr>\n";
         if (is_object($this->body)) {
             if (method_exists($this->body, "toHtml")) {
                 $strHtml .= $this->body->toHtml();
             } elseif (method_exists($contents, "toString")) {
                 $strHtml .= $contents->toString();
             }
+        } elseif(is_array($this->body)) {
+            foreach ($this->body as $element) {
+                if (is_object($element)) {
+                    if (method_exists($element, "toHtml")) {
+                        $strHtml .= $element->toHtml();
+                    } elseif (method_exists($element, "toString")) {
+                        $strHtml .= $element->toString();
+                    }
+                } else {
+                    $strHtml .= $element;
+                }
+            }
         } else {
             $strHtml .= $this->body;
         }
-        $strHtml .= "</BODY>\n";
-        $strHtml .= "</HTML>\n";
+        $strHtml .= "</body>\n";
+        $strHtml .= "</html>\n";
         return $strHtml;
     } // end func toHtml
     

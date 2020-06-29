@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sylvain PAGES <spages@free.fr>                              |
+   | Author: Sylvain PAGES <spages@free.fr>                               |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: cybermut.c,v 1.5.2.1 2001/10/11 23:51:13 ssb Exp $ */
+/* $Id: cybermut.c,v 1.10 2002/02/28 08:25:52 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -86,9 +86,7 @@ PHP_MINFO_FUNCTION(cybermut)
 /* }}} */
 
 /* {{{ proto string cybermut_creerformulairecm(string url_CM, string version, string TPE, string montant, string ref_commande, string texte_libre, string url_retour, string url_retour_ok, string url_retour_err, string langue, string code_societe, string texte_bouton)
-   Return a string containing source HTML of the form of request for payment.
-   This result corresponds to the last parameter "formulaire" of the original function 
-   which was removed */
+   Returns a string containing source HTML of the form of request for payment. This result corresponds to the last parameter "formulaire" of the original function which was removed */
 PHP_FUNCTION(cybermut_creerformulairecm)
 {
 	zval **url_CM, **version, **TPE, **montant, **ref_commande, **texte_libre, **url_retour, **url_retour_ok, **url_retour_err, **langue, **code_societe, **texte_bouton;
@@ -121,9 +119,7 @@ PHP_FUNCTION(cybermut_creerformulairecm)
 /* }}} */
 
 /* {{{ proto bool cybermut_testmac(string code_MAC, string version, string TPE, string cdate, string montant, string ref_commande, string texte_libre, string code_retour)
-   Return a boolean attesting that the authentification proceeded well 
-   true : the received message is authenticated 
-   false: if not */
+   Returns a boolean attesting that the authentification proceeded well. TRUE if the received message is authenticated and FALSE if not */ 
 PHP_FUNCTION(cybermut_testmac)
 {
 	zval **code_MAC, **version, **TPE, **cdate, **montant, **ref_commande, **texte_libre, **code_retour;
@@ -154,10 +150,7 @@ PHP_FUNCTION(cybermut_testmac)
 /* }}} */
 
 /* {{{ proto string cybermut_creerreponsecm(string phrase)
-   Return a string containing the message of acknowledgement of delivery 
-	(headers and body of the message).
-   This result corresponds to the last parameter "reponse" of the original function
-   which was removed. */
+   Returns a string containing the message of acknowledgement of delivery (headers and body of the message). This result corresponds to the last parameter "reponse" of the original function which was removed */
 PHP_FUNCTION(cybermut_creerreponsecm)
 {
 	zval **phrase;
@@ -180,6 +173,6 @@ PHP_FUNCTION(cybermut_creerreponsecm)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

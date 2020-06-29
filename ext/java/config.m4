@@ -1,11 +1,11 @@
-# $Id: config.m4,v 1.25 2001/05/12 11:08:51 sas Exp $
-# config.m4 for extension java
+dnl
+dnl $Id: config.m4,v 1.28.2.1 2002/04/14 00:40:57 sniper Exp $
+dnl
 
 AC_MSG_CHECKING(for Java support)
 AC_ARG_WITH(java,
-[  --with-java[=DIR]       Include Java support. DIR is the base install
-                          directory for the JDK.  This extension can only
-                          be built as a shared dl.],
+[  --with-java[=DIR]       Include Java support. DIR is the JDK base install directory. 
+                          This extension is always built as shared.],
 [
   if test "$withval" != "no"; then
     JAVA_SHARED=libphp_java.la
@@ -16,25 +16,37 @@ AC_ARG_WITH(java,
       AIX) java_libext=libjava.a ;;
       HP-UX) java_libext=libjava.sl ;;
     esac  
-    # substitute zip for systems which don't have jar in the PATH
-    if JAVA_JAR=`which jar 2>/dev/null`; then
-      JAVA_JAR="$JAVA_JAR cf"
+
+    if test "$withval" = "yes"; then
+      if JAVA_JAR=`which jar 2>/dev/null`; then
+        JAVA_JAR="$JAVA_JAR cf"
+      else
+        JAVA_JAR=
+      fi
+      withval=`cd \`dirname \\\`which javac\\\`\`/..;pwd`
     else
+      test -x $withval/bin/jar && JAVA_JAR="$withval/bin/jar cf"
+    fi
+    
+    # substitute zip for systems which don't have jar
+    if test -z "$JAVA_JAR"; then
       JAVA_JAR='zip -q0'
     fi
 
-    if test "$withval" = "yes"; then
-      withval=`cd \`dirname \\\`which javac\\\`\`/..;pwd`
+    if test -x $withval/bin/javac; then
+      JAVA_C=$withval/bin/javac
+    else
+      AC_MSG_ERROR([Can not find the javac binary under $withval/bin/])
     fi
 
     if test -d $withval/lib/kaffe; then
       PHP_ADD_LIBPATH($withval/lib)
-      PHP_ADD_LIBPATH($withval/lib/kaffe)
 
       JAVA_CFLAGS=-DKAFFE
       JAVA_INCLUDE=-I$withval/include/kaffe
       JAVA_CLASSPATH=$withval/share/kaffe/Klasses.jar
       JAVA_LIB=kaffevm
+      JAVA_LIBPATH=$withval/lib/kaffe
       java_libext=kaffevm
 
       test -f $withval/lib/$JAVA_LIB && JAVA_LIBPATH=$withval/lib
@@ -54,7 +66,7 @@ AC_ARG_WITH(java,
       test -f $withval/lib/classes.zip && JAVA_CLASSPATH=$withval/lib/classes.zip
       test -f $withval/lib/jvm.jar     && JAVA_CLASSPATH=$withval/lib/jvm.jar
       for i in $JAVA_INCLUDE/*; do
-	test -f $i/jni_md.h && JAVA_INCLUDE="$JAVA_INCLUDE $i"
+        test -f $i/jni_md.h && JAVA_INCLUDE="$JAVA_INCLUDE $i"
       done
 
     else
@@ -64,7 +76,7 @@ AC_ARG_WITH(java,
         test -f $i/jni_md.h && JAVA_INCLUDE="$JAVA_INCLUDE -I$i"
       done
 
-      for i in `find $withval -type d`; do
+      for i in `find $withval/. -type d`; do
         test -f $i/classes.zip && JAVA_CFLAGS=-DJNI_11
         test -f $i/rt.jar      && JAVA_CFLAGS=-DJNI_12
         test -f $i/classes.zip && JAVA_CLASSPATH=$i/classes.zip
@@ -89,6 +101,9 @@ AC_ARG_WITH(java,
     fi
 
     AC_DEFINE(HAVE_JAVA,1,[ ])
+    if test -z "$JAVA_LIBPATH"; then
+      AC_MSG_ERROR(unable to find Java VM libraries)
+    fi
     PHP_ADD_LIBPATH($JAVA_LIBPATH)
     JAVA_CFLAGS="$JAVA_CFLAGS '-DJAVALIB=\"$JAVA_LIBPATH/$java_libext\"'"
 
@@ -116,3 +131,4 @@ PHP_SUBST(JAVA_CLASSPATH)
 PHP_SUBST(JAVA_INCLUDE)
 PHP_SUBST(JAVA_SHARED)
 PHP_SUBST(JAVA_JAR)
+PHP_SUBST(JAVA_C)

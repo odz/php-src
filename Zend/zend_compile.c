@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2002 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -1141,8 +1141,19 @@ ZEND_API int do_bind_function_or_class(zend_op *opline, HashTable *function_tabl
 
 				zend_hash_find(function_table, opline->op1.u.constant.value.str.val, opline->op1.u.constant.value.str.len, (void *) &function);
 				if (zend_hash_add(function_table, opline->op2.u.constant.value.str.val, opline->op2.u.constant.value.str.len+1, function, sizeof(zend_function), NULL)==FAILURE) {
+					zend_function *function;
+
 					if (!compile_time) {
-						zend_error(E_ERROR, "Cannot redeclare %s()", opline->op2.u.constant.value.str.val);
+						if (zend_hash_find(function_table, opline->op2.u.constant.value.str.val, opline->op2.u.constant.value.str.len+1, (void *) &function)==SUCCESS
+							&& function->type==ZEND_USER_FUNCTION
+							&& ((zend_op_array *) function)->last>0) {
+							zend_error(E_ERROR, "Cannot redeclare %s() (previously declared in %s:%d)",
+										opline->op2.u.constant.value.str.val,
+										((zend_op_array *) function)->filename,
+										((zend_op_array *) function)->opcodes[0].lineno);
+						} else {
+							zend_error(E_ERROR, "Cannot redeclare %s()", opline->op2.u.constant.value.str.val);
+						}
 					}
 					return FAILURE;
 				} else {
@@ -1631,14 +1642,18 @@ void zend_do_end_class_declaration(TSRMLS_D)
 
 void zend_do_declare_property(znode *var_name, znode *value TSRMLS_DC)
 {
+	zval *property;
+
+	ALLOC_ZVAL(property);
+
 	if (value) {
-		zval *property;
-
-		ALLOC_ZVAL(property);
-
 		*property = value->u.constant;
-		zend_hash_update(&CG(active_class_entry)->default_properties, var_name->u.constant.value.str.val, var_name->u.constant.value.str.len+1, &property, sizeof(zval *), NULL);
+	} else {
+		INIT_PZVAL(property);
+		property->type = IS_NULL;
 	}
+
+	zend_hash_update(&CG(active_class_entry)->default_properties, var_name->u.constant.value.str.val, var_name->u.constant.value.str.len+1, &property, sizeof(zval *), NULL);
 	FREE_PNODE(var_name);
 }
 

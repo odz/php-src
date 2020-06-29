@@ -133,7 +133,7 @@ PHP_MINFO_FUNCTION(muscat)
 {
 	php_info_print_table_start();
 	php_info_print_table_header(2, "muscat support", "enabled");
-	php_info_print_table_row(2, "Muscat/Empower 1.5 Module for PHP version 4.0<br>Copyright (c) 2000 <a href=\"www.ananova.com\">Ananova Ltd<a/>","For information on Muscat/Empower without php see <a href=\"www.smartlogik.com\">www.smartlogik.com</a><br><small>Muscat and Empower are probably trade marks</small>");
+	php_info_print_table_row(2, "Muscat/Empower 1.5 Module for PHP version 4.0<br />Copyright (c) 2000 <a href=\"www.ananova.com\">Ananova Ltd<a/>","For information on Muscat/Empower without php see <a href=\"www.smartlogik.com\">www.smartlogik.com</a><br /><small>Muscat and Empower are probably trade marks</small>");
 	php_info_print_table_row(2, "muscat path", PHP_MUSCAT_DIR);
 	php_info_print_table_end();
 
@@ -158,7 +158,7 @@ void _discard(_muscat_handle * handle) {
 /* }}} */
 
 
-/* {{{ proto resource setup_muscat(int size [, string muscat_dir])
+/* {{{ proto resource muscat_setup(int size [, string muscat_dir])
    Creates a new muscat session and returns the handle. Size is the ammount of memory in bytes to allocate for muscat muscat_dir is the muscat installation dir e.g. "/usr/local/empower", it defaults to the compile time muscat directory */
 PHP_FUNCTION(muscat_setup)
 {
@@ -200,7 +200,7 @@ PHP_FUNCTION(muscat_setup)
 }
 /* }}} */
 
-/* {{{ proto resource setup_muscat_net(string muscat_host, int port)
+/* {{{ proto resource muscat_setup_net(string muscat_host, int port)
    Creates a new muscat session and returns the handle. muscat_host is the hostname to connect to port is the port number to connect to - actually takes exactly the same args as fsockopen */
 PHP_FUNCTION(muscat_setup_net)
 {
@@ -212,7 +212,7 @@ PHP_FUNCTION(muscat_setup_net)
 		WRONG_PARAM_COUNT;
 	}
 
-	if ((*socket_arg)->type!=IS_RESOURCE) {
+	if (Z_TYPE_PP(socket_arg)!=IS_RESOURCE) {
 	  zend_error(E_ERROR,"First parameter must be a socket handle");
 	  RETURN_FALSE;
 	}
@@ -326,7 +326,7 @@ PHP_FUNCTION(muscat_close)
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &muscat_handle_arg) == FAILURE){
 		WRONG_PARAM_COUNT;
 	}
-	if ((*muscat_handle_arg)->type!=IS_RESOURCE) {
+	if (Z_TYPE_PP(muscat_handle_arg)!=IS_RESOURCE) {
 	  zend_error(E_ERROR,"First parameter must be a muscat handle");
 	  RETURN_FALSE;
 	}
@@ -336,7 +336,7 @@ PHP_FUNCTION(muscat_close)
 
 	_muscat_close(handle);
 	// Let destructor take care of efree!
-	zend_list_delete((*muscat_handle_arg)->value.lval);
+	zend_list_delete(Z_LVAL_PP(muscat_handle_arg));
 }
 /* }}} */
 

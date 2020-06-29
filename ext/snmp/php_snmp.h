@@ -1,8 +1,8 @@
 /*
 +----------------------------------------------------------------------+
-| PHP version 4.0                                                      |
+| PHP Version 4                                                        |
 +----------------------------------------------------------------------+
-| Copyright (c) 1997-2001 The PHP Group                                |
+| Copyright (c) 1997-2002 The PHP Group                                |
 +----------------------------------------------------------------------+
 | This source file is subject to version 2.02 of the PHP license,      |
 | that is bundled with this package in the file LICENSE, and is        |
@@ -12,13 +12,13 @@
 | obtain it through the world-wide-web, please send a note to          |
 | license@php.net so we can mail you a copy immediately.               |
 +----------------------------------------------------------------------+
-| Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
+| Authors: Rasmus Lerdorf <rasmus@php.net>                             |
 |          Mike Jackson <mhjack@tscnet.com>                            |
 |          Steven Lawrance <slawrance@technologist.com>                |
 +----------------------------------------------------------------------+
 */
 
-/* $Id: php_snmp.h,v 1.10 2001/02/26 06:07:16 andi Exp $ */
+/* $Id: php_snmp.h,v 1.12 2002/02/28 08:26:42 sebastian Exp $ */
 #ifndef PHP_SNMP_H
 #define PHP_SNMP_H
 

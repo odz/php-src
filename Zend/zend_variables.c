@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2002 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -136,8 +136,9 @@ ZEND_API int _zval_copy_ctor(zval *zvalue ZEND_FILE_LINE_DC)
 ZEND_API int zval_persist(zval *zvalue TSRMLS_DC)
 {
 	switch (zvalue->type) {
+		case IS_OBJECT:
 		case IS_RESOURCE:
-			return FAILURE; /* resources cannot be persisted */
+			return FAILURE; /* resources and objects cannot be persisted */
 			break;
 		case IS_BOOL:
 		case IS_LONG:
@@ -157,10 +158,6 @@ ZEND_API int zval_persist(zval *zvalue TSRMLS_DC)
 		case IS_CONSTANT_ARRAY:
 			persist_alloc(zvalue->value.ht);
 			zend_hash_apply(zvalue->value.ht, (apply_func_t) zval_persist TSRMLS_CC);
-			break;
-		case IS_OBJECT:
-			persist_alloc(zvalue->value.obj.properties);
-			zend_hash_apply(zvalue->value.obj.properties, (apply_func_t) zval_persist TSRMLS_CC);
 			break;
 	}
 	return SUCCESS;

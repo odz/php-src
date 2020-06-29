@@ -1,9 +1,9 @@
 <?php
 //
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2001 The PHP Group                                |
+// | Copyright (c) 1997-2002 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -13,10 +13,10 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors: Chuck Hagenbuch <chuck@horde.org>                           |
+// | Author: Chuck Hagenbuch <chuck@horde.org>                            |
 // +----------------------------------------------------------------------+
 //
-// $Id: Mail.php,v 1.14 2001/08/09 08:06:52 cox Exp $
+// $Id: Mail.php,v 1.17 2002/02/28 08:27:05 sebastian Exp $
 
 require_once 'PEAR.php';
 
@@ -26,7 +26,7 @@ require_once 'PEAR.php';
  * useful in multiple mailer backends.
  *
  * @access public
- * @version $Revision: 1.14 $
+ * @version $Revision: 1.17 $
  * @package Mail
  */
 class Mail extends PEAR
@@ -48,7 +48,7 @@ class Mail extends PEAR
         if (class_exists($class)) {
             return new $class($params);
         } else {
-            return $this->raiseError('Unable to find class for driver ' . $driver);
+            return PEAR::raiseError('Unable to find class for driver ' . $driver);
         }
     }
 

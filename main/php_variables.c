@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    |          Zeev Suraski <zeev@zend.com>                                |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_variables.c,v 1.30 2001/08/06 03:50:52 sas Exp $ */
+/* $Id: php_variables.c,v 1.35 2001/12/11 15:31:05 sebastian Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -34,19 +34,20 @@ PHPAPI void php_register_variable(char *var, char *strval, zval *track_vars_arra
 	php_register_variable_safe(var, strval, strlen(strval), track_vars_array TSRMLS_CC);
 }
 
+
 /* binary-safe version */
 PHPAPI void php_register_variable_safe(char *var, char *strval, int str_len, zval *track_vars_array TSRMLS_DC)
 {
 	zval new_entry;
 
 	/* Prepare value */
-	new_entry.value.str.len = str_len;
+	Z_STRLEN(new_entry) = str_len;
 	if (PG(magic_quotes_gpc)) {
-		new_entry.value.str.val = php_addslashes(strval, new_entry.value.str.len, &new_entry.value.str.len, 0 TSRMLS_CC);
+		Z_STRVAL(new_entry) = php_addslashes(strval, Z_STRLEN(new_entry), &Z_STRLEN(new_entry), 0 TSRMLS_CC);
 	} else {
-		new_entry.value.str.val = estrndup(strval, new_entry.value.str.len);
+		Z_STRVAL(new_entry) = estrndup(strval, Z_STRLEN(new_entry));
 	}
-	new_entry.type = IS_STRING;
+	Z_TYPE(new_entry) = IS_STRING;
 
 	php_register_variable_ex(var, &new_entry, track_vars_array TSRMLS_CC);
 }
@@ -69,9 +70,9 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_arra
 	}
 	if (track_vars_array) {
 		if (symtable1) {
-			symtable2 = track_vars_array->value.ht;
+			symtable2 = Z_ARRVAL_P(track_vars_array);
 		} else {
-			symtable1 = track_vars_array->value.ht;
+			symtable1 = Z_ARRVAL_P(track_vars_array);
 		}
 	}
 	if (!symtable1) {
@@ -129,7 +130,7 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_arra
 					escaped_index = index;
 				}
 				if (zend_hash_find(symtable1, escaped_index, index_len+1, (void **) &gpc_element_p)==FAILURE
-					|| (*gpc_element_p)->type != IS_ARRAY) {
+					|| Z_TYPE_PP(gpc_element_p) != IS_ARRAY) {
 					MAKE_STD_ZVAL(gpc_element);
 					array_init(gpc_element);
 					zend_hash_update(symtable1, escaped_index, index_len+1, &gpc_element, sizeof(zval *), (void **) &gpc_element_p);
@@ -141,7 +142,7 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_arra
 			if (!top_gpc_p) {
 				top_gpc_p = gpc_element_p;
 			}
-			symtable1 = (*gpc_element_p)->value.ht;
+			symtable1 = Z_ARRVAL_PP(gpc_element_p);
 			/* ip pointed to the '[' character, now obtain the key */
 			index = ++ip;
 			index_len = 0;
@@ -169,7 +170,7 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_arra
 		} else {
 			MAKE_STD_ZVAL(gpc_element);
 			gpc_element->value = val->value;
-			gpc_element->type = val->type;
+			Z_TYPE_P(gpc_element) = Z_TYPE_P(val);
 			if (!index) {
 				zend_hash_next_index_insert(symtable1, &gpc_element, sizeof(zval *), (void **) &gpc_element_p);
 			} else {
@@ -191,7 +192,7 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_arra
 }
 
 
-SAPI_POST_HANDLER_FUNC(php_std_post_handler)
+SAPI_API SAPI_POST_HANDLER_FUNC(php_std_post_handler)
 {
 	char *var, *val;
 	char *strtok_buf = NULL;
@@ -332,6 +333,6 @@ void php_import_environment_variables(zval *array_ptr TSRMLS_DC)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

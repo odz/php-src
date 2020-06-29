@@ -1,9 +1,9 @@
 <?php
 //
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2001 The PHP Group                                |
+// | Copyright (c) 1997-2002 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -13,13 +13,13 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors: Ulf Wendel <ulf.wendel@phpdoc.de>                           |
+// | Author: Ulf Wendel <ulf.wendel@phpdoc.de>                            |
 // +----------------------------------------------------------------------+
 //
-// $Id: IT.php,v 1.5 2001/03/29 21:49:15 uw Exp $
+// $Id: IT.php,v 1.13 2002/02/28 08:27:13 sebastian Exp $
 //
 
-require_once("HTML/IT_Error.php");
+require_once('HTML/IT_Error.php');
 
 /**
 * Integrated Template - IT
@@ -112,7 +112,7 @@ require_once("HTML/IT_Error.php");
 * </code>
 * 
 * @author   Ulf Wendel <uw@netuse.de>
-* @version  $Id: IT.php,v 1.5 2001/03/29 21:49:15 uw Exp $
+* @version  $Id: IT.php,v 1.13 2002/02/28 08:27:13 sebastian Exp $
 * @access   public
 * @package  IX[X]
 */
@@ -462,8 +462,10 @@ class IntegratedTemplate {
                 
             } else {
 
-                if (isset($this->touchedBlocks[$block]))
+                if (isset($this->touchedBlocks[$block])) {
                     $this->blockdata[$block] .= $outer;
+                    unset($this->touchedBlocks[$block]);
+                }
                 
             }
                 
@@ -562,6 +564,8 @@ class IntegratedTemplate {
     
         $this->free();
         $this->findBlocks($this->template);
+        // we don't need it any more
+        $this->template = '';
         $this->buildBlockvariablelist();
         
     } // end func init
@@ -592,7 +596,7 @@ class IntegratedTemplate {
     /**
     * Sets the template.
     *  
-    * You can eighter load a template file from disk with LoadTemplatefile() or set the
+    * You can eighter load a template file from disk with LoadTemplatefile() or set the 
     * template manually using this function.
     * 
     * @param        string      template content
@@ -644,7 +648,7 @@ class IntegratedTemplate {
             
         $this->lastTemplatefile = $filename;
         
-        return $this->setTemplate($template, $removeUnknownVariables, $removeEmptyBlocks, true);
+        return $this->setTemplate($template, $removeUnknownVariables, $removeEmptyBlocks);
     } // end func LoadTemplatefile
     
     /**
@@ -781,7 +785,7 @@ class IntegratedTemplate {
         $content = fread($fh, filesize($filename));
         fclose($fh);
         
-        return $content; 
+        return preg_replace("#<!-- INCLUDE (.*) -->#ime", "\$this->getFile('\\1')", $content);
     } // end func getFile
     
 } // end class IntegratedTemplate

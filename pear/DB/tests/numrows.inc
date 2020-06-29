@@ -41,7 +41,4 @@ if (!DB::isError($rows = $sth->numRows())) {
 } else {
     print "\n";
 }
-$dbh->setErrorHandling(PEAR_ERROR_CALLBACK, "errhandler");
-$test = $dbh->numRows(false);
-
 ?>

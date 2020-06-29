@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,12 +12,12 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Brendan W. McAdams <bmcadams@php.net>             |
-   |              Doug DeJulio <ddj@redhat.com>                           |
+   | Authors: Brendan W. McAdams <bmcadams@php.net>                       |
+   |          Doug DeJulio <ddj@redhat.com>                               |
    +----------------------------------------------------------------------+
  */
 /*
-*	cvvs.c $Revision: 1.17.2.1 $ - PHP4 Interface to the RedHat CCVS API
+*	cvvs.c $Revision: 1.24 $ - PHP4 Interface to the RedHat CCVS API
 *	 -------
 *	 Interfaces RedHat's CCVS [Credit Card Verification System] <http://www.redhat.com/products/ccvs/>
 *	 This code is ported from an original php3 interface written by RedHat's Doug DeJulio <ddj@redhat.com>
@@ -27,10 +27,10 @@
 
 /*
 *	Code started on 2000.07.24@09.04.EST by Brendan W. McAdams <bmcadams@php.net>
-*	$Revision: 1.17.2.1 $
+*	$Revision: 1.24 $
 */
 
-static char const cvsid[] = "$Id: ccvs.c,v 1.17.2.1 2001/10/11 23:51:06 ssb Exp $";
+static char const cvsid[] = "$Id: ccvs.c,v 1.24 2002/02/28 08:25:45 sebastian Exp $";
 
 #include <php.h>
 #include <stdlib.h>
@@ -113,7 +113,7 @@ ZEND_GET_MODULE(ccvs)
 /* Full Functions (The actual CCVS functions and any internal php hooked functions such as MINFO) */
 
 /* {{{ proto string ccvs_init(string name)
- ??? */
+   Initialize CCVS for use */
 PHP_FUNCTION(ccvs_init) /* cv_init() */
 {
   zval **name;
@@ -128,7 +128,7 @@ PHP_FUNCTION(ccvs_init) /* cv_init() */
 
   convert_to_string_ex(name);
 
-  vsess = cv_init((*name)->value.str.val);
+  vsess = cv_init(Z_STRVAL_PP(name));
 
   /*
   *		-- In the case that we don't run error checking on the return value... --
@@ -161,7 +161,7 @@ PHP_FUNCTION(ccvs_init) /* cv_init() */
 /* }}} */
 
 /* {{{ proto string ccvs_done(string sess)
- ??? */
+   Terminate CCVS engine and do cleanup work */
 PHP_FUNCTION(ccvs_done) /* cv_done() */
 {
   zval **sess;
@@ -175,7 +175,7 @@ PHP_FUNCTION(ccvs_done) /* cv_done() */
   convert_to_string_ex(sess);
 
   /* Convert from the string representation back to a (void*) */
-  vsess = hks_ptr_stringtoptr((*sess)->value.str.val);
+  vsess = hks_ptr_stringtoptr(Z_STRVAL_PP(sess));
   cv_done(vsess);
 
   RETURN_STRING("OK", 1);
@@ -183,7 +183,7 @@ PHP_FUNCTION(ccvs_done) /* cv_done() */
 /* }}} */
 
 /* {{{ proto string ccvs_new(string session, string invoice)
- ??? */
+   Create a new, blank transaction */
 PHP_FUNCTION(ccvs_new) /* cv_new() */
 {
   zval **psess;
@@ -203,10 +203,10 @@ PHP_FUNCTION(ccvs_new) /* cv_new() */
     RETURN_FALSE;
   }
 
-  sess = hks_ptr_stringtoptr((*psess)->value.str.val);
+  sess = hks_ptr_stringtoptr(Z_STRVAL_PP(psess));
 
   convert_to_string_ex(pinvoice);
-  invoice = (*pinvoice)->value.str.val;
+  invoice = Z_STRVAL_PP(pinvoice);
 
   r = cv_new(sess, invoice);
 
@@ -215,7 +215,7 @@ PHP_FUNCTION(ccvs_new) /* cv_new() */
 /* }}} */
 
 /* {{{ proto string ccvs_add(string session, string invoice, string argtype, string argval)
- ??? */
+   Add data to a transaction */
 PHP_FUNCTION(ccvs_add) /* cv_add() */
 {
   zval **psess;
@@ -238,10 +238,10 @@ PHP_FUNCTION(ccvs_add) /* cv_add() */
   convert_to_string_ex(pinvoice);
   convert_to_string_ex(pargtype);
   convert_to_string_ex(pargval);
-  sess = hks_ptr_stringtoptr((*psess)->value.str.val);
-  invoice = (*pinvoice)->value.str.val;
-  argtype = cv_str2arg((*pargtype)->value.str.val);
-  argval = (*pargval)->value.str.val;
+  sess = hks_ptr_stringtoptr(Z_STRVAL_PP(psess));
+  invoice = Z_STRVAL_PP(pinvoice);
+  argtype = cv_str2arg(Z_STRVAL_PP(pargtype));
+  argval = Z_STRVAL_PP(pargval);
 
   r = cv_add(sess, invoice, argtype, argval);
 
@@ -260,7 +260,7 @@ PHP_FUNCTION(ccvs_add) /* cv_add() */
 */
 
 /* {{{ proto string ccvs_delete(string session, string invoice)
- ??? */
+   Delete a transaction */
 PHP_FUNCTION(ccvs_delete) /* cv_delete() */
 {
   zval **psess;
@@ -276,8 +276,8 @@ PHP_FUNCTION(ccvs_delete) /* cv_delete() */
 
   convert_to_string_ex(psess);
   convert_to_string_ex(pinvoice);
-  invoice = (*pinvoice)->value.str.val;
-  sess = hks_ptr_stringtoptr((*psess)->value.str.val);
+  invoice = Z_STRVAL_PP(pinvoice);
+  sess = hks_ptr_stringtoptr(Z_STRVAL_PP(psess));
 
   r = cv_delete(sess, invoice);
 
@@ -286,7 +286,7 @@ PHP_FUNCTION(ccvs_delete) /* cv_delete() */
 /* }}} */
 
 /* {{{ proto string ccvs_auth(string session, string invoice)
- ??? */
+   Perform credit authorization test on a transaction */
 PHP_FUNCTION(ccvs_auth) /* cv_auth() */
 {
   zval **psess;
@@ -302,8 +302,8 @@ PHP_FUNCTION(ccvs_auth) /* cv_auth() */
 
   convert_to_string_ex(psess);
   convert_to_string_ex(pinvoice);
-  invoice = (*pinvoice)->value.str.val;
-  sess = hks_ptr_stringtoptr((*psess)->value.str.val);
+  invoice = Z_STRVAL_PP(pinvoice);
+  sess = hks_ptr_stringtoptr(Z_STRVAL_PP(psess));
 
   r = cv_auth(sess, invoice);
 
@@ -312,7 +312,7 @@ PHP_FUNCTION(ccvs_auth) /* cv_auth() */
 /* }}} */
 
 /* {{{ proto string ccvs_return(string session, string invoice)
- ??? */
+   Transfer funds from the merchant to the credit card holder */
 PHP_FUNCTION(ccvs_return) /* cv_return() */
 {
   zval **psess;
@@ -328,8 +328,8 @@ PHP_FUNCTION(ccvs_return) /* cv_return() */
 
   convert_to_string_ex(psess);
   convert_to_string_ex(pinvoice);
-  invoice = (*pinvoice)->value.str.val;
-  sess = hks_ptr_stringtoptr((*psess)->value.str.val);
+  invoice = Z_STRVAL_PP(pinvoice);
+  sess = hks_ptr_stringtoptr(Z_STRVAL_PP(psess));
 
   r = cv_return(sess, invoice);
 
@@ -338,7 +338,7 @@ PHP_FUNCTION(ccvs_return) /* cv_return() */
 /* }}} */
 
 /* {{{ proto string ccvs_reverse(string session, string invoice)
- ??? */
+   Perform a full reversal on an already-processed authorization */
 PHP_FUNCTION(ccvs_reverse) /* cv_reverse() */
 {
   zval **psess;
@@ -354,8 +354,8 @@ PHP_FUNCTION(ccvs_reverse) /* cv_reverse() */
 
   convert_to_string_ex(psess);
   convert_to_string_ex(pinvoice);
-  invoice = (*pinvoice)->value.str.val;
-  sess = hks_ptr_stringtoptr((*psess)->value.str.val);
+  invoice = Z_STRVAL_PP(pinvoice);
+  sess = hks_ptr_stringtoptr(Z_STRVAL_PP(psess));
 
   r = cv_reverse(sess, invoice);
 
@@ -364,7 +364,7 @@ PHP_FUNCTION(ccvs_reverse) /* cv_reverse() */
 /* }}} */
 
 /* {{{ proto string ccvs_sale(string session, string invoice)
- ??? */
+   Transfer funds from the credit card holder to the merchant */
 PHP_FUNCTION(ccvs_sale) /* cv_sale() */
 {
   zval **psess;
@@ -380,8 +380,8 @@ PHP_FUNCTION(ccvs_sale) /* cv_sale() */
 
   convert_to_string_ex(psess);
   convert_to_string_ex(pinvoice);
-  invoice = (*pinvoice)->value.str.val;
-  sess = hks_ptr_stringtoptr((*psess)->value.str.val);
+  invoice = Z_STRVAL_PP(pinvoice);
+  sess = hks_ptr_stringtoptr(Z_STRVAL_PP(psess));
 
   r = cv_sale(sess, invoice);
 
@@ -390,7 +390,7 @@ PHP_FUNCTION(ccvs_sale) /* cv_sale() */
 /* }}} */
 
 /* {{{ proto string ccvs_void(string session, string invoice)
- ??? */
+   Perform a full reversal on a completed transaction */
 PHP_FUNCTION(ccvs_void) /* cv_void() */
 {
   zval **psess;
@@ -406,8 +406,8 @@ PHP_FUNCTION(ccvs_void) /* cv_void() */
 
   convert_to_string_ex(psess);
   convert_to_string_ex(pinvoice);
-  invoice = (*pinvoice)->value.str.val;
-  sess = hks_ptr_stringtoptr((*psess)->value.str.val);
+  invoice = Z_STRVAL_PP(pinvoice);
+  sess = hks_ptr_stringtoptr(Z_STRVAL_PP(psess));
 
   r = cv_void(sess, invoice);
 
@@ -416,7 +416,7 @@ PHP_FUNCTION(ccvs_void) /* cv_void() */
 /* }}} */
 
 /* {{{ proto string ccvs_status(string session, string invoice)
- ??? */
+   Check the status of an invoice */
 PHP_FUNCTION(ccvs_status) /* cv_status() */
 {
   zval **psess;
@@ -432,8 +432,8 @@ PHP_FUNCTION(ccvs_status) /* cv_status() */
 
   convert_to_string_ex(psess);
   convert_to_string_ex(pinvoice);
-  invoice = (*pinvoice)->value.str.val;
-  sess = hks_ptr_stringtoptr((*psess)->value.str.val);
+  invoice = Z_STRVAL_PP(pinvoice);
+  sess = hks_ptr_stringtoptr(Z_STRVAL_PP(psess));
 
   r = cv_status(sess, invoice);
 
@@ -442,7 +442,7 @@ PHP_FUNCTION(ccvs_status) /* cv_status() */
 /* }}} */
 
 /* {{{ proto int ccvs_count(string session, string type)
- ??? */
+   Find out how many transactions of a given type are stored in the system */
 PHP_FUNCTION(ccvs_count) /* cv_count() */
 {
   zval **psess;
@@ -458,8 +458,8 @@ PHP_FUNCTION(ccvs_count) /* cv_count() */
 
   convert_to_string_ex(psess);
   convert_to_string_ex(ptype);
-  type = cv_str2stat((*ptype)->value.str.val);
-  sess = hks_ptr_stringtoptr((*psess)->value.str.val);
+  type = cv_str2stat(Z_STRVAL_PP(ptype));
+  sess = hks_ptr_stringtoptr(Z_STRVAL_PP(psess));
 
   r = cv_count(sess, type);
 
@@ -468,7 +468,7 @@ PHP_FUNCTION(ccvs_count) /* cv_count() */
 /* }}} */
 
 /* {{{ proto string ccvs_lookup(string session, string invoice, int inum)
- ??? */
+   Look up an item of a particular type in the database */
 PHP_FUNCTION(ccvs_lookup) /* cv_lookup() */
 {
   zval **psess;
@@ -485,11 +485,11 @@ PHP_FUNCTION(ccvs_lookup) /* cv_lookup() */
   }
 
   convert_to_string_ex(psess);
-  sess = hks_ptr_stringtoptr((*psess)->value.str.val);
+  sess = hks_ptr_stringtoptr(Z_STRVAL_PP(psess));
   convert_to_string_ex(ptype);
-  type = cv_str2stat((*ptype)->value.str.val);
+  type = cv_str2stat(Z_STRVAL_PP(ptype));
   convert_to_long_ex(pinum);
-  inum = (*pinum)->value.lval;
+  inum = Z_LVAL_PP(pinum);
 
   r = cv_lookup(sess, type, inum);
 
@@ -498,7 +498,7 @@ PHP_FUNCTION(ccvs_lookup) /* cv_lookup() */
 /* }}} */
 
 /* {{{ proto string ccvs_report(string session, string type)
- ??? */
+   Return the status of the background communication process */
 PHP_FUNCTION(ccvs_report) /* cv_report() */
 {
   zval **psess;
@@ -514,9 +514,9 @@ PHP_FUNCTION(ccvs_report) /* cv_report() */
   }
 
   convert_to_string_ex(psess);
-  sess = hks_ptr_stringtoptr((*psess)->value.str.val);
+  sess = hks_ptr_stringtoptr(Z_STRVAL_PP(psess));
   convert_to_string_ex(ptype);
-  type = cv_str2rep((*ptype)->value.str.val);
+  type = cv_str2rep(Z_STRVAL_PP(ptype));
 
   r = cv_report(sess, type);
 
@@ -525,7 +525,7 @@ PHP_FUNCTION(ccvs_report) /* cv_report() */
 /* }}} */
 
 /* {{{ proto string ccvs_command(string session, string type, string argval)
- ??? */
+   Performs a command which is peculiar to a single protocol, and thus is not available in the general CCVS API */
 PHP_FUNCTION(ccvs_command) /* cv_command() */
 {
   zval **psess;
@@ -542,11 +542,11 @@ PHP_FUNCTION(ccvs_command) /* cv_command() */
   }
 
   convert_to_string_ex(psess);
-  sess = hks_ptr_stringtoptr((*psess)->value.str.val);
+  sess = hks_ptr_stringtoptr(Z_STRVAL_PP(psess));
   convert_to_string_ex(ptype);
-  type = cv_str2cmd((*ptype)->value.str.val);
+  type = cv_str2cmd(Z_STRVAL_PP(ptype));
   convert_to_string_ex(pargval);
-  argval = (*pargval)->value.str.val;
+  argval = Z_STRVAL_PP(pargval);
 
   r = cv_command(sess, type, argval);
 
@@ -555,7 +555,7 @@ PHP_FUNCTION(ccvs_command) /* cv_command() */
 /* }}} */
 
 /* {{{ proto string ccvs_textvalue(string session)
- ??? */
+   Get text return value for previous function call */
 PHP_FUNCTION(ccvs_textvalue) /* cv_textvalue() */
 {
   zval **psess;
@@ -567,7 +567,7 @@ PHP_FUNCTION(ccvs_textvalue) /* cv_textvalue() */
   }
 
   convert_to_string_ex(psess);
-  sess = hks_ptr_stringtoptr((*psess)->value.str.val);
+  sess = hks_ptr_stringtoptr(Z_STRVAL_PP(psess));
 
   RETURN_STRING(cv_textvalue(sess), 1);
 }
@@ -582,7 +582,7 @@ PHP_MINFO_FUNCTION(ccvs)
 {
     php_info_print_table_start();
     php_info_print_table_header(2, "RedHat CCVS support", "enabled");
-    php_info_print_table_row(2, "CCVS Support by", "Brendan W. McAdams &lt;bmcadams@php.net&gt;<br>&amp; Doug DeJulio &lt;ddj@redhat.com&gt;");
+    php_info_print_table_row(2, "CCVS Support by", "Brendan W. McAdams &lt;bmcadams@php.net&gt;<br />&amp; Doug DeJulio &lt;ddj@redhat.com&gt;");
     php_info_print_table_row(2, "Release ID", cvsid);
     php_info_print_table_row(2, "This Release Certified For CCVS Versions", "3.0 and greater");
     php_info_print_table_end();
@@ -602,6 +602,6 @@ PHP_MINFO_FUNCTION(ccvs)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

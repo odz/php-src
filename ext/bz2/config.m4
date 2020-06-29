@@ -1,5 +1,6 @@
-dnl $Id: config.m4,v 1.5 2001/07/14 14:26:56 andrei Exp $
-dnl config.m4 for extension BZip2
+dnl
+dnl $Id: config.m4,v 1.6 2001/11/30 18:59:26 sniper Exp $
+dnl
 
 PHP_ARG_WITH(bz2, for BZip2 support,
 [  --with-bz2[=DIR]        Include BZip2 support])

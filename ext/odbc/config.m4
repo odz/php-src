@@ -1,4 +1,6 @@
-dnl $Id: config.m4,v 1.46 2001/07/06 14:30:34 kalowsky Exp $
+dnl
+dnl $Id: config.m4,v 1.49 2002/03/04 09:10:31 imajes Exp $
+dnl
 
 dnl
 dnl Figure out which library file to link with for the Solid support.
@@ -288,26 +290,26 @@ AC_ARG_WITH(empress-bcs,
 fi
 
 if test -z "$ODBC_TYPE"; then
-AC_MSG_CHECKING(for Velocis support)
-AC_ARG_WITH(velocis,
-[  --with-velocis[=DIR]    Include Velocis support.  DIR is the Velocis base
-                          install directory, defaults to /usr/local/velocis.],
+AC_MSG_CHECKING(for Birdstep support)
+AC_ARG_WITH(birdstep,
+[  --with-birdstep[=DIR]    Include Birdstep support.  DIR is the Birdstep base
+                          install directory, defaults to /usr/local/birdstep.],
 [
   PHP_WITH_SHARED
 
   if test "$withval" != "no"; then
     if test "$withval" = "yes"; then
-        ODBC_INCDIR=/usr/local/velocis/include
-        ODBC_LIBDIR=/usr/local/velocis/lib
+        ODBC_INCDIR=/usr/local/birdstep/include
+        ODBC_LIBDIR=/usr/local/birdstep/lib
     else
         ODBC_INCDIR=$withval/include
         ODBC_LIBDIR=$withval/lib
     fi
     ODBC_INCLUDE=-I$ODBC_INCDIR
-    ODBC_TYPE=velocis
+    ODBC_TYPE=birdstep
     ODBC_LFLAGS=-L$ODBC_LIBDIR
     ODBC_LIBS="-lCadm -lCdict -lCenc -lCrdm -lCrpc -lCrdbc -lCrm -lCuapi -lutil"
-    AC_DEFINE(HAVE_VELOCIS,1,[ ])
+    AC_DEFINE(HAVE_BIRDSTEP,1,[ ])
 
     AC_MSG_RESULT(yes)
   else
@@ -536,7 +538,7 @@ fi
 if test -n "$ODBC_TYPE"; then
   INCLUDES="$INCLUDES $ODBC_INCLUDE"
   if test "$ODBC_TYPE" != "dbmaker"; then
-    if test $shared != "yes"; then
+    if test "$shared" != "yes"; then
       EXTRA_LIBS="$EXTRA_LIBS $ODBC_LFLAGS $ODBC_LIBS"
     fi
   fi

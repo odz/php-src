@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: curl.c,v 1.79.2.7 2001/12/03 09:26:02 sterling Exp $ */
+/* $Id: curl.c,v 1.105.2.2 2002/04/04 00:04:25 sterling Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -77,7 +77,7 @@ zend_module_entry curl_module_entry = {
 	NULL,
 	NULL,
 	PHP_MINFO(curl),
-    NO_VERSION_YET,
+	NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 /* }}} */
@@ -103,8 +103,6 @@ PHP_MINFO_FUNCTION(curl)
  */
 PHP_MINIT_FUNCTION(curl)
 {
-	int startup_options;
-
 	le_curl = zend_register_list_destructors_ex(_php_curl_close, NULL, "curl", module_number);
 	
 	/* Constants for curl_setopt() */
@@ -255,14 +253,8 @@ PHP_MINIT_FUNCTION(curl)
 	REGISTER_CURL_CONSTANT(CURLE_TELNET_OPTION_SYNTAX);
 	REGISTER_CURL_CONSTANT(CURLE_OBSOLETE);
 	REGISTER_CURL_CONSTANT(CURLE_SSL_PEER_CERTIFICATE);
-	
-#if HAVE_OPENSSL_EXT    /* OpenSSL already takes care of initialization */
-	startup_options = CURL_GLOBAL_NOTHING;
-#else
-	startup_options = CURL_GLOBAL_ALL;
-#endif
 
-	if (curl_global_init(startup_options) != CURLE_OK) {
+	if (curl_global_init(CURL_GLOBAL_SSL) != CURLE_OK) {
 		return FAILURE;
 	}
 
@@ -319,7 +311,7 @@ static size_t curl_write(char *data, size_t size, size_t nmemb, void *ctx)
 
 		ZVAL_RESOURCE(argv[0], ch->id);
 		zend_list_addref(ch->id);
-		ZVAL_STRINGL(argv[1], data, (int) length, 1);
+		ZVAL_STRINGL(argv[1], data, length, 1);
 
 		error = call_user_function(EG(function_table),
 		                           NULL,
@@ -373,7 +365,7 @@ static size_t curl_read(char *data, size_t size, size_t nmemb, void *ctx)
 		zend_list_addref(ch->id);
 		ZVAL_RESOURCE(argv[1], t->fd);
 		zend_list_addref(t->fd);
-		ZVAL_LONG(argv[2], size * nmemb);
+		ZVAL_LONG(argv[2], (int) size * nmemb);
 
 		error = call_user_function(EG(function_table),
 		                           NULL,
@@ -406,8 +398,7 @@ static size_t curl_write_header(char *data, size_t size, size_t nmemb, void *ctx
 {
 	php_curl       *ch  = (php_curl *) ctx;
 	php_curl_write *t   = ch->handlers->write_header;
-	int             error;
-	int             length;
+	size_t          length = size * nmemb;
 	TSRMLS_FETCH();
 	
 	switch (t->method) {
@@ -415,33 +406,30 @@ static size_t curl_write_header(char *data, size_t size, size_t nmemb, void *ctx
 		/* Handle special case write when we're returning the entire transfer
 		 */
 		if (ch->handlers->write->method == PHP_CURL_RETURN)
-			smart_str_appendl(&ch->handlers->write->buf, data, size * nmemb);
+			smart_str_appendl(&ch->handlers->write->buf, data, (int) length);
 		else
 			PUTS(data);
-
-		length = size * nmemb;
-
 		break;
 	case PHP_CURL_FILE:
-		length = fwrite(data, size, nmemb, t->fp);
-		break;
+		return fwrite(data, size, nmemb, t->fp);
 	case PHP_CURL_USER: {
 		zval *argv[2];
 		zval *retval;
+		int   error;
 		TSRMLS_FETCH();
-	
+
 		MAKE_STD_ZVAL(argv[0]);
 		MAKE_STD_ZVAL(argv[1]);
 		MAKE_STD_ZVAL(retval);
 
 		ZVAL_RESOURCE(argv[0], ch->id);
 		zend_list_addref(ch->id);
-		ZVAL_STRINGL(argv[0], data, size * nmemb, 1);
+		ZVAL_STRINGL(argv[1], data, length, 1);
 
-		error = call_user_function(EG(function_table), 
-	    	                       NULL,
+		error = call_user_function(EG(function_table),
+		                           NULL,
 		                           t->func,
-	        	                   retval, 2, argv TSRMLS_CC);
+		                           retval, 2, argv TSRMLS_CC);
 		if (error == FAILURE) {
 			php_error(E_WARNING, "Couldn't call the CURLOPT_HEADERFUNCTION");
 			length = -1;
@@ -449,17 +437,14 @@ static size_t curl_write_header(char *data, size_t size, size_t nmemb, void *ctx
 		else {
 			length = Z_LVAL_P(retval);
 		}
-
 		zval_ptr_dtor(&argv[0]);
 		zval_ptr_dtor(&argv[1]);
 		zval_ptr_dtor(&retval);
 		break;
 	}
 	case PHP_CURL_IGNORE:
-		length = size * nmemb;
-		break;
-	}
-	
+		return length;
+    	}
 	return length;
 }
 /* }}} */
@@ -557,7 +542,6 @@ static void alloc_curl_handle(php_curl **ch)
 	(*ch)->handlers->write = ecalloc(1, sizeof(php_curl_write));
 	(*ch)->handlers->write_header = ecalloc(1, sizeof(php_curl_write));
 	(*ch)->handlers->read  = ecalloc(1, sizeof(php_curl_read));
-	(*ch)->performed = 0;
 	memset(&(*ch)->err, 0, sizeof((*ch)->err));
 	
 	zend_llist_init(&(*ch)->to_free.str, sizeof(char *), 
@@ -792,19 +776,22 @@ PHP_FUNCTION(curl_setopt)
 				convert_to_string_ex(current);
 
 				zend_hash_get_current_key_ex(postfields, &string_key, &string_key_len, &num_key, 0, NULL);
+				
 				postval = Z_STRVAL_PP(current);
 				if (*postval == '@') {
-					error = curl_formadd(&first, &last, CURLFORM_COPYNAME, string_key,
+					error = curl_formadd(&first, &last, CURLFORM_COPYNAME, string_key, 
 					                     CURLFORM_FILE, ++postval, CURLFORM_END);
 				}
 				else {
-					error = curl_formadd(&first, &last, CURLFORM_COPYNAME, string_key,
-					                     CURLFORM_PTRCONTENTS, postval, CURLFORM_END);
+					error = curl_formadd(&first, &last, CURLFORM_COPYNAME, string_key, 
+										 CURLFORM_PTRCONTENTS, postval, 
+										 CURLFORM_CONTENTSLENGTH, Z_STRLEN_PP(current),
+										 CURLFORM_END);
 				}
 			}
 
+			SAVE_CURL_ERROR(ch, error);
 			if (error != CURLE_OK) {
-				SAVE_CURL_ERROR(ch, error);
 				RETURN_FALSE;
 			}
 
@@ -862,9 +849,9 @@ PHP_FUNCTION(curl_setopt)
 		break;
 	}
 	}
-	
+
+	SAVE_CURL_ERROR(ch, error);
 	if (error != CURLE_OK) {
-		SAVE_CURL_ERROR(ch, error);
 		RETURN_FALSE;
 	} else {
 		RETURN_TRUE;
@@ -886,22 +873,15 @@ PHP_FUNCTION(curl_exec)
 	}
 	ZEND_FETCH_RESOURCE(ch, php_curl *, zid, -1, le_curl_name, le_curl);
 
-	if (ch->performed) {
-		php_error(E_WARNING, "Multiple executions on the same handle are not currently supported, please upgrade to the next version of PHP");
-		RETURN_FALSE;
-	}
-
 	error = curl_easy_perform(ch->cp);
+	SAVE_CURL_ERROR(ch, error);
 	if (error != CURLE_OK) {
-		if (ch->handlers->write->buf.c)
+		if (ch->handlers->write->buf.len > 0)
 			smart_str_free(&ch->handlers->write->buf);
-		SAVE_CURL_ERROR(ch, error);
 		RETURN_FALSE;
 	}
 
-	ch->performed = 1;
-
-	if (ch->handlers->write->method == PHP_CURL_RETURN) {
+	if (ch->handlers->write->method == PHP_CURL_RETURN && ch->handlers->write->buf.len > 0) {
 		if (ch->handlers->write->type != PHP_CURL_BINARY) 
 			smart_str_0(&ch->handlers->write->buf);
 		RETURN_STRINGL(ch->handlers->write->buf.c, ch->handlers->write->buf.len, 0);

@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2002 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -1002,7 +1002,11 @@ ZEND_API int add_string_to_string(zval *result, zval *op1, zval *op2)
 {
 	int length = op1->value.str.len + op2->value.str.len;
 
-	result->value.str.val = (char *) erealloc(op1->value.str.val, length+1);
+	if (op1->value.str.val==empty_string) {
+		result->value.str.val = (char *) emalloc(length+1);
+	} else {
+		result->value.str.val = (char *) erealloc(op1->value.str.val, length+1);
+	}
     memcpy(result->value.str.val+op1->value.str.len, op2->value.str.val, op2->value.str.len);
     result->value.str.val[length] = 0;
 	result->value.str.len = length;
@@ -1439,7 +1443,13 @@ ZEND_API int increment_function(zval *op1)
 {
 	switch (op1->type) {
 		case IS_LONG:
-			op1->value.lval++;
+			if(op1->value.lval == LONG_MAX) {
+				/* switch to double */
+				double d = (double)op1->value.lval;
+				ZVAL_DOUBLE(op1, d+1);
+			} else {
+				op1->value.lval++;
+			} 
 			break;
 		case IS_DOUBLE:
 			op1->value.dval = op1->value.dval + 1;
@@ -1455,8 +1465,14 @@ ZEND_API int increment_function(zval *op1)
 
 				switch (is_numeric_string(strval, op1->value.str.len, &lval, &dval, 0)) {
 					case IS_LONG:
-						op1->value.lval = lval+1;
-						op1->type = IS_LONG;
+						if(lval == LONG_MAX) {
+							/* switch to double */
+							double d = (double)lval;
+							ZVAL_DOUBLE(op1, d+1);
+						} else {
+							op1->value.lval = lval+1;
+							op1->type = IS_LONG;
+						}
 						efree(strval);
 						break;
 					case IS_DOUBLE:
@@ -1488,21 +1504,31 @@ ZEND_API int decrement_function(zval *op1)
 	
 	switch (op1->type) {
 		case IS_LONG:
-			op1->value.lval--;
+			if(op1->value.lval == LONG_MIN) {
+				double d = (double)op1->value.lval;
+				ZVAL_DOUBLE(op1, d-1);
+			} else {
+				op1->value.lval--;
+			}
 			break;
 		case IS_DOUBLE:
 			op1->value.dval = op1->value.dval - 1;
 			break;
 		case IS_STRING:		/* Like perl we only support string increment */
-			if (op1->value.str.len==0) { /* consider as 0 */
+			if (op1->value.str.len == 0) { /* consider as 0 */
 				STR_FREE(op1->value.str.val);
 				op1->value.lval = -1;
 				op1->type = IS_LONG;
 				break;
 			} else if (is_numeric_string(op1->value.str.val, op1->value.str.len, &lval, NULL, 0)==IS_LONG) { /* long */
 				STR_FREE(op1->value.str.val);
-				op1->value.lval = lval-1;
-				op1->type = IS_LONG;
+				if(lval == LONG_MIN) {
+					double d = (double)lval;
+					ZVAL_DOUBLE(op1, d-1);
+				} else {
+					op1->value.lval = lval-1;
+					op1->type = IS_LONG;
+				}
 				break;
 			}
 			break;

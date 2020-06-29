@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,6 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
+/* $Id: php_ini.c,v 1.80 2002/03/05 00:21:28 fmk Exp $ */
 
 #include "php.h"
 #ifndef PHP_WIN32
@@ -27,6 +28,8 @@
 #include "ext/standard/dl.h"
 #include "zend_extensions.h"
 #include "zend_highlight.h"
+#include "SAPI.h"
+#include "php_main.h"
 
 typedef struct _php_extension_lists {
 	zend_llist engine;
@@ -48,6 +51,7 @@ static void php_ini_displayer_cb(zend_ini_entry *ini_entry, int type)
 	} else {
 		char *display_string;
 		uint display_string_length, esc_html=0;
+		TSRMLS_FETCH();
 
 		if (type==ZEND_INI_DISPLAY_ORIG && ini_entry->modified) {
 			if (ini_entry->orig_value && ini_entry->orig_value[0]) {
@@ -67,9 +71,8 @@ static void php_ini_displayer_cb(zend_ini_entry *ini_entry, int type)
 			display_string_length = sizeof("<i>no value</i>")-1;
 		}
 		if(esc_html) {
-			zend_html_puts(display_string, display_string_length);
+			php_html_puts(display_string, display_string_length TSRMLS_CC);
 		} else {
-			TSRMLS_FETCH();
 			PHPWRITE(display_string, display_string_length);
 		}
 	}
@@ -87,7 +90,7 @@ static int php_ini_displayer(zend_ini_entry *ini_entry, int module_number TSRMLS
 	PUTS("<tr valign=\"baseline\" bgcolor=\"" PHP_CONTENTS_COLOR "\">");
 	PUTS("<td bgcolor=\"" PHP_ENTRY_NAME_COLOR "\"><b>");
 	PHPWRITE(ini_entry->name, ini_entry->name_length-1);
-	PUTS("</b><br></td><td align=\"center\">");
+	PUTS("</b><br /></td><td align=\"center\">");
 	php_ini_displayer_cb(ini_entry, ZEND_INI_DISPLAY_ACTIVE);
 	PUTS("</td><td align=\"center\">");
 	php_ini_displayer_cb(ini_entry, ZEND_INI_DISPLAY_ORIG);
@@ -135,8 +138,8 @@ PHPAPI void display_ini_entries(zend_module_entry *module)
  */
 static void pvalue_config_destructor(zval *pvalue)
 {   
-    if (pvalue->type == IS_STRING && pvalue->value.str.val != empty_string) {
-        free(pvalue->value.str.val);
+    if (Z_TYPE_P(pvalue) == IS_STRING && Z_STRVAL_P(pvalue) != empty_string) {
+        free(Z_STRVAL_P(pvalue));
     }
 }
 /* }}} */
@@ -239,10 +242,18 @@ int php_init_config(char *php_ini_path_override)
 #endif
 		php_ini_search_path = (char *) emalloc(sizeof(".")+strlen(env_location)+strlen(default_location)+2+1);
 		free_ini_search_path = 1;
-		if(env_location && env_location[0]) {
-			sprintf(php_ini_search_path, ".%c%s%c%s", ZEND_PATHS_SEPARATOR, env_location, ZEND_PATHS_SEPARATOR, default_location);
+		if (strcmp(sapi_module.name, "cli")==0) {
+			if(env_location && env_location[0]) {
+				sprintf(php_ini_search_path, "%s%c%s", env_location, ZEND_PATHS_SEPARATOR, default_location);
+			} else {
+				sprintf(php_ini_search_path, "%s", default_location);
+			}
 		} else {
-			sprintf(php_ini_search_path, ".%c%s", ZEND_PATHS_SEPARATOR, default_location);
+			if(env_location && env_location[0]) {
+				sprintf(php_ini_search_path, ".%c%s%c%s", ZEND_PATHS_SEPARATOR, env_location, ZEND_PATHS_SEPARATOR, default_location);
+			} else {
+				sprintf(php_ini_search_path, ".%c%s", ZEND_PATHS_SEPARATOR, default_location);
+			}
 		}
 		if (free_default_location) {
 			efree(default_location);
@@ -270,12 +281,12 @@ int php_init_config(char *php_ini_path_override)
 	if (php_ini_opened_path) {
 		zval tmp;
 		
-		tmp.value.str.len = strlen(php_ini_opened_path);
-		tmp.value.str.val = zend_strndup(php_ini_opened_path, tmp.value.str.len);
-		tmp.type = IS_STRING;
+		Z_STRLEN(tmp) = strlen(php_ini_opened_path);
+		Z_STRVAL(tmp) = zend_strndup(php_ini_opened_path, Z_STRLEN(tmp));
+		Z_TYPE(tmp) = IS_STRING;
 		zend_hash_update(&configuration_hash, "cfg_file_path", sizeof("cfg_file_path"), (void *) &tmp, sizeof(zval), NULL);
 		efree(php_ini_opened_path);
-		php_ini_opened_path = zend_strndup(tmp.value.str.val, tmp.value.str.len);
+		php_ini_opened_path = zend_strndup(Z_STRVAL(tmp), Z_STRLEN(tmp));
 	}
 	
 	return SUCCESS;
@@ -333,7 +344,7 @@ PHPAPI int cfg_get_long(char *varname, long *result)
 	var = *tmp;
 	zval_copy_ctor(&var);
 	convert_to_long(&var);
-	*result = var.value.lval;
+	*result = Z_LVAL(var);
 	return SUCCESS;
 }
 /* }}} */
@@ -351,7 +362,7 @@ PHPAPI int cfg_get_double(char *varname, double *result)
 	var = *tmp;
 	zval_copy_ctor(&var);
 	convert_to_double(&var);
-	*result = var.value.dval;
+	*result = Z_DVAL(var);
 	return SUCCESS;
 }
 /* }}} */
@@ -366,7 +377,7 @@ PHPAPI int cfg_get_string(char *varname, char **result)
 		*result=NULL;
 		return FAILURE;
 	}
-	*result = tmp->value.str.val;
+	*result = Z_STRVAL_P(tmp);
 	return SUCCESS;
 }
 /* }}} */
@@ -377,6 +388,6 @@ PHPAPI int cfg_get_string(char *varname, char **result)
  * c-basic-offset: 4
  * indent-tabs-mode: t
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

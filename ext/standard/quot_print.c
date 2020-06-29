@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Kirill Maximov <kir@actimind.com>                                |
+   | Author: Kirill Maximov <kir@actimind.com>                            |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: quot_print.c,v 1.15 2001/08/11 17:03:37 zeev Exp $ */
+/* $Id: quot_print.c,v 1.19.2.2 2002/04/02 08:54:23 kir Exp $ */
 
 #include <stdlib.h>
 
@@ -41,8 +41,12 @@ static char php_hex2int(int c)
 		return c - '0';
 	}
 	else if ( c >= 'A' && c <= 'F' )
+    {
+        return c - 'A' + 10;
+    }
+    else if ( c >= 'a' && c <= 'f' )
 	{
-		return c - 'A' + 10;
+		return c - 'a' + 10;
 	}
 	else
 	{
@@ -69,13 +73,13 @@ PHP_FUNCTION(quoted_printable_decode)
     }
     convert_to_string_ex(arg1);
     
-	if((*arg1)->value.str.len == 0) {
+	if(Z_STRLEN_PP(arg1) == 0) {
 		/* shortcut */
 		RETURN_EMPTY_STRING();
 	}
 
-    str_in = (*arg1)->value.str.val;
-	str_out = emalloc((*arg1)->value.str.len+1);
+    str_in = Z_STRVAL_PP(arg1);
+	str_out = emalloc(Z_STRLEN_PP(arg1)+1);
     while ( str_in[i] )
     {
         switch (str_in[i])
@@ -102,7 +106,7 @@ PHP_FUNCTION(quoted_printable_decode)
                     /* End of line reached */
                     i += k;
                 }
-                else if ( (str_in[i+k] == 10) && (str_in[i+k+1] == 13))
+                else if ( (str_in[i+k] == 13) && (str_in[i+k+1] == 10))
                 {
                     /* CRLF */
                     i += k+2;
@@ -133,6 +137,6 @@ PHP_FUNCTION(quoted_printable_decode)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

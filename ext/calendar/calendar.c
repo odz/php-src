@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    |          Wez Furlong               <wez@thebrainroom.com>            |
    +----------------------------------------------------------------------+
  */
-/* $Id: calendar.c,v 1.19.2.1 2001/10/11 23:51:06 ssb Exp $ */
+/* $Id: calendar.c,v 1.24 2001/12/11 15:28:54 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -139,7 +139,7 @@ PHP_MINFO_FUNCTION(calendar)
 }
 
 /* {{{ proto array cal_info(int calendar)
- * Return information about a particular calendar */
+   Returns information about a particular calendar */
 PHP_FUNCTION(cal_info)
 {
 	zval ** cal;
@@ -178,7 +178,7 @@ PHP_FUNCTION(cal_info)
 /* }}} */
 
 /* {{{ proto int cal_days_in_month(int calendar, int month, int year)
- * Returns the number of days in a month for a given year and calendar */
+   Returns the number of days in a month for a given year and calendar */
 PHP_FUNCTION(cal_days_in_month)
 {
 	zval ** cal, **month, **year;
@@ -214,7 +214,7 @@ PHP_FUNCTION(cal_days_in_month)
 /* }}} */
 
 /* {{{ proto int cal_to_jd(int calendar, int month, int day, int year)
- * Convert from a supported calendar to Julian Day Count */
+   Converts from a supported calendar to Julian Day Count */
 PHP_FUNCTION(cal_to_jd)
 {
 	zval ** cal, **month, **day, **year;
@@ -241,7 +241,7 @@ PHP_FUNCTION(cal_to_jd)
 /* }}} */
 
 /* {{{ proto array cal_from_jd(int jd, int calendar)
- * Convert from Julian Day Count to a supported calendar and return extended information */
+   Converts from Julian Day Count to a supported calendar and return extended information */
 PHP_FUNCTION(cal_from_jd)
 {
 	zval ** jd, ** cal;
@@ -286,7 +286,7 @@ PHP_FUNCTION(cal_from_jd)
 /* }}} */
 
 /* {{{ proto string jdtogregorian(int juliandaycount)
-   Convert a julian day count to a gregorian calendar date */
+   Converts a julian day count to a gregorian calendar date */
 PHP_FUNCTION(jdtogregorian)
 {
 	pval **julday;
@@ -298,7 +298,7 @@ PHP_FUNCTION(jdtogregorian)
 	}
 
 	convert_to_long_ex(julday);
-	SdnToGregorian((*julday)->value.lval, &year, &month, &day);
+	SdnToGregorian(Z_LVAL_PP(julday), &year, &month, &day);
 	sprintf(date, "%i/%i/%i", month, day, year);
 
 	RETURN_STRING(date, 1);
@@ -306,7 +306,7 @@ PHP_FUNCTION(jdtogregorian)
 /* }}} */
 
 /* {{{ proto int gregoriantojd(int month, int day, int year)
-   Convert a gregorian calendar date to julian day count */
+   Converts a gregorian calendar date to julian day count */
  PHP_FUNCTION(gregoriantojd)
 {
 	pval **year, **month, **day;
@@ -320,7 +320,7 @@ PHP_FUNCTION(jdtogregorian)
 	convert_to_long_ex(day);
 	convert_to_long_ex(year);
 
-	jdate = GregorianToSdn((*year)->value.lval, (*month)->value.lval, (*day)->value.lval);
+	jdate = GregorianToSdn(Z_LVAL_PP(year), Z_LVAL_PP(month), Z_LVAL_PP(day));
 
 	RETURN_LONG(jdate);
 }
@@ -339,7 +339,7 @@ PHP_FUNCTION(jdtogregorian)
 	}
 
 	convert_to_long_ex(julday);
-	SdnToJulian((*julday)->value.lval, &year, &month, &day);
+	SdnToJulian(Z_LVAL_PP(julday), &year, &month, &day);
 	sprintf(date, "%i/%i/%i", month, day, year);
 
 	RETURN_STRING(date, 1);
@@ -347,7 +347,7 @@ PHP_FUNCTION(jdtogregorian)
 /* }}} */
 
 /* {{{ proto int juliantojd(int month, int day, int year)
-   Convert a julian calendar date to julian day count */
+   Converts a julian calendar date to julian day count */
  PHP_FUNCTION(juliantojd)
 {
 	pval **year, **month, **day;
@@ -361,14 +361,14 @@ PHP_FUNCTION(jdtogregorian)
 	convert_to_long_ex(day);
 	convert_to_long_ex(year);
 
-	jdate = JulianToSdn((*year)->value.lval, (*month)->value.lval, (*day)->value.lval);
+	jdate = JulianToSdn(Z_LVAL_PP(year), Z_LVAL_PP(month), Z_LVAL_PP(day));
 
 	RETURN_LONG(jdate);
 }
 /* }}} */
 
 /* {{{ proto string jdtojewish(int juliandaycount)
-   Convert a julian day count to a jewish calendar date */
+   Converts a julian day count to a jewish calendar date */
  PHP_FUNCTION(jdtojewish) 
 {
 	pval **julday;
@@ -381,7 +381,7 @@ PHP_FUNCTION(jdtogregorian)
 	
 	convert_to_long_ex(julday);
 	
-	SdnToJewish((*julday)->value.lval, &year, &month, &day);
+	SdnToJewish(Z_LVAL_PP(julday), &year, &month, &day);
 	sprintf(date, "%i/%i/%i", month, day, year);
 
 	RETURN_STRING(date, 1);
@@ -389,7 +389,7 @@ PHP_FUNCTION(jdtogregorian)
 /* }}} */
 
 /* {{{ proto int jewishtojd(int month, int day, int year)
-   Convert a jewish calendar date to a julian day count */
+   Converts a jewish calendar date to a julian day count */
  PHP_FUNCTION(jewishtojd)
 {
 	pval **year, **month, **day;
@@ -403,14 +403,14 @@ PHP_FUNCTION(jdtogregorian)
 	convert_to_long_ex(day);
 	convert_to_long_ex(year);
 
-	jdate = JewishToSdn((*year)->value.lval, (*month)->value.lval, (*day)->value.lval);
+	jdate = JewishToSdn(Z_LVAL_PP(year), Z_LVAL_PP(month), Z_LVAL_PP(day));
 
 	RETURN_LONG(jdate);
 }
 /* }}} */
 
 /* {{{ proto string jdtofrench(int juliandaycount)
-   Convert a julian day count to a french republic calendar date */
+   Converts a julian day count to a french republic calendar date */
  PHP_FUNCTION(jdtofrench)
 {
 	pval **julday;
@@ -423,7 +423,7 @@ PHP_FUNCTION(jdtogregorian)
 
 	convert_to_long_ex(julday);
 	
-	SdnToFrench((*julday)->value.lval, &year, &month, &day);
+	SdnToFrench(Z_LVAL_PP(julday), &year, &month, &day);
 	sprintf(date, "%i/%i/%i", month, day, year);
 
 	RETURN_STRING(date, 1);
@@ -431,7 +431,7 @@ PHP_FUNCTION(jdtogregorian)
 /* }}} */
 
 /* {{{ proto int frenchtojd(int month, int day, int year)
-   Convert a french republic calendar date to julian day count */
+   Converts a french republic calendar date to julian day count */
  PHP_FUNCTION(frenchtojd)
 {
 	pval **year, **month, **day;
@@ -445,7 +445,7 @@ PHP_FUNCTION(jdtogregorian)
 	convert_to_long_ex(day);
 	convert_to_long_ex(year);
 
-	jdate = FrenchToSdn((*year)->value.lval, (*month)->value.lval, (*day)->value.lval);
+	jdate = FrenchToSdn(Z_LVAL_PP(year), Z_LVAL_PP(month), Z_LVAL_PP(day));
 
 	RETURN_LONG(jdate);
 }
@@ -467,10 +467,10 @@ PHP_FUNCTION(jdtogregorian)
 	convert_to_long(julday);
 	if(myargc==2) {
 	  convert_to_long(mode);
-	  mymode = mode->value.lval;
+	  mymode = Z_LVAL_P(mode);
 	} 
 
-	day = DayOfWeek(julday->value.lval);
+	day = DayOfWeek(Z_LVAL_P(julday));
 	daynamel = DayNameLong[day];
 	daynames = DayNameShort[day];
 
@@ -504,30 +504,30 @@ PHP_FUNCTION(jdtogregorian)
 	convert_to_long_ex(julday);
 	convert_to_long_ex(mode);
 
-	switch((*mode)->value.lval) {
+	switch(Z_LVAL_PP(mode)) {
 		case CAL_MONTH_GREGORIAN_LONG:			/* gregorian or julian month */
-			SdnToGregorian((*julday)->value.lval, &year, &month, &day);
+			SdnToGregorian(Z_LVAL_PP(julday), &year, &month, &day);
 			monthname = MonthNameLong[month];
 			break;
 		case CAL_MONTH_JULIAN_SHORT:			/* gregorian or julian month */
-			SdnToJulian((*julday)->value.lval, &year, &month, &day);
+			SdnToJulian(Z_LVAL_PP(julday), &year, &month, &day);
 			monthname = MonthNameShort[month];
 			break;
 		case CAL_MONTH_JULIAN_LONG:			/* gregorian or julian month */
-			SdnToJulian((*julday)->value.lval, &year, &month, &day);
+			SdnToJulian(Z_LVAL_PP(julday), &year, &month, &day);
 			monthname = MonthNameLong[month];
 			break;
 		case CAL_MONTH_JEWISH:			/* jewish month */
-			SdnToJewish((*julday)->value.lval, &year, &month, &day);
+			SdnToJewish(Z_LVAL_PP(julday), &year, &month, &day);
 			monthname = JewishMonthName[month];
 			break;
 		case CAL_MONTH_FRENCH:			/* french month */
-			SdnToFrench((*julday)->value.lval, &year, &month, &day);
+			SdnToFrench(Z_LVAL_PP(julday), &year, &month, &day);
 			monthname = FrenchMonthName[month];
 			break;
 		default:			/* default gregorian */
 		case CAL_MONTH_GREGORIAN_SHORT:			/* gregorian or julian month */
-			SdnToGregorian((*julday)->value.lval, &year, &month, &day);
+			SdnToGregorian(Z_LVAL_PP(julday), &year, &month, &day);
 			monthname = MonthNameShort[month];
 			break;
 	}
@@ -541,6 +541,6 @@ PHP_FUNCTION(jdtogregorian)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

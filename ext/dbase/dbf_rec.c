@@ -4,6 +4,10 @@
  * All Rights Reserved
  */
 
+#ifdef PHP_WIN32
+#include "ext/standard/flock_compat.h"
+#endif
+
 #include <stdio.h>
 #include <fcntl.h>
 
@@ -125,6 +129,12 @@ void pack_dbf(dbhead_t *dbh)
 		rec_cnt--;
 	}
 	free(cp);
+
+	/* Try to truncate the file to the right size. */
+	if (ftruncate(dbh->db_fd, out_off) != 0) {
+	    php_error(E_WARNING, "dbase_pack() couldn't truncate the file to the right size. Some deleted records may still be left in there.");
+	}
+
 	if (rec_cnt == 0)
 		dbh->db_records = new_cnt;
 }
@@ -186,6 +196,6 @@ char *dbf_get_next(dbhead_t *dbh)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

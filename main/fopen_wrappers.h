@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,10 +12,10 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Jim Winstead <jimw@php.net>                                 |
+   | Author: Jim Winstead <jimw@php.net>                                  |
    +----------------------------------------------------------------------+
  */
-/* $Id: fopen_wrappers.h,v 1.30 2001/08/05 01:42:43 zeev Exp $ */
+/* $Id: fopen_wrappers.h,v 1.33 2002/02/28 08:27:03 sebastian Exp $ */
 
 #ifndef FOPEN_WRAPPERS_H
 #define FOPEN_WRAPPERS_H
@@ -73,6 +73,8 @@ PHPAPI char *expand_filepath(const char *filepath, char *real_path TSRMLS_DC);
 
 PHPAPI int php_check_open_basedir(char *path TSRMLS_DC);
 PHPAPI int php_check_specific_open_basedir(char *basedir, char *path TSRMLS_DC);
+
+PHPAPI int php_check_safe_mode_include_dir(char *path TSRMLS_DC);
 
 PHPAPI FILE *php_fopen_with_path(char *filename, char *mode, char *path, char **opened_path TSRMLS_DC);
 

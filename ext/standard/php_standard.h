@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors:                                                             |
+   | Author:                                                              |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_standard.h,v 1.7.6.1 2001/10/11 01:03:27 ssb Exp $ */
+/* $Id: php_standard.h,v 1.15 2002/02/28 08:26:48 sebastian Exp $ */
 
 #include "basic_functions.h"
 #include "php_math.h"
@@ -47,7 +47,6 @@
 #include "uniqid.h"
 #include "php_var.h"
 #include "quot_print.h"
-#include "type.h"
 #include "dl.h"
 #include "php_crypt.h"
 #include "head.h"
@@ -57,6 +56,9 @@
 #include "php_array.h"
 #include "php_assert.h"
 #include "php_versioning.h"
+#include "php_ftok.h"
+#include "php_type.h"
+#include "aggregation.h"
 
 #define phpext_standard_ptr basic_functions_module_ptr
 

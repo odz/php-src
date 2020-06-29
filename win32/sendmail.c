@@ -18,6 +18,8 @@
  *
  */
 
+/* $Id: sendmail.c,v 1.24 2001/12/20 18:06:13 fmk Exp $ */
+
 #include "php.h"				/*php specific */
 #include <stdio.h>
 #include <stdlib.h>
@@ -277,9 +279,9 @@ int SendText(char *RPath, char *Subject, char *mailTo, char *data, char *headers
 
 	/* send message header */
 	if (Subject == NULL)
-		res = PostHeader(RPath, "No Subject", mailTo, headers);
+		res = PostHeader(RPath, "No Subject", mailTo, headers, NULL);
 	else
-		res = PostHeader(RPath, Subject, mailTo, headers);
+		res = PostHeader(RPath, Subject, mailTo, headers, NULL);
 	if (res != SUCCESS)
 		return (res);
 
@@ -323,15 +325,16 @@ int SendText(char *RPath, char *Subject, char *mailTo, char *data, char *headers
 /*********************************************************************
 // Name:  PostHeader
 // Input:       1) return path
-//                  2) Subject
-//                  3) destination address
-//                  4) DoMime flag
+//              2) Subject
+//              3) destination address
+//              4) headers
+//				5) cc destination address
 // Output:      Error code or Success
 // Description:
 // Author/Date:  jcar 20/9/96
 // History:
 //********************************************************************/
-int PostHeader(char *RPath, char *Subject, char *mailTo, char *xheaders)
+int PostHeader(char *RPath, char *Subject, char *mailTo, char *xheaders, char *mailCc)
 {
 
 	/* Print message header according to RFC 822 */
@@ -356,7 +359,7 @@ int PostHeader(char *RPath, char *Subject, char *mailTo, char *xheaders)
 					 tm->tm_hour,
 					 tm->tm_min,
 					 tm->tm_sec,
-					 (_timezone > 0) ? "+" : (_timezone < 0) ? "-" : "",
+					 (_timezone <= 0) ? "+" : (_timezone > 0) ? "-" : "",
 					 zoneh,
 					 zonem);
 	}
@@ -365,8 +368,9 @@ int PostHeader(char *RPath, char *Subject, char *mailTo, char *xheaders)
 		p += sprintf(p, "From: %s\r\n", RPath);
 	}
 	p += sprintf(p, "Subject: %s\r\n", Subject);
-	if(!xheaders || !strstr(xheaders, "To:")){
-		p += sprintf(p, "To: %s\r\n", mailTo);
+	p += sprintf(p, "To: %s\r\n", mailTo);
+	if (mailCc && *mailCc) {
+		p += sprintf(p, "Cc: %s\r\n", mailCc);
 	}
 	if(xheaders){
 		p += sprintf(p, "%s\r\n", xheaders);

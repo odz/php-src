@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -22,7 +22,7 @@
  * - CGI/1.1 conformance
  */
 
-/* $Id: aolserver.c,v 1.62.2.1 2001/10/12 11:56:37 ssb Exp $ */
+/* $Id: aolserver.c,v 1.67 2002/02/28 12:10:36 yohgaki Exp $ */
 
 /* conflict between PHP and AOLserver headers */
 #define Debug php_Debug
@@ -205,7 +205,7 @@ static void php_info_aolserver(ZEND_MODULE_INFO_FUNC_ARGS)
 	int i;
 	
 	php_info_print_table_start();
-	php_info_print_table_row(2, "SAPI module version", "$Id: aolserver.c,v 1.62.2.1 2001/10/12 11:56:37 ssb Exp $");
+	php_info_print_table_row(2, "SAPI module version", "$Id: aolserver.c,v 1.67 2002/02/28 12:10:36 yohgaki Exp $");
 	php_info_print_table_row(2, "Build date", Ns_InfoBuildDate());
 	php_info_print_table_row(2, "Config file path", Ns_InfoConfigFile());
 	php_info_print_table_row(2, "Error Log path", Ns_InfoErrorLog());
@@ -242,7 +242,7 @@ PHP_FUNCTION(getallheaders);
 
 static function_entry aolserver_functions[] = {
 	PHP_FE(getallheaders, NULL)
-	{0}
+	{NULL, NULL, NULL}
 };
 
 static zend_module_entry php_aolserver_module = {

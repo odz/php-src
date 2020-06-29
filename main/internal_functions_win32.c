@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
  */
 
 
-/* $Id: internal_functions_win32.c,v 1.45 2001/07/30 01:56:42 zeev Exp $ */
+/* $Id: internal_functions_win32.c,v 1.50 2001/12/11 15:31:02 sebastian Exp $ */
 
 /* {{{ includes
  */
@@ -51,7 +51,6 @@
 #include "ext/standard/php_assert.h"
 #include "ext/calendar/php_calendar.h"
 #include "ext/com/php_COM.h"
-#include "ext/com/php_VARIANT.h"
 #include "ext/ftp/php_ftp.h"
 #include "ext/standard/reg.h"
 #include "ext/pcre/php_pcre.h"
@@ -61,6 +60,9 @@
 #include "ext/wddx/php_wddx.h"
 #include "ext/mysql/php_mysql.h"
 #include "ext/mbstring/mbstring.h"
+#if HAVE_OVERLOAD
+#include "ext/overload/php_overload.h"
+#endif
 /* }}} */
 
 /* {{{ php_builtin_extensions[]
@@ -71,14 +73,16 @@ zend_module_entry *php_builtin_extensions[] = {
 	phpext_bcmath_ptr,
 #endif
 	phpext_calendar_ptr,
-	COM_module_ptr,
-	VARIANT_module_ptr,
+	phpext_com_ptr,
 	phpext_ftp_ptr,
 #if defined(MBSTR_ENC_TRANS)
 	phpext_mbstring_ptr,
 #endif
 	phpext_mysql_ptr,
 	phpext_odbc_ptr,
+#if HAVE_OVERLOAD
+  phpext_overload_ptr,
+#endif
 	phpext_pcre_ptr,
 	phpext_session_ptr,
 	phpext_xml_ptr,
@@ -100,6 +104,6 @@ int php_startup_internal_extensions(void)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

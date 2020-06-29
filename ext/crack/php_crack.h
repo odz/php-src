@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997, 1998, 1999, 2000, 2001 The PHP Group             |
    +----------------------------------------------------------------------+
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors:                                                             |
+   | Authors: Alexander Feldman                                           |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_crack.h,v 1.3 2001/07/31 20:24:43 sniper Exp $ */
+/* $Id: php_crack.h,v 1.5 2002/02/28 08:25:48 sebastian Exp $ */
 
 #ifndef ZEND_CRACK_H
 #define ZEND_CRACK_H

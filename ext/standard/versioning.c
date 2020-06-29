@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000, 2001 The PHP Group             |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,12 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Stig Sæther Bakken <ssb@fast.no>                            |
-   |                                                                      |
+   | Author: Stig Sæther Bakken <ssb@fast.no>                             |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: versioning.c,v 1.3.2.2 2001/10/11 10:40:14 ssb Exp $ */
+/* $Id: versioning.c,v 1.8 2002/02/28 08:26:50 sebastian Exp $ */
 
 #include <stdio.h>
 #include <sys/types.h>
@@ -34,7 +33,7 @@
 PHPAPI char *
 php_canonicalize_version(const char *version)
 {
-    int len = strlen(version), in_number = 0;
+    int len = strlen(version);
     char *buf = emalloc(len * 2 + 1), *q, lp, lq;
     const char *p;
 
@@ -175,39 +174,36 @@ php_version_compare(const char *orig_ver1, const char *orig_ver2)
 
 PHP_FUNCTION(version_compare)
 {
-    zval **v1, **v2, **oper;
+	char *v1, *v2, *op;
+	int v1_len, v2_len, op_len;
 	int compare, argc;
-	char *op;
 
 	argc = ZEND_NUM_ARGS();
-	if (argc < 2 || argc > 3 || zend_get_parameters_ex(argc, &v1, &v2, &oper) == FAILURE) {
-		WRONG_PARAM_COUNT;
+	if (zend_parse_parameters(argc TSRMLS_CC, "ss|s", &v1, &v1_len, &v2,
+							  &v2_len, &op, &op_len) == FAILURE) {
+		return;
 	}
-	convert_to_string_ex(v1);
-	convert_to_string_ex(v2);
-	compare = php_version_compare(Z_STRVAL_PP(v1), Z_STRVAL_PP(v2));
+	compare = php_version_compare(v1, v2);
 	if (argc == 2) {
 		RETURN_LONG(compare);
 	}
-	convert_to_string_ex(oper);
-	op = Z_STRVAL_PP(oper);
 	if (!strcmp(op, "<") || !strcmp(op, "lt")) {
-		RETURN_LONG(compare == -1);
+		RETURN_BOOL(compare == -1);
 	}
 	if (!strcmp(op, "<=") || !strcmp(op, "le")) {
-		RETURN_LONG(compare != 1);
+		RETURN_BOOL(compare != 1);
 	}
 	if (!strcmp(op, ">") || !strcmp(op, "gt")) {
-		RETURN_LONG(compare == 1);
+		RETURN_BOOL(compare == 1);
 	}
 	if (!strcmp(op, ">=") || !strcmp(op, "ge")) {
-		RETURN_LONG(compare != -1);
+		RETURN_BOOL(compare != -1);
 	}
 	if (!strcmp(op, "==") || !strcmp(op, "=") || !strcmp(op, "eq")) {
-		RETURN_LONG(compare == 0);
+		RETURN_BOOL(compare == 0);
 	}
 	if (!strcmp(op, "!=") || !strcmp(op, "<>") || !strcmp(op, "ne")) {
-		RETURN_LONG(compare != 0);
+		RETURN_BOOL(compare != 0);
 	}
 	RETURN_NULL();
 }

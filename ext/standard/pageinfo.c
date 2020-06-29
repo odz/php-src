@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Jim Winstead <jimw@php.net>                                 |
+   | Author: Jim Winstead <jimw@php.net>                                  |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: pageinfo.c,v 1.26 2001/07/31 06:28:03 zeev Exp $ */
+/* $Id: pageinfo.c,v 1.30 2002/02/28 08:26:46 sebastian Exp $ */
 
 #include "php.h"
 #include "pageinfo.h"
@@ -43,7 +43,7 @@
 
 /* {{{ php_statpage
  */
-static void php_statpage(TSRMLS_D)
+PHPAPI void php_statpage(TSRMLS_D)
 {
 	struct stat *pstat;
 
@@ -137,15 +137,21 @@ PHP_FUNCTION(getmyinode)
 }
 /* }}} */
 
+PHPAPI long php_getlastmod(TSRMLS_D)
+{
+	php_statpage(TSRMLS_C);
+	return BG(page_mtime);
+}
+
 /* {{{ proto int getlastmod(void)
    Get time of last page modification */
 PHP_FUNCTION(getlastmod)
 {
-	php_statpage(TSRMLS_C);
-	if (BG(page_mtime) < 0) {
+	long lm = php_getlastmod(TSRMLS_C);
+	if (lm < 0) {
 		RETURN_FALSE;
 	} else {
-		RETURN_LONG(BG(page_mtime));
+		RETURN_LONG(lm);
 	}
 }
 /* }}} */
@@ -155,6 +161,6 @@ PHP_FUNCTION(getlastmod)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

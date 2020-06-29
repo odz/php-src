@@ -1,4 +1,4 @@
-# $Source: /repository/php4/ext/bcmath/setup.stub,v $
+# $Source: /repository/php4/ext/bcmath/Attic/setup.stub,v $
 # $Id: setup.stub,v 1.1 1999/04/21 23:28:00 ssb Exp $
 
 define_option enable-bcmath 'Enable bc style precision math functions' yesno \

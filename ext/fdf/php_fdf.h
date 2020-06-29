@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Uwe Steinmann                                               |
+   | Authors: Uwe Steinmann <Uwe.Steinmann@fernuni-hagen.de>              |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_fdf.h,v 1.13 2001/07/13 16:58:09 rasmus Exp $ */
+/* $Id: php_fdf.h,v 1.15.2.1 2002/03/20 00:40:53 sniper Exp $ */
 
 #ifndef PHP_FDF_H
 #define PHP_FDF_H
@@ -27,7 +27,11 @@
 #define UNIX_DEV
 #endif
 
-#include <FdfTk.h>
+#if HAVE_FDFTK_H_LOWER
+# include <fdftk.h>
+#else
+# include <FdfTk.h>
+#endif
 
 extern zend_module_entry fdf_module_entry;
 #define fdf_module_ptr &fdf_module_entry

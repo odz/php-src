@@ -1,9 +1,9 @@
 #! /bin/sh
 #
 #  +----------------------------------------------------------------------+
-#  | PHP version 4.0                                                      |
+#  | PHP Version 4                                                        |
 #  +----------------------------------------------------------------------+
-#  | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+#  | Copyright (c) 1997-2002 The PHP Group                                |
 #  +----------------------------------------------------------------------+
 #  | This source file is subject to version 2.02 of the PHP license,      |
 #  | that is bundled with this package in the file LICENSE, and is        |
@@ -13,11 +13,15 @@
 #  | obtain it through the world-wide-web, please send a note to          |
 #  | license@php.net so we can mail you a copy immediately.               |
 #  +----------------------------------------------------------------------+
-#  | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+#  | Author: Sascha Schumann <sascha@schumann.cx>                         |
 #  +----------------------------------------------------------------------+
 #
-# $Id: fastgen.sh,v 1.10 2001/05/20 22:04:23 sas Exp $ 
+# $Id: fastgen.sh,v 1.14 2002/02/28 08:25:33 sebastian Exp $ 
 #
+
+if test "$#" = "0"; then
+  echo "Usage: fastgen.sh <srcdir> <mkdir_p> <bsdmakefile_p> <file>"
+fi
 
 srcdir=$1
 shift
@@ -41,7 +45,7 @@ if test "$bsd_makefile" = "yes"; then
   (cd $top_srcdir; ./build/bsd_makefile)
 
   for makefile in $@; do
-    echo "creating $makefile"
+    echo "fastgen.sh: creating $makefile"
     dir=`echo $makefile|sed 's%/*[^/][^/]*$%%'`
     $mkdir_p "$dir/"
 
@@ -58,7 +62,7 @@ EOF
   done
 else  
   for makefile in $@; do
-    echo "creating $makefile"
+    echo "fastgen.sh: creating $makefile"
     dir=`echo $makefile|sed 's%/*[^/][^/]*$%%'`
     $mkdir_p "$dir/"
 

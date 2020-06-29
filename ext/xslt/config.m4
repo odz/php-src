@@ -1,18 +1,22 @@
-dnl config.m4 for extension xslt
+dnl
+dnl $Id: config.m4,v 1.14.2.5 2002/04/16 10:12:57 derick Exp $
+dnl
 dnl +------------------------------------------------------------------------------+
 dnl |  This is where the magic of the extension reallly is.  Depending on what     |
 dnl |  backend the user chooses, this script performs the magic                    |
 dnl +------------------------------------------------------------------------------+
-dnl   $Id: config.m4,v 1.8.2.1 2001/08/17 16:42:57 sniper Exp $
 
 PHP_ARG_ENABLE(xslt, whether to enable xslt support,
-[  --enable-xslt           Enable xslt support])
+[  --enable-xslt           Enable xslt support.])
 
-PHP_ARG_WITH(xslt-sablot, whether to enable the XSLT Sablotron backend,
-[  --with-xslt-sablot      XSLT: Enable the sablotron backend])
+PHP_ARG_WITH(xslt-sablot, for XSLT Sablotron backend,
+[  --with-xslt-sablot=DIR    XSLT: Enable the sablotron backend.])
 
 PHP_ARG_WITH(expat-dir, libexpat dir for Sablotron XSL support,
-[  --with-expat-dir=DIR    Sablotron: libexpat dir for Sablotron 0.50])
+[  --with-expat-dir=DIR      XSLT: libexpat dir for Sablotron])
+
+PHP_ARG_WITH(sablot-js, enable JavaScript for Sablotron,
+[  --with-sablot-js=DIR    Sablotron: enable JavaScript support for Sablotron])
 
 if test "$PHP_XSLT" != "no"; then
 
@@ -52,7 +56,7 @@ if test "$PHP_XSLT" != "no"; then
   if test "$PHP_XSLT_SABLOT" != "no"; then
     found_expat=no
     for i in $PHP_EXPAT_DIR $XSLT_DIR; do
-      if test -f $i/lib/libexpat.a -o -f $i/lib/libexpat.so; then
+      if test -f $i/lib/libexpat.a -o -f $i/lib/libexpat.$SHLIB_SUFFIX_NAME; then
         AC_DEFINE(HAVE_LIBEXPAT2, 1, [ ])
         PHP_ADD_INCLUDE($i/include)
         PHP_ADD_LIBRARY_WITH_PATH(expat, $i/lib, XSLT_SHARED_LIBADD)
@@ -65,24 +69,28 @@ if test "$PHP_XSLT" != "no"; then
       PHP_ADD_LIBRARY(xmltok)
     fi
 
-    found_iconv=no
-    AC_CHECK_LIB(c, iconv_open, found_iconv=yes)
-    if test "$found_iconv" = "no"; then
-        for i in /usr /usr/local $ICONV_DIR; do
-          if test -f $i/lib/libconv.a -o -f $i/lib/libiconv.so; then
-            PHP_ADD_LIBRARY_WITH_PATH(iconv, $i/lib, XSLT_SHARED_LIBADD)
-            found_iconv=yes
-          fi
-        done
+    if test "$PHP_ICONV" = "no"; then
+      PHP_ICONV=yes
     fi
-
-    if test "$found_iconv" = "no"; then
-      AC_MSG_ERROR(iconv not found, in order to build sablotron you need the iconv library)
-    fi
+    PHP_SETUP_ICONV(XSLT_SHARED_LIBADD, [], [
+      AC_MSG_ERROR([iconv not found, in order to build sablotron you need the iconv library])
+    ])
  
-    AC_DEFINE(HAVE_SABLOT_BACKEND, 1, [ ])
-    AC_CHECK_LIB(sablot, SablotSetEncoding, AC_DEFINE(HAVE_SABLOT_SET_ENCODING, 1, [ ]))
+    if test "$PHP_SABLOT_JS" != "no"; then
+      found_js=no
+      AC_CHECK_LIB(js, JS_GetRuntime, found_js=yes)
+      if test "$found_js" = "yes"; then
+        PHP_ADD_LIBRARY(js)
+      fi
+    fi
 
+    AC_DEFINE(HAVE_SABLOT_BACKEND, 1, [ ])
+    if test "$found_expat" = "yes"; then
+     old_LIBS=$LIBS
+     LIBS="$LIBS -lexpat"
+     AC_CHECK_LIB(sablot, SablotSetEncoding, AC_DEFINE(HAVE_SABLOT_SET_ENCODING, 1, [ ]))
+     LIBS=$old_LIBS
+    fi
   fi
 
   PHP_ADD_INCLUDE($XSLT_DIR/include)

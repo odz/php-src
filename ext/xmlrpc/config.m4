@@ -1,5 +1,6 @@
-dnl $Id: config.m4,v 1.4.2.1 2001/10/17 15:32:54 ssb Exp $
-dnl config.m4 for extension Xmlrpc
+dnl
+dnl $Id: config.m4,v 1.8.2.4 2002/03/26 00:15:29 sniper Exp $
+dnl
 
 sinclude(ext/xmlrpc/libxmlrpc/acinclude.m4)
 sinclude(ext/xmlrpc/libxmlrpc/xmlrpc.m4)
@@ -7,10 +8,10 @@ sinclude(libxmlrpc/acinclude.m4)
 sinclude(libxmlrpc/xmlrpc.m4)
 
 PHP_ARG_WITH(xmlrpc, for XMLRPC-EPI support,
-[  --with-xmlrpc[=DIR]     Include XMLRPC-EPI support])
+[  --with-xmlrpc[=DIR]     Include XMLRPC-EPI support.])
 
 PHP_ARG_WITH(expat-dir, libexpat dir for XMLRPC-EPI,
-[  --with-expat-dir=DIR    XMLRPC-EPI: libexpat dir for XMLRPC-EPI])
+[  --with-expat-dir=DIR      XMLRPC-EPI: libexpat dir for XMLRPC-EPI.])
 
 if test "$PHP_XMLRPC" != "no"; then
 
@@ -19,7 +20,7 @@ if test "$PHP_XMLRPC" != "no"; then
   AC_DEFINE(HAVE_XMLRPC,1,[ ])
 
   testval=no
-  for i in $PHP_EXPAT_DIR $XMLRPC_DIR; do
+  for i in /usr /usr/local $PHP_EXPAT_DIR $XMLRPC_DIR; do
     if test -f $i/lib/libexpat.a -o -f $i/lib/libexpat.$SHLIB_SUFFIX_NAME; then
       AC_DEFINE(HAVE_LIBEXPAT2,1,[ ])
       PHP_ADD_LIBRARY_WITH_PATH(expat, $i/lib, XMLRPC_SHARED_LIBADD)
@@ -28,22 +29,16 @@ if test "$PHP_XMLRPC" != "no"; then
     fi
   done
 
+  if test "$testval" = "no"; then
+    AC_MSG_ERROR(XML-RPC support requires libexpat. Use --with-expat-dir=<DIR>)
+  fi
 
-dnl  found_iconv=no
-  AC_CHECK_LIB(c, iconv_open, found_iconv=yes)
-  if test "$found_iconv" = "no"; then
-      for i in /usr /usr/local $ICONV_DIR; do
-        if test -f $i/lib/libconv.a -o -f $i/lib/libiconv.$SHLIB_SUFFIX_NAME; then
-          PHP_ADD_LIBRARY_WITH_PATH(iconv, $i/lib, XMLRPC_SHARED_LIBADD)
-          found_iconv=yes
-        fi
-      done
+  if test "$PHP_ICONV" = "no"; then
+    PHP_ICONV=yes
   fi
-  
-  if test "$found_iconv" = "no"; then
-    AC_MSG_ERROR(iconv not found, in order to build xmlrpc you need the iconv library)
-  fi
-  
+  PHP_SETUP_ICONV(XMLRPC_SHARED_LIBADD, [], [
+    AC_MSG_ERROR([iconv not found, in order to build xmlrpc you need the iconv library])
+  ])
 fi
 
 

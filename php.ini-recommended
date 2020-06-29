@@ -110,6 +110,9 @@ output_handler =
 ; Transparent output compression using the zlib library
 ; Valid values for this option are 'off', 'on', or a specific buffer size
 ; to be used for compression (default is 4KB)
+;
+; Note: output_handler must be empty if this is set 'On' !!!!
+;
 zlib.output_compression = Off
 
 ; Implicit flush tells PHP to tell the output layer to flush itself
@@ -129,7 +132,6 @@ implicit_flush = Off
 ; you use this feature, and the argument will be passed by value instead of by
 ; reference).
 allow_call_time_pass_reference = Off
-
 
 ;
 ; Safe Mode
@@ -349,6 +351,8 @@ auto_append_file =
 default_mimetype = "text/html"
 ;default_charset = "iso-8859-1"
 
+; Always populate the $HTTP_RAW_POST_DATA variable.                               
+;always_populate_raw_post_data = On
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Paths and Directories ;
@@ -361,6 +365,10 @@ default_mimetype = "text/html"
 ;include_path = ".;c:\php\includes"
 
 ; The root of the PHP pages, used only if nonempty.
+; if PHP was not compiled with FORCE_REDIRECT, you SHOULD set doc_root
+; if you are running php as a CGI under any web server (other than IIS)
+; see documentation for security issues.  The alternate is to use the
+; cgi.force_redirect configuration below
 doc_root =
 
 ; The directory under which PHP opens the script using /~usernamem used only
@@ -374,6 +382,19 @@ extension_dir = ./
 ; properly in multithreaded servers, such as IIS or Zeus, and is automatically
 ; disabled on them.
 enable_dl = On
+
+; cgi.force_redirect is necessary to provide security running PHP as a CGI under
+; most web servers.  Left undefined, PHP turns this on by default.  You can
+; turn it off here AT YOUR OWN RISK
+; **You CAN safely turn this off for IIS, in fact, you MUST.**
+; cgi.force_redirect = 1
+
+; if cgi.force_redirect is turned on, and you are not running under Apache or Netscape 
+; (iPlanet) web servers, you MAY need to set an environment variable name that PHP
+; will look for to know it is OK to continue execution.  Setting this variable MAY
+; cause security issues, KNOW WHAT YOU ARE DOING FIRST.
+; cgi.redirect_status_env = ;
+
 
 
 ;;;;;;;;;;;;;;;;
@@ -464,11 +485,12 @@ allow_url_fopen = On
 ;extension=php_pdf.dll
 ;extension=php_pgsql.dll
 ;extension=php_printer.dll
-;extension=php_sablot.dll
 ;extension=php_shmop.dll
 ;extension=php_snmp.dll
 ;extension=php_sockets.dll
 ;extension=php_sybase_ct.dll
+;extension=php_tokenizer.dll
+;extension=php_w32api.dll
 ;extension=php_xslt.dll
 ;extension=php_yaz.dll
 ;extension=php_zlib.dll
@@ -491,14 +513,8 @@ SMTP = localhost
 ; For Win32 only.
 sendmail_from = me@localhost.com
 
-; For Unix only.  You may supply arguments as well (default: 'sendmail -t -i').
+; For Unix only.  You may supply arguments as well (default: "sendmail -t -i").
 ;sendmail_path =
-
-[Logging]
-; These configuration directives are used by the example logging mechanism.
-; See examples/README.logging for more explanation.
-;logging.method = db
-;logging.directory = /path/to/log/directory
 
 [Java]
 ;java.class.path = .\php_java.jar
@@ -548,7 +564,7 @@ mysql.max_links = -1
 ; Default port number for mysql_connect().  If unset, mysql_connect() will use
 ; the $MYSQL_TCP_PORT or the mysql-tcp entry in /etc/services or the
 ; compile-time value defined MYSQL_PORT (in that order).  Win32 will only look
-' at MYSQL_PORT.
+; at MYSQL_PORT.
 mysql.default_port =
 
 ; Default socket name for local MySQL connects.  If empty, uses the built-in
@@ -581,6 +597,9 @@ msql.max_links = -1
 [PostgresSQL]
 ; Allow or prevent persistent links.
 pgsql.allow_persistent = On
+
+; Detect broken persistent links always with pg_pconnect(). Need a little overhead.
+pgsql.auto_reset_persistent = Off
 
 ; Maximum number of persistent links.  -1 means no limit.
 pgsql.max_persistent = -1
@@ -713,6 +732,8 @@ session.gc_probability = 1
 session.gc_maxlifetime = 1440
 
 ; Check HTTP Referer to invalidate externally stored URLs containing ids.
+; HTTP_REFERER has to contain this substring for the session to be
+; considered as valid.
 session.referer_check =
 
 ; How many bytes to read from the file.
@@ -849,7 +870,7 @@ sockets.use_system_read = On
 ;mbstring.substitute_character = none;
 
 [FrontBase]
-;fbsql.allow_persistant = On
+;fbsql.allow_persistent = On
 ;fbsql.autocommit = On
 ;fbsql.default_database = 
 ;fbsql.default_database_password =
@@ -861,7 +882,7 @@ sockets.use_system_read = On
 ;fbsql.max_links = 128
 ;fbsql.max_persistent = -1
 ;fbsql.max_results = 128
-;fbsql.mbatchSize = 1000
+;fbsql.batchSize = 1000
 
 ; Local Variables:
 ; tab-width: 4

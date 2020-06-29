@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,10 +12,10 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Jim Winstead (jimw@php.net)                                  |
+   | Author: Jim Winstead <jimw@php.net>                                  |
    +----------------------------------------------------------------------+
  */
-/* $Id: base64.c,v 1.25 2001/08/11 17:03:36 zeev Exp $ */
+/* $Id: base64.c,v 1.29 2002/02/28 08:26:44 sebastian Exp $ */
 
 #include <string.h>
 
@@ -153,15 +153,14 @@ unsigned char *php_base64_decode(const unsigned char *str, int length, int *ret_
    Encodes string using MIME base64 algorithm */
 PHP_FUNCTION(base64_encode)
 {
-	pval **str;
+	char *str;
 	unsigned char *result;
-	int ret_length;
+	int str_len, ret_length;
 
-	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &str) == FAILURE) {
-		WRONG_PARAM_COUNT;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &str, &str_len) == FAILURE) {
+		return;
 	}
-	convert_to_string_ex(str);
-	result = php_base64_encode(Z_STRVAL_PP(str), Z_STRLEN_PP(str), &ret_length);
+	result = php_base64_encode(str, str_len, &ret_length);
 	if (result != NULL) {
 		RETVAL_STRINGL(result, ret_length, 0);
 	} else {
@@ -175,15 +174,14 @@ PHP_FUNCTION(base64_encode)
    Decodes string using MIME base64 algorithm */
 PHP_FUNCTION(base64_decode)
 {
-	pval **str;
+	char *str;
 	unsigned char *result;
-	int ret_length;
+	int str_len, ret_length;
 
-	if (ZEND_NUM_ARGS()!=1 || zend_get_parameters_ex(1, &str) == FAILURE) {
-		WRONG_PARAM_COUNT;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &str, &str_len) == FAILURE) {
+		return;
 	}
-	convert_to_string_ex(str);
-	result = php_base64_decode(Z_STRVAL_PP(str), Z_STRLEN_PP(str), &ret_length);
+	result = php_base64_decode(str, str_len, &ret_length);
 	if (result != NULL) {
 		RETVAL_STRINGL(result, ret_length, 0);
 	} else {
@@ -198,6 +196,6 @@ PHP_FUNCTION(base64_decode)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vimo<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vimo<600: sw=4 ts=4
  */

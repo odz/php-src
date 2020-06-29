@@ -12,18 +12,18 @@ Symbols:
 
                    fbsql      ifx      mssql      oci8     pgsql
 FEATURE              |  ibase  |  msql   |   mysql |   odbc  |  sybase
-simpleQuery          x    x    x    x    x    T    T    x    T    x
-numCols              x    x    x    x    x    T    T    x    T    x
-numRows              x    n    n    x    x    T    E    n    T    n
+simpleQuery          x    T    x    x    x    T    T    x    T    x
+numCols              x    T    x    x    x    T    T    x    T    x
+numRows              x    n    n    x    x    T    E    x    T    n
 errorNative          x    n    x    n    n    T    x    x    T    n
 prepare/execute      e    x    e    e    e    E    T    e    E    e
-sequences            e    n    n    n    n    E    T    n    T    n
-affectedRows         x    n    x    x    n    T    T    n    T    x
-fetch modes          x    x    x    x    x    T    T    x    T    x
+sequences            e    T    n    n    n    E    T    n    T    n
+affectedRows         x    n    x    x    n    T    T    x    T    x
+fetch modes          x    T    x    x    x    T    T    x    T    x
 fetch row by number  x    n    x    x    x    x    n    x    x    x
 transactions         x    x    n    n    x    x    x    x    x    n
 auto-commit          x    x    n    n    n    n    x    x    x    n
-error mapping        x    -    e    -    -    T    T    x    E    -
+error mapping        x    x    e    -    -    T    T    x    E    -
 tableInfo            x    n    n    n    x    T    n    n    x    n
 
 

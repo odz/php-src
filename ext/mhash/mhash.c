@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -13,9 +13,7 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Sascha Schumann <sascha@schumann.cx>                        |
-   |                                                                      |
-   | HMAC and KEYGEN functionality added by                               |
-   |  Nikos Mavroyanopoulos <nmav@hellug.gr>                              |
+   |          Nikos Mavroyanopoulos <nmav@hellug.gr> (HMAC, KEYGEN)       |
    +----------------------------------------------------------------------+
  */
 
@@ -36,11 +34,11 @@
 
 function_entry mhash_functions[] = {
 	PHP_FE(mhash_get_block_size, NULL)
-	    PHP_FE(mhash_get_hash_name, NULL)
-	    PHP_FE(mhash_keygen_s2k, NULL)
-	    PHP_FE(mhash_count, NULL)
-	PHP_FE(mhash, NULL) {0}
-	,
+	PHP_FE(mhash_get_hash_name, NULL)
+	PHP_FE(mhash_keygen_s2k, NULL)
+	PHP_FE(mhash_count, NULL)
+	PHP_FE(mhash, NULL)
+	{NULL, NULL, NULL}
 };
 
 static PHP_MINIT_FUNCTION(mhash);
@@ -210,7 +208,6 @@ PHP_FUNCTION(mhash)
 PHP_FUNCTION(mhash_keygen_s2k)
 {
 	pval **hash, **input_password, **bytes, **input_salt;
-	unsigned char *key;
 	int password_len, salt_len;
 	int hashid, size=0, val;
 	KEYGEN keystruct;
@@ -282,6 +279,6 @@ PHP_FUNCTION(mhash_keygen_s2k)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

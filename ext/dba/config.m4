@@ -1,6 +1,6 @@
-dnl $Id: config.m4,v 1.15 2001/06/28 15:16:28 sniper Exp $
-dnl config.m4 for extension dba
-dnl don't forget to call PHP_EXTENSION(dba)
+dnl
+dnl $Id: config.m4,v 1.16.2.1 2002/04/18 12:31:19 derick Exp $
+dnl
 
 AC_DEFUN(PHP_TEMP_LDFLAGS,[
   old_LDFLAGS=$LDFLAGS
@@ -230,6 +230,5 @@ if test "$HAVE_DBA" = "1"; then
   PHP_SUBST(DBA_SHARED_LIBADD)
 else
   AC_MSG_RESULT(no)
-  AC_DEFINE(HAVE_DBA, 0, [ ])
 fi
 

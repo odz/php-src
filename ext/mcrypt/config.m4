@@ -1,10 +1,9 @@
 dnl
-dnl $Id: config.m4,v 1.18 2001/05/12 09:13:39 sas Exp $
+dnl $Id: config.m4,v 1.23 2002/01/04 14:13:53 hholzgra Exp $
 dnl 
 
 PHP_ARG_WITH(mcrypt, for mcrypt support,
-[  --with-mcrypt[=DIR]     Include mcrypt support. DIR is the mcrypt install 
-                          directory.])
+[  --with-mcrypt[=DIR]     Include mcrypt support.])
 
 if test "$PHP_MCRYPT" != "no"; then
   for i in /usr/local /usr $PHP_MCRYPT; do
@@ -17,19 +16,28 @@ if test "$PHP_MCRYPT" != "no"; then
     AC_MSG_ERROR(mcrypt.h not found. Please reinstall libmcrypt.)
   fi
 
-  AC_CHECK_LIB(mcrypt, mcrypt_module_open, 
+  PHP_CHECK_LIBRARY(mcrypt, mcrypt_module_open, 
   [
     PHP_ADD_LIBRARY(ltdl,, MCRYPT_SHARED_LIBADD)
     AC_DEFINE(HAVE_LIBMCRYPT24,1,[ ])
+
+    PHP_CHECK_LIBRARY(mcrypt, mcrypt_generic_deinit, 
+    [
+      AC_DEFINE(HAVE_MCRYPT_GENERIC_DEINIT,1,[ ])
+    ],[],[
+      -L$MCRYPT_DIR/lib
+    ])
+
   ],[
-    AC_CHECK_LIB(mcrypt, init_mcrypt, 
+    PHP_CHECK_LIBRARY(mcrypt, init_mcrypt, 
     [
       AC_DEFINE(HAVE_LIBMCRYPT22,1,[ ])
     ],[
-      AC_MSG_ERROR(Sorry, I was not able to diagnose which libmcrypt version you have installed.)
+      AC_MSG_ERROR([Sorry, I was not able to diagnose which libmcrypt version you have installed.])
     ],[
       -L$MCRYPT_DIR/lib
     ])
+
   ],[
     -L$MCRYPT_DIR/lib -lltdl
   ])

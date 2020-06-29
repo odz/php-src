@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Andrei Zmievski <andrei@ispi.net>                           |
+   | Author: Andrei Zmievski <andrei@ispi.net>                            |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_pcre.c,v 1.108.2.2 2001/11/10 23:50:53 andrei Exp $ */
+/* $Id: php_pcre.c,v 1.119 2002/02/28 08:26:35 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -39,6 +39,8 @@
 #define PREG_SPLIT_DELIM_CAPTURE	(1<<1)
 
 #define PREG_REPLACE_EVAL			(1<<0)
+
+#define PREG_GREP_INVERT			(1<<0)
 
 
 ZEND_DECLARE_MODULE_GLOBALS(pcre)
@@ -98,6 +100,7 @@ static PHP_MINIT_FUNCTION(pcre)
 	REGISTER_LONG_CONSTANT("PREG_SET_ORDER", PREG_SET_ORDER, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("PREG_SPLIT_NO_EMPTY", PREG_SPLIT_NO_EMPTY, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("PREG_SPLIT_DELIM_CAPTURE", PREG_SPLIT_DELIM_CAPTURE, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("PREG_GREP_INVERT", PREG_GREP_INVERT, CONST_CS | CONST_PERSISTENT);
 	return SUCCESS;
 }
 /* }}} */
@@ -121,7 +124,7 @@ static PHP_RINIT_FUNCTION(pcre)
 
 /* {{{ pcre_get_compiled_regex
  */
-static pcre* pcre_get_compiled_regex(char *regex, pcre_extra *extra, int *preg_options) {
+PHPAPI pcre* pcre_get_compiled_regex(char *regex, pcre_extra **extra, int *preg_options) {
 	pcre				*re = NULL;
 	int				 	 coptions = 0;
 	int				 	 soptions = 0;
@@ -150,7 +153,7 @@ static pcre* pcre_get_compiled_regex(char *regex, pcre_extra *extra, int *preg_o
 #if HAVE_SETLOCALE
 		if (!strcmp(pce->locale, locale)) {
 #endif
-			extra = pce->extra;
+			*extra = pce->extra;
 			*preg_options = pce->preg_options;
 			return pce->re;
 #if HAVE_SETLOCALE
@@ -280,7 +283,7 @@ static pcre* pcre_get_compiled_regex(char *regex, pcre_extra *extra, int *preg_o
 	/* If study option was specified, study the pattern and
 	   store the result in extra for passing to pcre_exec. */
 	if (do_study) {
-		extra = pcre_study(re, soptions, &error);
+		*extra = pcre_study(re, soptions, &error);
 		if (error != NULL) {
 			zend_error(E_WARNING, "Error while studying pattern");
 		}
@@ -292,7 +295,7 @@ static pcre* pcre_get_compiled_regex(char *regex, pcre_extra *extra, int *preg_o
 
 	/* Store the compiled pattern and extra info in the cache. */
 	new_entry.re = re;
-	new_entry.extra = extra;
+	new_entry.extra = *extra;
 	new_entry.preg_options = poptions;
 #if HAVE_SETLOCALE
 	new_entry.locale = locale;
@@ -380,7 +383,7 @@ static void php_pcre_match(INTERNAL_FUNCTION_PARAMETERS, int global)
 	}
 
 	/* Compile regex or get it from cache. */
-	if ((re = pcre_get_compiled_regex(Z_STRVAL_PP(regex), extra, &preg_options)) == NULL) {
+	if ((re = pcre_get_compiled_regex(Z_STRVAL_PP(regex), &extra, &preg_options)) == NULL) {
 		RETURN_FALSE;
 	}
 
@@ -437,7 +440,8 @@ static void php_pcre_match(INTERNAL_FUNCTION_PARAMETERS, int global)
 					if (subpats_order_val == PREG_PATTERN_ORDER) {
 						/* For each subpattern, insert it into the appropriate array. */
 						for (i = 0; i < count; i++) {
-							add_next_index_string(match_sets[i], (char *)stringlist[i], 1);
+							add_next_index_stringl(match_sets[i], (char *)stringlist[i],
+												   offsets[(i<<1)+1] - offsets[i<<1], 1);
 						}
 						/*
 						 * If the number of captured subpatterns on this run is
@@ -457,7 +461,8 @@ static void php_pcre_match(INTERNAL_FUNCTION_PARAMETERS, int global)
 						
 						/* Add all the subpatterns to it */
 						for (i = 0; i < count; i++) {
-							add_next_index_string(result_set, (char *)stringlist[i], 1);
+							add_next_index_stringl(result_set, (char *)stringlist[i],
+												   offsets[(i<<1)+1] - offsets[i<<1], 1);
 						}
 						/* And add it to the output array */
 						zend_hash_next_index_insert(Z_ARRVAL_PP(subpats), &result_set,
@@ -467,7 +472,8 @@ static void php_pcre_match(INTERNAL_FUNCTION_PARAMETERS, int global)
 				else {			/* single pattern matching */
 					/* For each subpattern, insert it into the subpatterns array. */
 					for (i = 0; i < count; i++) {
-						add_next_index_string((*subpats), (char *)stringlist[i], 1);
+						add_next_index_stringl((*subpats), (char *)stringlist[i],
+											   offsets[(i<<1)+1] - offsets[i<<1], 1);
 					}
 				}
 
@@ -669,10 +675,10 @@ static int preg_do_eval(char *eval_str, int eval_str_len, char *subject,
 
 /* {{{ php_pcre_replace
  */
-char *php_pcre_replace(char *regex,   int regex_len,
-					   char *subject, int subject_len,
-					   zval *replace_val, int is_callable_replace,
-					   int *result_len, int limit TSRMLS_DC)
+PHPAPI char *php_pcre_replace(char *regex,   int regex_len,
+							  char *subject, int subject_len,
+							  zval *replace_val, int is_callable_replace,
+							  int *result_len, int limit TSRMLS_DC)
 {
 	pcre			*re = NULL;			/* Compiled regular expression */
 	pcre_extra		*extra = NULL;		/* Holds results of studying */
@@ -703,7 +709,7 @@ char *php_pcre_replace(char *regex,   int regex_len,
 					 walk_last;			/* Last walked character */
 
 	/* Compile regex or get it from cache. */
-	if ((re = pcre_get_compiled_regex(regex, extra, &preg_options)) == NULL) {
+	if ((re = pcre_get_compiled_regex(regex, &extra, &preg_options)) == NULL) {
 		return NULL;
 	}
 
@@ -714,7 +720,6 @@ char *php_pcre_replace(char *regex,   int regex_len,
 			return NULL;
 		}
 	} else {
-		convert_to_string(replace_val);
 		replace = Z_STRVAL_P(replace_val);
 		replace_len = Z_STRLEN_P(replace_val);
 		replace_end = replace + replace_len;
@@ -916,6 +921,9 @@ static char *php_replace_in_subject(zval *regex, zval *replace, zval **subject, 
 			if (Z_TYPE_P(replace) == IS_ARRAY && !is_callable_replace) {
 				/* Get current entry */
 				if (zend_hash_get_current_data(Z_ARRVAL_P(replace), (void **)&replace_entry) == SUCCESS) {
+					if (!is_callable_replace) {
+						convert_to_string_ex(replace_entry);
+					}
 					replace_value = *replace_entry;
 					zend_hash_move_forward(Z_ARRVAL_P(replace));
 				} else {
@@ -1102,7 +1110,7 @@ PHP_FUNCTION(preg_split)
 	convert_to_string_ex(subject);
 	
 	/* Compile regex or get it from cache. */
-	if ((re = pcre_get_compiled_regex(Z_STRVAL_PP(regex), extra, &preg_options)) == NULL) {
+	if ((re = pcre_get_compiled_regex(Z_STRVAL_PP(regex), &extra, &preg_options)) == NULL) {
 		RETURN_FALSE;
 	}
 	
@@ -1278,6 +1286,7 @@ PHP_FUNCTION(preg_grep)
 {
 	zval		   **regex,				/* Regular expression */
 				   **input,				/* Input array */
+				   **flags,
 			   	   **entry;				/* An entry in the input array */
 	pcre			*re = NULL;			/* Compiled regular expression */
 	pcre_extra		*extra = NULL;		/* Holds results of studying */
@@ -1287,10 +1296,13 @@ PHP_FUNCTION(preg_grep)
 	int			 	 count = 0;			/* Count of matched subpatterns */
 	char			*string_key;
 	ulong			 num_key;
+	zend_bool		 invert = 0;		/* Whether to return non-matching
+										   entries */
 	
 	/* Get arguments and do error checking */
 	
-	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(ZEND_NUM_ARGS(), &regex, &input) == FAILURE) {
+	if (ZEND_NUM_ARGS() < 2 || ZEND_NUM_ARGS() > 3 ||
+		zend_get_parameters_ex(ZEND_NUM_ARGS(), &regex, &input, &flags) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	
@@ -1303,9 +1315,14 @@ PHP_FUNCTION(preg_grep)
 	
 	/* Make sure regex is a string */
 	convert_to_string_ex(regex);
+
+	if (ZEND_NUM_ARGS() > 2) {
+		convert_to_long_ex(flags);
+		invert = (Z_LVAL_PP(flags) & PREG_GREP_INVERT) ? 1 : 0;
+	}
 	
 	/* Compile regex or get it from cache. */
-	if ((re = pcre_get_compiled_regex(Z_STRVAL_PP(regex), extra, &preg_options)) == NULL) {
+	if ((re = pcre_get_compiled_regex(Z_STRVAL_PP(regex), &extra, &preg_options)) == NULL) {
 		RETURN_FALSE;
 	}
 
@@ -1333,8 +1350,9 @@ PHP_FUNCTION(preg_grep)
 			count = size_offsets/3;
 		}
 
-		/* If something matched */
-		if (count > 0) {
+		/* If the entry fits our requirements */
+		if ((count > 0 && !invert) ||
+			(count < 0 && invert)) {
 			(*entry)->refcount++;
 
 			/* Add to return array */
@@ -1377,13 +1395,13 @@ zend_module_entry pcre_module_entry = {
 	STANDARD_MODULE_HEADER,
    "pcre",
 	pcre_functions,
-		   PHP_MINIT(pcre),
-		   PHP_MSHUTDOWN(pcre),
-		   PHP_RINIT(pcre),
-		   NULL,
-		   PHP_MINFO(pcre),
+	PHP_MINIT(pcre),
+	PHP_MSHUTDOWN(pcre),
+	PHP_RINIT(pcre),
+	NULL,
+	PHP_MINFO(pcre),
 	NO_VERSION_YET,
-		   STANDARD_MODULE_PROPERTIES
+	STANDARD_MODULE_PROPERTIES
 };
 
 #ifdef COMPILE_DL_PCRE
@@ -1399,6 +1417,6 @@ ZEND_GET_MODULE(pcre)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

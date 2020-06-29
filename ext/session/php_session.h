@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,19 +12,23 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+   | Author: Sascha Schumann <sascha@schumann.cx>                         |
    +----------------------------------------------------------------------+
  */
 
 #ifndef PHP_SESSION_H
 #define PHP_SESSION_H
 
-#define PS_OPEN_ARGS void **mod_data, const char *save_path, const char *session_name
-#define PS_CLOSE_ARGS void **mod_data
-#define PS_READ_ARGS void **mod_data, const char *key, char **val, int *vallen
-#define PS_WRITE_ARGS void **mod_data, const char *key, const char *val, const int vallen
-#define PS_DESTROY_ARGS void **mod_data, const char *key
-#define PS_GC_ARGS void **mod_data, int maxlifetime, int *nrdels
+#include "ext/standard/php_var.h"
+
+#define PHP_SESSION_API 20020306
+
+#define PS_OPEN_ARGS void **mod_data, const char *save_path, const char *session_name TSRMLS_DC
+#define PS_CLOSE_ARGS void **mod_data TSRMLS_DC
+#define PS_READ_ARGS void **mod_data, const char *key, char **val, int *vallen TSRMLS_DC
+#define PS_WRITE_ARGS void **mod_data, const char *key, const char *val, const int vallen TSRMLS_DC
+#define PS_DESTROY_ARGS void **mod_data, const char *key TSRMLS_DC
+#define PS_GC_ARGS void **mod_data, int maxlifetime, int *nrdels TSRMLS_DC
 
 typedef struct ps_module_struct {
 	const char *name;
@@ -62,10 +66,10 @@ typedef struct ps_module_struct {
 typedef enum {
 	php_session_disabled,
 	php_session_none,
-	php_session_active,
+	php_session_active
 } php_session_status;
 
-typedef struct {
+typedef struct _php_ps_globals {
 	char *save_path;
 	char *session_name;
 	char *id;
@@ -88,9 +92,13 @@ typedef struct {
 	const struct ps_serializer_struct *serializer;
 	zval *http_session_vars;
 	zend_bool auto_start;
-	zend_bool define_sid;
 	zend_bool use_cookies;
+	zend_bool use_trans_sid;	/* contains the INI value of whether to use trans-sid */
+	zend_bool apply_trans_sid;	/* whether or not to enable trans-sid for the current request */
+	zend_bool output_handler_registered;
 } php_ps_globals;
+
+typedef php_ps_globals zend_ps_globals;
 
 extern zend_module_entry session_module_entry;
 #define phpext_session_ptr &session_module_entry
@@ -108,6 +116,7 @@ PHP_FUNCTION(session_start);
 PHP_FUNCTION(session_destroy);
 PHP_FUNCTION(session_unset);
 PHP_FUNCTION(session_set_save_handler);
+PHP_FUNCTION(session_cache_expire);
 PHP_FUNCTION(session_cache_limiter);
 PHP_FUNCTION(session_set_cookie_params);
 PHP_FUNCTION(session_get_cookie_params);
@@ -143,24 +152,19 @@ typedef struct ps_serializer_struct {
 #define PS_SERIALIZER_ENTRY(x) \
 	{ #x, PS_SERIALIZER_ENCODE_NAME(x), PS_SERIALIZER_DECODE_NAME(x) }
 
-#ifdef TRANS_SID
-void session_adapt_uris(const char *, size_t, char **, size_t * TSRMLS_DC);
-void session_adapt_url(const char *, size_t, char **, size_t * TSRMLS_DC);
-void session_adapt_flush(int (*)(const char *, uint TSRMLS_DC) TSRMLS_DC);
-#else
-#define session_adapt_uris(a,b,c,d) do { } while(0)
-#define session_adapt_url(a,b,c,d) do { } while(0)
-#define session_adapt_flush(a) do { } while(0)
-#endif
+PHPAPI void session_adapt_url(const char *, size_t, char **, size_t * TSRMLS_DC);
 
-void php_set_session_var(char *name, size_t namelen, zval *state_val,HashTable *var_hash TSRMLS_DC);
+void php_set_session_var(char *name, size_t namelen, zval *state_val, php_unserialize_data_t *var_hash TSRMLS_DC);
 int php_get_session_var(char *name, size_t namelen, zval ***state_var TSRMLS_DC);
 
-int php_session_register_module(ps_module *);
+PHPAPI int php_session_register_module(ps_module *);
 
-int php_session_register_serializer(const char *name,
+PHPAPI int php_session_register_serializer(const char *name,
 	        int (*encode)(PS_SERIALIZER_ENCODE_ARGS),
 	        int (*decode)(PS_SERIALIZER_DECODE_ARGS));
+
+PHPAPI void php_session_set_id(char *id TSRMLS_DC);
+PHPAPI void php_session_start(TSRMLS_D);
 
 #define PS_ADD_VARL(name,namelen) \
 	zend_hash_add_empty_element(&PS(vars), name, namelen + 1)
@@ -173,8 +177,6 @@ int php_session_register_serializer(const char *name,
 		zend_hash_del(Z_ARRVAL_P(PS(http_session_vars)), name, namelen+1);	\
 	}
 
-
-#define PS_DEL_VAR(name) PS_DEL_VARL(name, strlen(name))
 
 #define PS_ENCODE_VARS 											\
 	char *key;													\
@@ -192,12 +194,7 @@ int php_session_register_serializer(const char *name,
 		} 														\
 	}
 
-#ifdef ZTS
-extern int ps_globals_id;
-#else
-extern php_ps_globals ps_globals;
-#endif
-
+ZEND_EXTERN_MODULE_GLOBALS(ps);
 
 void php_session_auto_start(void *data);
 void php_session_shutdown(void *data);

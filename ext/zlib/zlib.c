@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    |          Jade Nicoletti <nicoletti@nns.ch>                           |
    +----------------------------------------------------------------------+
  */
-/* $Id: zlib.c,v 1.94.2.4 2001/11/23 02:37:27 hirokawa Exp $ */
+/* $Id: zlib.c,v 1.106.2.2 2002/03/13 20:49:45 sr Exp $ */
 #define IS_EXT_MODULE
 
 #ifdef HAVE_CONFIG_H
@@ -76,6 +76,8 @@
 #define OS_CODE			0x03 /* FIXME */
 #define CODING_GZIP		1
 #define CODING_DEFLATE	2
+#define GZIP_HEADER_LENGTH		10
+#define GZIP_FOOTER_LENGTH		8
 
 /* True globals, no need for thread safety */
 static int le_zp;
@@ -247,6 +249,8 @@ PHP_MINFO_FUNCTION(zlib)
 	php_info_print_table_row(2, "Compiled Version", ZLIB_VERSION );
 	php_info_print_table_row(2, "Linked Version", (char *)zlibVersion() );
 	php_info_print_table_end();
+
+	DISPLAY_INI_ENTRIES();
 }
 /* }}} */
 
@@ -288,16 +292,16 @@ PHP_FUNCTION(gzfile)
 			WRONG_PARAM_COUNT;
 		}
 		convert_to_long_ex(arg2);
-		use_include_path = (*arg2)->value.lval?USE_PATH:0;
+		use_include_path = Z_LVAL_PP(arg2)?USE_PATH:0;
 		break;
 	default:
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(filename);
 
-	zp = php_gzopen_wrapper((*filename)->value.str.val,"r", use_include_path|ENFORCE_SAFE_MODE TSRMLS_CC);
+	zp = php_gzopen_wrapper(Z_STRVAL_PP(filename),"r", use_include_path|ENFORCE_SAFE_MODE TSRMLS_CC);
 	if (!zp) {
-		php_error(E_WARNING,"gzFile(\"%s\") - %s",(*filename)->value.str.val,strerror(errno));
+		php_error(E_WARNING,"gzFile(\"%s\") - %s",Z_STRVAL_PP(filename),strerror(errno));
 		RETURN_FALSE;
 	}
 
@@ -342,23 +346,23 @@ PHP_FUNCTION(gzopen)
 			WRONG_PARAM_COUNT;
 		}
 		convert_to_long_ex(arg3);
-		use_include_path = (*arg3)->value.lval?USE_PATH:0;
+		use_include_path = Z_LVAL_PP(arg3)?USE_PATH:0;
 		break;
 	default:
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(arg1);
 	convert_to_string_ex(arg2);
-	p = estrndup((*arg2)->value.str.val,(*arg2)->value.str.len);
+	p = estrndup(Z_STRVAL_PP(arg2),Z_STRLEN_PP(arg2));
 
 	/*
 	 * We need a better way of returning error messages from
 	 * php_gzopen_wrapper().
 	 */
-	zp = php_gzopen_wrapper((*arg1)->value.str.val, p, use_include_path|ENFORCE_SAFE_MODE TSRMLS_CC);
+	zp = php_gzopen_wrapper(Z_STRVAL_PP(arg1), p, use_include_path|ENFORCE_SAFE_MODE TSRMLS_CC);
 	if (!zp) {
 		php_error(E_WARNING,"gzopen(\"%s\",\"%s\") - %s",
-					(*arg1)->value.str.val, p, strerror(errno));
+					Z_STRVAL_PP(arg1), p, strerror(errno));
 		efree(p);
 		RETURN_FALSE;
 	}
@@ -379,7 +383,7 @@ PHP_FUNCTION(gzclose)
 		WRONG_PARAM_COUNT;
 	}
 	ZEND_FETCH_RESOURCE(zp, gzFile *, arg1, -1, "Zlib file", le_zp);
-	zend_list_delete((*arg1)->value.lval);
+	zend_list_delete(Z_LVAL_PP(arg1));
 	RETURN_TRUE;
 }
 /* }}} */
@@ -417,7 +421,7 @@ PHP_FUNCTION(gzgets)
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long_ex(arg2);
-	len = (*arg2)->value.lval;
+	len = Z_LVAL_PP(arg2);
 
 	ZEND_FETCH_RESOURCE(zp, gzFile *, arg1, -1, "Zlib file", le_zp);
 
@@ -429,12 +433,12 @@ PHP_FUNCTION(gzgets)
 		RETVAL_FALSE;
 	} else {
 		if (PG(magic_quotes_runtime)) {
-			return_value->value.str.val = php_addslashes(buf,0,&return_value->value.str.len,1 TSRMLS_CC);
+			Z_STRVAL_P(return_value) = php_addslashes(buf,0,&Z_STRLEN_P(return_value),1 TSRMLS_CC);
 		} else {
-			return_value->value.str.val = buf;
-			return_value->value.str.len = strlen(return_value->value.str.val);
+			Z_STRVAL_P(return_value) = buf;
+			Z_STRLEN_P(return_value) = strlen(Z_STRVAL_P(return_value));
 		}
-		return_value->type = IS_STRING;
+		Z_TYPE_P(return_value) = IS_STRING;
 	}
 	return;
 }
@@ -462,9 +466,9 @@ PHP_FUNCTION(gzgetc)
 	} else {
 		buf[0]=(char)c;
 		buf[1]='\0';
-		return_value->value.str.val = buf; 
-		return_value->value.str.len = 1; 
-		return_value->type = IS_STRING;
+		Z_STRVAL_P(return_value) = buf; 
+		Z_STRLEN_P(return_value) = 1; 
+		Z_TYPE_P(return_value) = IS_STRING;
 	}
 	return;
 }
@@ -493,8 +497,8 @@ PHP_FUNCTION(gzgetss)
 				RETURN_FALSE;
 			}
 			convert_to_string_ex(allow);
-			allowed_tags = (*allow)->value.str.val;
-			allowed_tags_len = (*allow)->value.str.len;
+			allowed_tags = Z_STRVAL_PP(allow);
+			allowed_tags_len = Z_STRLEN_PP(allow);
 			break;
 		default:
 			WRONG_PARAM_COUNT;
@@ -504,7 +508,7 @@ PHP_FUNCTION(gzgetss)
 
 	convert_to_long_ex(bytes);
 
-	len = (*bytes)->value.lval;
+	len = Z_LVAL_PP(bytes);
 
 	ZEND_FETCH_RESOURCE(zp, gzFile *, fd, -1, "Zlib file", le_zp);
 
@@ -538,7 +542,7 @@ PHP_FUNCTION(gzwrite)
 				RETURN_FALSE;
 			}
 			convert_to_string_ex(arg2);
-			num_bytes = (*arg2)->value.str.len;
+			num_bytes = Z_STRLEN_PP(arg2);
 			break;
 		case 3:
 			if (zend_get_parameters_ex(3, &arg1, &arg2, &arg3)==FAILURE) {
@@ -546,7 +550,7 @@ PHP_FUNCTION(gzwrite)
 			}
 			convert_to_string_ex(arg2);
 			convert_to_long_ex(arg3);
-			num_bytes = MIN((*arg3)->value.lval, (*arg2)->value.str.len);
+			num_bytes = MIN(Z_LVAL_PP(arg3), Z_STRLEN_PP(arg2));
 			break;
 		default:
 			WRONG_PARAM_COUNT;
@@ -560,7 +564,7 @@ PHP_FUNCTION(gzwrite)
 		php_stripslashes(Z_STRVAL_PP(arg2), &num_bytes TSRMLS_CC);
 	}
 
-	ret = gzwrite(zp, (*arg2)->value.str.val,num_bytes);
+	ret = gzwrite(zp, Z_STRVAL_PP(arg2),num_bytes);
 	RETURN_LONG(ret);
 }	
 /* }}} */
@@ -621,7 +625,7 @@ PHP_FUNCTION(gzseek)
 
 	ZEND_FETCH_RESOURCE(zp, gzFile *, arg1, -1, "Zlib file", le_zp);
 
- 	ret = gzseek(zp, (*arg2)->value.lval, SEEK_SET);
+ 	ret = gzseek(zp, Z_LVAL_PP(arg2), SEEK_SET);
 	RETURN_LONG(ret);
 }
 /* }}} */
@@ -652,7 +656,7 @@ PHP_FUNCTION(readgzfile)
 			WRONG_PARAM_COUNT;
 		}
 		convert_to_long_ex(arg2);
-		use_include_path = (*arg2)->value.lval?USE_PATH:0;
+		use_include_path = Z_LVAL_PP(arg2)?USE_PATH:0;
 		break;
 	default:
 		WRONG_PARAM_COUNT;
@@ -663,9 +667,9 @@ PHP_FUNCTION(readgzfile)
 	 * We need a better way of returning error messages from
 	 * php_gzopen_wrapper().
 	 */
-	zp = php_gzopen_wrapper((*arg1)->value.str.val,"r", use_include_path|ENFORCE_SAFE_MODE TSRMLS_CC);
+	zp = php_gzopen_wrapper(Z_STRVAL_PP(arg1),"r", use_include_path|ENFORCE_SAFE_MODE TSRMLS_CC);
 	if (!zp){
-		php_error(E_WARNING,"ReadGzFile(\"%s\") - %s",(*arg1)->value.str.val,strerror(errno));
+		php_error(E_WARNING,"ReadGzFile(\"%s\") - %s",Z_STRVAL_PP(arg1),strerror(errno));
 		RETURN_FALSE;
 	}
 	size= 0;
@@ -702,7 +706,7 @@ PHP_FUNCTION(gzpassthru)
 		size += b ;
 	}
 /*  gzclose(zp); */
-	zend_list_delete((*arg1)->value.lval);
+	zend_list_delete(Z_LVAL_PP(arg1));
 	RETURN_LONG(size);
 }
 /* }}} */
@@ -719,20 +723,20 @@ PHP_FUNCTION(gzread)
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long_ex(arg2);
-	len = (*arg2)->value.lval;
+	len = Z_LVAL_PP(arg2);
 
 	ZEND_FETCH_RESOURCE(zp, gzFile *, arg1, -1, "Zlib file", le_zp);
 
-	return_value->value.str.val = emalloc(sizeof(char) * (len + 1));
+	Z_STRVAL_P(return_value) = emalloc(sizeof(char) * (len + 1));
 	/* needed because recv doesnt put a null at the end*/
 	
-	return_value->value.str.len = gzread(zp, return_value->value.str.val, len);
-	return_value->value.str.val[return_value->value.str.len] = 0;
+	Z_STRLEN_P(return_value) = gzread(zp, Z_STRVAL_P(return_value), len);
+	Z_STRVAL_P(return_value)[Z_STRLEN_P(return_value)] = 0;
 
 	if (PG(magic_quotes_runtime)) {
-		return_value->value.str.val = php_addslashes(return_value->value.str.val,return_value->value.str.len,&return_value->value.str.len,1 TSRMLS_CC);
+		Z_STRVAL_P(return_value) = php_addslashes(Z_STRVAL_P(return_value),Z_STRLEN_P(return_value),&Z_STRLEN_P(return_value),1 TSRMLS_CC);
 	}
-	return_value->type = IS_STRING;
+	Z_TYPE_P(return_value) = IS_STRING;
 }
 
 /* }}} */
@@ -757,9 +761,9 @@ PHP_FUNCTION(gzcompress)
 		if (zend_get_parameters_ex(2, &data, &zlimit) == FAILURE)
 			WRONG_PARAM_COUNT;
 		convert_to_long_ex(zlimit);
-		limit = (*zlimit)->value.lval;
+		limit = Z_LVAL_PP(zlimit);
 		if((limit<0)||(limit>9)) {
-			php_error(E_WARNING,"gzcompress: compression level must be whithin 0..9");
+			php_error(E_WARNING,"gzcompress: compression level must be within 0..9");
 			RETURN_FALSE;
 		}
 		break;
@@ -768,14 +772,14 @@ PHP_FUNCTION(gzcompress)
 	}
 	convert_to_string_ex(data);
 	
-	l2 = (*data)->value.str.len + ((*data)->value.str.len/1000) + 15 + 1; /* room for \0 */
+	l2 = Z_STRLEN_PP(data) + (Z_STRLEN_PP(data)/1000) + 15 + 1; /* room for \0 */
 	s2 = (char *) emalloc(l2);
 	if(! s2) RETURN_FALSE;
 	
 	if(limit>=0) {
-		status = compress2(s2,&l2,(*data)->value.str.val, (*data)->value.str.len,limit);
+		status = compress2(s2,&l2,Z_STRVAL_PP(data), Z_STRLEN_PP(data),limit);
 	} else {
-		status = compress(s2,&l2,(*data)->value.str.val, (*data)->value.str.len);
+		status = compress(s2,&l2,Z_STRVAL_PP(data), Z_STRLEN_PP(data));
 	}
 	
 	if (status==Z_OK) {
@@ -809,11 +813,11 @@ PHP_FUNCTION(gzuncompress)
 		if (zend_get_parameters_ex(2, &data, &zlimit) == FAILURE)
 			WRONG_PARAM_COUNT;
 		convert_to_long_ex(zlimit);
-		if((*zlimit)->value.lval<=0) {
+		if(Z_LVAL_PP(zlimit)<=0) {
 			php_error(E_WARNING,"gzuncompress: length must be greater zero");
 			RETURN_FALSE;
 		}
-		plength = (*zlimit)->value.lval;
+		plength = Z_LVAL_PP(zlimit);
 		break;
 	default:
 		WRONG_PARAM_COUNT;                                         
@@ -828,10 +832,10 @@ PHP_FUNCTION(gzuncompress)
 	 that should be eneugh for all real life cases	
 	*/
 	do {
-		length=plength?plength:(*data)->value.str.len*(1<<factor++);
+		length=plength?plength:Z_STRLEN_PP(data)*(1<<factor++);
 		s2 = (char *) erealloc(s1,length);
 		if(! s2) { if(s1) efree(s1); RETURN_FALSE; }
-		status = uncompress(s2, &length ,(*data)->value.str.val, (*data)->value.str.len);
+		status = uncompress(s2, &length ,Z_STRVAL_PP(data), Z_STRLEN_PP(data));
 		s1=s2;
 	} while((status==Z_BUF_ERROR)&&(!plength)&&(factor<maxfactor));
 
@@ -866,9 +870,9 @@ PHP_FUNCTION(gzdeflate)
 		if (zend_get_parameters_ex(2, &data, &zlimit) == FAILURE)
 			WRONG_PARAM_COUNT;
 		convert_to_long_ex(zlimit);
-		level = (*zlimit)->value.lval;
+		level = Z_LVAL_PP(zlimit);
 		if((level<0)||(level>9)) {
-			php_error(E_WARNING,"gzdeflate: compression level must be whithin 0..9");
+			php_error(E_WARNING,"gzdeflate: compression level must be within 0..9");
 			RETURN_FALSE;
 		}
 		break;
@@ -882,8 +886,8 @@ PHP_FUNCTION(gzdeflate)
 	stream.zfree  = (free_func) Z_NULL;
 	stream.opaque = (voidpf) Z_NULL;
 
-	stream.next_in = (Bytef*) (*data)->value.str.val;
-	stream.avail_in = (*data)->value.str.len;
+	stream.next_in = (Bytef*) Z_STRVAL_PP(data);
+	stream.avail_in = Z_STRLEN_PP(data);
 
 	stream.avail_out = stream.avail_in + (stream.avail_in/1000) + 15 + 1; /* room for \0 */
 	s2 = (char *) emalloc(stream.avail_out);
@@ -917,7 +921,7 @@ PHP_FUNCTION(gzdeflate)
 }
 /* }}} */
 
-/* {{{ proto string gzinflate(string data, int length) 
+/* {{{ proto string gzinflate(string data [, int length]) 
    Unzip a gzip-compressed string */
 PHP_FUNCTION(gzinflate)
 {
@@ -937,11 +941,11 @@ PHP_FUNCTION(gzinflate)
 		if (zend_get_parameters_ex(2, &data, &zlimit) == FAILURE)
 			WRONG_PARAM_COUNT;
 		convert_to_long_ex(zlimit);
-		if((*zlimit)->value.lval<=0) {
+		if(Z_LVAL_PP(zlimit)<=0) {
 			php_error(E_WARNING,"gzinflate: length must be greater zero");
 			RETURN_FALSE;
 		}
-		plength = (*zlimit)->value.lval;
+		plength = Z_LVAL_PP(zlimit);
 		break;
 	default:
 		WRONG_PARAM_COUNT;                                         
@@ -960,12 +964,12 @@ PHP_FUNCTION(gzinflate)
 	stream.zfree = (free_func) Z_NULL;
 
 	do {
-		length=plength?plength:(*data)->value.str.len*(1<<factor++);
+		length=plength?plength:Z_STRLEN_PP(data)*(1<<factor++);
 		s2 = (char *) erealloc(s1,length);
 		if(! s2) { if(s1) efree(s1); RETURN_FALSE; }
 
-		stream.next_in = (Bytef*) (*data)->value.str.val;
-		stream.avail_in = (uInt) (*data)->value.str.len;
+		stream.next_in = (Bytef*) Z_STRVAL_PP(data);
+		stream.avail_in = (uInt) Z_STRLEN_PP(data) + 1; /* there is room for \0 */
 
 		stream.next_out = s2;
 		stream.avail_out = (uInt) length;
@@ -1122,36 +1126,104 @@ int php_deflate_string(const char *str, uint str_length, char **newstr, uint *ne
 }
 /* }}} */
 
-/* {{{ proto string gzencode(string data [, int encoding_mode])
+/* {{{ proto string gzencode(string data [, int level [, int encoding_mode]])
    GZ encode a string */
 PHP_FUNCTION(gzencode)
 {
-	zval **zv_coding, **zv_string;
-	int coding;
+	char *data, *s2;
+	int data_len;
+	int level = Z_DEFAULT_COMPRESSION, coding = CODING_GZIP;
+	int status;
+	z_stream stream;
 
-	switch(ZEND_NUM_ARGS()) {
-		case 1:
-			if (zend_get_parameters_ex(1, &zv_string)==FAILURE) {
-				RETURN_FALSE;
-			}
-			convert_to_string_ex(zv_string);
-			coding = 1;
-			break;
-		case 2:
-			if (zend_get_parameters_ex(2, &zv_string, &zv_coding)==FAILURE) {
-				RETURN_FALSE;
-			}
-			convert_to_string_ex(zv_string);
-			convert_to_long_ex(zv_coding);
-			coding = Z_LVAL_PP(zv_coding);
-			break;
-		default:
-			ZEND_WRONG_PARAM_COUNT();
-			break;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|ll", &data, &data_len, &level, &coding) == FAILURE) {
+		return;
 	}
-	if (php_deflate_string(Z_STRVAL_PP(zv_string), Z_STRLEN_PP(zv_string), &Z_STRVAL_P(return_value), &Z_STRLEN_P(return_value), coding, 1, 1 TSRMLS_CC)==SUCCESS) {
-		Z_TYPE_P(return_value) = IS_STRING;
+
+	if((level<-1)||(level>9)) {
+		php_error(E_WARNING,"gzencode: compression level must be within -1..9");
+		RETURN_FALSE;
+	}
+
+	if((coding!=CODING_GZIP)&&(coding!=CODING_DEFLATE)) {
+		php_error(E_WARNING,"gzencode: encoding mode must be FORCE_GZIP or FORCE_DEFLATE");
+		RETURN_FALSE;
+	}
+
+	stream.zalloc = Z_NULL;
+	stream.zfree = Z_NULL;
+	stream.opaque = Z_NULL;
+
+	stream.next_in = (Bytef*) data;
+	stream.avail_in = data_len;
+
+	stream.avail_out = stream.avail_in + (stream.avail_in/1000) + 15 + 1; /* room for \0 */
+	s2 = (char *) emalloc(stream.avail_out+GZIP_HEADER_LENGTH+(coding==CODING_GZIP?GZIP_FOOTER_LENGTH:0));
+	if(!s2)
+		RETURN_FALSE;
+
+	/* add gzip file header */
+	s2[0] = gz_magic[0];
+	s2[1] = gz_magic[1];
+	s2[2] = Z_DEFLATED;
+	s2[3] = s2[4] = s2[5] = s2[6] = s2[7] = s2[8] = 0; /* time set to 0 */
+	s2[9] = OS_CODE;
+
+	stream.next_out = &(s2[GZIP_HEADER_LENGTH]);
+
+	switch (coding) {
+		case CODING_GZIP:
+			/* windowBits is passed < 0 to suppress zlib header & trailer */
+			if ((status = deflateInit2(&stream, level, Z_DEFLATED,
+									  -MAX_WBITS, MAX_MEM_LEVEL,
+									   Z_DEFAULT_STRATEGY))
+							!= Z_OK) {
+				php_error(E_WARNING,"gzencode: %s", zError(status));
+				RETURN_FALSE;
+			}
+		
+			break;
+		case CODING_DEFLATE:
+			if ((status = deflateInit(&stream, level)) != Z_OK) {
+				php_error(E_WARNING,"gzencode: %s", zError(status));
+				RETURN_FALSE;
+			}
+			break;		
+	}
+
+	status = deflate(&stream, Z_FINISH);
+	if (status != Z_STREAM_END) {
+		deflateEnd(&stream);
+		if (status == Z_OK) {
+			status = Z_BUF_ERROR;
+		}
 	} else {
+		status = deflateEnd(&stream);
+	}
+
+	if (status==Z_OK) {
+		s2 = erealloc(s2,stream.total_out+GZIP_HEADER_LENGTH+(coding==CODING_GZIP?GZIP_FOOTER_LENGTH:0)+1); /* resize to buffer to the "right" size */
+		if (coding == CODING_GZIP) {
+			char *trailer = s2+(stream.total_out+GZIP_HEADER_LENGTH);
+			uLong crc = crc32(0L, Z_NULL, 0);
+
+			crc = crc32(crc, (const Bytef *) data, data_len);
+
+			/* write crc & stream.total_in in LSB order */
+			trailer[0] = (char) crc & 0xFF;
+			trailer[1] = (char) (crc >> 8) & 0xFF;
+			trailer[2] = (char) (crc >> 16) & 0xFF;
+			trailer[3] = (char) (crc >> 24) & 0xFF;
+			trailer[4] = (char) stream.total_in & 0xFF;
+			trailer[5] = (char) (stream.total_in >> 8) & 0xFF;
+			trailer[6] = (char) (stream.total_in >> 16) & 0xFF;
+			trailer[7] = (char) (stream.total_in >> 24) & 0xFF;
+			trailer[8] = '\0';
+	}
+		RETURN_STRINGL(s2, stream.total_out+GZIP_HEADER_LENGTH+(coding==CODING_GZIP?GZIP_FOOTER_LENGTH:0), 0);
+	} else {
+		efree(s2);
+		php_error(E_WARNING,"gzencode: %s",zError(status));
 		RETURN_FALSE;
 	}
 }
@@ -1281,8 +1353,8 @@ int php_enable_output_compression(int buffer_size TSRMLS_DC)
 		return FAILURE;
 	}
 	
-	php_start_ob_buffer(NULL, buffer_size TSRMLS_CC);
-	php_ob_set_internal_handler(php_gzip_output_handler, buffer_size*1.5 TSRMLS_CC);
+	php_start_ob_buffer(NULL, buffer_size, 0 TSRMLS_CC);
+	php_ob_set_internal_handler(php_gzip_output_handler, buffer_size*1.5, "zlib output compression", 0 TSRMLS_CC);
 	return SUCCESS;
 }
 /* }}} */
@@ -1292,6 +1364,6 @@ int php_enable_output_compression(int buffer_size TSRMLS_DC)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

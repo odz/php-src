@@ -31,7 +31,7 @@
 */
 
 
-static const char rcsid[] = "#(@) $Id: simplestring.c,v 1.1.2.1 2001/10/17 15:32:54 ssb Exp $";
+static const char rcsid[] = "#(@) $Id: simplestring.c,v 1.1 2001/09/06 04:13:29 danda Exp $";
 
 
 #define SIMPLESTRING_INCR 32

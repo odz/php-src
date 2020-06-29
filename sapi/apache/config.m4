@@ -1,9 +1,10 @@
-dnl ## -*- sh -*-
+dnl
+dnl $Id: config.m4,v 1.47.2.2 2002/04/14 15:00:40 sniper Exp $
+dnl
 
-
-AC_MSG_CHECKING(for Apache module support via DSO through APXS)
+AC_MSG_CHECKING(for Apache 1.x module support via DSO through APXS)
 AC_ARG_WITH(apxs,
-[  --with-apxs[=FILE]      Build shared Apache module. FILE is the optional
+[  --with-apxs[=FILE]      Build shared Apache 1.x module. FILE is the optional
                           pathname to the Apache apxs tool; defaults to "apxs".],[
   if test "$withval" = "yes"; then
     APXS=apxs
@@ -38,10 +39,16 @@ AC_ARG_WITH(apxs,
     esac
   done
   PHP_ADD_INCLUDE($APXS_INCLUDEDIR)
+
+  # Test that we're trying to configure with apache 1.x
+  if test -f "$APXS_INCLUDEDIR/ap_mpm.h"; then
+    AC_MSG_ERROR([Use --with-apxs2 with Apache 2.x!]) 
+  fi
+
   PHP_SAPI=apache
 
   # Test whether apxs support -S option
-  $APXS -q -S CFLAGS=$APXS_CFLAGS CFLAGS >/dev/null 2>&1
+  $APXS -q -S CFLAGS="$APXS_CFLAGS" CFLAGS >/dev/null 2>&1
 
   if test "$?" != "0"; then
     APACHE_INSTALL="$APXS -i -a -n php4 $SAPI_SHARED" # Old apxs does not have -S option
@@ -70,9 +77,9 @@ AC_ARG_WITH(apxs,
 APACHE_INSTALL_FILES="\$(srcdir)/sapi/apache/mod_php4.* sapi/apache/libphp4.module"
 
 if test "$PHP_SAPI" != "apache"; then
-AC_MSG_CHECKING(for Apache module support)
+AC_MSG_CHECKING(for Apache 1.x module support)
 AC_ARG_WITH(apache,
-[  --with-apache[=DIR]     Build Apache module. DIR is the top-level Apache
+[  --with-apache[=DIR]     Build Apache 1.x module. DIR is the top-level Apache
                           build directory, defaults to /usr/local/apache.],[
   if test "$withval" = "yes"; then
     # Apache's default directory
@@ -94,32 +101,9 @@ AC_ARG_WITH(apache,
         AC_DEFINE(HAVE_AP_CONFIG_H,1,[ ])
       fi
     # For Apache 2.0.x
-    elif test -f $withval/src/include/httpd.h &&
-         test -f $withval/src/lib/apr/include/apr_general.h ; then
-      APACHE_HAS_REGEX=1
-      APACHE_INCLUDE="-I$withval/src/include -I$withval/src/os/unix -I$withval/src/lib/apr/include"
-      APACHE_TARGET=$withval/src/modules/php4
-      if test ! -d $APACHE_TARGET; then
-        mkdir $APACHE_TARGET
-      fi
-      PHP_SAPI=apache
-      APACHE_INSTALL="mkdir -p $APACHE_TARGET; cp $SAPI_STATIC $APACHE_TARGET/libmodphp4.a; cp $APACHE_INSTALL_FILES $APACHE_TARGET; cp $srcdir/sapi/apache/apMakefile.tmpl $APACHE_TARGET/Makefile.tmpl; cp $srcdir/sapi/apache/apMakefile.libdir $APACHE_TARGET/Makefile.libdir"
-      PHP_LIBS="-Lmodules/php4 -L../modules/php4 -L../../modules/php4 -lmodphp4"
-      AC_MSG_RESULT(yes - Apache 2.0.X)
-      STRONGHOLD=
-      if test -f $withval/src/include/ap_config.h; then
-        AC_DEFINE(HAVE_AP_CONFIG_H,1,[ ])
-      fi
-      if test -f $withval/src/include/ap_compat.h; then
-        AC_DEFINE(HAVE_AP_COMPAT_H,1,[ ])
-        if test ! -f $withval/src/include/ap_config_auto.h; then
-          AC_MSG_ERROR(Please run Apache\'s configure or src/Configure program once and try again)
-        fi
-      else
-        if test -f $withval/src/include/compat.h; then
-          AC_DEFINE(HAVE_OLD_COMPAT_H,1,[ ])
-        fi
-      fi
+    elif test -f $withval/include/httpd.h &&
+         test -f $withval/srclib/apr/include/apr_general.h ; then
+       AC_MSG_ERROR([--with-apache does not work with Apache 2.x!])
     # For Apache 1.3.x
     elif test -f $withval/src/main/httpd.h; then
       APACHE_HAS_REGEX=1

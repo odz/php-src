@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,12 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors:                                                             |
-   |          Andrew Skalski      <askalski@chek.com>                     |
+   | Author: Andrew Skalski <askalski@chek.com>                           |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_ftp.h,v 1.13 2001/06/19 21:25:53 sbergmann Exp $ */
+/* $Id: php_ftp.h,v 1.17 2002/02/28 08:26:10 sebastian Exp $ */
 
 #ifndef	_INCLUDED_FTP_H
 #define	_INCLUDED_FTP_H
@@ -26,6 +25,8 @@
 
 extern zend_module_entry php_ftp_module_entry;
 #define php_ftp_module_ptr &php_ftp_module_entry
+
+#define PHP_FTP_OPT_TIMEOUT_SEC	0
 
 PHP_MINIT_FUNCTION(ftp);
 PHP_MINFO_FUNCTION(ftp);
@@ -51,7 +52,9 @@ PHP_FUNCTION(ftp_mdtm);
 PHP_FUNCTION(ftp_rename);
 PHP_FUNCTION(ftp_delete);
 PHP_FUNCTION(ftp_site);
-PHP_FUNCTION(ftp_quit);
+PHP_FUNCTION(ftp_close);
+PHP_FUNCTION(ftp_set_option);
+PHP_FUNCTION(ftp_get_option);
 
 #define phpext_ftp_ptr php_ftp_module_ptr
 

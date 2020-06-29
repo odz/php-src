@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,13 +12,13 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Stig Sæther Bakken <ssb@guardian.no>                        |
+   | Authors: Stig Sæther Bakken <ssb@fast.no>                            |
    |          Andreas Karajannis <Andreas.Karajannis@gmd.de>              |
-   |	      Kevin N. Shallow <kshallow@tampabay.rr.com> Velocis Support |
+   |	        Kevin N. Shallow <kshallow@tampabay.rr.com> Birdstep Support |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_odbc.h,v 1.42 2001/08/03 05:07:22 sniper Exp $ */
+/* $Id: php_odbc.h,v 1.45.2.1 2002/03/12 02:27:47 sniper Exp $ */
 
 #ifndef PHP_ODBC_H
 #define PHP_ODBC_H
@@ -39,21 +39,21 @@
 
 #define ODBC_TYPE "Solid"
 #if defined(HAVE_SOLID)
- #include <cli0core.h>
- #include <cli0ext1.h>
- #include <cli0env.h>
+# include <cli0core.h>
+# include <cli0ext1.h>
+# include <cli0env.h>
 #elif defined(HAVE_SOLID_30)
- #include <cli0cli.h>
- #include <cli0defs.h>
- #include <cli0env.h>
+# include <cli0cli.h>
+# include <cli0defs.h>
+# include <cli0env.h>
 #elif defined(HAVE_SOLID_35)
- #if !defined(PHP_WIN32)
-  #include <sqlunix.h>
- #endif		/* end: #if !defined(PHP_WIN32) */
- #include <sqltypes.h>
- #include <sqlucode.h>
- #include <sqlext.h>
- #include <sql.h>
+# if !defined(PHP_WIN32)
+#  include <sqlunix.h>
+# endif		/* end: #if !defined(PHP_WIN32) */
+# include <sqltypes.h>
+# include <sqlucode.h>
+# include <sqlext.h>
+# include <sql.h>
 #endif	/* end: #if defined(HAVE_SOLID) */
 #undef HAVE_SQL_EXTENDED_FETCH
 PHP_FUNCTION(solid_fetch_prev);
@@ -139,12 +139,12 @@ PHP_FUNCTION(solid_fetch_prev);
 #define SQLSMALLINT SWORD
 #define SQLUSMALLINT UWORD
 
-#elif defined(HAVE_VELOCIS) /* Raima Velocis */
+#elif defined(HAVE_BIRDSTEP) /* Raima Birdstep */
 
-#define ODBC_TYPE "Velocis"
+#define ODBC_TYPE "Birdstep"
 #define UNIX
 /*
- * Extended Fetch in the Velocis ODBC API is incapable of returning long varchar (memo) fields.
+ * Extended Fetch in the Birdstep ODBC API is incapable of returning long varchar (memo) fields.
  * So the following line has been commented-out to accomadate. - KNS
  *
  * #define HAVE_SQL_EXTENDED_FETCH 1

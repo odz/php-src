@@ -1,8 +1,8 @@
 #! /bin/sh
 #  +----------------------------------------------------------------------+
-#  | PHP version 4.0                                                      |
+#  | PHP Version 4                                                        |
 #  +----------------------------------------------------------------------+
-#  | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+#  | Copyright (c) 1997-2002 The PHP Group                                |
 #  +----------------------------------------------------------------------+
 #  | This source file is subject to version 2.02 of the PHP license,      |
 #  | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
 #  |          Sascha Schumann <sascha@schumann.cx>                        |
 #  +----------------------------------------------------------------------+
 #
-# $Id: buildcheck.sh,v 1.12 2001/06/20 18:21:03 david Exp $ 
+# $Id: buildcheck.sh,v 1.16 2002/03/04 08:28:57 sas Exp $ 
 #
 
 echo "buildconf: checking installation..."
@@ -38,6 +38,7 @@ exit 1
 else
 echo "buildconf: autoconf version $ac_version (ok)"
 fi
+
 
 # automake 1.4 or newer
 am_version=`automake --version 2>/dev/null|head -1|sed -e 's/^[^0-9]*//' -e 's/[a-z]* *$//'`
@@ -61,7 +62,7 @@ fi
 # libtool 1.4 or newer
 libtool=`which libtool`
 if test ! -f "$libtool"; then libtool=`which glibtool`; fi
-lt_pversion=`$libtool --version 2>/dev/null|sed -e 's/^[^0-9]*//' -e 's/[- ].*//'`
+lt_pversion=`$libtool --version 2>/dev/null|sed -n -e 's/^[^0-9]*//' -e 1's/[- ].*//p'`
 if test "$lt_pversion" = ""; then
 echo "buildconf: libtool not found."
 echo "           You need libtool version 1.4 or newer installed"

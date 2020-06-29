@@ -12,22 +12,39 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Uwe Steinmann (Uwe.Steinmann@fernuni-hagen.de               |
+   | Author: Uwe Steinmann (Uwe.Steinmann@fernuni-hagen.de                |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_domxml.h,v 1.26.2.1 2001/12/14 10:45:46 mfischer Exp $ */
+/* $Id: php_domxml.h,v 1.42 2002/02/28 08:26:06 sebastian Exp $ */
 
 #ifndef PHP_DOMXML_H
 #define PHP_DOMXML_H
 
 #if HAVE_DOMXML
 #include <libxml/parser.h>
+#include <libxml/tree.h>
+#include <libxml/xmlerror.h>
+#if defined(LIBXML_HTML_ENABLED)
+#include <libxml/HTMLparser.h>
+#include <libxml/HTMLtree.h>
+#endif
 #if defined(LIBXML_XPATH_ENABLED)
 #include <libxml/xpath.h>
+#include <libxml/xpathInternals.h>
 #endif
 #if defined(LIBXML_XPTR_ENABLED)
 #include <libxml/xpointer.h>
+#endif
+#if HAVE_DOMXSLT
+#include <libxslt/xsltconfig.h>
+#include <libxslt/xsltInternals.h>
+#include <libxslt/xsltutils.h>
+#include <libxslt/transform.h>
+#if HAVE_DOMEXSLT
+#include <libexslt/exslt.h>
+#include <libexslt/exsltconfig.h>
+#endif
 #endif
 
 extern zend_module_entry domxml_module_entry;
@@ -40,8 +57,13 @@ PHP_MINFO_FUNCTION(domxml);
 PHP_FUNCTION(domxml_version);
 PHP_FUNCTION(xmldoc);
 PHP_FUNCTION(xmldocfile);
+#if defined(LIBXML_HTML_ENABLED)
+PHP_FUNCTION(html_doc);
+PHP_FUNCTION(html_doc_file);
+#endif
 PHP_FUNCTION(xmltree);
 PHP_FUNCTION(domxml_new_xmldoc);
+PHP_FUNCTION(domxml_substitute_entities_default);
 
 /* Class Document methods */
 PHP_FUNCTION(domxml_doc_doctype);
@@ -57,7 +79,13 @@ PHP_FUNCTION(domxml_doc_create_entity_reference);
 PHP_FUNCTION(domxml_doc_imported_node);
 PHP_FUNCTION(domxml_add_root);
 PHP_FUNCTION(domxml_intdtd);
-PHP_FUNCTION(domxml_dumpmem);
+PHP_FUNCTION(domxml_dump_mem);
+PHP_FUNCTION(domxml_dump_mem_file);
+PHP_FUNCTION(domxml_dump_node);
+
+#if defined(LIBXML_HTML_ENABLED)
+PHP_FUNCTION(domxml_html_dump_mem);
+#endif
 
 /* Class DocumentType methods */
 PHP_FUNCTION(domxml_doctype_name);
@@ -89,8 +117,10 @@ PHP_FUNCTION(domxml_node_prefix);
 PHP_FUNCTION(domxml_node);
 PHP_FUNCTION(domxml_clone_node);
 PHP_FUNCTION(domxml_node_unlink_node);
+PHP_FUNCTION(domxml_node_replace_node);
 PHP_FUNCTION(domxml_node_new_child);
 PHP_FUNCTION(domxml_node_set_content);
+PHP_FUNCTION(domxml_node_get_content);
 PHP_FUNCTION(domxml_node_text_concat);
 PHP_FUNCTION(domxml_node_set_name);
 PHP_FUNCTION(domxml_node_name);
@@ -135,12 +165,22 @@ PHP_FUNCTION(xpath_init);
 PHP_FUNCTION(xpath_new_context);
 PHP_FUNCTION(xpath_eval);
 PHP_FUNCTION(xpath_eval_expression);
+PHP_FUNCTION(xpath_register_ns);
 #endif
 #if defined(LIBXML_XPTR_ENABLED)
 PHP_FUNCTION(xptr_new_context);
 PHP_FUNCTION(xptr_eval);
 #endif
 PHP_FUNCTION(domxml_test);
+
+/* DOMXSLT functions */
+#if HAVE_DOMXSLT
+PHP_FUNCTION(domxml_xslt_stylesheet);
+PHP_FUNCTION(domxml_xslt_stylesheet_doc);
+PHP_FUNCTION(domxml_xslt_stylesheet_file);
+PHP_FUNCTION(domxml_xslt_process);
+PHP_FUNCTION(domxml_xslt_version);
+#endif
 
 #else
 #define domxml_module_ptr NULL

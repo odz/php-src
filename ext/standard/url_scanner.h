@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,13 +15,13 @@
    | Author: Sascha Schumann <sascha@schumann.cx>                         |
    +----------------------------------------------------------------------+
  */
-/* $Id: url_scanner.h,v 1.10 2001/08/11 17:03:37 zeev Exp $ */
+/* $Id: url_scanner.h,v 1.12 2001/12/11 15:30:37 sebastian Exp $ */
 
 #ifndef URI_SCANNER_H
 #define URI_SCANNER_H
 
-PHP_RINIT_FUNCTION(url_scanner);
-PHP_RSHUTDOWN_FUNCTION(url_scanner);
+int php_url_scanner_activate(TSRMLS_D);
+int php_url_scanner_deactivate(TSRMLS_D);
 
 char *url_adapt(const char *src, size_t srclen, const char *data, size_t *newlen);
 

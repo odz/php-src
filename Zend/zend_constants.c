@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2002 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -220,8 +220,11 @@ ZEND_API void zend_register_string_constant(char *name, uint name_len, char *str
 ZEND_API int zend_get_constant(char *name, uint name_len, zval *result TSRMLS_DC)
 {
 	zend_constant *c;
-	char *lookup_name = estrndup(name, name_len);
+	char *lookup_name;
 	int retval;
+
+	lookup_name = do_alloca(name_len+1);
+	memcpy(lookup_name, name, name_len+1);
 
 	zend_str_tolower(lookup_name, name_len);
 
@@ -236,8 +239,9 @@ ZEND_API int zend_get_constant(char *name, uint name_len, zval *result TSRMLS_DC
 	} else {
 		retval=0;
 	}
-	
-	efree(lookup_name);
+
+	free_alloca(lookup_name);
+
 	return retval;
 }
 

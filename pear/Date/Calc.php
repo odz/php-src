@@ -210,9 +210,9 @@ class Date_Calc {
     /**
      * Returns week of the year, first Sunday is first day of first week
      *
-     * @param string year in format CCYY
-     * @param string month in format MM
      * @param string day in format DD
+     * @param string month in format MM
+     * @param string year in format CCYY
      *
      * @access public
      *
@@ -233,7 +233,7 @@ class Date_Calc {
                 - floor($week_year / 100) + floor(($week_year - 300) / 400);
 
         $week_number =
-                floor((Date_Calc::julianDate($day,$month,$year) + floor(($week_day + 4) % 7)) / 7);
+                ceil((Date_Calc::julianDate($day,$month,$year) + floor(($week_day + 4) % 7)) / 7);
 
         return $week_number;
 
@@ -1429,6 +1429,8 @@ class Date_Calc {
 
     function getMonthFullname($month)
     {
+        $month = (int)$month;
+
         if(empty($month))
             $month = Date_Calc::dateNow("%m");
 
@@ -1453,6 +1455,8 @@ class Date_Calc {
 
     function getMonthAbbrname($month,$length=3)
     {
+        $month = (int)$month;
+
         if(empty($month))
             $month = Date_Calc::dateNow("%m");
         return substr(Date_Calc::getMonthFullname($month), 0, $length);

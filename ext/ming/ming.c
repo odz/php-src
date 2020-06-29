@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -24,15 +24,17 @@
 #endif
 
 #include "php.h"
-
-#if HAVE_MING
+#include "php_ming.h"
 #include "ext/standard/info.h"
 #include "ext/standard/file.h"
-#include "php_ming.h"
+#include "ext/standard/fsock.h"
+
+#if HAVE_MING
 
 static zend_function_entry ming_functions[] = {
   PHP_FALIAS(ming_setcubicthreshold,  ming_setCubicThreshold,  NULL)
   PHP_FALIAS(ming_setscale,           ming_setScale,           NULL)
+  PHP_FALIAS(ming_useswfversion,      ming_useSWFVersion,      NULL)
   PHP_FALIAS(swfbutton_keypress,      swfbutton_keypress,      NULL)
   { NULL, NULL, NULL }
 };
@@ -51,6 +53,8 @@ static SWFAction getAction(zval *id TSRMLS_DC);
 static SWFMorph getMorph(zval *id TSRMLS_DC);
 static SWFMovieClip getSprite(zval *id TSRMLS_DC);
 
+/* {{{ proto void ming_setcubicthreshold (int threshold)
+	Set cubic threshold (?) */
 PHP_FUNCTION(ming_setCubicThreshold)
 {
   zval **num;
@@ -62,7 +66,10 @@ PHP_FUNCTION(ming_setCubicThreshold)
 
   Ming_setCubicThreshold(Z_LVAL_PP(num));
 }
+/* }}} */
 
+/* {{{ proto void ming_setscale(int scale)
+	Set scale (?) */
 PHP_FUNCTION(ming_setScale)
 {
   zval **num;
@@ -74,6 +81,22 @@ PHP_FUNCTION(ming_setScale)
 
   Ming_setScale(Z_DVAL_PP(num));
 }
+/* }}} */
+
+/* {{{ proto void ming_useswfversion(int version)
+	Use SWF version (?) */ 
+PHP_FUNCTION(ming_useSWFVersion)
+{
+  zval **num;
+
+  if(ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &num) == FAILURE)
+    WRONG_PARAM_COUNT;
+
+  convert_to_long_ex(num);
+
+  Ming_useSWFVersion(Z_LVAL_PP(num));
+}
+/* }}} */
 
 static int le_swfmoviep;
 static int le_swfshapep;
@@ -88,8 +111,7 @@ static int le_swfbuttonp;
 static int le_swfactionp;
 static int le_swfmorphp;
 static int le_swfspritep;
-
-static int le_fopen;
+static int le_swfinputp;
 
 zend_class_entry movie_class_entry;
 zend_class_entry shape_class_entry;
@@ -122,7 +144,7 @@ static void *SWFgetProperty(zval *id, char *name, int namelen, int proptype TSRM
       php_error(E_WARNING, "unable to find property %s", name);
       return NULL;
     }
-    id_to_find = (*tmp)->value.lval;
+    id_to_find = Z_LVAL_PP(tmp);
   }
   else
     return NULL;
@@ -146,25 +168,84 @@ static void *SWFgetProperty(zval *id, char *name, int namelen, int proptype TSRM
 
 SWFCharacter getCharacter(zval *id TSRMLS_DC)
 {
-  if(id->value.obj.ce == &shape_class_entry)
+  if(Z_OBJCE_P(id) == &shape_class_entry)
     return (SWFCharacter)getShape(id TSRMLS_CC);
-  else if(id->value.obj.ce == &font_class_entry)
+  else if(Z_OBJCE_P(id) == &font_class_entry)
     return (SWFCharacter)getFont(id TSRMLS_CC);
-  else if(id->value.obj.ce == &text_class_entry)
+  else if(Z_OBJCE_P(id) == &text_class_entry)
     return (SWFCharacter)getText(id TSRMLS_CC);
-  else if(id->value.obj.ce == &textfield_class_entry)
+  else if(Z_OBJCE_P(id) == &textfield_class_entry)
     return (SWFCharacter)getTextField(id TSRMLS_CC);
-  else if(id->value.obj.ce == &button_class_entry)
+  else if(Z_OBJCE_P(id) == &button_class_entry)
     return (SWFCharacter)getButton(id TSRMLS_CC);
-  else if(id->value.obj.ce == &morph_class_entry)
+  else if(Z_OBJCE_P(id) == &morph_class_entry)
     return (SWFCharacter)getMorph(id TSRMLS_CC);
-  else if(id->value.obj.ce == &sprite_class_entry)
+  else if(Z_OBJCE_P(id) == &sprite_class_entry)
     return (SWFCharacter)getSprite(id TSRMLS_CC);
+  else if(Z_OBJCE_P(id) == &bitmap_class_entry)
+    return (SWFCharacter)getBitmap(id TSRMLS_CC);
   else
     php_error(E_ERROR, "called object is not an SWFCharacter");
+	return NULL;
 }
 
 /* }}} */
+
+/* }}} */
+/* {{{ getInput - utility func for making an SWFInput from an fopened resource */
+
+static void destroy_SWFInput_resource(zend_rsrc_list_entry *resource TSRMLS_DC)
+{
+  destroySWFInput((SWFInput)resource->ptr);
+}
+
+#define SOCKBUF_INCREMENT 10240
+
+/* turn a socket into an SWFInput by copying everything to a buffer. */
+/* not pretty, but it works */
+
+static SWFInput newSWFInput_sock(int socket)
+{
+  char *buffer = NULL;
+  int l, offset = 0, alloced = 0;
+
+  do
+  {
+    if(offset <= alloced)
+    {
+      alloced += SOCKBUF_INCREMENT;
+      buffer = realloc(buffer, alloced);
+    }
+
+    l = SOCK_FREAD(buffer+offset, SOCKBUF_INCREMENT, socket);
+
+    offset += l;
+  }
+  while(l > 0);
+
+  return newSWFInput_allocedBuffer(buffer, offset);
+}
+
+static SWFInput getInput(zval **zfile TSRMLS_DC)
+{
+  FILE *file;
+  int type;
+  SWFInput input;
+
+  file = (FILE *) zend_fetch_resource(zfile TSRMLS_CC, -1, "File-Handle", &type, 3, php_file_le_fopen(), php_file_le_popen(), php_file_le_socket());
+
+  if(type == php_file_le_socket())
+    input = newSWFInput_sock(*(int *)file);
+  else
+  {
+    input = newSWFInput_file(file);
+    zend_list_addref(Z_LVAL_PP(zfile));
+  }
+
+  zend_list_addref(zend_list_insert(input, le_swfinputp));
+
+  return input;
+}
 
 /* }}} */
 
@@ -176,7 +257,7 @@ static zend_function_entry swfaction_functions[] = {
 };
 
 /* {{{ proto object swfaction_init(string)
-   returns a new SWFAction object, compiling the given script */
+   Returns a new SWFAction object, compiling the given script */
 
 PHP_FUNCTION(swfaction_init)
 {
@@ -189,11 +270,10 @@ PHP_FUNCTION(swfaction_init)
 
   convert_to_string_ex(script);
 
-  /* XXX - need to deal with compiler errors */
   action = compileSWFActionCode(Z_STRVAL_PP(script));
 
   if(!action)
-    php_error(E_ERROR, "Couldn't compile code.  And I'm not smart enough to tell you why, sorry.");
+    php_error(E_ERROR, "Couldn't compile actionscript.");
 
   ret = zend_list_insert(action, le_swfactionp);
 
@@ -229,82 +309,60 @@ static zend_function_entry swfbitmap_functions[] = {
   { NULL, NULL, NULL }
 };
 
-/* {{{ proto class swfbitmap_init(file, [maskfile])
+/* {{{ proto class swfbitmap_init(file [, maskfile])
    Returns a new SWFBitmap object from jpg (with optional mask) or dbl file */
 
 PHP_FUNCTION(swfbitmap_init)
 {
-  zval **file, **mask;
-  char *filename, *maskname = NULL;
+  zval **zfile, **zmask = NULL;
   SWFBitmap bitmap;
-  int ret, l;
+  SWFInput input, maskinput;
+  int ret;
 
   if(ZEND_NUM_ARGS() == 1)
   {
-    if(zend_get_parameters_ex(1, &file) == FAILURE)
+    if(zend_get_parameters_ex(1, &zfile) == FAILURE)
       WRONG_PARAM_COUNT;
   }
   else if(ZEND_NUM_ARGS() == 2)
   {
-    if(zend_get_parameters_ex(2, &file, &mask) == FAILURE)
+    if(zend_get_parameters_ex(2, &zfile, &zmask) == FAILURE)
       WRONG_PARAM_COUNT;
-
-    maskname = Z_STRVAL_PP(mask);
   }
   else
     WRONG_PARAM_COUNT;
 
-  filename = Z_STRVAL_PP(file);
-  l = Z_STRLEN_PP(file);
-
-  if(strncasecmp(filename+l-4, ".jpg", 4) == 0 ||
-     strncasecmp(filename+l-5, ".jpeg", 5) == 0)
+  if(Z_TYPE_PP(zfile) != IS_RESOURCE)
   {
-    if(maskname != NULL)
-    {
-      FILE *jpeg, *mask;
-      if((jpeg = VCWD_FOPEN(filename, "rb")) == NULL)
-	 php_error(E_ERROR, "Couldn't find file %s", filename);
-
-      if((mask = VCWD_FOPEN(maskname, "rb")) == NULL)
-	php_error(E_ERROR, "Couldn't find file %s", maskname);
-
-      bitmap = newSWFJpegWithAlpha(jpeg, mask);
-
-      ZEND_REGISTER_RESOURCE(NULL, jpeg, le_fopen);
-      ZEND_REGISTER_RESOURCE(NULL, mask, le_fopen);
-    }
-    else
-    {
-      FILE *jpeg;
-
-      if((jpeg = VCWD_FOPEN(filename, "rb")) == NULL)
-	 php_error(E_ERROR, "Couldn't find file %s", filename);
-
-      bitmap = newSWFJpegBitmap(jpeg);
-
-      ZEND_REGISTER_RESOURCE(NULL, jpeg, le_fopen);
-    }
-  }
-  else if(strncasecmp(filename+l-4, ".dbl", 4) == 0)
-  {
-    FILE *dbl;
-
-    if((dbl = VCWD_FOPEN(filename, "rb")) == NULL)
-      php_error(E_ERROR, "Couldn't find file %s", filename);
-
-    bitmap = newSWFDBLBitmap(dbl);
-
-    ZEND_REGISTER_RESOURCE(NULL, dbl, le_fopen);
+    convert_to_string_ex(zfile);
+    input = newSWFInput_buffer(Z_STRVAL_PP(zfile), Z_STRLEN_PP(zfile));
+    zend_list_addref(zend_list_insert(input, le_swfinputp));
   }
   else
-    php_error(E_ERROR, "Sorry, can't tell what type of file %s is", filename);
+    input = getInput(zfile TSRMLS_CC);
+
+  if(zmask != NULL)
+  {
+    if(Z_TYPE_PP(zmask) != IS_RESOURCE)
+    {
+      convert_to_string_ex(zmask);
+      maskinput = newSWFInput_buffer(Z_STRVAL_PP(zmask), Z_STRLEN_PP(zmask));
+      zend_list_addref(zend_list_insert(maskinput, le_swfinputp));
+    }
+    else
+      maskinput = getInput(zmask TSRMLS_CC);
+
+    bitmap = newSWFJpegWithAlpha_fromInput(input, maskinput);
+  }
+  else
+    bitmap = newSWFBitmap_fromInput(input);
 
   ret = zend_list_insert(bitmap, le_swfbitmapp);
   object_init_ex(getThis(), &bitmap_class_entry);
   add_property_resource(getThis(), "bitmap", ret);
   zend_list_addref(ret);
 }
+
 static void destroy_SWFBitmap_resource(zend_rsrc_list_entry *resource TSRMLS_DC)
 {
   destroySWFBitmap((SWFBitmap)resource->ptr);
@@ -325,7 +383,7 @@ static SWFBitmap getBitmap(zval *id TSRMLS_DC)
 }
 
 /* }}} */
-/* {{{ proto void swfbitmap_getWidth()
+/* {{{ proto void swfbitmap_getWidth(void)
    Returns the width of this bitmap */
 
 PHP_FUNCTION(swfbitmap_getWidth)
@@ -337,7 +395,7 @@ PHP_FUNCTION(swfbitmap_getWidth)
 }
 
 /* }}} */
-/* {{{ proto void swfbitmap_getHeight()
+/* {{{ proto void swfbitmap_getHeight(void)
    Returns the height of this bitmap */
 
 PHP_FUNCTION(swfbitmap_getHeight)
@@ -366,7 +424,7 @@ static zend_function_entry swfbutton_functions[] = {
 };
 
 /* {{{ proto object swfbutton_init(void)
-   returns a new SWFButton object */
+   Returns a new SWFButton object */
 
 PHP_FUNCTION(swfbutton_init)
 {
@@ -398,7 +456,7 @@ static SWFButton getButton(zval *id TSRMLS_DC)
 
 /* }}} */
 /* {{{ proto void swfbutton_setHit(SWFCharacter)
-   sets the character for this button's hit test state */
+   Sets the character for this button's hit test state */
 
 PHP_FUNCTION(swfbutton_setHit)
 {
@@ -417,7 +475,7 @@ PHP_FUNCTION(swfbutton_setHit)
 
 /* }}} */
 /* {{{ proto void swfbutton_setOver(SWFCharacter)
-   sets the character for this button's over state */
+   Sets the character for this button's over state */
 
 PHP_FUNCTION(swfbutton_setOver)
 {
@@ -436,7 +494,7 @@ PHP_FUNCTION(swfbutton_setOver)
 
 /* }}} */
 /* {{{ proto void swfbutton_setUp(SWFCharacter)
-   sets the character for this button's up state */
+   Sets the character for this button's up state */
 
 PHP_FUNCTION(swfbutton_setUp)
 {
@@ -455,7 +513,7 @@ PHP_FUNCTION(swfbutton_setUp)
 
 /* }}} */
 /* {{{ proto void swfbutton_setDown(SWFCharacter)
-   sets the character for this button's down state */
+   Sets the character for this button's down state */
 
 PHP_FUNCTION(swfbutton_setDown)
 {
@@ -474,7 +532,7 @@ PHP_FUNCTION(swfbutton_setDown)
 
 /* }}} */
 /* {{{ proto void swfbutton_addShape(SWFCharacter character, int flags)
-   sets the character to display for the condition described in flags */
+   Sets the character to display for the condition described in flags */
 
 PHP_FUNCTION(swfbutton_addShape)
 {
@@ -496,7 +554,7 @@ PHP_FUNCTION(swfbutton_addShape)
 
 /* }}} */
 /* {{{ proto void swfbutton_setAction(SWFAction)
-   sets the action to perform when button is pressed */
+   Sets the action to perform when button is pressed */
 
 PHP_FUNCTION(swfbutton_setAction)
 {
@@ -515,7 +573,7 @@ PHP_FUNCTION(swfbutton_setAction)
 
 /* }}} */
 /* {{{ proto void swfbutton_addAction(SWFAction action, int flags)
-   sets the action to perform when conditions described in flags is met */
+   Sets the action to perform when conditions described in flags is met */
 
 PHP_FUNCTION(swfbutton_addAction)
 {
@@ -536,9 +594,9 @@ PHP_FUNCTION(swfbutton_addAction)
 }
 
 /* }}} */
-/* {{{ proto int SWFBUTTON_KEYPRESS(char)
-   returns the action flag for keyPress(char) */
 
+/* {{{ proto int swfbutton_keypress(string str)
+  	Returns the action flag for keyPress(char) */
 PHP_FUNCTION(swfbutton_keypress)
 {
   zval **key;
@@ -578,6 +636,7 @@ static zend_function_entry swfdisplayitem_functions[] = {
   PHP_FALIAS(addcolor,     swfdisplayitem_addColor,    NULL)
   PHP_FALIAS(multcolor,    swfdisplayitem_multColor,   NULL)
   PHP_FALIAS(setname,      swfdisplayitem_setName,     NULL)
+  PHP_FALIAS(addaction,    swfdisplayitem_addAction,   NULL)
   { NULL, NULL, NULL }
 };
 
@@ -596,7 +655,7 @@ static SWFDisplayItem getDisplayItem(zval *id TSRMLS_DC)
 
 /* }}} */
 /* {{{ proto void swfdisplayitem_moveTo(int x, int y)
-   Moves this SWFDisplayItem to movie coordinates (x,y) */
+   Moves this SWFDisplayItem to movie coordinates (x, y) */
 
 PHP_FUNCTION(swfdisplayitem_moveTo)
 {
@@ -613,7 +672,7 @@ PHP_FUNCTION(swfdisplayitem_moveTo)
 
 /* }}} */
 /* {{{ proto void swfdisplayitem_move(int dx, int dy)
-   Displaces this SWFDisplayItem by (dx,dy) in movie coordinates. */
+   Displaces this SWFDisplayItem by (dx, dy) in movie coordinates */
 
 PHP_FUNCTION(swfdisplayitem_move)
 {
@@ -629,9 +688,8 @@ PHP_FUNCTION(swfdisplayitem_move)
 }
 
 /* }}} */
-/* {{{ proto void swfdisplayitem_scaleTo(float xScale, [float yScale])
-   Scales this SWFDisplayItem by xScale in the x direction, yScale in the y,
-   or both to xScale if only one arg. */
+/* {{{ proto void swfdisplayitem_scaleTo(float xScale [, float yScale])
+   Scales this SWFDisplayItem by xScale in the x direction, yScale in the y, or both to xScale if only one arg */
 
 PHP_FUNCTION(swfdisplayitem_scaleTo)
 {
@@ -664,8 +722,7 @@ PHP_FUNCTION(swfdisplayitem_scaleTo)
 
 /* }}} */
 /* {{{ proto void swfdisplayitem_scale(float xScale, float yScale)
-   Multiplies this SWFDisplayItem's current x scale by xScale,
-   its y scale by yScale */
+   Multiplies this SWFDisplayItem's current x scale by xScale, its y scale by yScale */
 
 PHP_FUNCTION(swfdisplayitem_scale)
 {
@@ -682,8 +739,7 @@ PHP_FUNCTION(swfdisplayitem_scale)
 
 /* }}} */
 /* {{{ proto void swfdisplayitem_rotateTo(float degrees)
-   Rotates this SWFDisplayItem the given (clockwise) degrees from its original
-   orientation */
+   Rotates this SWFDisplayItem the given (clockwise) degrees from its original orientation */
 
 PHP_FUNCTION(swfdisplayitem_rotateTo)
 {
@@ -699,8 +755,7 @@ PHP_FUNCTION(swfdisplayitem_rotateTo)
 
 /* }}} */
 /* {{{ proto void swfdisplayitem_rotate(float degrees)
-   Rotates this SWFDisplayItem the given (clockwise) degrees from its current
-   orientation */
+   Rotates this SWFDisplayItem the given (clockwise) degrees from its current orientation */
 
 PHP_FUNCTION(swfdisplayitem_rotate)
 {
@@ -804,8 +859,7 @@ PHP_FUNCTION(swfdisplayitem_setMatrix)
 
 /* }}} */
 /* {{{ proto void swfdisplayitem_setDepth(int depth)
-   Sets this SWFDisplayItem's z-depth to depth.  Items with higher depth
-   values are drawn on top of those with lower values */
+   Sets this SWFDisplayItem's z-depth to depth.  Items with higher depth values are drawn on top of those with lower values */
 
 PHP_FUNCTION(swfdisplayitem_setDepth)
 {
@@ -821,8 +875,7 @@ PHP_FUNCTION(swfdisplayitem_setDepth)
 
 /* }}} */
 /* {{{ proto void swfdisplayitem_setRatio(float ratio)
-   Sets this SWFDisplayItem's ratio to ratio.  Obviously only does anything
-   if displayitem was created from an SWFMorph */
+   Sets this SWFDisplayItem's ratio to ratio.  Obviously only does anything if displayitem was created from an SWFMorph */
 
 PHP_FUNCTION(swfdisplayitem_setRatio)
 {
@@ -838,8 +891,7 @@ PHP_FUNCTION(swfdisplayitem_setRatio)
 
 /* }}} */
 /* {{{ proto void swfdisplayitem_addColor(int r, int g, int b [, int a])
-   Sets the add color part of this SWFDisplayItem's CXform to (r,g,b,[a]).
-   a defaults to 0 */
+   Sets the add color part of this SWFDisplayItem's CXform to (r, g, b [, a]), a defaults to 0 */
 
 PHP_FUNCTION(swfdisplayitem_addColor)
 {
@@ -871,8 +923,8 @@ PHP_FUNCTION(swfdisplayitem_addColor)
 }
 
 /* }}} */
-/* {{{ proto void swfdisplayitem_multColor(float r, float g, float b, [float a])
-   Sets the multiply color part of this SWFDisplayItem's CXform to (r,g,b,[a]).
+/* {{{ proto void swfdisplayitem_multColor(float r, float g, float b [, float a])
+   Sets the multiply color part of this SWFDisplayItem's CXform to (r, g, b [, a]),
    a defaults to 1.0 */
 
 PHP_FUNCTION(swfdisplayitem_multColor)
@@ -906,7 +958,7 @@ PHP_FUNCTION(swfdisplayitem_multColor)
 
 /* }}} */
 /* {{{ proto void swfdisplayitem_setName(string name)
-   Sets this SWFDisplayItem's name to name. */
+   Sets this SWFDisplayItem's name to name */
 
 PHP_FUNCTION(swfdisplayitem_setName)
 {
@@ -919,6 +971,28 @@ PHP_FUNCTION(swfdisplayitem_setName)
   convert_to_string_ex(name);
 
   SWFDisplayItem_setName(item, Z_STRVAL_PP(name));
+}
+
+/* }}} */
+/* {{{ proto void swfdisplayitem_addAction(SWFAction action, int flags)
+   Adds this SWFAction to the given SWFSprite instance */
+
+PHP_FUNCTION(swfdisplayitem_addAction)
+{
+  zval **zaction, **flags;
+  SWFAction action;
+  SWFDisplayItem item = getDisplayItem(getThis() TSRMLS_CC);
+
+  if(ZEND_NUM_ARGS() != 2 ||
+     zend_get_parameters_ex(2, &zaction, &flags) == FAILURE)
+    WRONG_PARAM_COUNT;
+
+  convert_to_object_ex(zaction);
+  convert_to_long_ex(flags);
+
+  action = (SWFBlock)getAction(*zaction TSRMLS_CC);
+
+  SWFDisplayItem_addAction(item, action, Z_LVAL_PP(flags));
 }
 
 /* }}} */
@@ -984,9 +1058,8 @@ PHP_FUNCTION(swffill_moveTo)
 }
 
 /* }}} */
-/* {{{ proto void swffill_scaleTo(float xScale, [float yScale])
-   Scales this SWFFill by xScale in the x direction, yScale in the y,
-   or both to xScale if only one arg. */
+/* {{{ proto void swffill_scaleTo(float xScale [, float yScale])
+   Scales this SWFFill by xScale in the x direction, yScale in the y, or both to xScale if only one arg */
 
 PHP_FUNCTION(swffill_scaleTo)
 {
@@ -1017,8 +1090,7 @@ PHP_FUNCTION(swffill_scaleTo)
 
 /* }}} */
 /* {{{ proto void swffill_rotateTo(float degrees)
-   Rotates this SWFFill the given (clockwise) degrees from its original
-   orientation */
+   Rotates this SWFFill the given (clockwise) degrees from its original orientation */
 
 PHP_FUNCTION(swffill_rotateTo)
 {
@@ -1133,7 +1205,7 @@ static void destroy_SWFFont_resource(zend_rsrc_list_entry *resource TSRMLS_DC)
 
 /* }}} */
 /* {{{ proto int swffont_getWidth(string)
-   calculates the width of the given string in this font at full height */
+   Calculates the width of the given string in this font at full height */
 
 PHP_FUNCTION(swffont_getWidth)
 {
@@ -1151,8 +1223,8 @@ PHP_FUNCTION(swffont_getWidth)
 }
 
 /* }}} */
-/* {{{ proto int swffont_getAscent()
-   returns the ascent of the font, or 0 if not available */
+/* {{{ proto int swffont_getAscent(void)
+   Returns the ascent of the font, or 0 if not available */
 
 PHP_FUNCTION(swffont_getAscent)
 {
@@ -1163,8 +1235,8 @@ PHP_FUNCTION(swffont_getAscent)
 }
 
 /* }}} */
-/* {{{ proto int swffont_getDescent()
-   returns the descent of the font, or 0 if not available */
+/* {{{ proto int swffont_getDescent(void)
+   Returns the descent of the font, or 0 if not available */
 
 PHP_FUNCTION(swffont_getDescent)
 {
@@ -1175,8 +1247,8 @@ PHP_FUNCTION(swffont_getDescent)
 }
 
 /* }}} */
-/* {{{ proto int swffont_getLeading()
-   returns the leading of the font, or 0 if not available */
+/* {{{ proto int swffont_getLeading(void)
+   Returns the leading of the font, or 0 if not available */
 
 PHP_FUNCTION(swffont_getLeading)
 {
@@ -1231,12 +1303,12 @@ static SWFGradient getGradient(zval *id TSRMLS_DC)
 }
 
 /* }}} */
-/* {{{ proto void swfgradient_addEntry(float ratio, byte r, byte g, byte b [, byte a]
-   add given entry to the gradient */
+/* {{{ proto void swfgradient_addEntry(float ratio, string r, string g, string b [, string a]
+   Adds given entry to the gradient */
 
 PHP_FUNCTION(swfgradient_addEntry)
 {
-  zval **ratio, **r, **g, **b, **za;
+  zval **ratio, **r, **g, **b;
   byte a = 0xff;
 
   if(ZEND_NUM_ARGS() == 4)
@@ -1278,8 +1350,8 @@ static zend_function_entry swfmorph_functions[] = {
   { NULL, NULL, NULL }
 };
 
-/* {{{ proto object swfmorph_init()
-   returns a new SWFMorph object */
+/* {{{ proto object swfmorph_init(void)
+   Returns a new SWFMorph object */
 
 PHP_FUNCTION(swfmorph_init)
 {
@@ -1312,8 +1384,8 @@ static SWFMorph getMorph(zval *id TSRMLS_DC)
 }
 
 /* }}} */
-/* {{{ proto SWFShape swfmorph_getShape1()
-   return's this SWFMorph's start shape */
+/* {{{ proto SWFShape swfmorph_getShape1(void)
+   Return's this SWFMorph's start shape */
 
 PHP_FUNCTION(swfmorph_getShape1)
 {
@@ -1327,8 +1399,8 @@ PHP_FUNCTION(swfmorph_getShape1)
 }
 
 /* }}} */
-/* {{{ proto SWFShape swfmorph_getShape2()
-   return's this SWFMorph's start shape */
+/* {{{ proto SWFShape swfmorph_getShape2(void)
+   Return's this SWFMorph's start shape */
 
 PHP_FUNCTION(swfmorph_getShape2)
 {
@@ -1449,7 +1521,7 @@ PHP_FUNCTION(swfmovie_add)
   convert_to_object_ex(zchar);
 
   /* XXX - SWFMovie_add deals w/ all block types.  Probably will need to add that.. */
-  if((*zchar)->value.obj.ce == &action_class_entry)
+  if(Z_OBJCE_PP(zchar) == &action_class_entry)
     block = (SWFBlock)getAction(*zchar TSRMLS_CC);
   else
     block = (SWFBlock)getCharacter(*zchar TSRMLS_CC);
@@ -1514,8 +1586,6 @@ PHP_FUNCTION(swfmovie_saveToFile)
 {
   zval **x;
   SWFMovie movie = getMovie(getThis() TSRMLS_CC);
-  int type;
-  int le_fopen;
   void *what;
 
   if((ZEND_NUM_ARGS() != 1) || zend_get_parameters_ex(1, &x) == FAILURE)
@@ -1538,7 +1608,7 @@ PHP_FUNCTION(swfmovie_save)
   if((ZEND_NUM_ARGS() != 1) || zend_get_parameters_ex(1, &x) == FAILURE)
     WRONG_PARAM_COUNT;
 
-  if((*x)->type == IS_RESOURCE)
+  if(Z_TYPE_PP(x) == IS_RESOURCE)
   {
     ZEND_FETCH_RESOURCE(file, FILE *, x, -1,"File-Handle",php_file_le_fopen());
 
@@ -1634,31 +1704,24 @@ PHP_FUNCTION(swfmovie_setFrames)
 
 PHP_FUNCTION(swfmovie_streamMp3)
 {
-  FILE *file;
   zval **zfile;
   SWFSound sound;
+  SWFInput input;
   SWFMovie movie = getMovie(getThis() TSRMLS_CC);
 
   if(ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &zfile) == FAILURE)
     WRONG_PARAM_COUNT;
 
-  if((*zfile)->type == IS_RESOURCE)
-  {
-    ZEND_FETCH_RESOURCE(file, FILE *, zfile, -1,"File-Handle",php_file_le_fopen());
-  }
-  else
+  if(Z_TYPE_PP(zfile) != IS_RESOURCE)
   {
     convert_to_string_ex(zfile);
-
-    file = VCWD_FOPEN(Z_STRVAL_PP(zfile), "rb");
-
-    if(!file)
-      php_error(E_ERROR, "Couldn't find file %s", Z_STRVAL_PP(zfile));
-
-    ZEND_REGISTER_RESOURCE(NULL, file, le_fopen);
+    input = newSWFInput_buffer(Z_STRVAL_PP(zfile), Z_STRLEN_PP(zfile));
+    zend_list_addref(zend_list_insert(input, le_swfinputp));
   }
+  else
+    input = getInput(zfile TSRMLS_CC);
 
-  sound = newSWFSound(file);
+  sound = newSWFSound_fromInput(input);
   SWFMovie_setSoundStream(movie, sound);
 }
 
@@ -1768,9 +1831,8 @@ PHP_FUNCTION(swfshape_setline)
 }
 
 /* }}} */
-/* {{{ proto int swfshape_addfill(fill, flags)
-   Returns a fill object, for use with swfshape_setleftfill and
-   swfshape_setrightfill */
+/* {{{ proto int swfshape_addfill(int fill, int flags)
+   Returns a fill object, for use with swfshape_setleftfill and swfshape_setrightfill */
 
 PHP_FUNCTION(swfshape_addfill)
 {
@@ -1802,7 +1864,7 @@ PHP_FUNCTION(swfshape_addfill)
 
     convert_to_object_ex(arg1);
 
-    if((*arg1)->value.obj.ce == &gradient_class_entry)
+    if(Z_OBJCE_PP(arg1) == &gradient_class_entry)
     {
       if(flags == 0)
 	flags = SWFFILL_LINEAR_GRADIENT;
@@ -1810,7 +1872,7 @@ PHP_FUNCTION(swfshape_addfill)
       fill = SWFShape_addGradientFill(getShape(getThis() TSRMLS_CC), getGradient(*arg1 TSRMLS_CC),
 				      flags);
     }
-    else if((*arg1)->value.obj.ce == &bitmap_class_entry)
+    else if(Z_OBJCE_PP(arg1) == &bitmap_class_entry)
     {
       if(flags == 0)
 	flags = SWFFILL_TILED_BITMAP;
@@ -1867,7 +1929,7 @@ PHP_FUNCTION(swfshape_addfill)
 }
 
 /* }}} */
-/* {{{ proto void swfshape_setleftfill(SWFFill fill)
+/* {{{ proto void swfshape_setleftfill(int fill)
    Sets the left side fill style to fill */
 
 PHP_FUNCTION(swfshape_setleftfill)
@@ -1920,7 +1982,7 @@ PHP_FUNCTION(swfshape_setleftfill)
 }
 
 /* }}} */
-/* {{{ proto void swfshape_setrightfill(SWFFill fill)
+/* {{{ proto void swfshape_setrightfill(int fill)
    Sets the right side fill style to fill */
 
 PHP_FUNCTION(swfshape_setrightfill)
@@ -1973,8 +2035,8 @@ PHP_FUNCTION(swfshape_setrightfill)
 }
 
 /* }}} */
-/* {{{ proto void swfshape_movepento(double x, double y)
-   Moves the pen to shape coordinates (x,y) */
+/* {{{ proto void swfshape_movepento(float x, float y)
+   Moves the pen to shape coordinates (x, y) */
 
 PHP_FUNCTION(swfshape_movepento)
 {
@@ -1991,8 +2053,8 @@ PHP_FUNCTION(swfshape_movepento)
 }
 
 /* }}} */
-/* {{{ proto void swfshape_movepen(double x, double y)
-   Moves the pen from its current location by vector (x,y) */
+/* {{{ proto void swfshape_movepen(float x, float y)
+   Moves the pen from its current location by vector (x, y) */
 
 PHP_FUNCTION(swfshape_movepen)
 {
@@ -2009,9 +2071,8 @@ PHP_FUNCTION(swfshape_movepen)
 }
 
 /* }}} */
-/* {{{ proto void swfshape_drawlineto(double x, double y)
-   Draws a line from the current pen position to shape coordinates (x,y)
-   in the current line style */
+/* {{{ proto void swfshape_drawlineto(float x, float y)
+   Draws a line from the current pen position to shape coordinates (x, y) in the current line style */
 
 PHP_FUNCTION(swfshape_drawlineto)
 {
@@ -2027,9 +2088,8 @@ PHP_FUNCTION(swfshape_drawlineto)
 }
 
 /* }}} */
-/* {{{ proto void swfshape_drawline(double dx, double dy)
-   Draws a line from the current pen position (x,y) to the point (x+dx,y+dy)
-   in the current line style */
+/* {{{ proto void swfshape_drawline(float dx, float dy)
+   Draws a line from the current pen position (x, y) to the point (x+dx, y+dy) in the current line style */
 
 PHP_FUNCTION(swfshape_drawline)
 {
@@ -2045,11 +2105,8 @@ PHP_FUNCTION(swfshape_drawline)
 }
 
 /* }}} */
-/* {{{ proto void swfshape_drawcurveto(double ax, double ay, double bx, double by [, double dx, double dy])
-   Draws a curve from the current pen position (x,y) to the point (bx,by)
-   in the current line style, using point (ax,ay) as a control point.
-   Or draws a cubic bezier to point (dx,dy) with control points (ax,ay) and (bx,by)
-*/
+/* {{{ proto void swfshape_drawcurveto(float ax, float ay, float bx, float by [, float dx, float dy])
+   Draws a curve from the current pen position (x,y) to the point (bx, by) in the current line style, using point (ax, ay) as a control point. Or draws a cubic bezier to point (dx, dy) with control points (ax, ay) and (bx, by) */
 
 PHP_FUNCTION(swfshape_drawcurveto)
 {
@@ -2093,11 +2150,8 @@ PHP_FUNCTION(swfshape_drawcurveto)
 }
 
 /* }}} */
-/* {{{ proto void swfshape_drawcurve(double adx, double ady, double bdx, double bdy [, double cdx, double cdy])
-   Draws a curve from the current pen position (x,y) to the point (x+bdx,y+bdy)
-   in the current line style, using point (x+adx,y+ady) as a control point
-   Or draws a cubic bezier to point (x+cdx,x+cdy) with control points
-   (x+adx,y+ady) and (x+bdx,y+bdy)
+/* {{{ proto void swfshape_drawcurve(float adx, float ady, float bdx, float bdy [, float cdx, float cdy])
+   Draws a curve from the current pen position (x, y) to the point (x+bdx, y+bdy) in the current line style, using point (x+adx, y+ady) as a control point or draws a cubic bezier to point (x+cdx, x+cdy) with control points (x+adx, y+ady) and (x+bdx, y+bdy)
 */
 
 PHP_FUNCTION(swfshape_drawcurve)
@@ -2142,26 +2196,38 @@ PHP_FUNCTION(swfshape_drawcurve)
 }
 
 /* }}} */
-/* {{{ proto void swfshape_drawglyph(SWFFont font, string character)
-   Draws the first character in the given string into the shape using the
-   glyph definition from the given font */
+/* {{{ proto void swfshape_drawglyph(SWFFont font, string character [, int size])
+   Draws the first character in the given string into the shape using the glyph definition from the given font */
 
 PHP_FUNCTION(swfshape_drawglyph)
 {
-  zval **font, **c;
+  zval **font, **c, **zsize;
+  int size;
 
-  if((ZEND_NUM_ARGS() != 2) || zend_get_parameters_ex(2, &font, &c) == FAILURE)
-    WRONG_PARAM_COUNT;
+  if(ZEND_NUM_ARGS() == 2)
+  {
+    if(zend_get_parameters_ex(2, &font, &c) == FAILURE)
+      WRONG_PARAM_COUNT;
+
+    size = 1024/Ming_getScale();
+  }
+  else if(ZEND_NUM_ARGS() == 3)
+  {
+    if(zend_get_parameters_ex(3, &font, &c, &zsize) == FAILURE)
+      WRONG_PARAM_COUNT;
+
+    convert_to_long_ex(zsize);
+    size = Z_LVAL_PP(zsize);
+  }
 
   convert_to_string_ex(c);
 
-  SWFShape_drawFontGlyph(getShape(getThis() TSRMLS_CC), getFont(*font TSRMLS_CC), Z_STRVAL_PP(c)[0]);
+  SWFShape_drawSizedGlyph(getShape(getThis() TSRMLS_CC), getFont(*font TSRMLS_CC), Z_STRVAL_PP(c)[0], size);
 }
 
 /* }}} */
 /* {{{ proto void swfshape_drawcircle(int r)
-   Draws a circle of radius r centered at the current location,
-   in a counter-clockwise fashion */
+   Draws a circle of radius r centered at the current location, in a counter-clockwise fashion */
 
 PHP_FUNCTION(swfshape_drawcircle)
 {
@@ -2177,8 +2243,7 @@ PHP_FUNCTION(swfshape_drawcircle)
 
 /* }}} */
 /* {{{ proto void swfshape_drawarc(int r, float startAngle, float endAngle)
-   Draws an arc of radius r centered at the current location, from angle
-   startAngle to angle endAngle measured counterclockwise from 12 o'clock */
+   Draws an arc of radius r centered at the current location, from angle startAngle to angle endAngle measured counterclockwise from 12 o'clock */
 
 PHP_FUNCTION(swfshape_drawarc)
 {
@@ -2197,9 +2262,8 @@ PHP_FUNCTION(swfshape_drawarc)
 }
 
 /* }}} */
-/* {{{ proto void swfshape_drawcubic(double bx, double by, double cx, double cy, double dx, double dy)
-   Draws a cubic bezier curve using the current position and the three given
-   points as control points */
+/* {{{ proto void swfshape_drawcubic(float bx, float by, float cx, float cy, float dx, float dy)
+   Draws a cubic bezier curve using the current position and the three given points as control points */
 
 PHP_FUNCTION(swfshape_drawcubic)
 {
@@ -2223,9 +2287,8 @@ PHP_FUNCTION(swfshape_drawcubic)
 }
 
 /* }}} */
-/* {{{ proto void swfshape_drawcubic(double bx, double by, double cx, double cy, double dx, double dy)
-   Draws a cubic bezier curve using the current position and the three given
-   points as control points */
+/* {{{ proto void swfshape_drawcubic(float bx, float by, float cx, float cy, float dx, float dy)
+   Draws a cubic bezier curve using the current position and the three given points as control points */
 
 PHP_FUNCTION(swfshape_drawcubicto)
 {
@@ -2264,7 +2327,7 @@ static zend_function_entry swfsprite_functions[] = {
   { NULL, NULL, NULL }
 };
 
-/* {{{ proto class swfsprite_init()
+/* {{{ proto class swfsprite_init(void)
    Returns a new SWFSprite object */
 
 PHP_FUNCTION(swfsprite_init)
@@ -2314,7 +2377,7 @@ PHP_FUNCTION(swfsprite_add)
 
   convert_to_object_ex(zchar);
 
-  if((*zchar)->value.obj.ce == &action_class_entry)
+  if(Z_OBJCE_PP(zchar) == &action_class_entry)
     block = (SWFBlock)getAction(*zchar TSRMLS_CC);
   else
     block = (SWFBlock)getCharacter(*zchar TSRMLS_CC);
@@ -2350,8 +2413,8 @@ PHP_FUNCTION(swfsprite_remove)
 }
 
 /* }}} */
-/* {{{ proto void swfsprite_nextFrame()
-   moves the sprite to the next frame */
+/* {{{ proto void swfsprite_nextFrame(void)
+   Moves the sprite to the next frame */
 
 PHP_FUNCTION(swfsprite_nextFrame)
 {
@@ -2374,8 +2437,8 @@ PHP_FUNCTION(swfsprite_labelFrame)
 }
 
 /* }}} */
-/* {{{ proto void swfsprite_setFrames(int)
-   sets the number of frames in this SWFSprite */
+/* {{{ proto void swfsprite_setFrames(int frames)
+   Sets the number of frames in this SWFSprite */
 
 PHP_FUNCTION(swfsprite_setFrames)
 {
@@ -2463,7 +2526,7 @@ PHP_FUNCTION(swftext_setFont)
 }
 
 /* }}} */
-/* {{{ proto void swftext_setHeight(double height)
+/* {{{ proto void swftext_setHeight(float height)
    Sets this SWFText object's current height to given height */
 
 PHP_FUNCTION(swftext_setHeight)
@@ -2497,7 +2560,7 @@ PHP_FUNCTION(swftext_setSpacing)
 }
 
 /* }}} */
-/* {{{ proto void swftext_setColor(int r, int g, int b, [int a])
+/* {{{ proto void swftext_setColor(int r, int g, int b [, int a])
    Sets this SWFText object's current color to the given color */
 
 PHP_FUNCTION(swftext_setColor)
@@ -2535,9 +2598,8 @@ PHP_FUNCTION(swftext_setColor)
 }
 
 /* }}} */
-/* {{{ proto void swftext_moveTo(double x, double y)
-   Moves this SWFText object's current pen position to (x,y) in text
-   coordinates */
+/* {{{ proto void swftext_moveTo(float x, float y)
+   Moves this SWFText object's current pen position to (x, y) in text coordinates */
 
 PHP_FUNCTION(swftext_moveTo)
 {
@@ -2555,8 +2617,7 @@ PHP_FUNCTION(swftext_moveTo)
 
 /* }}} */
 /* {{{ proto void swftext_addString(string text)
-   Writes the given text into this SWFText object at the current pen position,
-   using the current font, height, spacing, and color */
+   Writes the given text into this SWFText object at the current pen position, using the current font, height, spacing, and color */
 
 PHP_FUNCTION(swftext_addString)
 {
@@ -2572,8 +2633,8 @@ PHP_FUNCTION(swftext_addString)
 }
 
 /* }}} */
-/* {{{ proto double swftext_getWidth(string)
-   calculates the width of the given string in this text objects current font and size */
+/* {{{ proto float swftext_getWidth(string str)
+   Calculates the width of the given string in this text objects current font and size */
 
 PHP_FUNCTION(swftext_getWidth)
 {
@@ -2591,8 +2652,8 @@ PHP_FUNCTION(swftext_getWidth)
 }
 
 /* }}} */
-/* {{{ proto double swftext_getAscent()
-   returns the ascent of the current font at its current size, or 0 if not available */
+/* {{{ proto float swftext_getAscent(void)
+   Returns the ascent of the current font at its current size, or 0 if not available */
 
 PHP_FUNCTION(swftext_getAscent)
 {
@@ -2603,8 +2664,8 @@ PHP_FUNCTION(swftext_getAscent)
 }
 
 /* }}} */
-/* {{{ proto double swftext_getDescent()
-   returns the descent of the current font at its current size, or 0 if not available */
+/* {{{ proto float swftext_getDescent(void)
+   Returns the descent of the current font at its current size, or 0 if not available */
 
 PHP_FUNCTION(swftext_getDescent)
 {
@@ -2615,8 +2676,8 @@ PHP_FUNCTION(swftext_getDescent)
 }
 
 /* }}} */
-/* {{{ proto double swftext_getLeading()
-   returns the leading of the current font at its current size, or 0 if not available */
+/* {{{ proto float swftext_getLeading(void)
+   Returns the leading of the current font at its current size, or 0 if not available */
 
 PHP_FUNCTION(swftext_getLeading)
 {
@@ -2649,7 +2710,7 @@ static zend_function_entry swftextfield_functions[] = {
 };
 
 /* {{{ proto object swftextfield_init(void)
-   returns a new SWFTextField object */
+   Returns a new SWFTextField object */
 
 PHP_FUNCTION(swftextfield_init)
 {
@@ -2692,8 +2753,8 @@ static SWFTextField getTextField(zval *id TSRMLS_DC)
 }
 
 /* }}} */
-/* {{{ proto void swftextfield_setFont
-   set the font for this textfield */
+/* {{{ proto void swftextfield_setFont(int font)
+   Sets the font for this textfield */
 
 PHP_FUNCTION(swftextfield_setFont)
 {
@@ -2709,8 +2770,8 @@ PHP_FUNCTION(swftextfield_setFont)
 }
 
 /* }}} */
-/* {{{ proto void swftextfield_setBounds(double width, double height)
-   sets the width and height of this textfield */
+/* {{{ proto void swftextfield_setBounds(float width, float height)
+   Sets the width and height of this textfield */
 
 PHP_FUNCTION(swftextfield_setBounds)
 {
@@ -2727,8 +2788,8 @@ PHP_FUNCTION(swftextfield_setBounds)
 }
 
 /* }}} */
-/* {{{ proto void swftextfield_align(alignment)
-   sets the alignment of this textfield */
+/* {{{ proto void swftextfield_align(int alignment)
+   Sets the alignment of this textfield */
 
 PHP_FUNCTION(swftextfield_align)
 {
@@ -2744,8 +2805,8 @@ PHP_FUNCTION(swftextfield_align)
 }
 
 /* }}} */
-/* {{{ proto void swftextfield_setHeight(double height)
-   sets the font height of this textfield */
+/* {{{ proto void swftextfield_setHeight(float height)
+   Sets the font height of this textfield */
 
 PHP_FUNCTION(swftextfield_setHeight)
 {
@@ -2761,8 +2822,8 @@ PHP_FUNCTION(swftextfield_setHeight)
 }
 
 /* }}} */
-/* {{{ proto void swftextfield_setLeftMargin(double)
-   sets the left margin of this textfield */
+/* {{{ proto void swftextfield_setLeftMargin(float)
+   Sets the left margin of this textfield */
 
 PHP_FUNCTION(swftextfield_setLeftMargin)
 {
@@ -2778,8 +2839,8 @@ PHP_FUNCTION(swftextfield_setLeftMargin)
 }
 
 /* }}} */
-/* {{{ proto void swftextfield_setRightMargin(double)
-   sets the right margin of this textfield */
+/* {{{ proto void swftextfield_setRightMargin(float margin)
+   Sets the right margin of this textfield */
 
 PHP_FUNCTION(swftextfield_setRightMargin)
 {
@@ -2795,8 +2856,8 @@ PHP_FUNCTION(swftextfield_setRightMargin)
 }
 
 /* }}} */
-/* {{{ proto void swftextfield_setMargins(double left, double right)
-   sets both margins of this textfield */
+/* {{{ proto void swftextfield_setMargins(float left, float right)
+   Sets both margins of this textfield */
 
 PHP_FUNCTION(swftextfield_setMargins)
 {
@@ -2815,8 +2876,8 @@ PHP_FUNCTION(swftextfield_setMargins)
 }
 
 /* }}} */
-/* {{{ proto void swftextfield_setIndentation(double)
-   sets the indentation of the first line of this textfield */
+/* {{{ proto void swftextfield_setIndentation(float indentation)
+   Sets the indentation of the first line of this textfield */
 
 PHP_FUNCTION(swftextfield_setIndentation)
 {
@@ -2832,8 +2893,8 @@ PHP_FUNCTION(swftextfield_setIndentation)
 }
 
 /* }}} */
-/* {{{ proto void swftextfield_setLineSpacing(double)
-   sets the line spacing of this textfield */
+/* {{{ proto void swftextfield_setLineSpacing(float space)
+   Sets the line spacing of this textfield */
 
 PHP_FUNCTION(swftextfield_setLineSpacing)
 {
@@ -2850,7 +2911,7 @@ PHP_FUNCTION(swftextfield_setLineSpacing)
 
 /* }}} */
 /* {{{ proto void swftextfield_setColor(int r, int g, int b [, int a])
-   sets the color of this textfield */
+   Sets the color of this textfield */
 
 PHP_FUNCTION(swftextfield_setColor)
 {
@@ -2882,8 +2943,8 @@ PHP_FUNCTION(swftextfield_setColor)
 }
 
 /* }}} */
-/* {{{ proto void swftextfield_setName(string)
-   sets the variable name of this textfield */
+/* {{{ proto void swftextfield_setName(string var_name)
+   Sets the variable name of this textfield */
 
 PHP_FUNCTION(swftextfield_setName)
 {
@@ -2899,8 +2960,8 @@ PHP_FUNCTION(swftextfield_setName)
 }
 
 /* }}} */
-/* {{{ proto void swftextfield_addString(string)
-   adds the given string to this textfield */
+/* {{{ proto void swftextfield_addString(string str)
+   Adds the given string to this textfield */
 
 PHP_FUNCTION(swftextfield_addString)
 {
@@ -2919,24 +2980,25 @@ PHP_FUNCTION(swftextfield_addString)
 
 /* }}} */
 
-zend_module_entry ming_module_entry = {
+zend_module_entry ming_module_entry =
+  {
 	STANDARD_MODULE_HEADER,
-	"ming",
-	ming_functions,
-	PHP_MINIT(ming),
-	NULL,
-	NULL,
-	NULL,
-	PHP_MINFO(ming),
-	NO_VERSION_YET,
-	STANDARD_MODULE_PROPERTIES
-};
+    "ming",
+    ming_functions,
+    PHP_MINIT(ming), /* module init function */
+    NULL,            /* module shutdown function */
+    PHP_RINIT(ming), /* request init function */
+    NULL,            /* request shutdown function */
+    PHP_MINFO(ming), /* module info function */
+    NO_VERSION_YET,
+    STANDARD_MODULE_PROPERTIES
+  };
 
 #if defined(COMPILE_DL) || defined(COMPILE_DL_MING)
 ZEND_GET_MODULE(ming)
 #endif
 
-/* {{{ proto PHP_MINFO_FUNCTION(ming)
+/* {{{ todo PHP_MINFO_FUNCTION(ming)
 */
 
 PHP_MINFO_FUNCTION(ming)
@@ -2948,16 +3010,39 @@ PHP_MINFO_FUNCTION(ming)
 }
 
 /* }}} */
-/* {{{ proto PHP_MINIT_FUNCTION(ming)
+/* {{{ todo PHP_MINIT_FUNCTION(ming)
 */
+
+#define ERROR_BUFSIZE 1024
+
+/* custom error handler propagates ming errors up to php */
+void php_ming_error(char *msg, ...)
+{
+  va_list args;
+  char buffer[ERROR_BUFSIZE];
+
+  va_start(args, msg);
+  vsnprintf(buffer, ERROR_BUFSIZE, msg, args);
+  va_end(args);
+
+  php_error(E_ERROR, buffer);
+}
+
+PHP_RINIT_FUNCTION(ming)
+{
+  /* XXX - this didn't work so well last I tried.. */
+
+  if(Ming_init() != 0) {
+    php_error(E_ERROR, "Error initializing Ming module");
+    return FAILURE;
+  }
+
+  return SUCCESS;
+}
 
 PHP_MINIT_FUNCTION(ming)
 {
-  if(Ming_init() != 0)
-    php_error(E_ERROR, "Error initializing Ming module");
-
-  le_fopen = php_file_le_fopen();
-
+  Ming_setErrorFunction(php_ming_error);
 
 #define CONSTANT(s,c) REGISTER_LONG_CONSTANT((s), (c), CONST_CS | CONST_PERSISTENT)
 
@@ -2990,15 +3075,24 @@ PHP_MINIT_FUNCTION(ming)
   CONSTANT("SWFTEXTFIELD_WORDWRAP",       SWFTEXTFIELD_WORDWRAP);
   CONSTANT("SWFTEXTFIELD_DRAWBOX",        SWFTEXTFIELD_DRAWBOX);
   CONSTANT("SWFTEXTFIELD_NOSELECT",       SWFTEXTFIELD_NOSELECT);
-#ifdef SWFTEXTFIELD_HTML
   CONSTANT("SWFTEXTFIELD_HTML",           SWFTEXTFIELD_HTML);
-#endif
 
   /* flags for SWFTextField_align */
   CONSTANT("SWFTEXTFIELD_ALIGN_LEFT",     SWFTEXTFIELD_ALIGN_LEFT);
   CONSTANT("SWFTEXTFIELD_ALIGN_RIGHT",    SWFTEXTFIELD_ALIGN_RIGHT);
   CONSTANT("SWFTEXTFIELD_ALIGN_CENTER",   SWFTEXTFIELD_ALIGN_CENTER);
   CONSTANT("SWFTEXTFIELD_ALIGN_JUSTIFY",  SWFTEXTFIELD_ALIGN_JUSTIFY);
+
+  /* flags for SWFDisplayItem_addAction */
+  CONSTANT("SWFACTION_ONLOAD",            SWFACTION_ONLOAD);
+  CONSTANT("SWFACTION_ENTERFRAME",        SWFACTION_ENTERFRAME);
+  CONSTANT("SWFACTION_UNLOAD",            SWFACTION_UNLOAD);
+  CONSTANT("SWFACTION_MOUSEMOVE",         SWFACTION_MOUSEMOVE);
+  CONSTANT("SWFACTION_MOUSEDOWN",         SWFACTION_MOUSEDOWN);
+  CONSTANT("SWFACTION_MOUSEUP",           SWFACTION_MOUSEUP);
+  CONSTANT("SWFACTION_KEYDOWN",           SWFACTION_KEYDOWN);
+  CONSTANT("SWFACTION_KEYUP",             SWFACTION_KEYUP);
+  CONSTANT("SWFACTION_DATA",              SWFACTION_DATA);
 
   le_swfmoviep = zend_register_list_destructors_ex(destroy_SWFMovie_resource, NULL, "SWFMovie", module_number);
   le_swfshapep = zend_register_list_destructors_ex(destroy_SWFShape_resource, NULL, "SWFShape", module_number);
@@ -3014,6 +3108,8 @@ PHP_MINIT_FUNCTION(ming)
 
   le_swfdisplayitemp = zend_register_list_destructors_ex(NULL, NULL, "SWFDisplayItem", module_number);
   le_swfactionp = zend_register_list_destructors_ex(NULL, NULL, "SWFAction", module_number);
+
+  le_swfinputp = zend_register_list_destructors_ex(destroy_SWFInput_resource, NULL, "SWFInput", module_number);
 
   INIT_CLASS_ENTRY(shape_class_entry, "swfshape", swfshape_functions);
   INIT_CLASS_ENTRY(fill_class_entry, "swffill", swffill_functions);
@@ -3057,6 +3153,6 @@ PHP_MINIT_FUNCTION(ming)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

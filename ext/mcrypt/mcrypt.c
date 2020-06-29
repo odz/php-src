@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,6 +16,7 @@
    |          Derick Rethans <d.rethans@jdimedia.nl>                      |
    +----------------------------------------------------------------------+
  */
+/* $Id: mcrypt.c,v 1.75 2002/02/28 12:10:35 yohgaki Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -83,7 +84,7 @@ function_entry mcrypt_functions[] = {
 
 	PHP_FE(mcrypt_module_close, NULL)
 #endif
-	{0},
+	{NULL, NULL, NULL}
 };
 
 static PHP_MINFO_FUNCTION(mcrypt);
@@ -268,40 +269,41 @@ static PHP_MINIT_FUNCTION(mcrypt)
 	
 	/* ciphers */
 #if HAVE_LIBMCRYPT22
-	MCRYPT_ENTRY2(BLOWFISH_448);
-	MCRYPT_ENTRY2(DES);
 	MCRYPT_ENTRY2(3DES);
 	MCRYPT_ENTRY2(3WAY);
-	MCRYPT_ENTRY2(GOST);
-	MCRYPT_ENTRY2(SAFER_64);
-	MCRYPT_ENTRY2(SAFER_128);
-	MCRYPT_ENTRY2(CAST_128);
-	MCRYPT_ENTRY2(XTEA);
-	MCRYPT_ENTRY2(RC2_1024);
-	MCRYPT_ENTRY2(TWOFISH_128);
-	MCRYPT_ENTRY2(TWOFISH_192);
-	MCRYPT_ENTRY2(TWOFISH_256);
 	MCRYPT_ENTRY2(BLOWFISH_128);
 	MCRYPT_ENTRY2(BLOWFISH_192);
 	MCRYPT_ENTRY2(BLOWFISH_256);
+	MCRYPT_ENTRY2(BLOWFISH_448);
+	MCRYPT_ENTRY2(CAST_128);
 	MCRYPT_ENTRY2(CAST_256);
-	MCRYPT_ENTRY2(SAFERPLUS);
+	MCRYPT_ENTRY2(DES);
+	MCRYPT_ENTRY2(GOST);
+	MCRYPT_ENTRY2(IDEA);
 	MCRYPT_ENTRY2(LOKI97);
-	MCRYPT_ENTRY2(SERPENT_128);
-	MCRYPT_ENTRY2(SERPENT_192);
-	MCRYPT_ENTRY2(SERPENT_256);
 	MCRYPT_ENTRY2(RIJNDAEL_128);
 	MCRYPT_ENTRY2(RIJNDAEL_192);
 	MCRYPT_ENTRY2(RIJNDAEL_256);
-	MCRYPT_ENTRY2(RC2_256);
 	MCRYPT_ENTRY2(RC2_128);
-	MCRYPT_ENTRY2(RC6_256);
-	MCRYPT_ENTRY2(IDEA);
+	MCRYPT_ENTRY2(RC2_256);
+	MCRYPT_ENTRY2(RC2_1024);
+	MCRYPT_ENTRY2(RC4);
 	MCRYPT_ENTRY2(RC6_128);
 	MCRYPT_ENTRY2(RC6_192);
-	MCRYPT_ENTRY2(RC4);
+	MCRYPT_ENTRY2(RC6_256);
+	MCRYPT_ENTRY2(SAFER_64);
+	MCRYPT_ENTRY2(SAFER_128);
+	MCRYPT_ENTRY2(SAFERPLUS);
+	MCRYPT_ENTRY2(SERPENT_128);
+	MCRYPT_ENTRY2(SERPENT_192);
+	MCRYPT_ENTRY2(SERPENT_256);
+	MCRYPT_ENTRY2(TWOFISH_128);
+	MCRYPT_ENTRY2(TWOFISH_192);
+	MCRYPT_ENTRY2(TWOFISH_256);
+	MCRYPT_ENTRY2(XTEA);
 #endif
 #if HAVE_LIBMCRYPT24
+	MCRYPT_ENTRY2_2_4(3DES, "tripledes");
 	MCRYPT_ENTRY2_2_4(ARCFOUR_IV, "arcfour-iv");
 	MCRYPT_ENTRY2_2_4(ARCFOUR, "arcfour");
 	MCRYPT_ENTRY2_2_4(BLOWFISH, "blowfish");
@@ -532,7 +534,7 @@ PHP_FUNCTION(mcrypt_generic)
 	MCRYPT_CHECK_PARAM_COUNT (2,2)
 	
 	zend_get_parameters_ex(2, &mcryptind, &data);
-	ZEND_FETCH_RESOURCE (td, MCRYPT, mcryptind, -1, "MCrypt", le_mcrypt);				
+	ZEND_FETCH_RESOURCE (td, MCRYPT, mcryptind, -1, "MCrypt", le_mcrypt);
 	convert_to_string_ex (data);
 
 	/* Check blocksize */
@@ -641,7 +643,7 @@ PHP_FUNCTION(mcrypt_enc_self_test)
 /* }}} */
 
 /* {{{ proto bool mcrypt_module_close(resource td)
-   Free the descriptor td */ 
+   Free the descriptor td */
 PHP_FUNCTION(mcrypt_module_close)
 {
 	zval **mcryptind;
@@ -653,6 +655,7 @@ PHP_FUNCTION(mcrypt_module_close)
 	RETURN_TRUE;
 }
 /* }}} */
+
 
 /* {{{ proto bool mcrypt_generic_end(resource td)
    This function terminates encrypt specified by the descriptor td */
@@ -834,7 +837,8 @@ PHP_FUNCTION(mcrypt_module_self_test)
 	
 	if (mcrypt_module_self_test (module, dir) == 0) {
 		RETURN_TRUE;
-	} else {
+	}
+	else {
 		RETURN_FALSE;
 	}
 }
@@ -912,7 +916,7 @@ PHP_FUNCTION(mcrypt_module_get_algo_key_size)
    This function decrypts the crypttext */
 PHP_FUNCTION(mcrypt_module_get_supported_key_sizes)
 {
-	int i, count;
+	int argc, i, count;
 	int *key_sizes;
 	
 	MCRYPT_GET_MODE_DIR_ARGS(algorithms_dir)
@@ -1637,6 +1641,6 @@ PHP_FUNCTION(mcrypt_ecb)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

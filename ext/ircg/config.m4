@@ -1,10 +1,14 @@
+dnl
+dnl $Id: config.m4,v 1.9 2002/01/24 12:55:08 sas Exp $
+dnl
+
+PHP_ARG_WITH(ircg, for IRCG support,
+[  --with-ircg             Include IRCG support])
+
 AC_ARG_WITH(ircg-config,
-[  --with-ircg-config      Path to the ircg-config script],
+[  --with-ircg-config        IRCG: Path to the ircg-config script],
 [ IRCG_CONFIG=$withval ],
 [ IRCG_CONFIG=ircg-config ])
-
-PHP_ARG_WITH(ircg, for ircg support,
-[  --with-ircg             Include ircg support])
 
 if test "$PHP_IRCG" != "no"; then
   $IRCG_CONFIG --ldflags
@@ -18,6 +22,7 @@ if test "$PHP_IRCG" != "no"; then
   PHP_ADD_INCLUDE($PHP_IRCG/include)
   if test "$PHP_SAPI" = "thttpd"; then
     AC_DEFINE(IRCG_WITH_THTTPD, 1, [Whether thttpd is available])
+    PHP_DISABLE_CLI
   fi
   AC_DEFINE(HAVE_IRCG, 1, [Whether you want IRCG support])
   PHP_EXTENSION(ircg, $ext_shared)

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors:                                                             |
+   | Author: Rasmus Lerdorf <rasmus@php.net>                              |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: aspell.c,v 1.32.2.1 2001/10/11 23:51:04 ssb Exp $ */
+/* $Id: aspell.c,v 1.37 2002/02/28 08:25:38 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -95,10 +95,10 @@ PHP_FUNCTION(aspell_new)
 	if(argc==2)
 	  {
 		convert_to_string_ex(personal) ;
-		sc=aspell_new((*master)->value.str.val, (*personal)->value.str.val);
+		sc=aspell_new(Z_STRVAL_PP(master), Z_STRVAL_PP(personal));
 	  }
 	else
-	  sc=aspell_new((*master)->value.str.val, "");
+	  sc=aspell_new(Z_STRVAL_PP(master), "");
 
 	ind = zend_list_insert(sc, le_aspell);
 	RETURN_LONG(ind);
@@ -123,10 +123,10 @@ PHP_FUNCTION(aspell_suggest)
 	}
 	convert_to_long_ex(scin);
 	convert_to_string_ex(word);
-	sc = (aspell *)zend_list_find((*scin)->value.lval, &type);
+	sc = (aspell *)zend_list_find(Z_LVAL_PP(scin), &type);
 	if(!sc)
 	  {
-		php_error(E_WARNING, "%d is not an ASPELL result index", (*scin)->value.lval);
+		php_error(E_WARNING, "%d is not an ASPELL result index", Z_LVAL_PP(scin));
 		RETURN_FALSE;
 	  }
 
@@ -134,7 +134,7 @@ PHP_FUNCTION(aspell_suggest)
                 RETURN_FALSE;
 	}
 
-	sug = aspell_suggest(sc, (*word)->value.str.val);
+	sug = aspell_suggest(sc, Z_STRVAL_PP(word));
 	  for (i = 0; i != sug->size; ++i) {
                 add_next_index_string(return_value, (char *)sug->data[i], 1);
 	  }
@@ -157,13 +157,13 @@ PHP_FUNCTION(aspell_check)
     }
     convert_to_long_ex(scin);
     convert_to_string_ex(word);
-    sc= (aspell *) zend_list_find((*scin)->value.lval, &type);
+    sc= (aspell *) zend_list_find(Z_LVAL_PP(scin), &type);
     if(!sc)
       {
-        php_error(E_WARNING, "%d is not an ASPELL result index", (*scin)->value.lval);
+        php_error(E_WARNING, "%d is not an ASPELL result index", Z_LVAL_PP(scin));
         RETURN_FALSE;
       }
-    if (aspell_check(sc, (*word)->value.str.val)) 
+    if (aspell_check(sc, Z_STRVAL_PP(word))) 
       {
 	RETURN_TRUE;
       }
@@ -189,13 +189,13 @@ PHP_FUNCTION(aspell_check_raw)
     }
     convert_to_long_ex(scin);
     convert_to_string_ex(word);
-    sc = (aspell *)zend_list_find((*scin)->value.lval, &type);
+    sc = (aspell *)zend_list_find(Z_LVAL_PP(scin), &type);
     if(!sc)
       {
-        php_error(E_WARNING, "%d is not an ASPELL result index", (*scin)->value.lval);
+        php_error(E_WARNING, "%d is not an ASPELL result index", Z_LVAL_PP(scin));
         RETURN_FALSE;
       }
-	if (aspell_check_raw(sc, (*word)->value.str.val)) 
+	if (aspell_check_raw(sc, Z_STRVAL_PP(word))) 
 	  {
 	    RETURN_TRUE;
 	  }
@@ -223,6 +223,6 @@ PHP_MINFO_FUNCTION(aspell)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php.h,v 1.152.2.1 2001/09/01 14:57:32 zeev Exp $ */
+/* $Id: php.h,v 1.159 2002/03/01 00:16:58 shane Exp $ */
 
 #ifndef PHP_H
 #define PHP_H
@@ -32,6 +32,7 @@
 
 #include "php_version.h"
 #include "zend.h"
+#include "zend_qsort.h"
 #include "php_compat.h"
 
 #include "zend_API.h"
@@ -40,6 +41,10 @@
 #undef sprintf
 #define sprintf php_sprintf
 #endif
+
+/* PHP's DEBUG value must match Zend's ZEND_DEBUG value */
+#undef PHP_DEBUG
+#define PHP_DEBUG ZEND_DEBUG
 
 #ifdef PHP_WIN32
 #include "tsrm_win32.h"
@@ -58,13 +63,9 @@
 
 #include "php_regex.h"
 
-/* PHP's DEBUG value must match Zend's ZEND_DEBUG value */
-#undef PHP_DEBUG
-#define PHP_DEBUG ZEND_DEBUG
 
 
 #define APACHE 0
-#define CGI_BINARY 0
 
 #if HAVE_UNIX_H
 #include <unix.h>
@@ -241,7 +242,7 @@ int cfgparse(void);
 /* functions */
 int php_startup_internal_extensions(void);
 
-int php_mergesort(void *base, size_t nmemb, register size_t size, int (*cmp) (const void *, const void *));
+int php_mergesort(void *base, size_t nmemb, register size_t size, int (*cmp)(const void *, const void * TSRMLS_DC) TSRMLS_DC);
 
 PHPAPI void php_register_pre_request_shutdown(void (*func)(void *), void *userdata);
 
@@ -315,6 +316,7 @@ PHPAPI int cfg_get_string(char *varname, char **result);
  * Taken from the Apache code, which in turn, was taken from X code...
  */
 
+#ifndef XtOffset
 #if defined(CRAY) || (defined(__arm) && !defined(LINUX))
 #ifdef __STDC__
 #define XtOffset(p_type, field) _Offsetof(p_type, field)
@@ -335,13 +337,16 @@ PHPAPI int cfg_get_string(char *varname, char **result);
     ((long) (((char *) (&(((p_type)NULL)->field))) - ((char *) NULL)))
 
 #endif /* !CRAY */
+#endif /* ! XtOffset */
 
+#ifndef XtOffsetOf
 #ifdef offsetof
 #define XtOffsetOf(s_type, field) offsetof(s_type, field)
 #else
 #define XtOffsetOf(s_type, field) XtOffset(s_type*, field)
 #endif
-
+#endif /* !XtOffsetOf */
+	
 PHPAPI PHP_FUNCTION(warn_not_available);
 
 #endif
@@ -351,6 +356,6 @@ PHPAPI PHP_FUNCTION(warn_not_available);
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

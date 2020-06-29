@@ -1,4 +1,6 @@
-dnl $Id: config.m4,v 1.10 2001/03/27 20:34:31 sniper Exp $
+dnl
+dnl $Id: config.m4,v 1.11.2.1 2002/04/03 23:04:44 sniper Exp $
+dnl
 
 PHP_ARG_WITH(mcal,for MCAL support,
 [  --with-mcal[=DIR]       Include MCAL support.])
@@ -40,7 +42,7 @@ if test "$PHP_MCAL" != "no"; then
   fi
 
   PHP_ADD_INCLUDE($MCAL_INCLUDE)
-  PHP_ADD_LIBRARY_WITH_PATH(mcal, $MCAL_LIBRARY, MCAL_SHARED_LIBADD)
+  PHP_ADD_LIBRARY_DEFER_WITH_PATH(mcal, $MCAL_LIBRARY, MCAL_SHARED_LIBADD)
   PHP_SUBST(MCAL_SHARED_LIBADD)
   AC_DEFINE(HAVE_MCAL,1,[ ])
   PHP_EXTENSION(mcal,$ext_shared)

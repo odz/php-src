@@ -1,7 +1,7 @@
 #  +----------------------------------------------------------------------+
-#  | PHP version 4.0                                                      |
+#  | PHP Version 4                                                        |
 #  +----------------------------------------------------------------------+
-#  | Copyright (c) 1997, 1998, 1999, 2000 The PHP Group                   |
+#  | Copyright (c) 1997-2002 The PHP Group                                |
 #  +----------------------------------------------------------------------+
 #  | This source file is subject to version 2.02 of the PHP license,      |
 #  | that is bundled with this package in the file LICENSE, and is        |
@@ -11,10 +11,10 @@
 #  | obtain it through the world-wide-web, please send a note to          |
 #  | license@php.net so we can mail you a copy immediately.               |
 #  +----------------------------------------------------------------------+
-#  | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+#  | Author: Sascha Schumann <sascha@schumann.cx>                         |
 #  +----------------------------------------------------------------------+
 #
-# $Id: rules.mk,v 1.31 2001/04/16 23:28:58 ssb Exp $ 
+# $Id: rules.mk,v 1.35.2.1 2002/03/09 23:37:49 sniper Exp $ 
 #
 
 include $(top_srcdir)/build/rules_common.mk
@@ -43,7 +43,9 @@ distclean-p depend-p clean-p:
 depend: depend-recursive
 	@echo $(top_srcdir) $(top_builddir) $(srcdir) $(CPP) $(INCLUDES) $(EXTRA_INCLUDES) $(DEFS) $(CPPFLAGS) $(srcdir)/*.c *.c | $(AWK) -f $(top_srcdir)/build/mkdep.awk > $(builddir)/.deps || true
 
-clean: clean-recursive clean-x
+clean: clean-modules clean-recursive clean-x
+
+clean-modules: 
 
 clean-x:
 	rm -f $(targets) *.lo *.slo *.la *.o $(CLEANFILES)
@@ -53,11 +55,11 @@ distclean: distclean-recursive clean-x
 	rm -f config.cache config.log config.status config_vars.mk libtool \
 	php_config.h stamp-h Makefile build-defs.h php4.spec libphp4.module
 
-test: $(top_builddir)/php
+test: $(top_builddir)/sapi/cli/php
 	@if test "$(TESTS)" = ""; then \
-		TOP_BUILDDIR=$(top_builddir) TOP_SRCDIR=$(top_srcdir) $(top_builddir)/php -C -q $(top_srcdir)/run-tests.php $(srcdir); \
+		TOP_BUILDDIR=$(top_builddir) TOP_SRCDIR=$(top_srcdir) $(top_builddir)/sapi/cli/php -c $(top_srcdir)/php.ini-dist $(top_srcdir)/run-tests.php $(srcdir); \
 	else \
-		TOP_BUILDDIR=$(top_builddir) TOP_SRCDIR=$(top_srcdir) $(top_builddir)/php -C -q $(top_srcdir)/run-tests.php $(TESTS); \
+		TOP_BUILDDIR=$(top_builddir) TOP_SRCDIR=$(top_srcdir) $(top_builddir)/sapi/cli/php -c $(top_srcdir)/php.ini-dist $(top_srcdir)/run-tests.php $(TESTS); \
 	fi
 
 include $(builddir)/.deps
