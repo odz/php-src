@@ -256,7 +256,11 @@ static int php_array_element_export(zval **zv, int num_args, va_list args, zend_
 	if (hash_key->nKeyLength==0) { /* numeric key */
 		php_printf("%*c%ld => ", level + 1, ' ', hash_key->h);
 	} else { /* string key */
-		php_printf("%*c'%s' => ", level + 1, ' ', hash_key->arKey);
+		char *key;
+		int key_len;
+		key = php_addcslashes(hash_key->arKey, hash_key->nKeyLength - 1, &key_len, 0, "'\\", 2 TSRMLS_CC);
+		php_printf("%*c'%s' => ", level + 1, ' ', key);
+		efree(key);
 	}
 	php_var_export(zv, level + 2 TSRMLS_CC);
 	PUTS (",\n");
@@ -514,7 +518,7 @@ static void php_var_serialize_intern(smart_str *buf, zval **struc, HashTable *va
 				char *s;
 				ulong slen;
 
-				slen = spprintf(&s, 0, "d:%.*G;", PG(serialize_precision), Z_DVAL_PP(struc));
+				slen = spprintf(&s, 0, "d:%.*G;", (int) PG(serialize_precision), Z_DVAL_PP(struc));
 				smart_str_appendl(buf, s, slen);
 				efree(s);
 				return;

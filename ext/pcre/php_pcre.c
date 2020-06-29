@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_pcre.c,v 1.132.2.8 2003/06/29 00:08:29 andrei Exp $ */
+/* $Id: php_pcre.c,v 1.132.2.10 2003/09/12 01:32:38 sniper Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -372,7 +372,7 @@ static void php_pcre_match(INTERNAL_FUNCTION_PARAMETERS, int global)
 	char 		   **subpat_names = NULL;/* Array for named subpatterns */
 	int				 i;
 	
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|zll", &regex, &regex_len,
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, ((global) ? "ssz|ll" : "ss|zll"), &regex, &regex_len,
 							  &subject, &subject_len, &subpats, &flags, &start_offset) == FAILURE) {
 		RETURN_FALSE;
 	}
@@ -753,7 +753,7 @@ static int preg_do_eval(char *eval_str, int eval_str_len, char *subject,
 	/* Run the code */
 	if (zend_eval_string(code.c, &retval, compiled_string_description TSRMLS_CC) == FAILURE) {
 		efree(compiled_string_description);
-		zend_error(E_ERROR, "Failed evaluating code:\n%s", code);
+		zend_error(E_ERROR, "Failed evaluating code:\n%s", code.c);
 		/* zend_error() does not return in this case */
 	}
 	efree(compiled_string_description);

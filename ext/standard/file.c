@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: file.c,v 1.279.2.34 2003/07/29 18:26:59 iliaa Exp $ */
+/* $Id: file.c,v 1.279.2.38 2003/10/10 01:38:01 iliaa Exp $ */
 
 /* Synced with php 3.0 revision 1.218 1999-06-16 [ssb] */
 
@@ -43,6 +43,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #ifdef PHP_WIN32
+#include <io.h>
 #include <windows.h>
 #include <winsock.h>
 #define O_RDONLY _O_RDONLY
@@ -225,7 +226,7 @@ static int flock_values[] = { LOCK_SH, LOCK_EX, LOCK_UN };
 PHP_FUNCTION(flock)
 {
 	zval **arg1, **arg2, **arg3;
-	int fd, act, ret, arg_count = ZEND_NUM_ARGS();
+	int fd, act, arg_count = ZEND_NUM_ARGS();
 	php_stream *stream;
 
 	if (arg_count < 2 || arg_count > 3 || zend_get_parameters_ex(arg_count, &arg1, &arg2, &arg3) == FAILURE) {
@@ -249,11 +250,12 @@ PHP_FUNCTION(flock)
 	/* flock_values contains all possible actions
 	   if (arg2 & 4) we won't block on the lock */
 	act = flock_values[act - 1] | (Z_LVAL_PP(arg2) & 4 ? LOCK_NB : 0);
-	if ((ret=flock(fd, act)) == -1) {
-		RETURN_FALSE;
-	}
-	if(ret == -1 && errno == EWOULDBLOCK && arg_count == 3) {
-		ZVAL_LONG(*arg3, 1);
+	if (flock(fd, act)) {
+		if (errno == EWOULDBLOCK && arg_count == 3) {
+			ZVAL_LONG(*arg3, 1);
+		} else {
+			RETURN_FALSE;
+		}	
 	}
 	RETURN_TRUE;
 }
@@ -2363,7 +2365,7 @@ normal_char:
 /* }}} */
 
 
-#if (!defined(PHP_WIN32) && !defined(__BEOS__) && !defined(NETWARE) && HAVE_REALPATH) || defined(ZTS)
+#if (!defined(__BEOS__) && !defined(NETWARE) && HAVE_REALPATH) || defined(ZTS)
 /* {{{ proto string realpath(string path)
    Return the resolved path */
 PHP_FUNCTION(realpath)
@@ -2378,6 +2380,15 @@ PHP_FUNCTION(realpath)
 	convert_to_string_ex(path);
 
 	if (VCWD_REALPATH(Z_STRVAL_PP(path), resolved_path_buff)) {
+#ifdef ZTS
+# ifdef PHP_WIN32
+		if (_access(resolved_path_buff, 0))
+			RETURN_FALSE;
+# else
+		if (access(resolved_path_buff, F_OK))
+			RETURN_FALSE;
+# endif
+#endif
 		RETURN_STRING(resolved_path_buff, 1);
 	} else {
 		RETURN_FALSE;

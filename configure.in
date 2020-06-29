@@ -1,4 +1,4 @@
-dnl ## $Id: configure.in,v 1.396.2.69 2003/08/24 19:30:14 iliaa Exp $ -*- sh -*-
+dnl ## $Id: configure.in,v 1.396.2.86 2003/11/02 22:15:05 iliaa Exp $ -*- sh -*-
 dnl ## Process this file with autoconf to produce a configure script.
 
 divert(1)
@@ -40,7 +40,7 @@ AC_CONFIG_HEADER(main/php_config.h)
 
 MAJOR_VERSION=4
 MINOR_VERSION=3
-RELEASE_VERSION=3
+RELEASE_VERSION=4
 EXTRA_VERSION=""
 VERSION="$MAJOR_VERSION.$MINOR_VERSION.$RELEASE_VERSION$EXTRA_VERSION"
 
@@ -127,6 +127,7 @@ dnl AC_PROG_CXXCPP
 dnl check for -R, etc. switch
 PHP_RUNPATH_SWITCH
 
+PHP_PROG_RE2C
 AC_PROG_RANLIB
 AC_PROG_LN_S
 AC_PROG_AWK
@@ -136,8 +137,8 @@ if test "$YACC" != "bison -y"; then
 else
     AC_MSG_CHECKING([bison version])
     set `bison --version| grep 'GNU Bison' | cut -d ' ' -f 4 | sed -e 's/\./ /'|tr -d a-z`
-    if test "${1}" = "1" -a "(" "${2}" -lt "75" -a "${2}" -ne "28" -a "${2}" -ne "35" -o "${2}" -ge "875" ")"; then
-      AC_MSG_WARN(You will need bison 1.28, 1.35 or 1.75 if you want to regenerate the Zend parser (found ${1}.${2}).)
+    if test "${1}" -ne "1" -o "(" "${2}" != "28" -a "${2}" != "35" -a "${2}" != "75" -a "${2}" != "875" ")"; then
+      AC_MSG_WARN(You will need bison 1.28, 1.35, 1.75 or 1.875 if you want to regenerate the Zend parser (found ${1}.${2}).)
     fi
     AC_MSG_RESULT(${1}.${2} (ok))
 fi
@@ -188,6 +189,7 @@ case $host_alias in
     CPPFLAGS="$CPPFLAGS -D_BSD_TIMEOFDAY_FLAVOR";;
 *darwin*|*rhapsody*)
     CPPFLAGS="$CPPFLAGS -no-cpp-precomp"
+    AC_DEFINE(BIND_8_COMPAT, 1, [Enabling BIND8 compatibility for Panther])
     php_multiple_shlib_versions_ok=yes;;
 *beos*)
     beos_threads=1
@@ -316,16 +318,12 @@ dnl -------------------------------------------------------------------------
 
 dnl Checks for header files.
 AC_HEADER_STDC
+AC_HEADER_DIRENT
 
-dnl In QNX opendir resides in libc but dirent.h is still required
-if test "`uname -s 2>/dev/null`" != "QNX"; then
-  AC_HEADER_DIRENT
-else
-  AC_CHECK_HEADERS(dirent.h)
-fi
 PHP_MISSING_FCLOSE_DECL
 dnl QNX requires unix.h to allow functions in libunix to work properly
 AC_CHECK_HEADERS([ \
+dirent.h \
 ApplicationServices/ApplicationServices.h \
 sys/param.h \
 sys/types.h \
@@ -618,27 +616,6 @@ if test "$PHP_CONFIG_FILE_SCAN_DIR" = "DEFAULT"; then
 	PHP_CONFIG_FILE_SCAN_DIR=""
 fi
 
-# compatibility
-if test -z "$with_pear" && test "$enable_pear" = "no"; then
-  with_pear=no
-fi
-
-PHP_ARG_WITH(pear, [whether to install PEAR, and where],
-[  --with-pear=DIR         Install PEAR in DIR (default PREFIX/lib/php)
-  --without-pear          Do not install PEAR], DEFAULT, yes)
-
-if test "$PHP_PEAR" != "no" && test "$disable_cli" != "1"; then
-  install_pear="install-pear"
-  PEAR_INSTALLDIR=$PHP_PEAR
-fi
-
-if test "$PHP_PEAR" = "DEFAULT" || test "$PHP_PEAR" = "yes"; then
-  case $PHP_LAYOUT in
-    GNU) PEAR_INSTALLDIR=$datadir/pear;;
-    *)   PEAR_INSTALLDIR=$libdir/php;;
-  esac
-fi
-
 test -n "$DEBUG_CFLAGS" && CFLAGS="$CFLAGS $DEBUG_CFLAGS"
 
 PHP_ARG_ENABLE(safe-mode, whether to enable safe mode by default,
@@ -736,17 +713,19 @@ if test "$PHP_IPV6" != "no" && test "$ac_cv_ipv6_support" = yes; then
   AC_DEFINE(HAVE_IPV6,1,[Whether to enable IPv6 support])
 fi
 
-
-dnl
-dnl OpenSSL configure
-dnl
-PHP_ARG_WITH(openssl,for OpenSSL support,
-[  --with-openssl[=DIR]    Include OpenSSL support (requires OpenSSL >= 0.9.6) ])
-
-if test "$PHP_OPENSSL" != "no"; then
-  ext_openssl_shared=$ext_shared
-  PHP_SETUP_OPENSSL
-fi
+AC_MSG_CHECKING([whether to enable versioning])
+AC_ARG_ENABLE(versioning,
+[  --enable-versioning     Export only required symbols.
+                          See INSTALL for more information], [
+  if test "x$APXS" != "x"; then
+    PHP_VERSIONING=$enableval
+  else
+    PHP_VERSIONING=no
+  fi
+],[
+  PHP_VERSIONING=no
+])
+AC_MSG_RESULT([$PHP_VERSIONING])
 
 divert(5)
 
@@ -783,25 +762,8 @@ AC_ARG_ENABLE(all,
 # reading config stubs
 esyscmd(./build/config-stubs ext)
 
-
-dnl Other settings.
+dnl Extensions post-config
 dnl -------------------------------------------------------------------------
-
-PHP_HELP_SEPARATOR([Other settings:])
-
-AC_MSG_CHECKING([whether to enable versioning])
-AC_ARG_ENABLE(versioning,
-[  --enable-versioning     Export only required symbols.
-                          See INSTALL for more information], [
-  if test "x$APXS" != "x"; then
-    PHP_VERSIONING=$enableval
-  else
-    PHP_VERSIONING=no
-  fi
-],[
-  PHP_VERSIONING=no
-])
-AC_MSG_RESULT([$PHP_VERSIONING])
 
 if test "$PHP_VERSIONING" = "yes"; then
   test -z "$PHP_SYM_FILE" && PHP_SYM_FILE="$abs_srcdir/sapi/$PHP_SAPI/php.sym"
@@ -828,8 +790,6 @@ shared)
 ;;
 esac
 
-PHP_REGEX
-
 EXTRA_LIBS="$EXTRA_LIBS $DLIBS $LIBS"
 
 dnl this has to be here to prevent the openssl crypt() from
@@ -840,10 +800,70 @@ fi
 
 unset LIBS LDFLAGS
 
+dnl PEAR
+dnl -------------------------------------------------------------------------
+
+PHP_HELP_SEPARATOR([PEAR:])
+PHP_CONFIGURE_PART(Configuring PEAR)
+
+# compatibility
+if test -z "$with_pear" && test "$enable_pear" = "no"; then
+  with_pear=no
+fi
+
+PHP_ARG_WITH(pear, [whether to install PEAR],
+[  --with-pear=DIR         Install PEAR in DIR (default PREFIX/lib/php)
+  --without-pear          Do not install PEAR], DEFAULT, yes)
+
+if test "$PHP_PEAR" != "no"; then
+
+  dnl
+  dnl PEAR dependancies
+  dnl
+  if test "$PHP_SAPI_CLI" = "no"; then
+    pear_error_msg="$pear_error_msg 
+                    PEAR requires CLI to be enabled.     Add --enable-cli to the configure line."
+  fi
+  if test "$PHP_PCRE_REGEX" = "no"; then
+    pear_error_msg="$pear_error_msg 
+                    PEAR requires PCRE to be enabled.    Add --with-pcre-regex to the configure line."
+  fi
+  if test "$PHP_XML" = "no"; then
+    pear_error_msg="$pear_error_msg 
+                    PEAR requires XML to be enabled.     Add --enable-xml to the configure line."
+  fi
+
+dnl
+dnl ext/xmlrpc is not really there yet to be a requirement..
+dnl
+dnl  if test "$PHP_XMLRPC" = "no"; then
+dnl    pear_error_msg="$pear_error_msg 
+dnl                    PEAR requires XML-RPC to be enabled. Add --with-xmlrpc to the configure line."
+dnl fi
+dnl
+
+  if test "$pear_error_msg"; then
+    AC_MSG_ERROR([$pear_error_msg])
+  fi
+
+  install_pear="install-pear"
+  PEAR_INSTALLDIR=$PHP_PEAR
+
+  if test "$PHP_PEAR" = "DEFAULT" || test "$PHP_PEAR" = "yes"; then
+    case $PHP_LAYOUT in
+      GNU) PEAR_INSTALLDIR=$datadir/pear;;
+      *)   PEAR_INSTALLDIR=$libdir/php;;
+    esac
+  fi
+fi
+
+
 dnl Configuring Zend and TSRM.
 dnl -------------------------------------------------------------------------
 
+PHP_HELP_SEPARATOR([Zend:])
 PHP_CONFIGURE_PART(Configuring Zend)
+
 LIBZEND_BASIC_CHECKS
 LIBZEND_DLSYM_CHECK
 LIBZEND_OTHER_CHECKS
@@ -867,12 +887,14 @@ fi
 ZEND_EXTRA_LIBS="$LIBS"
 unset LIBS LDFLAGS
 
+PHP_HELP_SEPARATOR([TSRM:])
 PHP_CONFIGURE_PART(Configuring TSRM)
 TSRM_BASIC_CHECKS
 if test "$PHP_THREAD_SAFETY" = "yes"; then
   TSRM_THREADS_CHECKS
 fi
 EXTRA_LDFLAGS="$EXTRA_LDFLAGS $LDFLAGS"
+EXTRA_LDFLAGS_PROGRAM="$EXTRA_LDFLAGS_PROGRAM $LDFLAGS"
 EXTRA_LIBS="$EXTRA_LIBS $LIBS"
 unset LIBS LDFLAGS
 
@@ -972,6 +994,7 @@ if test -z "$php_ldflags_add_usr_lib"; then
 fi
 
 EXTRA_LDFLAGS="$EXTRA_LDFLAGS $PHP_LDFLAGS"
+EXTRA_LDFLAGS_PROGRAM="$EXTRA_LDFLAGS_PROGRAM $PHP_LDFLAGS"
 
 PHP_BUILD_DATE=`date '+%Y-%m-%d'`
 AC_DEFINE_UNQUOTED(PHP_BUILD_DATE,"$PHP_BUILD_DATE",[PHP build date])
@@ -1027,6 +1050,7 @@ PHP_SUBST_OLD(DEBUG_CFLAGS)
 PHP_SUBST(DEFS)
 PHP_SUBST_OLD(EXTENSION_DIR)
 PHP_SUBST_OLD(EXTRA_LDFLAGS)
+PHP_SUBST_OLD(EXTRA_LDFLAGS_PROGRAM)
 PHP_SUBST_OLD(EXTRA_LIBS)
 PHP_SUBST_OLD(ZEND_EXTRA_LIBS)
 PHP_SUBST_OLD(INCLUDES)
@@ -1049,6 +1073,7 @@ PHP_SUBST(PHP_RPATHS)
 PHP_SUBST(PHP_SAPI)
 PHP_SUBST_OLD(PHP_VERSION)
 PHP_SUBST(PROG_SENDMAIL)
+PHP_SUBST(RE2C)
 PHP_SUBST(SHELL)
 PHP_SUBST(SHARED_LIBTOOL)
 PHP_SUBST(TSRM_DIR)
@@ -1082,6 +1107,7 @@ dnl
 dnl Libtool creation
 dnl
 
+PHP_HELP_SEPARATOR([Libtool:])
 PHP_CONFIGURE_PART(Configuring libtool)
 
 LDFLAGS="$LDFLAGS $PHP_AIX_LDFLAGS"

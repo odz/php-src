@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: session.c,v 1.336.2.22 2003/08/14 01:32:01 iliaa Exp $ */
+/* $Id: session.c,v 1.336.2.29 2003/10/08 10:25:39 sniper Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -91,17 +91,11 @@ static PHP_INI_MH(OnUpdateSaveHandler)
 		return FAILURE;
 	}
 	PS(mod) = _php_find_ps_module(new_value TSRMLS_CC);
-/*
- * Following lines are commented out to prevent bogus error message at
- * start up. i.e. Save handler modules are not initilzied before Session
- * module.
- */
 
-#if 0
-	if(!PS(mod)) {
+	if (PG(modules_activated) && !PS(mod)) {
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Cannot find save handler %s", new_value);
 	}
-#endif
+
 	return SUCCESS;
 }
 
@@ -112,17 +106,11 @@ static PHP_INI_MH(OnUpdateSerializer)
 		return FAILURE;
 	}
 	PS(serializer) = _php_find_ps_serializer(new_value TSRMLS_CC);
-/*
- * Following lines are commented out to prevent bogus error message at
- * start up. i.e. Serializer modules are not initilzied before Session
- * module.
- */
 
-#if 0
-	if(!PS(serializer)) {
+	if (PG(modules_activated) && !PS(serializer)) {
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Cannot find serialization handler %s", new_value);
 	}
-#endif
+
 	return SUCCESS;
 }
 
@@ -299,24 +287,31 @@ void php_set_session_var(char *name, size_t namelen, zval *state_val, php_unseri
 	if (PG(register_globals)) {
 		zval **old_symbol;
 		if (zend_hash_find(&EG(symbol_table),name,namelen+1,(void *)&old_symbol) == SUCCESS) { 
+			
 			/* 
-			   There was an old one, we need to replace it accurately.
-			   hash_update in zend_set_hash_symbol is not good, because
-			   it will leave referenced variables (such as local instances
-			   of a global variable) dangling.
-
-			   BTW: if you use register_globals references between
-			   session-vars won't work because of this very reason!
+			 * A global symbol with the same name exists already. That
+			 * symbol might have been created by other means (e.g. $_GET).
+			 *
+			 * hash_update in zend_set_hash_symbol is not good, because
+			 * it will leave referenced variables (such as local instances
+			 * of a global variable) dangling.
+			 *
+			 * BTW: if you use register_globals references between
+			 * session-vars won't work because of this very reason!
 			 */
 
 			
 			REPLACE_ZVAL_VALUE(old_symbol,state_val,1);
 
-			/* the following line will muck with the reference-table used for
-			 * unserialisation 
+			/*
+			 * The following line will update the reference table used for
+			 * unserialization.  It is optional, because some storage 
+			 * formats may not be able to represent references.
 			 */
 
-			PHP_VAR_UNSERIALIZE_ZVAL_CHANGED(var_hash,state_val,*old_symbol);
+			if (var_hash) {
+				PHP_VAR_UNSERIALIZE_ZVAL_CHANGED(var_hash,state_val,*old_symbol);
+			}
 
 			zend_set_hash_symbol(*old_symbol, name, namelen, 1, 1, Z_ARRVAL_P(PS(http_session_vars)));
 		} else {
@@ -645,7 +640,7 @@ static int migrate_global(HashTable *ht, HashPosition *pos TSRMLS_DC)
 			break;
 		case HASH_KEY_IS_LONG:
 			php_error_docref(NULL TSRMLS_CC, E_NOTICE, "The session bug compatibility code will not "
-					"try to locate the global variable $%d due to its "
+					"try to locate the global variable $%lu due to its "
 					"numeric nature.", num_key);
 			break;
 	}
@@ -862,13 +857,17 @@ static void php_session_send_cookie(TSRMLS_D)
 	
 	if (PS(cookie_lifetime) > 0) {
 		struct timeval tv;
-		
+		time_t t;
+
 		gettimeofday(&tv, NULL);
-		date_fmt = php_std_date(tv.tv_sec + PS(cookie_lifetime));
+		t = tv.tv_sec + PS(cookie_lifetime);
 		
-		smart_str_appends(&ncookie, COOKIE_EXPIRES);
-		smart_str_appends(&ncookie, date_fmt);
-		efree(date_fmt);
+		if (t > 0) {
+			date_fmt = php_std_date(t);
+			smart_str_appends(&ncookie, COOKIE_EXPIRES);
+			smart_str_appends(&ncookie, date_fmt);
+			efree(date_fmt);
+		}
 	}
 
 	if (PS(cookie_path)[0]) {
@@ -1067,7 +1066,7 @@ PHPAPI void php_session_start(TSRMLS_D)
 			PS(mod)->s_gc(&PS(mod_data), PS(gc_maxlifetime), &nrdels TSRMLS_CC);
 #if 0
 			if (nrdels != -1)
-				php_error_docref(NULL TSRMLS_CC, E_NOTICE, "purged %d expired session objects\n", nrdels);
+				php_error_docref(NULL TSRMLS_CC, E_NOTICE, "purged %d expired session objects", nrdels);
 #endif
 		}
 	}
@@ -1660,7 +1659,7 @@ PHP_MINFO_FUNCTION(session)
 			smart_str_appendc(&handlers, ' ');
 		}
 	}
-	
+
 	php_info_print_table_start();
 	php_info_print_table_row(2, "Session Support", "enabled" );
 
@@ -1671,6 +1670,7 @@ PHP_MINFO_FUNCTION(session)
 	} else {
 		php_info_print_table_row(2, "Registered save handlers", "none");
 	}
+
 	php_info_print_table_end();
 
 	DISPLAY_INI_ENTRIES();

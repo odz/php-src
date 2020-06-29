@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sapi_apache2.c,v 1.1.2.21 2003/08/06 22:34:20 iliaa Exp $ */
+/* $Id: sapi_apache2.c,v 1.1.2.23 2003/10/02 03:24:43 iliaa Exp $ */
 
 #include <fcntl.h>
 
@@ -262,6 +262,7 @@ php_apache_sapi_flush(void *server_context)
 	brigade = ctx->brigade;
 
 	r->status = SG(sapi_headers).http_response_code;
+	SG(headers_sent) = 1;
 
 	/* Send a flush bucket down the filter chain. */
 	bucket = apr_bucket_flush_create(r->connection->bucket_alloc);
@@ -492,6 +493,8 @@ static int php_handler(request_rec *r)
 		ap_add_cgi_vars(r);
 	}
 
+zend_first_try {
+
 	ctx = SG(server_context);
 	if (ctx == NULL) {
 		ctx = SG(server_context) = apr_pcalloc(r->pool, sizeof(*ctx));
@@ -560,6 +563,8 @@ static int php_handler(request_rec *r)
 	} else {
 		ctx->r = parent_req;
 	}
+
+} zend_end_try();
 
 	return OK;
 }

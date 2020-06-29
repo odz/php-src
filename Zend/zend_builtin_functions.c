@@ -203,7 +203,7 @@ ZEND_FUNCTION(func_get_arg)
 	arg_count = (ulong) *p;
 
 	if (requested_offset>=arg_count) {
-		zend_error(E_WARNING, "func_get_arg():  Argument %d not passed to function", requested_offset);
+		zend_error(E_WARNING, "func_get_arg():  Argument %ld not passed to function", requested_offset);
 		RETURN_FALSE;
 	}
 

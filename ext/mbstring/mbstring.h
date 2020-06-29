@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mbstring.h,v 1.40.2.7 2003/07/03 15:39:51 moriyoshi Exp $ */
+/* $Id: mbstring.h,v 1.40.2.11 2003/10/26 07:47:42 hirokawa Exp $ */
 
 /*
  * PHP4 Multibyte String module "mbstring" (currently only for Japanese)
@@ -66,7 +66,7 @@
 
 #if HAVE_MBSTRING
 
-#include "mbfilter.h"
+#include "libmbfl/mbfl/mbfilter.h"
 #include "SAPI.h"
 
 #define PHP_MBSTRING_API 20021024
@@ -168,6 +168,8 @@ ZEND_BEGIN_MODULE_GLOBALS(mbstring)
 	int detect_order_list_size;
 	enum mbfl_no_encoding *current_detect_order_list;
 	int current_detect_order_list_size;
+	enum mbfl_no_encoding *default_detect_order_list;
+	int default_detect_order_list_size;
 	int filter_illegal_mode;
 	int filter_illegal_substchar;
 	int current_filter_illegal_mode;

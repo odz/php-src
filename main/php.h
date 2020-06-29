@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php.h,v 1.178.2.4 2003/06/27 07:43:05 sas Exp $ */
+/* $Id: php.h,v 1.178.2.8 2003/09/24 23:22:32 iliaa Exp $ */
 
 #ifndef PHP_H
 #define PHP_H
@@ -55,10 +55,16 @@
 #	define PHPAPI __declspec(dllimport)
 #	endif
 #define PHP_DIR_SEPARATOR '\\'
+#define PHP_EOL "\r\n"
 #else
 #define PHPAPI
 #define THREAD_LS
 #define PHP_DIR_SEPARATOR '/'
+#if defined(__MacOSX__)
+#define PHP_EOL "\r"
+#else 
+#define PHP_EOL "\n"
+#endif
 #endif
 
 #ifdef NETWARE
@@ -220,6 +226,10 @@ char *strerror(int);
 #define LONG_MIN (- LONG_MAX - 1)
 #endif
 
+#define PHP_GCC_VERSION ZEND_GCC_VERSION
+#define PHP_ATTRIBUTE_MALLOC ZEND_ATTRIBUTE_MALLOC
+#define PHP_ATTRIBUTE_FORMAT ZEND_ATTRIBUTE_FORMAT
+
 #if !defined(HAVE_SNPRINTF) || !defined(HAVE_VSNPRINTF) || PHP_BROKEN_SPRINTF || PHP_BROKEN_SNPRINTF || PHP_BROKEN_VSNPRINTF
 #include "snprintf.h"
 #endif
@@ -269,19 +279,28 @@ ssize_t pread(int, void *, size_t, off64_t);
 
 void phperror(char *error);
 PHPAPI int php_write(void *buf, uint size TSRMLS_DC);
-PHPAPI int php_printf(const char *format, ...);
+PHPAPI int php_printf(const char *format, ...) PHP_ATTRIBUTE_FORMAT(printf, 1, 2);
 PHPAPI void php_log_err(char *log_message TSRMLS_DC);
-int Debug(char *format, ...);
+int Debug(char *format, ...) PHP_ATTRIBUTE_FORMAT(printf, 1, 2);
 int cfgparse(void);
 
 #define php_error zend_error
 
-PHPAPI void php_verror(const char *docref, const char *params, int type, const char *format, va_list args TSRMLS_DC) ;
+PHPAPI void php_verror(const char *docref, const char *params, int type, const char *format, va_list args TSRMLS_DC) PHP_ATTRIBUTE_FORMAT(printf, 4, 0);
+
+#ifdef ZTS
+#define PHP_ATTR_FMT_OFFSET 1
+#else
+#define PHP_ATTR_FMT_OFFSET 0
+#endif
 
 /* PHPAPI void php_error(int type, const char *format, ...); */
-PHPAPI void php_error_docref0(const char *docref TSRMLS_DC, int type, const char *format, ...);
-PHPAPI void php_error_docref1(const char *docref TSRMLS_DC, const char *param1, int type, const char *format, ...);
-PHPAPI void php_error_docref2(const char *docref TSRMLS_DC, const char *param1, const char *param2, int type, const char *format, ...);
+PHPAPI void php_error_docref0(const char *docref TSRMLS_DC, int type, const char *format, ...) 
+	PHP_ATTRIBUTE_FORMAT(printf, PHP_ATTR_FMT_OFFSET + 3, PHP_ATTR_FMT_OFFSET + 4);
+PHPAPI void php_error_docref1(const char *docref TSRMLS_DC, const char *param1, int type, const char *format, ...) 
+	PHP_ATTRIBUTE_FORMAT(printf, PHP_ATTR_FMT_OFFSET + 4, PHP_ATTR_FMT_OFFSET + 5);
+PHPAPI void php_error_docref2(const char *docref TSRMLS_DC, const char *param1, const char *param2, int type, const char *format, ...) 
+	PHP_ATTRIBUTE_FORMAT(printf, PHP_ATTR_FMT_OFFSET + 5, PHP_ATTR_FMT_OFFSET + 6);
 
 #define php_error_docref php_error_docref0
 

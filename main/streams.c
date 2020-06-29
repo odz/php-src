@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: streams.c,v 1.125.2.73 2003/07/29 18:26:59 iliaa Exp $ */
+/* $Id: streams.c,v 1.125.2.82 2003/10/08 10:58:28 wez Exp $ */
 
 #define _GNU_SOURCE
 #include "php.h"
@@ -908,7 +908,8 @@ PHPAPI size_t _php_stream_write(php_stream *stream, const char *buf, size_t coun
 		} else {
 			justwrote = stream->ops->write(stream, buf, towrite TSRMLS_CC);
 		}
-		if (justwrote > 0) {
+		/* convert justwrote to an integer, since normally it is unsigned */
+		if ((int)justwrote > 0) {
 			buf += justwrote;
 			count -= justwrote;
 			didwrite += justwrote;
@@ -1264,6 +1265,9 @@ PHPAPI size_t _php_stream_copy_to_stream(php_stream *src, php_stream *dest, size
 #ifdef S_ISFIFO
 		 && !S_ISFIFO(ssbuf.sb.st_mode)
 #endif
+#ifdef S_ISCHR
+		 && !S_ISCHR(ssbuf.sb.st_mode)
+#endif
 		) {
 			return 1;
 		}
@@ -1456,8 +1460,7 @@ static size_t php_stdiop_read(php_stream *stream, char *buf, size_t count TSRMLS
 	if (data->fd >= 0) {
 		ret = read(data->fd, buf, count);
 		
-		if (ret == 0 || (ret == -1 && errno != EWOULDBLOCK))
-			stream->eof = 1;
+		stream->eof = (ret == 0 || (ret == -1 && errno != EWOULDBLOCK));
 				
 	} else {
 #if HAVE_FLUSHIO
@@ -1468,8 +1471,7 @@ static size_t php_stdiop_read(php_stream *stream, char *buf, size_t count TSRMLS
 
 		ret = fread(buf, 1, count, data->file);
 
-		if (feof(data->file))
-			stream->eof = 1;
+		stream->eof = feof(data->file);
 	}
 	return ret < 0 ? 0 : ret;
 }
@@ -1943,7 +1945,9 @@ PHPAPI php_stream *_php_stream_fopen(const char *filename, const char *mode, cha
 		return NULL;
 	}
 
-	realpath = expand_filepath(filename, NULL TSRMLS_CC);
+	if ((realpath = expand_filepath(filename, NULL TSRMLS_CC)) == NULL) {
+		return NULL;
+	}
 
 	if (persistent) {
 		spprintf(&persistent_id, 0, "streams_stdio_%d_%s", open_flags, realpath);
@@ -2266,7 +2270,7 @@ exit_success:
 		 * know that they should try something else */
 		
 		php_error_docref(NULL TSRMLS_CC, E_WARNING,
-				"%d bytes of buffered data lost during conversion to FILE*!",
+				"%ld bytes of buffered data lost during conversion to FILE*!",
 				stream->writepos - stream->readpos);
 	}
 	
@@ -2460,19 +2464,23 @@ PHPAPI php_stream_wrapper *php_stream_locate_url_wrapper(const char *path, char 
 		/* BC with older php scripts and zlib wrapper */
 		protocol = "compress.zlib";
 		n = 13;
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Use of \"zlib:\" wrapper is deprecated; please use \"compress.zlib://\" instead.");
+		if (options & REPORT_ERRORS) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Use of \"zlib:\" wrapper is deprecated; please use \"compress.zlib://\" instead.");
+		}
 	}
 
 	if (protocol)	{
 		if (FAILURE == zend_hash_find(&url_stream_wrappers_hash, (char*)protocol, n, (void**)&wrapper))	{
 			char wrapper_name[32];
 
-			if (n >= sizeof(wrapper_name))
-				n = sizeof(wrapper_name) - 1;
-			PHP_STRLCPY(wrapper_name, protocol, sizeof(wrapper_name), n);
+			if (options & REPORT_ERRORS) {
+				if (n >= sizeof(wrapper_name))
+					n = sizeof(wrapper_name) - 1;
+				PHP_STRLCPY(wrapper_name, protocol, sizeof(wrapper_name), n);
 			
-			php_error_docref(NULL TSRMLS_CC, E_NOTICE, "Unable to find the wrapper \"%s\" - did you forget to enable it when you configured PHP?",
-					wrapper_name);
+				php_error_docref(NULL TSRMLS_CC, E_NOTICE, "Unable to find the wrapper \"%s\" - did you forget to enable it when you configured PHP?",
+						wrapper_name);
+			}
 
 			wrapper = NULL;
 			protocol = NULL;
@@ -2651,7 +2659,7 @@ PHPAPI php_stream *_php_stream_open_wrapper_ex(char *path, char *mode, int optio
 					char *tmp = estrdup(path);
 					php_strip_url_passwd(tmp);
 					php_error_docref1(NULL TSRMLS_CC, tmp, E_WARNING, "could not make seekable - %s",
-							tmp, strerror(errno));
+							tmp);
 					efree(tmp);
 
 					options ^= REPORT_ERRORS;

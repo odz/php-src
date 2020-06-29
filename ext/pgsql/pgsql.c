@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: pgsql.c,v 1.244.2.22 2003/08/14 17:49:48 iliaa Exp $ */
+/* $Id: pgsql.c,v 1.244.2.26 2003/09/06 15:31:14 helly Exp $ */
 
 #include <stdlib.h>
 
@@ -319,7 +319,9 @@ static int _rollback_transactions(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 	}
 	orig = PGG(ignore_notices);
 	PGG(ignore_notices) = 1;
-	res = PQexec(link,"BEGIN;ROLLBACK;");
+	res = PQexec(link,"BEGIN;");
+	PQclear(res);
+	res = PQexec(link,"ROLLBACK;");
 	PQclear(res);
 	PGG(ignore_notices) = orig;
 
@@ -540,12 +542,12 @@ static void php_pgsql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			
 			if (PGG(max_links)!=-1 && PGG(num_links)>=PGG(max_links)) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING,
-								 "Cannot create new link. Too many open links (%d).", PGG(num_links));
+								 "Cannot create new link. Too many open links (%ld).", PGG(num_links));
 				goto err;
 			}
 			if (PGG(max_persistent)!=-1 && PGG(num_persistent)>=PGG(max_persistent)) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING,
-								 "Cannot create new link. Too many open persistent links (%d).", PGG(num_persistent));
+								 "Cannot create new link. Too many open persistent links (%ld).", PGG(num_persistent));
 				goto err;
 			}
 
@@ -633,7 +635,7 @@ static void php_pgsql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			}
 		}
 		if (PGG(max_links)!=-1 && PGG(num_links)>=PGG(max_links)) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Cannot create new link. Too many open links (%d).", PGG(num_links));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Cannot create new link. Too many open links (%ld).", PGG(num_links));
 			goto err;
 		}
 		if (connstring) {
@@ -1093,7 +1095,10 @@ static char *get_field_name(PGconn *pgsql, Oid oid, HashTable *list TSRMLS_DC)
 		char *tmp_oid, *end_ptr, *tmp_name;
 		list_entry new_oid_entry;
 
-		if ((result = PQexec(pgsql,"select oid,typname from pg_type")) == NULL) {
+		if ((result = PQexec(pgsql,"select oid,typname from pg_type")) == NULL || PQresultStatus(result) != PGRES_TUPLES_OK) {
+			if (result) {
+				PQclear(result);
+			}
 			smart_str_free(&str);
 			return empty_string;
 		}
@@ -1251,7 +1256,7 @@ PHP_FUNCTION(pg_fetch_result)
 		convert_to_long_ex(row);
 		pgsql_row = Z_LVAL_PP(row);
 		if (pgsql_row < 0 || pgsql_row >= PQntuples(pgsql_result)) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to jump to row %d on PostgreSQL result index %d.", Z_LVAL_PP(row), Z_LVAL_PP(result));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to jump to row %ld on PostgreSQL result index %ld.", Z_LVAL_PP(row), Z_LVAL_PP(result));
 			RETURN_FALSE;
 		}
 	}
@@ -1334,7 +1339,7 @@ static void php_pgsql_fetch_hash(INTERNAL_FUNCTION_PARAMETERS, int result_type)
 			pgsql_row = Z_LVAL_PP(row);
 			pg_result->row = pgsql_row;
 			if (pgsql_row < 0 || pgsql_row >= PQntuples(pgsql_result)) {
-				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to jump to row %d on PostgreSQL result index %d.", Z_LVAL_PP(row), Z_LVAL_PP(result));
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to jump to row %ld on PostgreSQL result index %ld.", Z_LVAL_PP(row), Z_LVAL_PP(result));
 				RETURN_FALSE;
 			}
 		} else {
@@ -1507,7 +1512,7 @@ static void php_pgsql_data_info(INTERNAL_FUNCTION_PARAMETERS, int entry_type)
 		convert_to_long_ex(row);
 		pgsql_row = Z_LVAL_PP(row);
 		if (pgsql_row < 0 || pgsql_row >= PQntuples(pgsql_result)) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to jump to row %d on PostgreSQL result index %d.", Z_LVAL_PP(row), Z_LVAL_PP(result));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to jump to row %ld on PostgreSQL result index %ld.", Z_LVAL_PP(row), Z_LVAL_PP(result));
 			RETURN_FALSE;
 		}
 	}
@@ -2023,11 +2028,12 @@ PHP_FUNCTION(pg_lo_write)
 	if (argc > 2) {
 		convert_to_long_ex(z_len);
 		if (Z_LVAL_PP(z_len) > Z_STRLEN_PP(str)) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Cannot write more than buffer size %d. Tried to write %d.", Z_LVAL_PP(str), Z_LVAL_PP(z_len));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Cannot write more than buffer size %d. Tried to write %ld.",
+							Z_STRLEN_PP(str), Z_LVAL_PP(z_len));
 			RETURN_FALSE;
 		}
 		if (Z_LVAL_PP(z_len) < 0) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Buffer size must be larger than 0, but %d was specified.", Z_LVAL_PP(str), Z_LVAL_PP(z_len));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Buffer size must be larger than 0, but %ld was specified.", Z_LVAL_PP(z_len));
 			RETURN_FALSE;
 		}
 		len = Z_LVAL_PP(z_len);
@@ -2192,7 +2198,7 @@ PHP_FUNCTION(pg_lo_export)
 	}
 	else if (zend_parse_parameters_ex(ZEND_PARSE_PARAMS_QUIET, argc TSRMLS_CC,
 									  "lsr", &oid_long, &file_out, &name_len, &pgsql_link) == SUCCESS) {
-		php_error_docref(NULL TSRMLS_CC, E_NOTICE, " %s(): Old API is used");
+		php_error_docref(NULL TSRMLS_CC, E_NOTICE, "Old API is used");
 		if (oid_long <= InvalidOid) {
 			php_error_docref(NULL TSRMLS_CC, E_NOTICE, "Invalid OID specified.");
 			RETURN_FALSE;

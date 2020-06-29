@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: openssl.c,v 1.52.2.15 2003/07/13 10:13:19 sr Exp $ */
+/* $Id: openssl.c,v 1.52.2.17 2003/10/13 11:42:18 wez Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -1433,7 +1433,7 @@ PHP_FUNCTION(openssl_csr_sign)
 	long serial = 0L;
 	X509 * cert = NULL, *new_cert = NULL;
 	X509_REQ * csr;
-	EVP_PKEY * key = NULL, *priv_key;
+	EVP_PKEY * key = NULL, *priv_key = NULL;
 	long csr_resource, certresource, keyresource;
 	int i;
 	struct php_x509_request req;
@@ -1689,15 +1689,21 @@ static EVP_PKEY * php_openssl_evp_from_zval(zval ** val, int public_key, char * 
 			free_cert = 0;
 		}
 		else if (type == le_key) {
+			int is_priv;
+
+			is_priv = php_openssl_is_private_key((EVP_PKEY*)what TSRMLS_CC);
 			/* check whether it is actually a private key if requested */
-			if (!public_key && !php_openssl_is_private_key((EVP_PKEY*)what TSRMLS_CC))
-			{
+			if (!public_key && !is_priv) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "supplied key param is a public key");
 				return NULL;
 			}
-			
-			/* got the key - return it */
-			return (EVP_PKEY*)what;
+			if (public_key && is_priv) {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Don't know how to get public key from this private key (the documentation lied)");
+				return NULL;
+			} else {
+				/* got the key - return it */
+				return (EVP_PKEY*)what;
+			}
 		}
 
 		/* other types could be used here - eg: file pointers and read in the data from them */

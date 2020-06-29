@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config9.m4,v 1.1.2.9 2003/07/02 02:48:16 sniper Exp $
+dnl $Id: config9.m4,v 1.1.2.11 2003/10/03 05:25:46 sniper Exp $
 dnl
 
 AC_ARG_ENABLE(cgi,
@@ -12,9 +12,9 @@ AC_ARG_ENABLE(cgi,
 
 AC_ARG_ENABLE(force-cgi-redirect,
 [  --enable-force-cgi-redirect
-                           Enable the security check for internal server
-                           redirects.  You should use this if you are
-                           running the CGI version with Apache.],
+                          Enable the security check for internal server
+                          redirects.  You should use this if you are
+                          running the CGI version with Apache.],
 [
   PHP_FORCE_CGI_REDIRECT=$enableval
 ],[
@@ -42,7 +42,8 @@ AC_ARG_ENABLE(fastcgi,
 ])
 
 AC_ARG_ENABLE(path-info-check,
-[  --disable-path-info-check  If this is disabled, paths such as
+[  --disable-path-info-check  
+                          If this is disabled, paths such as
                           /info.php/test?a=b will fail to work.],
 [
   PHP_ENABLE_PATHINFO_CHECK=$enableval
@@ -153,10 +154,10 @@ if test "$PHP_SAPI" = "default"; then
 
     case $host_alias in
       *darwin*)
-        BUILD_CGI="\$(CC) \$(CFLAGS_CLEAN) \$(EXTRA_CFLAGS) \$(EXTRA_LDFLAGS) \$(LDFLAGS) \$(NATIVE_RPATHS) \$(PHP_GLOBAL_OBJS:.lo=.o) \$(PHP_SAPI_OBJS:.lo=.o) \$(PHP_FRAMEWORKS) \$(EXTRA_LIBS) \$(ZEND_EXTRA_LIBS) -o \$(SAPI_CGI_PATH)"
+        BUILD_CGI="\$(CC) \$(CFLAGS_CLEAN) \$(EXTRA_CFLAGS) \$(EXTRA_LDFLAGS_PROGRAM) \$(LDFLAGS) \$(NATIVE_RPATHS) \$(PHP_GLOBAL_OBJS:.lo=.o) \$(PHP_SAPI_OBJS:.lo=.o) \$(PHP_FRAMEWORKS) \$(EXTRA_LIBS) \$(ZEND_EXTRA_LIBS) -o \$(SAPI_CGI_PATH)"
       ;;
       *)
-        BUILD_CGI="\$(LIBTOOL) --mode=link \$(CC) -export-dynamic \$(CFLAGS_CLEAN) \$(EXTRA_CFLAGS) \$(EXTRA_LDFLAGS) \$(LDFLAGS) \$(PHP_RPATHS) \$(PHP_GLOBAL_OBJS) \$(PHP_SAPI_OBJS) \$(EXTRA_LIBS) \$(ZEND_EXTRA_LIBS) -o \$(SAPI_CGI_PATH)"
+        BUILD_CGI="\$(LIBTOOL) --mode=link \$(CC) -export-dynamic \$(CFLAGS_CLEAN) \$(EXTRA_CFLAGS) \$(EXTRA_LDFLAGS_PROGRAM) \$(LDFLAGS) \$(PHP_RPATHS) \$(PHP_GLOBAL_OBJS) \$(PHP_SAPI_OBJS) \$(EXTRA_LIBS) \$(ZEND_EXTRA_LIBS) -o \$(SAPI_CGI_PATH)"
       ;;
     esac
 

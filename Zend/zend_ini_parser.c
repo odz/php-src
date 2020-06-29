@@ -37,7 +37,7 @@
 */
 
 
-/* $Id: zend_ini_parser.y,v 1.18.2.5 2003/05/18 13:16:45 stas Exp $ */
+/* $Id: zend_ini_parser.y,v 1.18.2.8 2003/10/17 02:48:24 iliaa Exp $ */
 
 #define DEBUG_CFG_PARSER 0
 #include "zend.h"
@@ -159,7 +159,7 @@ static void ini_error(char *str)
 		fprintf(stderr, "PHP:  %s", error_buf);
 #endif
 	} else {
-		zend_error(E_WARNING, error_buf);
+		zend_error(E_WARNING, "%s", error_buf);
 	}
 	efree(error_buf);
 }
@@ -205,18 +205,18 @@ ZEND_API int zend_parse_ini_file(zend_file_handle *fh, zend_bool unbuffered_erro
 
 
 
-#define	YYFINAL		28
+#define	YYFINAL		27
 #define	YYFLAG		-32768
-#define	YYNTBASE	17
+#define	YYNTBASE	16
 
-#define YYTRANSLATE(x) ((unsigned)(x) <= 262 ? yytranslate[x] : 22)
+#define YYTRANSLATE(x) ((unsigned)(x) <= 261 ? yytranslate[x] : 21)
 
 static const char yytranslate[] = {     0,
      2,     2,     2,     2,     2,     2,     2,     2,     2,    13,
      2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
      2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-     2,     2,    11,     2,     2,     2,     2,     9,     2,    15,
-    16,     2,     2,     2,     2,     2,     2,     2,     2,     2,
+     2,     2,    11,     2,     2,     2,     2,     9,     2,    14,
+    15,     2,     2,     2,     2,     2,     2,     2,     2,     2,
      2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
     12,     2,     2,     2,     2,     2,     2,     2,     2,     2,
      2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
@@ -238,21 +238,21 @@ static const char yytranslate[] = {     0,
      2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
      2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
      2,     2,     2,     2,     2,     1,     3,     4,     5,     6,
-     7,    14
+     7
 };
 
 #if YYDEBUG != 0
 static const short yyprhs[] = {     0,
      0,     3,     4,     8,    10,    12,    14,    16,    18,    20,
-    22,    24,    26,    28,    32,    36,    39,    42,    46
+    22,    24,    25,    27,    31,    35,    38,    41,    45
 };
 
-static const short yyrhs[] = {    17,
-    18,     0,     0,     3,    12,    19,     0,     3,     0,     5,
-     0,    13,     0,    20,     0,     4,     0,     6,     0,     7,
-     0,    13,     0,    14,     0,    21,     0,    20,     8,    20,
-     0,    20,     9,    20,     0,    10,    20,     0,    11,    20,
-     0,    15,    20,    16,     0,     3,     0
+static const short yyrhs[] = {    16,
+    17,     0,     0,     3,    12,    18,     0,     3,     0,     5,
+     0,    13,     0,    19,     0,     4,     0,     6,     0,     7,
+     0,    13,     0,     0,    20,     0,    19,     8,    19,     0,
+    19,     9,    19,     0,    10,    19,     0,    11,    19,     0,
+    14,    19,    15,     0,     3,     0
 };
 
 #endif
@@ -269,57 +269,57 @@ static const short yyrline[] = { 0,
 
 static const char * const yytname[] = {   "$","error","$undefined.","TC_STRING",
 "TC_ENCAPSULATED_STRING","SECTION","CFG_TRUE","CFG_FALSE","'|'","'&'","'~'",
-"'!'","'='","'\\n'","'\\000'","'('","')'","statement_list","statement","string_or_value",
+"'!'","'='","'\\n'","'('","')'","statement_list","statement","string_or_value",
 "expr","constant_string", NULL
 };
 #endif
 
 static const short yyr1[] = {     0,
-    17,    17,    18,    18,    18,    18,    19,    19,    19,    19,
-    19,    19,    20,    20,    20,    20,    20,    20,    21
+    16,    16,    17,    17,    17,    17,    18,    18,    18,    18,
+    18,    18,    19,    19,    19,    19,    19,    19,    20
 };
 
 static const short yyr2[] = {     0,
      2,     0,     3,     1,     1,     1,     1,     1,     1,     1,
-     1,     1,     1,     3,     3,     2,     2,     3,     1
+     1,     0,     1,     3,     3,     2,     2,     3,     1
 };
 
 static const short yydefact[] = {     2,
-     0,     4,     5,     6,     1,     0,    19,     8,     9,    10,
-     0,     0,    11,    12,     0,     3,     7,    13,    16,    17,
-     0,     0,     0,    18,    14,    15,     0,     0
+     0,     4,     5,     6,     1,    12,    19,     8,     9,    10,
+     0,     0,    11,     0,     3,     7,    13,    16,    17,     0,
+     0,     0,    18,    14,    15,     0,     0
 };
 
 static const short yydefgoto[] = {     1,
-     5,    16,    17,    18
+     5,    15,    16,    17
 };
 
 static const short yypact[] = {-32768,
      0,    -8,-32768,-32768,-32768,     4,-32768,-32768,-32768,-32768,
-    19,    19,-32768,-32768,    19,-32768,    17,-32768,-32768,-32768,
-    -7,    19,    19,-32768,-32768,-32768,     6,-32768
+    13,    13,-32768,    13,-32768,    -7,-32768,-32768,-32768,    17,
+    13,    13,-32768,-32768,-32768,     6,-32768
 };
 
 static const short yypgoto[] = {-32768,
--32768,-32768,     9,-32768
+-32768,-32768,     8,-32768
 };
 
 
-#define	YYLAST		34
+#define	YYLAST		32
 
 
-static const short yytable[] = {    27,
-    22,    23,     2,     6,     3,    28,     7,     8,    24,     9,
-    10,     0,     4,    11,    12,     0,    13,    14,    15,    19,
-    20,     7,     0,    21,    22,    23,     0,     0,    11,    12,
-    25,    26,     0,    15
+static const short yytable[] = {    26,
+    21,    22,     2,     6,     3,    27,     7,     8,     0,     9,
+    10,     0,     4,    11,    12,     7,    13,    14,    18,    19,
+     0,    20,    11,    12,    21,    22,    14,     0,    24,    25,
+     0,    23
 };
 
 static const short yycheck[] = {     0,
-     8,     9,     3,    12,     5,     0,     3,     4,    16,     6,
-     7,    -1,    13,    10,    11,    -1,    13,    14,    15,    11,
-    12,     3,    -1,    15,     8,     9,    -1,    -1,    10,    11,
-    22,    23,    -1,    15
+     8,     9,     3,    12,     5,     0,     3,     4,    -1,     6,
+     7,    -1,    13,    10,    11,     3,    13,    14,    11,    12,
+    -1,    14,    10,    11,     8,     9,    14,    -1,    21,    22,
+    -1,    15
 };
 #define YYPURE 1
 

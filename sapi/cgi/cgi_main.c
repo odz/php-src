@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: cgi_main.c,v 1.190.2.44 2003/08/13 02:01:59 iliaa Exp $ */
+/* $Id: cgi_main.c,v 1.190.2.50 2003/10/17 02:21:34 iliaa Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -218,13 +218,8 @@ static void print_extensions(TSRMLS_D)
 #define STDOUT_FILENO 1
 #endif
 
-static inline size_t sapi_cgibin_single_write(const char *str, uint str_length TSRMLS_DC)
+static size_t sapi_cgibin_single_write(const char *str, uint str_length TSRMLS_DC)
 {
-#ifdef PHP_WRITE_STDOUT
-	long ret;
-#else
-	size_t ret;
-#endif
 
 #if PHP_FASTCGI
 	if (!FCGX_IsCGI()) {
@@ -236,13 +231,22 @@ static inline size_t sapi_cgibin_single_write(const char *str, uint str_length T
 		return ret;
 	}
 #endif
+
 #ifdef PHP_WRITE_STDOUT
-	ret = write(STDOUT_FILENO, str, str_length);
-	if (ret <= 0) return 0;
-	return ret;
+	{
+		long ret;
+
+		ret = write(STDOUT_FILENO, str, str_length);
+		if (ret <= 0) return 0;
+		return ret;
+	}
 #else
-	ret = fwrite(str, 1, MIN(str_length, 16384), stdout);
-	return ret;
+	{
+		size_t ret;
+
+		ret = fwrite(str, 1, MIN(str_length, 16384), stdout);
+		return ret;
+	}
 #endif
 }
 
@@ -294,7 +298,7 @@ static int sapi_cgi_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 	if(SG(request_info).no_headers == 1) {
 		return  SAPI_HEADER_SENT_SUCCESSFULLY;
 	}
-	/* Check wheater to send RFC2616 style headers compatible with
+	/* Check whether to send RFC 2616 style headers compatible with
 	 * PHP versions 4.2.3 and earlier compatible with web servers
 	 * such as IIS. Default is informal CGI RFC header compatible 
 	 * with Apache.
@@ -489,6 +493,24 @@ static int php_cgi_startup(sapi_module_struct *sapi_module)
 	return SUCCESS;
 }
 
+static int sapi_cgi_get_fd(int *fd TSRMLS_DC)
+{
+#if PHP_FASTCGI
+	FCGX_Request *request = (FCGX_Request *)SG(server_context);
+	
+	*fd = request->ipcFd;
+	if (*fd >= 0) return SUCCESS;
+	return FAILURE;
+#else
+	*fd = STDOUT_FILENO;
+	return SUCCESS;
+#endif
+}
+
+static int sapi_cgi_force_http_10(TSRMLS_D)
+{
+	return SUCCESS;
+}
 
 /* {{{ sapi_module_struct cgi_sapi_module
  */
@@ -524,7 +546,17 @@ static sapi_module_struct cgi_sapi_module = {
 	sapi_cgi_register_variables,	/* register server variables */
 	sapi_cgi_log_message,			/* Log message */
 
-	STANDARD_SAPI_MODULE_PROPERTIES
+	NULL,							/* php.ini path override */
+	NULL,							/* block interruptions */
+	NULL,							/* unblock interruptions */
+	NULL,							/* default post reader */
+	NULL,							/* treat data */
+	NULL,							/* executable location */
+	
+	0,								/* php.ini ignore */
+
+	sapi_cgi_get_fd,				/* get fd */
+	sapi_cgi_force_http_10,			/* force HTTP/1.0 */
 };
 /* }}} */
 
@@ -924,7 +956,7 @@ int main(int argc, char *argv[])
 	zend_llist global_vars;
 	int interactive=0;
 #if FORCE_CGI_REDIRECT
-	int force_redirect = 1;
+	long force_redirect = 1;
 	char *redirect_status_env = NULL;
 #endif
 
@@ -1094,7 +1126,6 @@ consult the installation file that came with this distribution, or visit \n\
 	/* for windows, socket listening is broken in the fastcgi library itself
 	   so dissabling this feature on windows till time is available to fix it */
 	if (bindpath) {
-		int port = 0;
 		/* this must be done to make FCGX_OpenSocket work correctly 
 		   bug 23664 */
 		close(0);
@@ -1102,11 +1133,16 @@ consult the installation file that came with this distribution, or visit \n\
 		 * If just a port is specified, then we prepend a ':' onto the
 		 * path (it's what the fastcgi library expects)
 		 */
-		port = atoi(bindpath);
-		if (port) {
-			char bindport[32];
-			snprintf(bindport, 32, ":%s", bindpath);
-			fcgi_fd = FCGX_OpenSocket(bindport, 128);
+		
+		if (strchr(bindpath, ':') == NULL) {
+			char *tmp;
+
+			tmp = malloc(strlen(bindpath) + 2);
+			tmp[0] = ':';
+			memcpy(tmp + 1, bindpath, strlen(bindpath) + 1);
+
+			fcgi_fd = FCGX_OpenSocket(tmp, 128);
+			free(tmp);
 		} else {
 			fcgi_fd = FCGX_OpenSocket(bindpath, 128);
 		}
@@ -1152,7 +1188,6 @@ consult the installation file that came with this distribution, or visit \n\
 
 	if( children ) {
 		int running = 0;
-		int i;
 		pid_t pid;
 
 		/* Create a process group for ourself & children */

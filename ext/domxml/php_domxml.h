@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_domxml.h,v 1.72.4.2 2003/04/08 18:26:50 chregu Exp $ */
+/* $Id: php_domxml.h,v 1.72.4.5 2003/09/26 16:33:58 moriyoshi Exp $ */
 
 #ifndef PHP_DOMXML_H
 #define PHP_DOMXML_H
@@ -24,6 +24,7 @@
 #if HAVE_DOMXML
 #include <libxml/parser.h>
 #include <libxml/parserInternals.h>
+#include <libxml/SAX.h>
 #include <libxml/tree.h>
 #include <libxml/xmlerror.h>
 #include <libxml/xinclude.h>
@@ -245,4 +246,4 @@ typedef struct {
 #endif /* HAVE_DOMXML */
 #define phpext_domxml_ptr domxml_module_ptr
 
-#endif /* _PHP_DIR_H */
+#endif /* _PHP_DOMXML_H */

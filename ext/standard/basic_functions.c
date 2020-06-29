@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: basic_functions.c,v 1.543.2.21 2003/08/11 00:53:26 sniper Exp $ */
+/* $Id: basic_functions.c,v 1.543.2.25 2003/10/20 01:59:48 iliaa Exp $ */
 
 #include "php.h"
 #include "php_streams.h"
@@ -675,7 +675,7 @@ function_entry basic_functions[] = {
 
 	PHP_FALIAS(socket_get_status, stream_get_meta_data,						NULL)
 
-#if (!defined(PHP_WIN32) && !defined(__BEOS__) && !defined(NETWARE) && HAVE_REALPATH) || defined(ZTS)
+#if (!defined(__BEOS__) && !defined(NETWARE) && HAVE_REALPATH) || defined(ZTS)
 	PHP_FE(realpath,														NULL)
 #endif
 
@@ -950,6 +950,14 @@ static void php_putenv_destructor(putenv_entry *pe)
 		}
 # endif
 	}
+#ifdef HAVE_TZSET
+	/* don't forget to reset the various libc globals that
+	 * we might have changed by an earlier call to tzset(). */
+	if (!strncmp(pe->key, "TZ", pe->key_len)) {
+		tzset();
+	}
+#endif
+		
 	efree(pe->putenv_string);
 	efree(pe->key);
 }
@@ -1347,7 +1355,7 @@ PHP_FUNCTION(putenv)
 		if (putenv(pe.putenv_string) == 0) {	/* success */
 			zend_hash_add(&BG(putenv_ht), pe.key, pe.key_len+1, (void **) &pe, sizeof(putenv_entry), NULL);
 #ifdef HAVE_TZSET
-			if (!strncmp(pe.key, "TZ", 2)) {
+			if (!strncmp(pe.key, "TZ", pe.key_len)) {
 				tzset();
 			}
 #endif
@@ -2309,7 +2317,7 @@ static int php_ini_check_path(char *option_name, int option_len, char *new_optio
 		return 0;
 	}
 	
-	return strncmp(option_name, new_option_name, option_len);
+	return !strncmp(option_name, new_option_name, option_len);
 }
 
 /* {{{ proto string ini_set(string varname, string newvalue)

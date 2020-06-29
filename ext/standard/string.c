@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: string.c,v 1.333.2.33 2003/07/12 09:33:58 moriyoshi Exp $ */
+/* $Id: string.c,v 1.333.2.36 2003/09/29 02:23:52 moriyoshi Exp $ */
 
 /* Synced with php 3.0 revision 1.193 1999-06-16 [ssb] */
 
@@ -1551,7 +1551,7 @@ PHP_FUNCTION(strrchr)
 
 /* {{{ php_chunk_split
  */
-static char *php_chunk_split(char *src, int srclen, char *end, int endlen,
+static PHP_ATTRIBUTE_MALLOC char *php_chunk_split(char *src, int srclen, char *end, int endlen,
 							 int chunklen, int *destlen)
 {
 	char *dest;
@@ -1940,6 +1940,9 @@ static void php_strtr_array(zval *return_value, char *str, int slen, HashTable *
 		switch (zend_hash_get_current_key_ex(hash, &string_key, &string_key_len, &num_key, 0, &hpos)) {
 		case HASH_KEY_IS_STRING:
 			len = string_key_len-1;
+			if (len < 1) {
+				RETURN_FALSE;
+			}
 			if (len > maxlen) maxlen = len;
 			if (len < minlen) minlen = len;
 			break; 
@@ -2743,7 +2746,9 @@ PHP_FUNCTION(str_replace)
 				SEPARATE_ZVAL(subject_entry);
 				php_str_replace_in_subject(*search, *replace, subject_entry, result);
 			} else {
-				result = *subject_entry;
+				ALLOC_ZVAL(result);
+				ZVAL_ADDREF(*subject_entry);
+				COPY_PZVAL_TO_ZVAL(*result, *subject_entry);
 			}
 			/* Add to return array */
 			switch (zend_hash_get_current_key_ex(Z_ARRVAL_PP(subject), &string_key,

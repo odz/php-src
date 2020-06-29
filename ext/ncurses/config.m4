@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.13.2.1 2003/06/16 20:17:13 pollita Exp $
+dnl $Id: config.m4,v 1.13.2.3 2003/10/04 01:04:54 sniper Exp $
 dnl
 
 PHP_ARG_WITH(ncurses, for ncurses support,
@@ -7,21 +7,20 @@ PHP_ARG_WITH(ncurses, for ncurses support,
 
 if test "$PHP_NCURSES" != "no"; then
 
-   # --with-ncurses -> check with-path
-   SEARCH_PATH="/usr/local /usr"     
-   SEARCH_FOR="/include/curses.h"
+   SEARCH_PATH="$PHP_NCURSES /usr/local /usr"     
 
-   if test -r $PHP_NCURSES/; then # path given as parameter
-     NCURSES_DIR=$PHP_NCURSES
-   else # search default path list
-     AC_MSG_CHECKING(for ncurses files in default path)
-     for i in $SEARCH_PATH ; do
-       if test -r $i/$SEARCH_FOR; then
+   for i in $SEARCH_PATH ; do
+     if test -d $i/include; then
+       if test -r $i/include/ncurses.h; then
          NCURSES_DIR=$i
-         AC_MSG_RESULT(found in $i)
+         AC_DEFINE(HAVE_NCURSES_H,1,[ ])
+         break
+       elif test -r $i/include/curses.h; then
+         NCURSES_DIR=$i
+         break
        fi
-     done
-   fi
+     fi
+   done
   
    if test -z "$NCURSES_DIR"; then
      AC_MSG_RESULT(not found)
@@ -37,17 +36,14 @@ if test "$PHP_NCURSES" != "no"; then
 
    PHP_CHECK_LIBRARY($LIBNAME, $LIBSYMBOL, [
      AC_DEFINE(HAVE_NCURSESLIB,1,[ ])
-	 
-	 PHP_ADD_LIBRARY_WITH_PATH($LIBNAME, $NCURSES_DIR/lib, NCURSES_SHARED_LIBADD)
+     PHP_ADD_LIBRARY_WITH_PATH($LIBNAME, $NCURSES_DIR/lib, NCURSES_SHARED_LIBADD)
 
      PHP_CHECK_LIBRARY(panel, new_panel, [
-   	   AC_DEFINE(HAVE_NCURSES_PANEL,1,[ ])
-	   PHP_ADD_LIBRARY_WITH_PATH(panel, $NCURSES_DIR/lib, NCURSES_SHARED_LIBADD)
-     ], [
-     ], [ -L$NCURSES_DIR/lib -l$LIBNAME -lm
+       AC_DEFINE(HAVE_NCURSES_PANEL,1,[ ])
+       PHP_ADD_LIBRARY_WITH_PATH(panel, $NCURSES_DIR/lib, NCURSES_SHARED_LIBADD)
+     ], [], [ 
+       -L$NCURSES_DIR/lib -l$LIBNAME -lm
      ])
-	
-
    ], [
      AC_MSG_ERROR(Wrong ncurses lib version or lib not found)
    ], [

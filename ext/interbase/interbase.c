@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: interbase.c,v 1.91.2.19 2003/08/17 16:43:49 abies Exp $ */
+/* $Id: interbase.c,v 1.91.2.22 2003/09/03 15:22:24 abies Exp $ */
 
 
 /* TODO: Arrays, roles?
@@ -624,7 +624,7 @@ PHP_MINFO_FUNCTION(ibase)
 
 	php_info_print_table_start();
 	php_info_print_table_row(2, "Interbase Support", "enabled");
-	php_info_print_table_row(2, "Revision", "$Revision: 1.91.2.19 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.91.2.22 $");
 #ifdef COMPILE_DL_INTERBASE
 	php_info_print_table_row(2, "Dynamic Module", "yes");
 #endif
@@ -1183,206 +1183,165 @@ static int _php_ibase_blob_add(zval **string_arg, ibase_blob_handle *ib_blob TSR
    Bind parameter placeholders in a previously prepared query */
 static int _php_ibase_bind(XSQLDA *sqlda, zval **b_vars, BIND_BUF *buf, ibase_query *ib_query TSRMLS_DC)
 {
-	XSQLVAR *var;
-	zval *b_var;
-	int i;
 
-	var = sqlda->sqlvar;
-	for (i = 0; i < sqlda->sqld; var++, i++) { /* binded vars */
+	int i , rv = SUCCESS;
+	XSQLVAR *var = sqlda->sqlvar;
+
+	for (i = 0; i < sqlda->sqld; ++var, ++i) { /* bound vars */
 		
-		buf[i].sqlind = 0;
+		zval *b_var = b_vars[i];
+
 		var->sqlind = &buf[i].sqlind;
-		b_var = b_vars[i];
 		
 		if (Z_TYPE_P(b_var) == IS_NULL) {
-			static char nothing[64];
-			static short null_flag = -1;
-			var->sqldata = nothing;
-			var->sqltype |= 1;
-			var->sqlind = &null_flag;
-			if (var->sqllen > 64) {
-				var->sqllen = 64;
+
+			if ((var->sqltype & 1) != 1) {
+				_php_ibase_module_error("Parameter %d must have a value" TSRMLS_CC, i+1);
+				rv = FAILURE;
 			}
-		} else
-	
-		switch (var->sqltype & ~1) {
-			case SQL_TEXT:			   /* direct to variable */
-			case SQL_VARYING:
-				convert_to_string(b_var);
-				var->sqldata = (void ISC_FAR *) Z_STRVAL_P(b_var);
-				var->sqllen	 = Z_STRLEN_P(b_var);
-				var->sqltype = SQL_TEXT + (var->sqltype & 1);
-				break;
-			case SQL_SHORT:
-				convert_to_long(b_var);
-				if (Z_LVAL_P(b_var) > SHRT_MAX || Z_LVAL_P(b_var) < SHRT_MIN) {
-					_php_ibase_module_error("Field %*s overflow", var->aliasname_length, var->aliasname);
-					return FAILURE;
-				}
-				buf[i].val.sval = (short) Z_LVAL_P(b_var);
-				var->sqldata = (void ISC_FAR *) (&buf[i].val.sval);
-				break;
-			case SQL_LONG:
-				if (var->sqlscale < 0) {
-					/*
-					  DECIMAL or NUMERIC field stored internally as scaled integer.
-					  Coerce it to string and let InterBase's internal routines
-					  handle it.
-					*/
+
+			buf[i].sqlind = -1;
+		} else {
+			buf[i].sqlind = 0;
+
+			if (var->sqlscale < 0) {
+				/*
+				  DECIMAL or NUMERIC field are stored internally as scaled integers.
+				  Coerce it to string and let InterBase's internal routines handle it.
+				*/
+				var->sqltype = SQL_TEXT;
+			}
+		
+			switch (var->sqltype & ~1) {
+				case SQL_SHORT:
+					convert_to_long(b_var);
+					if (Z_LVAL_P(b_var) > SHRT_MAX || Z_LVAL_P(b_var) < SHRT_MIN) {
+						_php_ibase_module_error("Parameter %d exceeds field width" TSRMLS_CC, i+1);
+						rv = FAILURE;
+					}
+					buf[i].val.sval = (short) Z_LVAL_P(b_var);
+					var->sqldata = (void *) &buf[i].val.sval;
+					break;
+				case SQL_LONG:
+					convert_to_long(b_var);
+					var->sqldata = (void *) &Z_LVAL_P(b_var);
+					break;
+				case SQL_FLOAT:
+	 				convert_to_double(b_var);
+					buf[i].val.fval = (float) Z_DVAL_P(b_var);
+					var->sqldata = (void *) &buf[i].val.fval;
+					break;
+				case SQL_DOUBLE:
+					convert_to_double(b_var);
+					var->sqldata = (void *) &Z_DVAL_P(b_var);
+					break;
+#ifndef SQL_TIMESTAMP
+				case SQL_DATE:
 					convert_to_string(b_var);
-					var->sqldata = (void ISC_FAR *) Z_STRVAL_P(b_var);
+					{
+						struct tm t;
+#ifdef HAVE_STRPTIME
+						strptime(Z_STRVAL_P(b_var), IBG(timestampformat), &t);
+#else
+						/* Parsing doesn't seem to happen with older versions... */
+						int n;
+						
+						t.tm_year = t.tm_mon = t.tm_mday = t.tm_hour = t.tm_min = t.tm_sec = 0;
+						
+						n = sscanf(Z_STRVAL_P(b_var), "%d%*[/]%d%*[/]%d %d%*[:]%d%*[:]%d", &t.tm_mon, &t.tm_mday, &t.tm_year, &t.tm_hour, &t.tm_min, &t.tm_sec);
+		
+						if (n != 3 && n != 6) {
+							_php_ibase_module_error("Parameter %d: invalid date/time format (expected 3 or 6 fields, got %d. Use format m/d/Y H:i:s. You gave '%s')" TSRMLS_CC, i+1, n, Z_STRVAL_P(b_var));
+							rv = FAILURE;
+						}
+						t.tm_year -= 1900;
+						t.tm_mon--;
+#endif
+						isc_encode_date(&t, &buf[i].val.qval);
+						var->sqldata = (void *) (&buf[i].val.qval);
+					}
+#else
+#ifdef HAVE_STRPTIME
+				case SQL_TIMESTAMP:
+				case SQL_TYPE_DATE:
+				case SQL_TYPE_TIME:
+					{
+						struct tm t;
+	
+						convert_to_string(b_var);
+	
+						switch (var->sqltype & ~1) {
+							case SQL_TIMESTAMP:
+								strptime(Z_STRVAL_P(b_var), IBG(timestampformat), &t);
+								isc_encode_timestamp(&t, &buf[i].val.tsval);
+								var->sqldata = (void *) (&buf[i].val.tsval);
+								break;
+							case SQL_TYPE_DATE:
+								strptime(Z_STRVAL_P(b_var), IBG(dateformat), &t);
+								isc_encode_sql_date(&t, &buf[i].val.dtval);
+								var->sqldata = (void *) (&buf[i].val.dtval);
+								break;
+							case SQL_TYPE_TIME:
+								strptime(Z_STRVAL_P(b_var), IBG(timeformat), &t);
+								isc_encode_sql_time(&t, &buf[i].val.tmval);
+								var->sqldata = (void *) (&buf[i].val.tmval);
+								break;
+						}
+					}
+#endif
+#endif
+					break;
+				case SQL_BLOB:
+					{
+						ibase_blob_handle *ib_blob_id;
+	
+						if (Z_TYPE_P(b_var) != IS_STRING || Z_STRLEN_P(b_var) != sizeof(ibase_blob_handle) || 
+						   ((ibase_blob_handle *)(Z_STRVAL_P(b_var)))->bl_handle != 0) {
+							ibase_blob_handle *ib_blob;
+	
+							ib_blob = (ibase_blob_handle *) emalloc(sizeof(ibase_blob_handle));
+							ib_blob->trans_handle = ib_query->trans;
+							ib_blob->link = ib_query->link;
+							ib_blob->bl_handle = NULL;
+							if (isc_create_blob(IB_STATUS, &ib_blob->link, &ib_blob->trans_handle, &ib_blob->bl_handle, &ib_blob->bl_qd)) {
+								efree(ib_blob);
+								_php_ibase_error(TSRMLS_C);
+								return FAILURE;
+							}
+	
+							if (_php_ibase_blob_add(&b_var, ib_blob TSRMLS_CC) != SUCCESS) {
+								efree(ib_blob);
+								return FAILURE;
+							}
+								
+							if (isc_close_blob(IB_STATUS, &ib_blob->bl_handle)) {
+								_php_ibase_error(TSRMLS_C);
+								efree(ib_blob);
+								return FAILURE;
+							}
+							buf[i].val.qval = ib_blob->bl_qd;
+							var->sqldata = (void ISC_FAR *) &buf[i].val.qval;
+							efree(ib_blob);
+						} else {
+							ib_blob_id = (ibase_blob_handle *) Z_STRVAL_P(b_var);
+						
+							var->sqldata = (void ISC_FAR *) &ib_blob_id->bl_qd;
+						}
+					}
+					break;
+				case SQL_ARRAY:
+					_php_ibase_module_error("Parameter %d: arrays not supported" TSRMLS_CC, i+1);
+					rv = FAILURE;
+					break;
+				default:
+					convert_to_string(b_var);
+					var->sqldata = Z_STRVAL_P(b_var);
 					var->sqllen	 = Z_STRLEN_P(b_var);
 					var->sqltype = SQL_TEXT;
-				} else {
-					convert_to_long(b_var);
-					var->sqldata = (void ISC_FAR *) (&Z_LVAL_P(b_var));
-				}
-				break;
-			case SQL_FLOAT:
-				convert_to_double(b_var);
-				buf[i].val.fval = (float) Z_DVAL_P(b_var);
-				var->sqldata = (void ISC_FAR *) (&buf[i].val.fval);
-				break;
-			case SQL_DOUBLE:  /* direct to variable */
-				convert_to_double(b_var);
-				var->sqldata = (void ISC_FAR *) (&Z_DVAL_P(b_var));
-				break;
-#ifdef SQL_INT64
-			case SQL_INT64:
-				/*
-				  Just let InterBase's internal routines handle it.
-				  Besides, it might even have originally been a string
-				  to avoid rounding errors...
-				*/
-				convert_to_string(b_var);
-				var->sqldata = (void ISC_FAR *) Z_STRVAL_P(b_var);
-				var->sqllen	 = Z_STRLEN_P(b_var);
-				var->sqltype = SQL_TEXT;
-				break;
-#endif
-#ifndef SQL_TIMESTAMP
-			case SQL_DATE:
-#else
-			case SQL_TIMESTAMP:
-			case SQL_TYPE_DATE:
-			case SQL_TYPE_TIME:
-#endif
-#ifndef HAVE_STRPTIME
-#ifndef SQL_TIMESTAMP
-				/* Parsing doesn't seem to happen with older versions... */
-				{
-					struct tm t;
-					int n;
-					
-					t.tm_year = t.tm_mon = t.tm_mday = t.tm_hour = t.tm_min = t.tm_sec = 0;
-					
-					convert_to_string(b_var);
-					
-					n = sscanf(Z_STRVAL_P(b_var), "%d%*[/]%d%*[/]%d %d%*[:]%d%*[:]%d", &t.tm_mon, &t.tm_mday, &t.tm_year, &t.tm_hour, &t.tm_min, &t.tm_sec);
-
-					if (n != 3 && n != 6) {
-						_php_ibase_module_error("Invalid date/time format: Expected 3 or 6 fields, got %d. Use format m/d/Y H:i:s. You gave '%s'", n, Z_STRVAL_P(b_var));
-						return FAILURE;
-					}
-					t.tm_year -= 1900;
-					t.tm_mon--;
-					isc_encode_date(&t, &buf[i].val.qval);
-					var->sqldata = (void ISC_FAR *) (&buf[i].val.qval);
-				}
-#else
-				/*
-				  Once again, InterBase's internal parsing routines
-				  seems to be a good solution... Might change this on
-				  platforms that have strptime()? Code is there and works,
-				  but the functions existence is not yet tested...
-				  ask Sascha?
-				*/
-				convert_to_string(b_var);
-				var->sqldata = (void ISC_FAR *) Z_STRVAL_P(b_var);
-				var->sqllen = Z_STRLEN_P(b_var);
-				var->sqltype = SQL_TEXT;
-#endif
-#else
-				{
-					struct tm t;
-
-					convert_to_string(b_var);
-#ifndef SQL_TIMESTAMP
-					strptime(Z_STRVAL_P(b_var), IBG(timestampformat), &t);
-					isc_encode_date(&t, &buf[i].val.qval);
-					var->sqldata = (void ISC_FAR *) (&buf[i].val.qval);
-#else
-					switch (var->sqltype & ~1) {
-						case SQL_TIMESTAMP:
-							strptime(Z_STRVAL_P(b_var), IBG(timestampformat), &t);
-							isc_encode_timestamp(&t, &buf[i].val.tsval);
-							var->sqldata = (void ISC_FAR *) (&buf[i].val.tsval);
-							break;
-						case SQL_TYPE_DATE:
-							strptime(Z_STRVAL_P(b_var), IBG(dateformat), &t);
-							isc_encode_sql_date(&t, &buf[i].val.dtval);
-							var->sqldata = (void ISC_FAR *) (&buf[i].val.dtval);
-							break;
-						case SQL_TYPE_TIME:
-							strptime(Z_STRVAL_P(b_var), IBG(timeformat), &t);
-							isc_encode_sql_time(&t, &buf[i].val.tmval);
-							var->sqldata = (void ISC_FAR *) (&buf[i].val.tmval);
-							break;
-					}
-#endif
-				}
-#endif
-				break;
-			case SQL_BLOB:
-				{
-					ibase_blob_handle *ib_blob_id;
-
-					if (Z_TYPE_P(b_var) != IS_STRING || Z_STRLEN_P(b_var) != sizeof(ibase_blob_handle) || 
-					   ((ibase_blob_handle *)(Z_STRVAL_P(b_var)))->bl_handle != 0) {
-						ibase_blob_handle *ib_blob;
-
-						ib_blob = (ibase_blob_handle *) emalloc(sizeof(ibase_blob_handle));
-						ib_blob->trans_handle = ib_query->trans;
-						ib_blob->link = ib_query->link;
-						ib_blob->bl_handle = NULL;
-						if (isc_create_blob(IB_STATUS, &ib_blob->link, &ib_blob->trans_handle, &ib_blob->bl_handle, &ib_blob->bl_qd)) {
-							efree(ib_blob);
-							_php_ibase_error(TSRMLS_C);
-							return FAILURE;
-						}
-
-						if (_php_ibase_blob_add(&b_var, ib_blob TSRMLS_CC) != SUCCESS) {
-							efree(ib_blob);
-							return FAILURE;
-						}
-							
-						if (isc_close_blob(IB_STATUS, &ib_blob->bl_handle)) {
-							_php_ibase_error(TSRMLS_C);
-							efree(ib_blob);
-							return FAILURE;
-						}
-						buf[i].val.qval = ib_blob->bl_qd;
-						var->sqldata = (void ISC_FAR *) &buf[i].val.qval;
-						efree(ib_blob);
-/*
-						_php_ibase_module_error("Invalid blob id string");
-						return FAILURE;
-*/
-					} else {
-						ib_blob_id = (ibase_blob_handle *) Z_STRVAL_P(b_var);
-					
-						var->sqldata = (void ISC_FAR *) &ib_blob_id->bl_qd;
-					}
-				}
-			break;
-			case SQL_ARRAY:
-				_php_ibase_module_error("Binding arrays not supported yet");
-				return FAILURE;
-			break;
-		} /* switch */
+			} /* switch */
+		} /* if */
 	} /* for */
-
-	return SUCCESS;
+	return rv;
 }
 /* }}} */
 
@@ -1467,6 +1426,7 @@ static int _php_ibase_exec(ibase_result **ib_resultp, ibase_query *ib_query, int
 		IB_RESULT->trans = ib_query->trans;
 		IB_RESULT->stmt = ib_query->stmt; 
 		IB_RESULT->drop_stmt = 0; /* when free result close but not drop!*/
+		IB_RESULT->has_more_rows = 1;
 
 		out_sqlda = IB_RESULT->out_sqlda = emalloc(XSQLDA_LENGTH(ib_query->out_sqlda->sqld));
 		memcpy(out_sqlda, ib_query->out_sqlda, XSQLDA_LENGTH(ib_query->out_sqlda->sqld));
@@ -2072,17 +2032,16 @@ static void _php_ibase_fetch_hash(INTERNAL_FUNCTION_PARAMETERS, int fetch_type)
 
 	ZEND_FETCH_RESOURCE(ib_result, ibase_result *, result_arg, -1, "InterBase result", le_result);
 
-	if (ib_result->out_sqlda == NULL) {
-		_php_ibase_module_error("Trying to fetch results from a non-select query");
+	if (ib_result->out_sqlda == NULL || !ib_result->has_more_rows) {
 		RETURN_FALSE;
 	}
 	
-	if (isc_dsql_fetch(IB_STATUS, &ib_result->stmt, 1, ib_result->out_sqlda) == 100L) {
-		RETURN_FALSE;  /* end of cursor */
-	}
-	
-	if (IB_STATUS[0] && IB_STATUS[1]) { /* error in fetch */
-		_php_ibase_error(TSRMLS_C);
+	if (isc_dsql_fetch(IB_STATUS, &ib_result->stmt, 1, ib_result->out_sqlda)) {
+
+		ib_result->has_more_rows = 0;
+		if (IB_STATUS[0] && IB_STATUS[1]) { /* error in fetch */
+			_php_ibase_error(TSRMLS_C);
+		}
 		RETURN_FALSE;
 	}
 	
@@ -2118,7 +2077,9 @@ static void _php_ibase_fetch_hash(INTERNAL_FUNCTION_PARAMETERS, int fetch_type)
 
 						ibase_blob_handle blob_handle;
 						unsigned long max_len = 0;
-						char bl_items[] = {isc_info_blob_total_length}, bl_info[20], *p;
+						static char bl_items[] = {isc_info_blob_total_length};
+						char bl_info[20];
+						unsigned short i;
 
 						blob_handle.bl_handle = NULL;
 						blob_handle.bl_qd = *(ISC_QUAD ISC_FAR *) var->sqldata;
@@ -2134,27 +2095,32 @@ static void _php_ibase_fetch_hash(INTERNAL_FUNCTION_PARAMETERS, int fetch_type)
 						}
 						
 						/* find total length of blob's data */
-						for (p = bl_info; *p != isc_info_end && p < bl_info + sizeof(bl_info);) {
-							unsigned short item_len, item = *p++;
+						for (i = 0; i < sizeof(bl_info); ) {
+							unsigned short item_len;
+							char item = bl_info[i++];
+	
+							if (item == isc_info_end || item == isc_info_truncated || 
+								item == isc_info_error || i >= sizeof(bl_info)) {
 
-							item_len = (unsigned short) isc_vax_integer(p, 2);
-							p += 2;
+								_php_ibase_module_error("Could not determine BLOB size (internal error)");
+								RETURN_FALSE;
+							}								
+
+							item_len = (unsigned short) isc_vax_integer(&bl_info[i], 2);
+
 							if (item == isc_info_blob_total_length) {
-								max_len = isc_vax_integer(p, item_len);
+								max_len = isc_vax_integer(&bl_info[i+2], item_len);
 								break;
 							}
-							p += item_len;
+							i += item_len+2;
 						}
 						
 						if (max_len == 0) {
-							_php_ibase_module_error("Could not determine BLOB size (internal error)");
+							ZVAL_STRING(&tmp, "", 1);
+						} else if (_php_ibase_blob_get(&tmp, &blob_handle, max_len TSRMLS_CC) != SUCCESS) {
 							RETURN_FALSE;
 						}
-						
-						if (_php_ibase_blob_get(&tmp, &blob_handle, max_len TSRMLS_CC) != SUCCESS) {
-							RETURN_FALSE;
-						}
-						
+
 						if (isc_close_blob(IB_STATUS, &blob_handle.bl_handle)) {
 							zval_dtor(&tmp);
 							_php_ibase_error(TSRMLS_C);

@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_virtual_cwd.h,v 1.25.2.6 2003/08/07 15:32:37 iliaa Exp $ */
+/* $Id: tsrm_virtual_cwd.h,v 1.25.2.8 2003/09/20 02:08:12 iliaa Exp $ */
 
 #ifndef VIRTUAL_CWD_H
 #define VIRTUAL_CWD_H
@@ -61,10 +61,10 @@ typedef unsigned short mode_t;
  * to account for volume name that is unique to NetWare absolute paths
  */
 #define COPY_WHEN_ABSOLUTE(path) 2
-#define IS_ABSOLUTE_PATH(path, len) \
-	(len >= 2 && ((isalpha(path[0]) && path[1] == ':') || (IS_SLASH(path[0]) && IS_SLASH(path[1]))))
 #define IS_UNC_PATH(path, len) \
 	(len >= 2 && IS_SLASH(path[0]) && IS_SLASH(path[1]))
+#define IS_ABSOLUTE_PATH(path, len) \
+	(len >= 2 && ((isalpha(path[0]) && path[1] == ':') || IS_UNC_PATH(path, len)))
 
 #elif defined(NETWARE)
 #ifdef HAVE_DIRENT_H

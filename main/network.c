@@ -16,7 +16,7 @@
    | Streams work by Wez Furlong <wez@thebrainroom.com>                   |
    +----------------------------------------------------------------------+
  */
-/* $Id: network.c,v 1.83.2.18 2003/06/27 16:42:51 sniper Exp $ */
+/* $Id: network.c,v 1.83.2.20 2003/10/17 11:09:49 sas Exp $ */
 
 /*#define DEBUG_MAIN_NETWORK 1*/
 
@@ -1013,9 +1013,7 @@ static size_t php_sockop_read(php_stream *stream, char *buf, size_t count TSRMLS
 
 			if (nr_bytes <= 0) {
 				retry = handle_ssl_error(stream, nr_bytes TSRMLS_CC);
-				if (retry == 0 && !SSL_pending(sock->ssl_handle)) {
-					stream->eof = 1;
-				}
+				stream->eof = (retry == 0 && !SSL_pending(sock->ssl_handle));
 			} else {
 				/* we got the data */
 				break;
@@ -1034,9 +1032,7 @@ static size_t php_sockop_read(php_stream *stream, char *buf, size_t count TSRMLS
 
 		nr_bytes = recv(sock->socket, buf, count, 0);
 
-		if (nr_bytes == 0 || (nr_bytes == -1 && php_socket_errno() != EWOULDBLOCK)) {
-			stream->eof = 1;
-		}
+		stream->eof = (nr_bytes == 0 || (nr_bytes == -1 && php_socket_errno() != EWOULDBLOCK));
 	}
 
 	if (nr_bytes > 0) {
@@ -1074,7 +1070,7 @@ static int php_sockop_close(php_stream *stream, int close_handle TSRMLS_DC)
 
 		/* try to make sure that the OS sends all data before we close the connection.
 		 * Essentially, we are waiting for the socket to become writeable, which means
-		 * that all pending data has been sent.
+		 * that some (not all) pending data has been sent.
 		 * We use a small timeout which should encourage the OS to send the data,
 		 * but at the same time avoid hanging indefintely.
 		 * */

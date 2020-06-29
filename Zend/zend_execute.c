@@ -665,13 +665,13 @@ fetch_string_dim:
 				if (zend_hash_index_find(ht, index, (void **) &retval) == FAILURE) {
 					switch (type) {
 						case BP_VAR_R:
-							zend_error(E_NOTICE,"Undefined offset:  %d", index);
+							zend_error(E_NOTICE,"Undefined offset:  %ld", index);
 							/* break missing intentionally */
 						case BP_VAR_IS:
 							retval = &EG(uninitialized_zval_ptr);
 							break;
 						case BP_VAR_RW:
-							zend_error(E_NOTICE,"Undefined offset:  %d", index);
+							zend_error(E_NOTICE,"Undefined offset:  %ld", index);
 							/* break missing intentionally */
 						case BP_VAR_W: {
 								zval *new_zval = &EG(uninitialized_zval);
@@ -1833,7 +1833,7 @@ send_by_ref:
 					zval **param;
 
 					if (zend_ptr_stack_get_arg(EX(opline)->op1.u.constant.value.lval, (void **) &param TSRMLS_CC)==FAILURE) {
-						zend_error(E_WARNING, "Missing argument %d for %s()", EX(opline)->op1.u.constant.value.lval, get_active_function_name(TSRMLS_C));
+						zend_error(E_WARNING, "Missing argument %ld for %s()", EX(opline)->op1.u.constant.value.lval, get_active_function_name(TSRMLS_C));
 						if (EX(opline)->result.op_type == IS_VAR) {
 							PZVAL_UNLOCK(*EX(Ts)[EX(opline)->result.u.var].var.ptr_ptr);
 						}

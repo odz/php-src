@@ -54,18 +54,7 @@ PHP_BUILD_SHARED
 
 AC_PREFIX_DEFAULT()
 
-AC_ARG_WITH(openssl,
-[  --with-openssl[=DIR]    Include OpenSSL support (requires OpenSSL >= 0.9.5) ],
-[
-  if test "$withval" != "no"; then
-    PHP_WITH_SHARED
-    PHP_OPENSSL=$withval
-    ext_openssl_shared=yes
-    ext_shared=yes
-    PHP_SETUP_OPENSSL
-  fi
-])
-
+PHP_PROG_RE2C
 AC_PROG_AWK
     
 sinclude(config.m4)
@@ -79,7 +68,7 @@ all_targets='$(PHP_MODULES)'
 install_targets=install-modules
 phplibdir="`pwd`/modules"
 CPPFLAGS="$CPPFLAGS -DHAVE_CONFIG_H"
-CFLAGS_CLEAN=$CFLAGS
+CFLAGS_CLEAN='$(CFLAGS)'
 
 test "$prefix" = "NONE" && prefix="/usr/local"
 test "$exec_prefix" = "NONE" && exec_prefix='$(prefix)'
@@ -114,6 +103,7 @@ PHP_SUBST(SHARED_LIBTOOL)
 PHP_SUBST(LIBTOOL)
 PHP_SUBST(SHELL)
 PHP_SUBST(AWK)
+PHP_SUBST(RE2C)
 
 PHP_GEN_BUILD_DIRS
 PHP_GEN_GLOBAL_MAKEFILE

@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ftp.c,v 1.68.2.8 2003/06/27 16:42:50 sniper Exp $ */
+/* $Id: ftp.c,v 1.68.2.10 2003/09/09 21:15:20 pollita Exp $ */
 
 #include "php.h"
 
@@ -421,9 +421,10 @@ ftp_chdir(ftpbuf_t *ftp, const char *dir)
 {
 	if (ftp == NULL)
 		return 0;
-	if (ftp->pwd)
+	if (ftp->pwd) {
 		efree(ftp->pwd);
-	ftp->pwd = NULL;
+		ftp->pwd = NULL;
+	}
 
 	if (!ftp_putcmd(ftp, "CWD", dir))
 		return 0;
@@ -442,9 +443,10 @@ ftp_cdup(ftpbuf_t *ftp)
 	if (ftp == NULL)
 		return 0;
 
-	if (ftp->pwd)
+	if (ftp->pwd) {
 		efree(ftp->pwd);
-	ftp->pwd = NULL;
+		ftp->pwd = NULL;
+	}
 
 	if (!ftp_putcmd(ftp, "CDUP", NULL))
 		return 0;
@@ -715,8 +717,7 @@ ftp_get(ftpbuf_t *ftp, php_stream *outstream, const char *path, ftptype_t type, 
 	if (type == FTPTYPE_ASCII && lastch == '\r')
 		php_stream_putc(outstream, '\r');
 
-	data = data_close(ftp, data);
-	ftp->data = NULL;
+	ftp->data = data = data_close(ftp, data);
 
 	if (!ftp_getresp(ftp) || (ftp->resp != 226 && ftp->resp != 250)) {
 		goto bail;
@@ -724,8 +725,7 @@ ftp_get(ftpbuf_t *ftp, php_stream *outstream, const char *path, ftptype_t type, 
 
 	return 1;
 bail:
-	data_close(ftp, data);
-	ftp->data = NULL;
+	ftp->data = data_close(ftp, data);
 	return 0;
 }
 /* }}} */
@@ -798,14 +798,14 @@ ftp_put(ftpbuf_t *ftp, const char *path, php_stream *instream, ftptype_t type, i
 	if (size && my_send(ftp, data->fd, data->buf, size) != size)
 		goto bail;
 
-	data = data_close(ftp, data);
+	ftp->data = data = data_close(ftp, data);
 
 	if (!ftp_getresp(ftp) || (ftp->resp != 226 && ftp->resp != 250))
 		goto bail;
 
 	return 1;
 bail:
-	data_close(ftp, data);
+	ftp->data = data_close(ftp, data);
 	return 0;
 }
 /* }}} */
@@ -1498,7 +1498,7 @@ ftp_genlist(ftpbuf_t *ftp, const char *cmd, const char *path TSRMLS_DC)
 		}
 	}
 
-	data = data_close(ftp, data);
+	ftp->data = data = data_close(ftp, data);
 
 	if (ferror(tmpfp))
 		goto bail;
@@ -1537,8 +1537,7 @@ ftp_genlist(ftpbuf_t *ftp, const char *cmd, const char *path TSRMLS_DC)
 
 	return ret;
 bail:
-	if (data)
-		data_close(ftp, data);
+	ftp->data = data_close(ftp, data);
 	fclose(tmpfp);
 	if (ret)
 		efree(ret);
@@ -1594,7 +1593,7 @@ ftp_nb_get(ftpbuf_t *ftp, php_stream *outstream, const char *path, ftptype_t typ
 	return (ftp_nb_continue_read(ftp));
 
 bail:
-	data_close(ftp, data);
+	ftp->data = data_close(ftp, data);
 	return PHP_FTP_FAILED;
 }
 /* }}} */
@@ -1647,7 +1646,7 @@ ftp_nb_continue_read(ftpbuf_t *ftp)
 	if (type == FTPTYPE_ASCII && lastch == '\r')
 		php_stream_putc(ftp->stream, '\r');
 
-	data = data_close(ftp, data);
+	ftp->data = data = data_close(ftp, data);
 
 	if (!ftp_getresp(ftp) || (ftp->resp != 226 && ftp->resp != 250)) {
 		goto bail;
@@ -1657,7 +1656,7 @@ ftp_nb_continue_read(ftpbuf_t *ftp)
 	return PHP_FTP_FINISHED;
 bail:
 	ftp->nb = 0;
-	data_close(ftp, data);
+	ftp->data = data_close(ftp, data);
 	return PHP_FTP_FAILED;
 }
 /* }}} */
@@ -1709,7 +1708,7 @@ ftp_nb_put(ftpbuf_t *ftp, const char *path, php_stream *instream, ftptype_t type
 	return (ftp_nb_continue_write(ftp));
 
 bail:
-	data_close(ftp, data);
+	ftp->data = data_close(ftp, data);
 	return PHP_FTP_FAILED;
 
 }
@@ -1764,7 +1763,7 @@ ftp_nb_continue_write(ftpbuf_t *ftp)
 	ftp->nb = 0;
 	return PHP_FTP_FINISHED;
 bail:
-	data_close(ftp, ftp->data);
+	ftp->data = data_close(ftp, ftp->data);
 	ftp->nb = 0;
 	return PHP_FTP_FAILED;
 }

@@ -17,10 +17,17 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: mcve.c,v 1.14.2.4 2003/07/09 13:48:28 bradmssw Exp $ */
+/* $Id: mcve.c,v 1.14.2.8 2003/08/29 00:53:15 sniper Exp $ */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#include "php.h"
+
+#if HAVE_MCVE
 
 /* standard php include(s) */
-#include "php.h"
 #include "ext/standard/head.h"
 #include "ext/standard/php_standard.h"
 #include "ext/standard/info.h"
@@ -39,8 +46,7 @@ static int mcve_init;  /* For Safe Memory Deallocation */
 /* }}} */
 
 /* {{{ extension definition structures */
-static unsigned char second_arg_force_ref[] = { 2, BYREF_NONE, BYREF_FORCE };
-
+static unsigned char second_args_force_ref[] = { 2, BYREF_NONE, BYREF_FORCE };
 function_entry mcve_functions[] = {
 	PHP_FE(mcve_initengine,			NULL)
 	PHP_FE(mcve_initconn,			NULL)
@@ -77,7 +83,7 @@ function_entry mcve_functions[] = {
 	PHP_FE(mcve_monitor,			NULL)
 	PHP_FE(mcve_transinqueue,		NULL)
 	PHP_FE(mcve_checkstatus,		NULL)
-	PHP_FE(mcve_completeauthorizations,	second_arg_force_ref)
+	PHP_FE(mcve_completeauthorizations,	second_args_force_ref)
 	PHP_FE(mcve_sale,			NULL)
 	PHP_FE(mcve_preauth,			NULL)
 	PHP_FE(mcve_void,			NULL)
@@ -148,7 +154,7 @@ ZEND_GET_MODULE(mcve)
 #endif
 
 /* {{{ MCVE_CONN destructor */
-static void _free_mcve_conn(zend_rsrc_list_entry *rsrc)
+static void _free_mcve_conn(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	MCVE_CONN *conn;
 
@@ -503,16 +509,25 @@ PHP_FUNCTION(mcve_deletetrans)
    Destroy the connection and MCVE_CONN structure */
 PHP_FUNCTION(mcve_destroyconn)
 {
+#if 0
 	MCVE_CONN *conn;
+#endif 
 	zval **arg;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE)
 		WRONG_PARAM_COUNT;
 
+/* If MCVE_DestroyConn() is called within a PHP script, the Resource handle is
+   never cleared, as there does not appear to be an UNREGISTER or DESTROY resource
+   call in the Zend API.  What happens is this uninitialized memory location is
+   passed again to the MCVE_DestroyConn() function at script exit (cleanup), and
+   causes weird stuff. So we just go ahead and let the PHP garbage collector call
+   our _free_mcve_conn()  we registered (le_conn) to clean up */
+#if 0
 	ZEND_FETCH_RESOURCE(conn, MCVE_CONN *, arg, -1, "mcve connection", le_conn);
 
 	MCVE_DestroyConn(conn);
-
+#endif
 	RETURN_TRUE;
 }
 /* }}} */
@@ -2242,6 +2257,8 @@ PHP_FUNCTION(mcve_text_cv)
 	}
 }
 /* }}} */
+
+#endif
 
 /* END OF MCVE PHP EXTENSION */
 

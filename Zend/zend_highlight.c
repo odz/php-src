@@ -77,7 +77,7 @@ ZEND_API void zend_html_puts(const char *s, uint len TSRMLS_DC)
 					zend_html_putc(*ptr);
 				} while ((++ptr < end) && (*ptr==' '));
 			} else {
-				ZEND_PUTC(*ptr);
+				(void) ZEND_PUTC(*ptr);
 				ptr++;
 			}
 		} else {

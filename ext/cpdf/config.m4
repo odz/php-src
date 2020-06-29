@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.10.4.4 2003/06/26 18:06:46 sniper Exp $
+dnl $Id: config.m4,v 1.10.4.6 2003/10/01 02:53:53 sniper Exp $
 
 AC_DEFUN(CPDF_JPEG_TEST,[
   AC_ARG_WITH(jpeg-dir,
@@ -53,12 +53,12 @@ AC_ARG_WITH(cpdflib,
   PHP_WITH_SHARED
   if test "$withval" != "no"; then
     cpdf_withval=$withval
-    PHP_NEW_EXTENSION(cpdf, cpdf.c, $ext_shared)
+    PHP_NEW_EXTENSION(cpdf, cpdf.c, $ext_shared,, \\$(GDLIB_CFLAGS))
     PHP_SUBST(CPDF_SHARED_LIBADD)
     CPDF_JPEG_TEST
     CPDF_TIFF_TEST
 
-    for i in $cpdf_withval /usr /usr/local; do
+    for i in $cpdf_withval /usr/local /usr; do
       if test -f "$i/include/cpdflib.h"; then
         CPDFLIB_INCLUDE=$i/include
         AC_MSG_CHECKING(for cpdflib.h)

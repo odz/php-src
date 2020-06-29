@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.29.2.22 2003/08/15 18:47:02 sniper Exp $
+dnl $Id: config.m4,v 1.29.2.24 2003/10/03 05:25:33 sniper Exp $
 dnl
 
 dnl Suppose we need FlatFile if no support or only CDB is used.

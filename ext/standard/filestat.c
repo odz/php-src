@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: filestat.c,v 1.112.2.7 2003/06/24 13:44:57 iliaa Exp $ */
+/* $Id: filestat.c,v 1.112.2.9 2003/09/02 01:23:21 sniper Exp $ */
 
 #include "php.h"
 #include "safe_mode.h"
@@ -32,6 +32,10 @@
 
 #if HAVE_UNISTD_H
 # include <unistd.h>
+#endif
+
+#if HAVE_SYS_PARAM_H
+# include <sys/param.h>
 #endif
 
 #if HAVE_SYS_VFS_H
@@ -606,7 +610,7 @@ static void php_stat(const char *filename, php_stat_len filename_length, int typ
 		BG(lsb).st_mode = 0; /* mark lstat buf invalid */
 #endif
 		if (VCWD_STAT(BG(CurrentStatFile), &BG(sb)) == -1) {
-			if (!IS_LINK_OPERATION(type) && (!IS_EXISTS_CHECK(type) || errno != ENOENT)) { /* fileexists() test must print no error */
+			if (!IS_LINK_OPERATION(type) && (!IS_EXISTS_CHECK(type) || (errno != ENOENT && errno != ENOTDIR))) { /* fileexists() test must print no error */
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Stat failed for %s (errno=%d - %s)", BG(CurrentStatFile), errno, strerror(errno));
 			}
 			efree(BG(CurrentStatFile));
@@ -622,7 +626,7 @@ static void php_stat(const char *filename, php_stat_len filename_length, int typ
 	if (IS_LINK_OPERATION(type) && !BG(lsb).st_mode) {
 		/* do lstat if the buffer is empty */
 		if (VCWD_LSTAT(filename, &BG(lsb)) == -1) {
-			if (!IS_EXISTS_CHECK(type) || errno != ENOENT) { /* fileexists() test must print no error */
+			if (!IS_EXISTS_CHECK(type) || (errno != ENOENT && errno != ENOTDIR)) { /* fileexists() test must print no error */
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Lstat failed for %s (errno=%d - %s)", BG(CurrentStatFile), errno, strerror(errno));
 			}
 			RETURN_FALSE;

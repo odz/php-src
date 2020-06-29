@@ -474,9 +474,6 @@
 /* Define if you have the sin function.  */
 #undef HAVE_SIN
 
-/* Define if you have the snmp_parse_oid function.  */
-#undef HAVE_SNMP_PARSE_OID
-
 /* Define if you have the snprintf function.  */
 #undef HAVE_SNPRINTF
 
@@ -837,6 +834,9 @@
 /* Define if you have the sqlcli library (-lsqlcli).  */
 #undef HAVE_LIBSQLCLI
 
+/* Enabling BIND8 compatibility for Panther */
+#undef BIND_8_COMPAT
+
 /* Whether you have AOLserver */
 #undef HAVE_AOLSERVER
 
@@ -1192,6 +1192,12 @@
 /* Whether to enable IPv6 support */
 #undef HAVE_IPV6
 
+/* Whether to build openssl as dynamic module */
+#undef COMPILE_DL_OPENSSL
+
+/*   */
+#undef HAVE_OPENSSL_EXT
+
 /* Whether to build zlib as dynamic module */
 #undef COMPILE_DL_ZLIB
 
@@ -1475,6 +1481,9 @@
 #undef HAVE_GD_GIF_READ
 
 /*   */
+#undef HAVE_GD_IMAGEELLIPSE
+
+/*   */
 #undef HAVE_GD_JPG
 
 /*   */
@@ -1753,41 +1762,11 @@
 /* whether to have multibyte string support */
 #undef HAVE_MBSTRING
 
-/* whether to have japanese support */
-#undef HAVE_MBSTR_JA
-
-/* whether to have simplified chinese support */
-#undef HAVE_MBSTR_CN
-
-/* whether to have traditional chinese support */
-#undef HAVE_MBSTR_TW
-
-/* whether to have korean support */
-#undef HAVE_MBSTR_KR
-
-/* whether to have russian support */
-#undef HAVE_MBSTR_RU
-
-/* whether to have japanese support */
-#undef HAVE_MBSTR_JA
-
-/* whether to have simplified chinese support */
-#undef HAVE_MBSTR_CN
-
-/* whether to have traditional chinese support */
-#undef HAVE_MBSTR_TW
-
-/* whether to have korean support */
-#undef HAVE_MBSTR_KR
-
-/* whether to have russian support */
-#undef HAVE_MBSTR_RU
+/* whether to have multibyte regex support */
+#undef HAVE_MBREGEX
 
 /* Whether to build mbstring as dynamic module */
 #undef COMPILE_DL_MBSTRING
-
-/* whether to have multibyte regex support */
-#undef HAVE_MBREGEX
 
 /*   */
 #undef HAVE_MCAL
@@ -1810,20 +1789,23 @@
 /*   */
 #undef HAVE_LIBMCRYPT22
 
+/* Whether to build mcrypt as dynamic module */
+#undef COMPILE_DL_MCRYPT
+
 /*   */
 #undef HAVE_LIBMCRYPT
 
-/* Whether to build mcrypt as dynamic module */
-#undef COMPILE_DL_MCRYPT
+/*   */
+#undef HAVE_MCVE
 
 /* Whether to build mcve as dynamic module */
 #undef COMPILE_DL_MCVE
 
-/*   */
-#undef HAVE_LIBMHASH
-
 /* Whether to build mhash as dynamic module */
 #undef COMPILE_DL_MHASH
+
+/*   */
+#undef HAVE_LIBMHASH
 
 /* Whether to build mime_magic as dynamic module */
 #undef COMPILE_DL_MIME_MAGIC
@@ -1970,6 +1952,9 @@
 #undef COMPILE_DL_MYSQL
 
 /*   */
+#undef HAVE_NCURSES_H
+
+/*   */
 #undef HAVE_NCURSESLIB
 
 /*   */
@@ -2077,12 +2062,6 @@
 /* Whether to build odbc as dynamic module */
 #undef COMPILE_DL_ODBC
 
-/* Whether to build openssl as dynamic module */
-#undef COMPILE_DL_OPENSSL
-
-/*   */
-#undef HAVE_OPENSSL_EXT
-
 /* Whether to build oracle as dynamic module */
 #undef COMPILE_DL_ORACLE
 
@@ -2095,11 +2074,11 @@
 /* Whether to build overload as dynamic module */
 #undef COMPILE_DL_OVERLOAD
 
-/*   */
-#undef HAVE_LIBSQLCLI
-
 /* Whether to build ovrimos as dynamic module */
 #undef COMPILE_DL_OVRIMOS
+
+/*   */
+#undef HAVE_LIBSQLCLI
 
 /*   */
 #undef HAVE_FORK
@@ -2188,6 +2167,9 @@
 /* Whether you have qtdom */
 #undef HAVE_QTDOM
 
+/* Whether to build readline as dynamic module */
+#undef COMPILE_DL_READLINE
+
 /*   */
 #undef HAVE_LIBREADLINE
 
@@ -2196,9 +2178,6 @@
 
 /*   */
 #undef HAVE_LIBEDIT
-
-/* Whether to build readline as dynamic module */
-#undef COMPILE_DL_READLINE
 
 /* Whether we have librecode 3.5 */
 #undef HAVE_BROKEN_RECODE
@@ -2240,6 +2219,9 @@
 #undef HAVE_NET_SNMP
 
 /*   */
+#undef HAVE_SNMP_PARSE_OID
+
+/*   */
 #undef HAVE_SNMP
 
 /* Whether to build snmp as dynamic module */
@@ -2277,6 +2259,15 @@
 
 /* Define if flush should be called explicitly after a buffered io. */
 #undef HAVE_FLUSHIO
+
+/*   */
+#undef HSREGEX
+
+/*   */
+#undef REGEX
+
+/*   */
+#undef REGEX
 
 /*  see #24142  */
 #undef PHP_ROUND_FUZZ
@@ -2436,15 +2427,6 @@
 
 /* Whether to build zip as dynamic module */
 #undef COMPILE_DL_ZIP
-
-/*   */
-#undef HSREGEX
-
-/*   */
-#undef REGEX
-
-/*   */
-#undef REGEX
 
 /* Whether sprintf is broken */
 #undef ZEND_BROKEN_SPRINTF

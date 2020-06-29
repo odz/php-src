@@ -20,7 +20,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: snmp.c,v 1.70.2.11 2003/08/07 16:44:11 zeev Exp $ */
+/* $Id: snmp.c,v 1.70.2.13 2003/10/17 02:21:37 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -279,13 +279,13 @@ static void php_snmp_getvalue(struct variable_list *vars, zval *snmpval TSRMLS_D
 	/* ASN_UNSIGNED is the same as ASN_GAUGE */
 	case ASN_TIMETICKS:		/* 0x43, snmp_impl.h */
 	case ASN_UINTEGER:		/* 0x47, snmp_impl.h */
-		snprintf(buf, sizeof(buf)-1, "%u", *vars->val.integer);
+		snprintf(buf, sizeof(buf)-1, "%lu", *vars->val.integer);
 		buf[sizeof(buf)-1]=0;
 		ZVAL_STRING(val, buf, 1);
 		break;
 
 	case ASN_INTEGER:		/* 0x02, asn1.h */
-		snprintf(buf, sizeof(buf)-1, "%d", *vars->val.integer);
+		snprintf(buf, sizeof(buf)-1, "%ld", *vars->val.integer);
 		buf[sizeof(buf)-1]=0;
 		ZVAL_STRING(val, buf, 1);
 		break;
@@ -427,6 +427,7 @@ retry:
 					if (st == 1) {
 						*return_value = *snmpval;
 						zval_copy_ctor(return_value);
+						snmp_close(ss);
 						return;
 					} else if (st == 2) {
 						add_next_index_zval(return_value,snmpval); /* Add to returned array */
@@ -905,7 +906,7 @@ static void php_snmpv3(INTERNAL_FUNCTION_PARAMETERS, int st)
 	/* Setting the security level. */
 	convert_to_string_ex(a3);
 	if (netsnmp_session_set_sec_level(&session, Z_STRVAL_PP(a3) TSRMLS_CC)) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid security level: %s", a3);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid security level: %s", Z_STRVAL_PP(a3));
 		RETURN_FALSE;
 	}
 

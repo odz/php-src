@@ -580,7 +580,7 @@ void zend_set_utility_values(zend_utility_values *utility_values)
 /* this should be compatible with the standard zenderror */
 void zenderror(char *error)
 {
-	zend_error(E_PARSE, error);
+	zend_error(E_PARSE, "%s", error);
 }
 
 
@@ -798,8 +798,7 @@ ZEND_API void zend_error(int type, const char *format, ...)
 
 			z_context->value.ht = EG(active_symbol_table);
 			z_context->type = IS_ARRAY;
-			z_context->is_ref = 1;
-			z_context->refcount = 2; /* we don't want this one to be freed */
+			ZVAL_ADDREF(z_context); /* we don't want this one to be freed */
 
 			params = (zval ***) emalloc(sizeof(zval **)*5);
 			params[0] = &z_error_type;

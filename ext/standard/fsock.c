@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: fsock.c,v 1.106.2.8 2003/06/27 16:42:51 sniper Exp $ */
+/* $Id: fsock.c,v 1.106.2.10 2003/08/28 16:01:49 sas Exp $ */
 
 /* converted to PHP Streams and moved much code to main/network.c [wez] */
 
@@ -156,7 +156,7 @@ static void php_fsockopen_stream(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 	}
 
 	if (persistent) {
-		spprintf(&hashkey, 0, "pfsockopen__%s:%d", host, port);
+		spprintf(&hashkey, 0, "pfsockopen__%s:%ld", host, port);
 
 		switch(php_stream_from_persistent_id(hashkey, &stream TSRMLS_CC)) {
 			case PHP_STREAM_PERSISTENT_SUCCESS:
@@ -229,7 +229,7 @@ static void php_fsockopen_stream(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 		err = php_socket_errno();
 
 		if (stream == NULL) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "unable to connect to %s:%d", host, port);
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "unable to connect to %s:%ld", host, port);
 		} else if (context) {
 			php_stream_context_set(stream, context);
 		}

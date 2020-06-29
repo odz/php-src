@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ircg.c,v 1.137.2.16 2003/08/13 18:53:42 sas Exp $ */
+/* $Id: ircg.c,v 1.137.2.18 2003/10/22 14:50:19 sas Exp $ */
 
 /* {{{ includes */
 
@@ -699,7 +699,7 @@ static void format_msg(const format_msg_t *fmt_msg, smart_str *channel,
 						t[i].para.v & P_CONV_BR);	\
 			}										\
 			ircg_js_escape(&tmp, result);			\
-			smart_str_free(&tmp);					\
+			smart_str_free_ex(&tmp, 1);				\
 			break;									\
 		case P_HTML:								\
 			if (!what) break;						\
@@ -1907,7 +1907,8 @@ PHP_FUNCTION(ircg_channel_mode)
 	conn = lookup_irconn(Z_LVAL_PP(args[0]));
 	if (!conn) RETURN_FALSE;
 	
-	irc_handle_command(&conn->conn, "MODE", 3, Z_STRVAL_PP(args[1]),
+	irc_handle_command(&conn->conn, "MODE", Z_STRLEN_PP(args[3]) > 0 ? 3 : 2, 
+			Z_STRVAL_PP(args[1]),
 			Z_STRVAL_PP(args[2]), Z_STRVAL_PP(args[3]));
 	RETVAL_TRUE;
 #endif

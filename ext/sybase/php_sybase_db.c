@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: php_sybase_db.c,v 1.38.2.10 2003/08/05 16:02:37 sniper Exp $ */
+/* $Id: php_sybase_db.c,v 1.38.2.14 2003/10/16 04:24:04 iliaa Exp $ */
 
 
 #ifdef HAVE_CONFIG_H
@@ -144,6 +144,7 @@ static int php_sybase_error_handler(DBPROCESS *dbproc,int severity,int dberr,
 										int oserr,char *dberrstr,char *oserrstr)
 {
 	if (severity >= php_sybase_module.min_error_severity) {
+		TSRMLS_FETCH();
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase error:  %s (severity %d)",dberrstr,severity);
 	}
 	return INT_CANCEL;  
@@ -155,6 +156,7 @@ static int php_sybase_message_handler(DBPROCESS *dbproc,DBINT msgno,int msgstate
 										char *procname,DBUSMALLINT line)
 {
 	if (severity >= php_sybase_module.min_message_severity) {
+		TSRMLS_FETCH();
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase message:  %s (severity %d)",msgtext,severity);
 	}
 	STR_FREE(php_sybase_module.server_message);
@@ -732,7 +734,7 @@ static void php_sybase_get_column_content(sybase_link *sybase_ptr,int offset,pva
 													  but i don't have sybase here to test
 													  991105 thies@thieso.net  */
 				dbconvert(NULL,coltype(offset),dbdata(sybase_ptr->link,offset), src_length,SYBCHAR,res_buf,res_length);
-		
+#if ilia_0		
 				/* get rid of trailing spaces */
 				p = res_buf + res_length;
 				while (p >= res_buf && (*p == ' ' || *p == '\0')) {
@@ -740,12 +742,12 @@ static void php_sybase_get_column_content(sybase_link *sybase_ptr,int offset,pva
 				}
 				*(++p) = 0; /* put a trailing NULL */
 				res_length = p - res_buf;
-				
-		
+#endif		
 				Z_STRLEN_P(result) = res_length;
 				Z_STRVAL_P(result) = res_buf;
 				Z_TYPE_P(result) = IS_STRING;
 			} else {
+				TSRMLS_FETCH();
 				php_error_docref(NULL TSRMLS_CC, E_WARNING,"Sybase:  column %d has unknown data type (%d)", offset, coltype(offset));
 				ZVAL_FALSE(result);
 			}
@@ -957,7 +959,7 @@ PHP_FUNCTION(sybase_free_result)
 	result = (sybase_result *) zend_list_find(Z_LVAL_PP(sybase_result_index),&type);
 	
 	if (type!=php_sybase_module.le_result) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING,"%d is not a Sybase result index",Z_LVAL_PP(sybase_result_index));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING,"%ld is not a Sybase result index", Z_LVAL_PP(sybase_result_index));
 		RETURN_FALSE;
 	}
 	zend_list_delete(Z_LVAL_PP(sybase_result_index));
@@ -1078,7 +1080,7 @@ static void php_sybase_fetch_hash(INTERNAL_FUNCTION_PARAMETERS)
 	result = (sybase_result *) zend_list_find(Z_LVAL_PP(sybase_result_index),&type);
 	
 	if (type!=php_sybase_module.le_result) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING,"%d is not a Sybase result index",Z_LVAL_PP(sybase_result_index));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING,"%ld is not a Sybase result index", Z_LVAL_PP(sybase_result_index));
 		RETURN_FALSE;
 	}
 	
@@ -1314,7 +1316,7 @@ PHP_FUNCTION(sybase_result)
 	
 	convert_to_long_ex(row);
 	if (Z_LVAL_PP(row)<0 || Z_LVAL_PP(row)>=result->num_rows) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING,"Sybase:  Bad row offset (%d)",Z_LVAL_PP(row));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING,"Sybase:  Bad row offset (%ld)", Z_LVAL_PP(row));
 		RETURN_FALSE;
 	}
 
