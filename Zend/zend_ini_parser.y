@@ -18,7 +18,7 @@
 */
 
 
-/* $Id: zend_ini_parser.y,v 1.14 2001/08/06 13:48:51 zeev Exp $ */
+/* $Id: zend_ini_parser.y,v 1.14.2.2 2001/12/17 05:22:24 sebastian Exp $ */
 
 #define DEBUG_CFG_PARSER 0
 #include "zend.h"

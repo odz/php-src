@@ -487,6 +487,7 @@ SAPI_API int sapi_add_header_ex(char *header_line, uint header_line_len, zend_bo
 								efree(result);
 								conv_len = sprintf(conv_temp," realm=\"%ld\"",myuid);		
 								result = emalloc(ptr_len+conv_len+1);
+								result_len = ptr_len + conv_len;
 								memcpy(result, ptr, ptr_len);	
 								memcpy(result+ptr_len, conv_temp, conv_len);
 								*(result+ptr_len+conv_len) = '\0';
@@ -514,10 +515,12 @@ SAPI_API int sapi_add_header_ex(char *header_line, uint header_line_len, zend_bo
 					sapi_header.header = newheader;
 					sapi_header.header_len = newlen;
 					efree(result);
-				}
+				} 
 #endif
 			}
-			*colon_offset = ':';
+			if (sapi_header.header==header_line) {
+				*colon_offset = ':';
+			}
 		}
 	}
 

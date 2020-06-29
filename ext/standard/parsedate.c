@@ -984,7 +984,7 @@ case 13:
 	    yySeconds = yyvsp[-1].Number;
 	    yyMeridian = MER24;
 	    yyHaveZone++;
-		if (yyvsp[0].Number < -100 || yyvsp[0].Number > 100) {
+		if (yyvsp[0].Number <= -100 || yyvsp[0].Number >= 100) {
 			yyTimezone =  -yyvsp[0].Number % 100 + (-yyvsp[0].Number / 100) * 60;
 		} else {
 			yyTimezone =  -yyvsp[0].Number * 60;

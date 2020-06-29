@@ -20,11 +20,6 @@
 
 require_once 'PEAR.php';
 
-if (function_exists('mcrypt_module_open')) {
-    define('CRYPT_CBC_USING_24x', 1);
-} else {
-    define('CRYPT_CBC_USING_24x', 0);
-}
 
 /**
 * Class to emulate Perl's Crypt::CBC module
@@ -40,11 +35,13 @@ if (function_exists('mcrypt_module_open')) {
 * but your data will not be readable by Perl scripts.  It will work
 * "internally" .. i.e. this class will be able to encode/decode the data.
 *
+* This class will no longer work with libmcrypt 2.2.x versions.
+*
 * NOTE: the cipher names in this class may change depending on how
 * the author of libcrypt decides to name things internally.
 *
 *
-* @version  $Id: CBC.php,v 1.9 2001/08/02 15:23:00 alexmerz Exp $
+* @version  $Id: CBC.php,v 1.9.2.3 2001/12/20 17:29:21 cmv Exp $
 * @author   Colin Viebrock <colin@easydns.com>
 * @author   Mike Glover <mpg4@duluoz.net>
 * @access   public
@@ -68,42 +65,50 @@ class Crypt_CBC extends PEAR {
     * @var string
     */
     var $cipher;
+
     /**
     * crypt resource, for 2.4.x
     * @var string
     */  
     var $TD;
+
     /**
     * blocksize of cipher
     * @var string
     */    
     var $blocksize;
+
     /**
     * keysize of cipher
     * @var int
     */    
     var $keysize;
+
     /**
     * mangled key
     * @var string
     */        
     var $keyhash;
+
     /**
     * source type of the initialization vector for creation  
     * possible types are MCRYPT_RAND or MCRYPT_DEV_URANDOM or MCRYPT_DEV_RANDOM    
     * @var int
     */            
     var $rand_source    = MCRYPT_RAND;
+
     /**
     * header
     * @var string
     */           
     var $header_spec    = 'RandomIV';
+
     /**
     * debugging
     * @var string
     */           
     var $_last_clear;
+
     /**
     * debugging
     * @var string
@@ -129,7 +134,11 @@ class Crypt_CBC extends PEAR {
 
         if (!extension_loaded('mcrypt')) {
             return $this->raiseError('mcrypt module is not compiled into PHP', null, 
-                PEAR_ERROR_DIE, null, 'compile PHP using "--with-mcrypt"', 'Crypt_CBC_Error', false );
+                PEAR_ERROR_DIE, null, 'compile PHP using "--with-mcrypt"' );
+        }
+        if (!function_exists('mcrypt_module_open')) {
+            return $this->raiseError('libmcrypt is 2.2.x', null, 
+                PEAR_ERROR_DIE, null, 'this class only works with libmcrypt 2.4.x and later' );
         }
 
         /* seed randomizer */
@@ -143,31 +152,23 @@ class Crypt_CBC extends PEAR {
         /* check for key */
 
         if (!$key) {
-            return $this->raiseError('no key specified', null, 
-                PEAR_ERROR_PRINT, null, null, 'Crypt_CBC_Error', false );
+            return $this->raiseError('no key specified');
         }
 
         /* check for cipher */
 
         $cipher = strtoupper($cipher);
         if (!isset($this->known_ciphers[$cipher])) {
-            return $this->raiseError('unknown cipher "'.$cipher.'"', null, 
-                PEAR_ERROR_PRINT, null, null, 'Crypt_CBC_Error', false );
+            return $this->raiseError('unknown cipher "'.$cipher.'"' );
         }
 
         $this->cipher = $this->known_ciphers[$cipher];
 
         /* initialize cipher */
 
-        if (CRYPT_CBC_USING_24x) {
-            $this->blocksize = mcrypt_get_block_size($this->cipher,'cbc');
-            $this->keysize = mcrypt_get_key_size($this->cipher,'cbc');
-            $this->TD = mcrypt_module_open ($this->cipher, '', 'ecb', '');
-        } else {
-            $this->blocksize = mcrypt_get_block_size('cbc');
-            $this->keysize = mcrypt_get_key_size('cbc');
-            $this->TD = false;
-        }
+        $this->blocksize = mcrypt_get_block_size($this->cipher,'cbc');
+        $this->keysize = mcrypt_get_key_size($this->cipher,'cbc');
+        $this->TD = mcrypt_module_open ($this->cipher, '', 'ecb', '');
 
         /* mangle key with MD5 */
 
@@ -182,6 +183,17 @@ class Crypt_CBC extends PEAR {
 
     }
 
+
+    /**
+    * Destructor
+    *
+    */
+
+    function _Crypt_CBC ()
+    {
+        @mcrypt_generic_end($this->TD);
+        @mcrypt_module_close($this->TD);
+    }
 
 
     /**
@@ -219,12 +231,10 @@ class Crypt_CBC extends PEAR {
         $start = 0;
         while ( $block = substr($clear, $start, $this->blocksize) ) {
             $start += $this->blocksize;
-            if (CRYPT_CBC_USING_24x) {
-                mcrypt_generic_init($this->TD, $this->key, $iv);
-                $cblock = mcrypt_generic($this->TD, $iv^$block );
-            } else {
-                $cblock = mcrypt_ECB($this->cipher, $this->key, $iv^$block, MCRYPT_ENCRYPT );
+            if (mcrypt_generic_init($this->TD, $this->key, $iv) < 0 ) {
+                return $this->raiseError('mcrypt_generic_init failed' );
             }
+            $cblock = mcrypt_generic($this->TD, $iv^$block );
             $iv = $cblock;
             $crypt .= $cblock;
         }
@@ -257,8 +267,7 @@ class Crypt_CBC extends PEAR {
         $header = substr($crypt, 0, $iv_offset);
         $iv = substr ($crypt, $iv_offset, $this->blocksize);
         if ( $header != $this->header_spec ) {
-            return $this->raiseError('no initialization vector', null, 
-                PEAR_ERROR_PRINT, null, null, 'Crypt_CBC_Error', false );
+            return $this->raiseError('no initialization vector');
         }
 
         $crypt = substr($crypt, $iv_offset+$this->blocksize);
@@ -270,12 +279,10 @@ class Crypt_CBC extends PEAR {
 
         while ( $cblock = substr($crypt, $start, $this->blocksize) ) {
             $start += $this->blocksize;
-            if (CRYPT_CBC_USING_24x) {
-                mcrypt_generic_init($this->TD, $this->key, $iv);
-                $block = $iv ^ mdecrypt_generic($this->TD, $cblock);
-            } else {
-                $block = $iv ^ mcrypt_ECB($this->cipher, $this->key, $cblock, MCRYPT_DECRYPT );
+            if (mcrypt_generic_init($this->TD, $this->key, $iv) < 0 ) {
+                return $this->raiseError('mcrypt_generic_init failed' );
             }
+            $block = $iv ^ mdecrypt_generic($this->TD, $cblock);
             $iv = $cblock;
             $clear .= $block;
         }
@@ -307,45 +314,5 @@ class Crypt_CBC extends PEAR {
     {
         return pack('H*', md5($string));
     }
-
-
 }
-
-/**
-* Inherit from PEAR_Error
-* used to create a specific error message
-* @access public
-* @package Crypt
-*/
-
-class Crypt_CBC_Error extends PEAR_Error
-{
-    /**
-    * Name of the this class
-    * @var string
-    */
-    var $classname             = 'Crypt_CBC_Error';    
-    /**
-    * first part of the error message 
-    * @var string
-    */   
-    var $error_message_prepend = 'Error in Crypt_CBC';
-
-    /**
-    * creates a new error object
-    * @param    string  $message    error message
-    * @param    int     $code       error code
-    * @param    int     $mode       error mode
-    * @param    int     $level      error level
-    * @return   object  PEAR_Error  PEAR_Error object
-    * @access   public
-    */
-    function Crypt_CBC_Error ($message, $code = 0, $mode = PEAR_ERROR_RETURN, $level = E_USER_NOTICE)
-    {
-        $this->PEAR_Error ($message, $code, $mode, $level);
-    }
-
-}
-
-
 ?>
