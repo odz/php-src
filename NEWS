@@ -1,10 +1,52 @@
 PHP                                                                        NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-28 Nov 2013, PHP 5.4.23
+09 Jan 2014, PHP 5.4.24
+
+- Core:
+  . Added validation of class names in the autoload process. (Dmitry)
+  . Fixed invalid C code in zend_strtod.c. (Lior Kaplan)
+  . Fixed bug #61645 (fopen and O_NONBLOCK). (Mike)
+
+- Date:
+  . Fixed bug #66060 (Heap buffer over-read in DateInterval). (Remi)
+  . Fixed bug #63391 (Incorrect/inconsistent day of week prior to the year
+    1600). (Derick, T. Carter)
+  . Fixed bug #61599 (Wrong Day of Week). (Derick, T. Carter)
+
+- DOM:
+  . Fixed bug #65196 (Passing DOMDocumentFragment to DOMDocument::saveHTML() 
+    Produces invalid Markup). (Mike)
+
+- Exif:
+  . Fixed bug #65873 (Integer overflow in exif_read_data()). (Stas)
+
+- Filter:
+  . Fixed bug #66229 (128.0.0.0/16 isn't reserved any longer). (Adam)
+
+- GD:
+  . Fixed bug #64405 (Use freetype-config for determining freetype2 dir(s)).
+    (Adam)
+    
+- PDO_odbc:
+  . Fixed bug #66311 (Stack smashing protection kills PDO/ODBC queries). 
+    (michael at orlitzky dot com)
+
+- SNMP:
+  . Fixed SNMP_ERR_TOOBIG handling for bulk walk operations. (Boris Lytochkin)
+
+- XSL
+  . Fixed bug #49634 (Segfault throwing an exception in a XSL registered
+    function). (Mike)
+
+- ZIP:
+  . Fixed Bug #66321 (ZipArchive::open() ze_obj->filename_len not real). (Remi)
+
+12 Dec 2013, PHP 5.4.23
 
 - Core:
   . Fixed bug #66094 (unregister_tick_function tries to cast a Closure to a 
     string). (Laruence)
+  . Fixed bug #65969 (Chain assignment with T_LIST failure). (Dmitry)
   . Fixed bug #65947 (basename is no more working after fgetcsv in certain 
     situation). (Laruence)
 
@@ -21,8 +63,8 @@ PHP                                                                        NEWS
   . Fixed bug #66141 (mysqlnd quote function is wrong with NO_BACKSLASH_ESCAPES
     after failed query). (Andrey)
 
-- OpenSSL:
-  . Fixed memory corruption in openssl_x509_parse() (CVE-2013-6420). 
+- Openssl:
+  . Fixed memory corruption in openssl_x509_parse() (CVE-2013-6420).
     (Stefan Esser).
 
 - PDO
