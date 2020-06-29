@@ -2935,52 +2935,53 @@ PHP_FUNCTION(openssl_pkcs12_read)
 		zval_dtor(zout);
 		array_init(zout);
 
-		bio_out = BIO_new(BIO_s_mem());
-		if (PEM_write_bio_X509(bio_out, cert)) {
-			BUF_MEM *bio_buf;
-			BIO_get_mem_ptr(bio_out, &bio_buf);
-			ZVAL_STRINGL(&zcert, bio_buf->data, bio_buf->length);
-			add_assoc_zval(zout, "cert", &zcert);
-		} else {
-			php_openssl_store_errors();
-		}
-		BIO_free(bio_out);
-
-		bio_out = BIO_new(BIO_s_mem());
-		if (PEM_write_bio_PrivateKey(bio_out, pkey, NULL, NULL, 0, 0, NULL)) {
-			BUF_MEM *bio_buf;
-			BIO_get_mem_ptr(bio_out, &bio_buf);
-			ZVAL_STRINGL(&zpkey, bio_buf->data, bio_buf->length);
-			add_assoc_zval(zout, "pkey", &zpkey);
-		} else {
-			php_openssl_store_errors();
-		}
-		BIO_free(bio_out);
-
-		array_init(&zextracerts);
-
-		for (i=0;;i++) {
-			zval zextracert;
-			X509* aCA = sk_X509_pop(ca);
-			if (!aCA) break;
-
+		if (cert) {
 			bio_out = BIO_new(BIO_s_mem());
-			if (PEM_write_bio_X509(bio_out, aCA)) {
+			if (PEM_write_bio_X509(bio_out, cert)) {
 				BUF_MEM *bio_buf;
 				BIO_get_mem_ptr(bio_out, &bio_buf);
-				ZVAL_STRINGL(&zextracert, bio_buf->data, bio_buf->length);
-				add_index_zval(&zextracerts, i, &zextracert);
-
+				ZVAL_STRINGL(&zcert, bio_buf->data, bio_buf->length);
+				add_assoc_zval(zout, "cert", &zcert);
+			} else {
+				php_openssl_store_errors();
 			}
 			BIO_free(bio_out);
-
-			X509_free(aCA);
 		}
-		if(ca) {
+
+		if (pkey) {
+			bio_out = BIO_new(BIO_s_mem());
+			if (PEM_write_bio_PrivateKey(bio_out, pkey, NULL, NULL, 0, 0, NULL)) {
+				BUF_MEM *bio_buf;
+				BIO_get_mem_ptr(bio_out, &bio_buf);
+				ZVAL_STRINGL(&zpkey, bio_buf->data, bio_buf->length);
+				add_assoc_zval(zout, "pkey", &zpkey);
+			} else {
+				php_openssl_store_errors();
+			}
+			BIO_free(bio_out);
+		}
+
+		if (ca && sk_X509_num(ca)) {
+			array_init(&zextracerts);
+
+			for (i = 0; i < sk_X509_num(ca); i++) {
+				zval zextracert;
+				X509* aCA = sk_X509_pop(ca);
+				if (!aCA) break;
+
+				bio_out = BIO_new(BIO_s_mem());
+				if (PEM_write_bio_X509(bio_out, aCA)) {
+					BUF_MEM *bio_buf;
+					BIO_get_mem_ptr(bio_out, &bio_buf);
+					ZVAL_STRINGL(&zextracert, bio_buf->data, bio_buf->length);
+					add_index_zval(&zextracerts, i, &zextracert);
+				}
+
+				X509_free(aCA);
+			}
+
 			sk_X509_free(ca);
 			add_assoc_zval(zout, "extracerts", &zextracerts);
-		} else {
-			zval_dtor(&zextracerts);
 		}
 
 		RETVAL_TRUE;
@@ -6308,8 +6309,7 @@ static int php_openssl_cipher_update(const EVP_CIPHER *cipher_type,
 
 	*poutbuf = zend_string_alloc((int)data_len + EVP_CIPHER_block_size(cipher_type), 0);
 
-	if ((!enc || data_len > 0) &&
-			!EVP_CipherUpdate(cipher_ctx, (unsigned char*)ZSTR_VAL(*poutbuf),
+	if (!EVP_CipherUpdate(cipher_ctx, (unsigned char*)ZSTR_VAL(*poutbuf),
 					&i, (unsigned char *)data, (int)data_len)) {
 		/* we don't show warning when we fail but if we ever do, then it should look like this:
 		if (mode->is_single_run_aead && !enc) {
@@ -6365,7 +6365,6 @@ PHP_FUNCTION(openssl_encrypt)
 		php_error_docref(NULL, E_WARNING, "Failed to create cipher context");
 		RETURN_FALSE;
 	}
-
 	php_openssl_load_cipher_mode(&mode, cipher_type);
 
 	if (php_openssl_cipher_init(cipher_type, cipher_ctx, &mode,
