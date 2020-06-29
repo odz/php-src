@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: basic_functions.c,v 1.543.2.25 2003/10/20 01:59:48 iliaa Exp $ */
+/* $Id: basic_functions.c,v 1.543.2.32 2004/03/12 17:42:09 rasmus Exp $ */
 
 #include "php.h"
 #include "php_streams.h"
@@ -81,6 +81,10 @@
 
 #ifdef PHP_WIN32
 # include "win32/unistd.h"
+#endif
+
+#ifndef INADDR_NONE
+#define INADDR_NONE ((unsigned long int) -1)
 #endif
 
 #include "zend_globals.h"
@@ -655,7 +659,7 @@ function_entry basic_functions[] = {
 	PHP_FE(stream_filter_prepend,											NULL)
 	PHP_FE(stream_filter_append,											NULL)
 	PHP_FE(fgetcsv,															NULL)
-	PHP_FE(flock,															NULL)
+	PHP_FE(flock,											 third_arg_force_ref)
 	PHP_FE(get_meta_tags,													NULL)
 	PHP_FE(stream_set_write_buffer,											NULL)
 	PHP_FALIAS(set_file_buffer, stream_set_write_buffer,					NULL)
@@ -966,6 +970,9 @@ static void php_putenv_destructor(putenv_entry *pe)
 
 static void basic_globals_ctor(php_basic_globals *basic_globals_p TSRMLS_DC)
 {
+	BG(rand_is_seeded) = 0;
+	BG(mt_rand_is_seeded) = 0;
+	
 	BG(next) = NULL;
 	BG(left) = -1;
 	BG(user_tick_functions) = NULL;
@@ -1229,6 +1236,7 @@ PHP_FUNCTION(constant)
 PHP_FUNCTION(ip2long)
 {
 	zval **str;
+	unsigned long int ip;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &str) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -1236,7 +1244,11 @@ PHP_FUNCTION(ip2long)
 
 	convert_to_string_ex(str);
 
-	RETURN_LONG(ntohl(inet_addr(Z_STRVAL_PP(str))));
+	if (Z_STRLEN_PP(str) == 0 || (ip = inet_addr(Z_STRVAL_PP(str))) == INADDR_NONE) {
+		RETURN_LONG(-1);
+	}
+
+	RETURN_LONG(ntohl(ip));
 }
 /* }}} */
 
@@ -1430,8 +1442,8 @@ PHP_FUNCTION(getopt)
 	 * in order to be on the safe side, even though it is also available
 	 * from the symbol table.
 	 */
-	if (zend_hash_find(HASH_OF(PG(http_globals)[TRACK_VARS_SERVER]), "argv", sizeof("argv"),
-					   (void **) &args) != FAILURE) {
+	if (zend_hash_find(HASH_OF(PG(http_globals)[TRACK_VARS_SERVER]), "argv", sizeof("argv"), (void **) &args) != FAILURE ||
+	    zend_hash_find(&EG(symbol_table), "argv", sizeof("argv"), (void **) &args) != FAILURE) {
 		int pos = 0;
 		zval **arg;
 
@@ -2789,7 +2801,12 @@ static void php_simple_ini_parser_cb(zval *arg1, zval *arg2, int callback_type, 
 			*element = *arg2;
 			zval_copy_ctor(element);
 			INIT_PZVAL(element);
-			zend_hash_update(Z_ARRVAL_P(arr), Z_STRVAL_P(arg1), Z_STRLEN_P(arg1)+1, &element, sizeof(zval *), NULL);
+			if (is_numeric_string(Z_STRVAL_P(arg1), Z_STRLEN_P(arg1), NULL, NULL, 0) != IS_LONG) { 
+				zend_hash_update(Z_ARRVAL_P(arr), Z_STRVAL_P(arg1), Z_STRLEN_P(arg1)+1, &element, sizeof(zval *), NULL);
+			} else {
+				ulong key = (ulong) zend_atoi(Z_STRVAL_P(arg1), Z_STRLEN_P(arg1));
+				zend_hash_index_update(Z_ARRVAL_P(arr), key, &element, sizeof(zval *), NULL);
+			}
 			break;
 
 		case ZEND_INI_PARSER_SECTION:
@@ -2822,20 +2839,27 @@ static void php_ini_parser_cb_with_sections(zval *arg1, zval *arg2, int callback
 			*element = *arg2;
 			zval_copy_ctor(element);
 			INIT_PZVAL(element);
-			zend_hash_update(Z_ARRVAL_P(active_arr), Z_STRVAL_P(arg1),
+			if (is_numeric_string(Z_STRVAL_P(arg1), Z_STRLEN_P(arg1), NULL, NULL, 0) != IS_LONG) {
+				zend_hash_update(Z_ARRVAL_P(active_arr), Z_STRVAL_P(arg1),
 							 Z_STRLEN_P(arg1)+1, &element,
 							 sizeof(zval *), NULL);
+			} else {
+				ulong key = (ulong) zend_atoi(Z_STRVAL_P(arg1), Z_STRLEN_P(arg1));
+				zend_hash_index_update(Z_ARRVAL_P(active_arr), key, &element, sizeof(zval *), NULL);
+			}
 		}
 		break;
 
 		case ZEND_INI_PARSER_SECTION:
 			MAKE_STD_ZVAL(BG(active_ini_file_section));
 			array_init(BG(active_ini_file_section));
-			zend_hash_update(	Z_ARRVAL_P(arr),
-								Z_STRVAL_P(arg1),
-								Z_STRLEN_P(arg1)+1,
-								&BG(active_ini_file_section),
-								sizeof(zval *), NULL);
+			if (is_numeric_string(Z_STRVAL_P(arg1), Z_STRLEN_P(arg1), NULL, NULL, 0) != IS_LONG) {
+				zend_hash_update(Z_ARRVAL_P(arr), Z_STRVAL_P(arg1), Z_STRLEN_P(arg1)+1,
+							&BG(active_ini_file_section), sizeof(zval *), NULL);
+			} else {
+				ulong key = (ulong) zend_atoi(Z_STRVAL_P(arg1), Z_STRLEN_P(arg1));
+				zend_hash_index_update(Z_ARRVAL_P(arr), key, &BG(active_ini_file_section), sizeof(zval *), NULL);
+			}
 			break;
 	}
 }

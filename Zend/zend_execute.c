@@ -1310,11 +1310,16 @@ binary_assign_op_addr: {
 				}
 				*/
 				zend_fetch_dimension_address(&EX(opline)->result, &EX(opline)->op1, &EX(opline)->op2, EX(Ts), BP_VAR_R TSRMLS_CC);
-				PZVAL_UNLOCK(*EX(Ts)[EX(opline)->result.u.var].var.ptr_ptr);
-				if (EX(Ts)[EX(opline)->result.u.var].var.ptr_ptr != &EG(uninitialized_zval_ptr)) {
-					SEPARATE_ZVAL_IF_NOT_REF(EX(Ts)[EX(opline)->result.u.var].var.ptr_ptr);
+				if (!EX(Ts)[EX(opline)->result.u.var].var.ptr_ptr) {
+					/* $str[ofs][ofs] will yield a NULL here */
+					zend_error(E_ERROR, "Cannot unset string offsets");
+				} else {
+					PZVAL_UNLOCK(*EX(Ts)[EX(opline)->result.u.var].var.ptr_ptr);
+					if (EX(Ts)[EX(opline)->result.u.var].var.ptr_ptr != &EG(uninitialized_zval_ptr)) {
+						SEPARATE_ZVAL_IF_NOT_REF(EX(Ts)[EX(opline)->result.u.var].var.ptr_ptr);
+					}
+					PZVAL_LOCK(*EX(Ts)[EX(opline)->result.u.var].var.ptr_ptr);
 				}
-				PZVAL_LOCK(*EX(Ts)[EX(opline)->result.u.var].var.ptr_ptr);
 				NEXT_OPCODE();
 			case ZEND_FETCH_OBJ_R:
 				zend_fetch_property_address(&EX(opline)->result, &EX(opline)->op1, &EX(opline)->op2, EX(Ts), BP_VAR_R TSRMLS_CC);

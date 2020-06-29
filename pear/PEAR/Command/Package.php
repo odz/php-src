@@ -3,7 +3,7 @@
 // +----------------------------------------------------------------------+
 // | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2003 The PHP Group                                |
+// | Copyright (c) 1997-2004 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 3.0 of the PHP license,       |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
 // |          Martin Jansen <mj@php.net>                                  |
 // +----------------------------------------------------------------------+
 //
-// $Id: Package.php,v 1.42.2.13 2003/10/20 15:51:45 cox Exp $
+// $Id: Package.php,v 1.42.2.16 2004/02/19 15:55:37 cellog Exp $
 
 require_once 'PEAR/Common.php';
 require_once 'PEAR/Command/Common.php';
@@ -251,10 +251,7 @@ Wrote: /usr/src/redhat/RPMS/i386/PEAR::Net_Socket-1.0-1.i386.rpm
         $this->output = '';
         include_once 'PEAR/Packager.php';
         $pkginfofile = isset($params[0]) ? $params[0] : 'package.xml';
-        $packager =& new PEAR_Packager($this->config->get('php_dir'),
-                                       $this->config->get('ext_dir'),
-                                       $this->config->get('doc_dir'));
-        $packager->debug = $this->config->get('verbose');
+        $packager =& new PEAR_Packager();
         $err = $warn = array();
         $dir = dirname($pkginfofile);
         $compress = empty($options['nocompress']) ? true : false;
@@ -438,8 +435,10 @@ Wrote: /usr/src/redhat/RPMS/i386/PEAR::Net_Socket-1.0-1.i386.rpm
     function doRunTests($command, $options, $params)
     {
         $cwd = getcwd();
-        $php = PHP_BINDIR . '/php' . (OS_WINDOWS ? '.exe' : '');
+        $php = $this->config->get('php_bin');
         putenv("TEST_PHP_EXECUTABLE=$php");
+        // all core PEAR tests use this constant to determine whether they should be run or not
+        putenv("PHP_PEAR_RUNTESTS=1");
         $ip = ini_get("include_path");
         $ps = OS_WINDOWS ? ';' : ':';
         $run_tests = $rtsts = $this->config->get('php_dir') . DIRECTORY_SEPARATOR . 'run-tests.php';
@@ -450,9 +449,19 @@ Wrote: /usr/src/redhat/RPMS/i386/PEAR::Net_Socket-1.0-1.i386.rpm
                                                 "file from the sources of your PHP distribution to $rtsts");
             }
         }
-        $plist = implode(" ", $params);
-        $cmd = "$php -C -d include_path=$cwd$ps$ip -f $run_tests -- $plist";
-        system($cmd);
+        if (OS_WINDOWS) {
+            // note, this requires a slightly modified version of run-tests.php
+            // for some setups
+            // unofficial download location is in the pear-dev archives
+            $argv = $params;
+            array_unshift($argv, $run_tests);
+            $argc = count($argv);
+            include $run_tests;
+        } else {
+            $plist = implode(' ', $params);
+            $cmd = "$php -d include_path=$cwd$ps$ip -f $run_tests -- $plist";
+            system($cmd);
+        }
         return true;
     }
 
@@ -561,15 +570,25 @@ Wrote: /usr/src/redhat/RPMS/i386/PEAR::Net_Socket-1.0-1.i386.rpm
 
     // }}}
     // {{{ doMakeRPM()
+
     /*
+
     (cox)
+
     TODO:
+
         - Fill the rpm dependencies in the template file.
+
     IDEAS:
+
         - Instead of mapping the role to rpm vars, perhaps it's better
+
           to use directly the pear cmd to install the files by itself
+
           in %postrun so:
+
           pear -d php_dir=%{_libdir}/php/pear -d test_dir=.. <package>
+
     */
 
     function doMakeRPM($command, $options, $params)
@@ -619,27 +638,47 @@ Wrote: /usr/src/redhat/RPMS/i386/PEAR::Net_Socket-1.0-1.i386.rpm
         $info['rpm_package'] = sprintf($rpm_pkgname_format, $info['package']);
         $srcfiles = 0;
         foreach ($info['filelist'] as $name => $attr) {
+
             if ($attr['role'] == 'doc') {
                 $info['doc_files'] .= " $name";
+
             // Map role to the rpm vars
             } else {
+
                 $c_prefix = '%{_libdir}/php/pear';
+
                 switch ($attr['role']) {
+
                     case 'php':
+
                         $prefix = $c_prefix; break;
+
                     case 'ext':
+
                         $prefix = '%{_libdir}/php'; break; // XXX good place?
+
                     case 'src':
+
                         $srcfiles++;
+
                         $prefix = '%{_includedir}/php'; break; // XXX good place?
+
                     case 'test':
+
                         $prefix = "$c_prefix/tests/" . $info['package']; break;
+
                     case 'data':
+
                         $prefix = "$c_prefix/data/" . $info['package']; break;
+
                     case 'script':
+
                         $prefix = '%{_bindir}'; break;
+
                 }
+
                 $info['files'] .= "$prefix/$name\n";
+
             }
         }
         if ($srcfiles > 0) {

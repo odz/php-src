@@ -383,8 +383,7 @@ ZEND_API zend_op_array *compile_file(zend_file_handle *file_handle, int type TSR
 		zend_do_return(&retval_znode, 0 TSRMLS_CC);
 		CG(in_compilation) = original_in_compilation;
 		if (compiler_result==1) { /* parser error */
-			CG(unclean_shutdown) = 1;
-			retval = NULL;
+			zend_bailout();
 		}
 		compilation_successful=1;
 #ifdef ZEND_MULTIBYTE
@@ -1619,8 +1618,8 @@ NEWLINE ("\r"|"\n"|"\r\n")
 	}
 
 	if (label_len==CG(heredoc_len) && !memcmp(yytext, CG(heredoc), label_len)) {
-		zendlval->value.str.val = estrndup(yytext, yyleng); /* unput destroys yytext */
-		zendlval->value.str.len = yyleng;
+		zendlval->value.str.val = estrndup(yytext, label_len); /* unput destroys yytext */
+		zendlval->value.str.len = label_len;
 		if (unput_semicolon) {
 			unput(';');
 		}

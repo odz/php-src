@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_domxml.c,v 1.218.2.34 2003/10/20 15:43:02 rrichards Exp $ */
+/* $Id: php_domxml.c,v 1.218.2.45 2004/02/24 14:26:27 chregu Exp $ */
 
 /* TODO
  * - Support Notation Nodes
@@ -200,8 +200,8 @@ zend_class_entry *xpathobject_class_entry;
 #endif
 #if HAVE_DOMXSLT
 zend_class_entry *domxsltstylesheet_class_entry;
+static int xslt_has_xsl_keys (xmlDocPtr doc);
 #endif
-
 
 static int node_attributes(zval **attributes, xmlNode *nodep TSRMLS_DC);
 static int node_children(zval **children, xmlNode *nodep TSRMLS_DC);
@@ -707,9 +707,9 @@ static xmlNodeSetPtr php_get_elements_by_tagname(xmlNodePtr n, xmlChar* name, xm
 	   Namespace support
 	 */
 	if ( n != NULL && name != NULL ) {
-		cld = n->children;
+		cld = n;
 		while ( cld != NULL ) {
-			if ( xmlStrcmp( name, cld->name ) == 0 ){
+			if (cld->type == XML_ELEMENT_NODE && (xmlStrEqual(name, "*") || xmlStrcmp(name, cld->name) == 0)){
 				if ( rv == NULL ) {
 					rv = xmlXPathNodeSetCreate( cld ) ;
 				}
@@ -717,7 +717,7 @@ static xmlNodeSetPtr php_get_elements_by_tagname(xmlNodePtr n, xmlChar* name, xm
 					xmlXPathNodeSetAdd( rv, cld );
 				}
 			}
-			rv = php_get_elements_by_tagname(cld, name, rv);
+			rv = php_get_elements_by_tagname(cld->children, name, rv);
 			cld = cld->next;
 		}
 	}
@@ -1669,6 +1669,9 @@ PHP_MINIT_FUNCTION(domxml)
 	REGISTER_LONG_CONSTANT("DOMXML_LOAD_COMPLETE_ATTRS",DOMXML_LOAD_COMPLETE_ATTRS,		CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("DOMXML_LOAD_DONT_KEEP_BLANKS",DOMXML_LOAD_DONT_KEEP_BLANKS,		CONST_CS | CONST_PERSISTENT);
 	xmlSetGenericErrorFunc(xmlGenericErrorContext, (xmlGenericErrorFunc)domxml_error);
+#if (defined(LIBXML_THREAD_ENABLED) && LIBXML_VERSION >= 20511)
+	xmlThrDefSetGenericErrorFunc(xmlGenericErrorContext, (xmlGenericErrorFunc)domxml_error);
+#endif
 #if HAVE_DOMXSLT
 	xsltSetGenericErrorFunc(xsltGenericErrorContext, (xmlGenericErrorFunc)domxml_error);
 #if HAVE_DOMEXSLT
@@ -3052,88 +3055,43 @@ PHP_FUNCTION(domxml_elem_has_attribute)
 PHP_FUNCTION(domxml_doc_get_elements_by_tagname)
 {
 	zval *id, *rv, *contextnode = NULL,*ctxpin = NULL;
-	xmlXPathContextPtr ctxp;
 	xmlDocPtr docp;
+	xmlNode *contextnodep = NULL, *nodep = NULL;
+	int name_len,i;
+	char *name;
+	xmlNodeSet *nodesetp = NULL;
 
-	xmlXPathObjectPtr xpathobjp;
-	xmlNode *contextnodep;
-	int name_len;
-	int free_context = 0;
-	char *str,*name;
-
-	contextnode = NULL;
-	contextnodep = NULL;
-
-	DOMXML_PARAM_FOUR(docp, id, le_domxmldocp, "s|oo", &name, &name_len,&ctxpin,&contextnodep);
-
-	/* if no xpath_context was submitted, create a new one */
-	if (ctxpin == NULL) {
-		ctxp = xmlXPathNewContext(docp);
-		free_context = 1;
-	} else {
-		DOMXML_GET_OBJ(ctxp, ctxpin, le_xpathctxp);
-	}
+	DOMXML_PARAM_FOUR(docp, id, le_domxmldocp, "s|oo", &name, &name_len,&ctxpin,&contextnode);
 
 	if (contextnode) {
 		DOMXML_GET_OBJ(contextnodep, contextnode, le_domxmlnodep);
+		if (contextnodep->type == XML_ELEMENT_NODE) {
+			nodep = contextnodep->children;
+		}
+	} else {
+		nodep = xmlDocGetRootElement(docp);
 	}
-	ctxp->node = contextnodep;
-	str = (char*) emalloc((name_len+23) * sizeof(char)) ;
-	if (str == NULL) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Cannot allocate memory for string");
-	}
-	sprintf(str ,"//*[local-name() = '%s']", name);
 
-	xpathobjp = xmlXPathEval(str, ctxp);
-	efree(str);
-	ctxp->node = NULL;
-	if (!xpathobjp) {
-		RETURN_FALSE;
-	}
 	MAKE_STD_ZVAL(rv);
 
-	if(array_init(rv) != SUCCESS)
-	{
+	if(array_init(rv) != SUCCESS) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Cannot create required array");
 		RETURN_FALSE;
 	}
 
-	switch (Z_TYPE_P(xpathobjp)) {
+	nodesetp = php_get_elements_by_tagname(nodep, name, NULL);
 
-		case XPATH_NODESET:
-		{
-			int i;
-			xmlNodeSetPtr nodesetp;
+	if(nodesetp) {
+		for (i = 0; i < nodesetp->nodeNr; i++) {
+			xmlNodePtr node = nodesetp->nodeTab[i];
+			zval *child;
+			int retnode;
 
-			if (NULL == (nodesetp = xpathobjp->nodesetval)) {
-				zval_dtor(rv);
-				xmlXPathFreeObject (xpathobjp);
-				if (free_context) {
-					xmlXPathFreeContext(ctxp);
-				}
-				RETURN_FALSE;
-			}
-
-			for (i = 0; i < nodesetp->nodeNr; i++) {
-				xmlNodePtr node = nodesetp->nodeTab[i];
-				zval *child;
-				int retnode;
-
-				/* construct a node object */
-				child = php_domobject_new(node, &retnode, NULL TSRMLS_CC);
-				zend_hash_next_index_insert(Z_ARRVAL_P(rv), &child, sizeof(zval *), NULL);
-			}
-
-			break;
+			child = php_domobject_new(node, &retnode, NULL TSRMLS_CC);
+			zend_hash_next_index_insert(Z_ARRVAL_P(rv), &child, sizeof(zval *), NULL);
 		}
-		default:
-			break;
 	}
-
-	xmlXPathFreeObject(xpathobjp);
-	if (free_context) {
-		xmlXPathFreeContext(ctxp);
-	}
+	xmlXPathFreeNodeSet(nodesetp);
 	*return_value = *rv;
 	FREE_ZVAL(rv);
 }
@@ -3201,7 +3159,7 @@ PHP_FUNCTION(domxml_elem_get_elements_by_tagname)
 		RETURN_FALSE;
 	}
 
-	nodesetp = php_get_elements_by_tagname(nodep, name, NULL);
+	nodesetp = php_get_elements_by_tagname(nodep->children, name, NULL);
 
 	if(nodesetp) {
 		for (i = 0; i < nodesetp->nodeNr; i++) {
@@ -3964,7 +3922,7 @@ static xmlDocPtr domxml_document_parser(int mode, int loadtype, char *source, vo
 	domxml_ErrorCtxt errorCtxt;
 	char *directory = NULL;
 	int validate = 0, resolve_externals = 0;
-	int keep_blanks = 1, recovery = 1, substitute_ent;
+	int keep_blanks = 1, recovery = 0, substitute_ent;
 
 	substitute_ent = xmlSubstituteEntitiesDefaultValue;
 
@@ -4014,17 +3972,21 @@ static xmlDocPtr domxml_document_parser(int mode, int loadtype, char *source, vo
 	ctxt->loadsubset = resolve_externals;
 	ctxt->replaceEntities = substitute_ent;
 
-	if (data != NULL) {
- 		errorCtxt.valid = &ctxt->vctxt;
-		errorCtxt.errors = data;
-		errorCtxt.parser = ctxt;   
+	/* Always set error handling as threaded libxml doesnt pick up the global handling 
+	set by xmlSetGenericErrorFunc for child threads */
+	ctxt->_private = data;
+ 	errorCtxt.valid = &ctxt->vctxt;
+	errorCtxt.errors = data;
+	errorCtxt.parser = ctxt;   
 
-		ctxt->sax->error = domxml_error_ext;
-		ctxt->sax->warning = domxml_error_ext;
-		ctxt->vctxt.userData= (void *) &errorCtxt;
-		ctxt->vctxt.error    = (xmlValidityErrorFunc) domxml_error_validate;
-		ctxt->vctxt.warning  = (xmlValidityWarningFunc) domxml_error_validate;
-	}
+	ctxt->sax->error = domxml_error_ext;
+	ctxt->sax->warning = domxml_error_ext;
+#if LIBXML_VERSION >= 20600
+	ctxt->sax->cdataBlock = NULL;
+#endif
+	ctxt->vctxt.userData= (void *) &errorCtxt;
+	ctxt->vctxt.error    = (xmlValidityErrorFunc) domxml_error_validate;
+	ctxt->vctxt.warning  = (xmlValidityWarningFunc) domxml_error_validate;
 
 	xmlParseDocument(ctxt);
 
@@ -5366,6 +5328,21 @@ static char **php_domxslt_make_params(zval *idvars, int xpath_params TSRMLS_DC)
 }
 /* }}} */
 
+static int xslt_has_xsl_keys (xmlDocPtr doc) {
+	
+	xmlNode *nodep;
+	nodep = xmlDocGetRootElement(doc)->children;
+	while (nodep) {
+		if (nodep->type == XML_ELEMENT_NODE && xmlStrEqual(nodep->name, "key") && xmlStrEqual(nodep->ns->href, XSLT_NAMESPACE)) {
+				return 1;
+				break;
+			}
+		nodep = nodep->next;
+	}
+	return 0;
+}
+
+
 /* {{{ proto object domxml_xslt_process(object xslstylesheet, object xmldoc [, array xslt_parameters [, bool xpath_parameters [, string profileFilename]]])
    Perform an XSLT transformation */
 PHP_FUNCTION(domxml_xslt_process)
@@ -5381,9 +5358,10 @@ PHP_FUNCTION(domxml_xslt_process)
 	xmlDocPtr xmldocp;
 	xmlDocPtr docp;
 	char **params = NULL;
-	int ret, clone = 0;
+	int ret, clone = -1;
 	char *filename;
 	int filename_len = 0;
+	FILE *f;
 
 	DOMXML_GET_THIS(idxsl);
 
@@ -5397,8 +5375,15 @@ PHP_FUNCTION(domxml_xslt_process)
 		RETURN_FALSE;
 	}
 
-	DOMXML_GET_OBJ(xmldocp, idxml, le_domxmldocp);
+	if (filename_len && !(f = php_stream_open_wrapper_as_file(filename, "w", ENFORCE_SAFE_MODE|REPORT_ERRORS, NULL))) {
+		RETURN_FALSE;
+	}
 
+	DOMXML_GET_OBJ(xmldocp, idxml, le_domxmldocp);
+	if (clone == -1 && xslt_has_xsl_keys(xsltstp->doc) == 1) {
+		clone = 1;
+	}
+	
 	if (idparams) {
 		params = php_domxslt_make_params(idparams, xpath_params TSRMLS_CC);
 	}
@@ -5408,8 +5393,6 @@ PHP_FUNCTION(domxml_xslt_process)
 	}
 
 	if (filename_len) {
-		FILE *f;
-		f = fopen (filename,"w");
 		docp = xsltProfileStylesheet(xsltstp, xmldocp, (const char**)params, f);
 		fclose(f);
 	} else {

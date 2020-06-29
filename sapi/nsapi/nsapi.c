@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: nsapi.c,v 1.28.2.21 2003/08/04 12:46:38 thetaphi Exp $ */
+/* $Id: nsapi.c,v 1.28.2.25 2003/12/12 16:21:44 thetaphi Exp $ */
 
 /*
  * PHP includes
@@ -176,11 +176,6 @@ ZEND_DECLARE_MODULE_GLOBALS(nsapi)
 
 #define NSAPI_G(v) TSRMG(nsapi_globals_id, zend_nsapi_globals *, v)
 
-/* compatibility with PHP4_3 */
-#if !defined(OnUpdateLong)
-#define OnUpdateLong OnUpdateInt
-#endif
-
 /* {{{ nsapi_functions[]
  *
  * Every user visible function must have an entry in nsapi_functions[].
@@ -208,7 +203,7 @@ zend_module_entry nsapi_module_entry = {
 	NULL,
 	NULL,
 	PHP_MINFO(nsapi),
-	"$Revision: 1.28.2.21 $",
+	NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 /* }}} */
@@ -216,7 +211,7 @@ zend_module_entry nsapi_module_entry = {
 /* {{{ PHP_INI
  */
 PHP_INI_BEGIN()
-    STD_PHP_INI_ENTRY("nsapi.read_timeout", "60", PHP_INI_ALL, OnUpdateLong, read_timeout, zend_nsapi_globals, nsapi_globals)
+    STD_PHP_INI_ENTRY("nsapi.read_timeout", "60", PHP_INI_ALL, OnUpdateInt, read_timeout, zend_nsapi_globals, nsapi_globals)
 PHP_INI_END()
 /* }}} */
 
@@ -321,7 +316,7 @@ PHP_MSHUTDOWN_FUNCTION(nsapi)
 PHP_MINFO_FUNCTION(nsapi)
 {
 	php_info_print_table_start();
-	php_info_print_table_row(2, "NSAPI Module Version", nsapi_module_entry.version);
+	php_info_print_table_row(2, "NSAPI Module Revision", "$Revision: 1.28.2.25 $");
 	php_info_print_table_row(2, "Server Software", system_version());
 	php_info_print_table_row(2, "Sub-requests with nsapi_virtual()",
 	 (nsapi_servact_service)?((zend_ini_long("zlib.output_compression", sizeof("zlib.output_compression"), 0))?"not supported with zlib.output_compression":"enabled"):"not supported on this platform" );
@@ -491,12 +486,15 @@ static int sapi_nsapi_header_handler(sapi_header_struct *sapi_header, sapi_heade
 		param_free(pblock_remove("content-type", rc->rq->srvhdrs));
 		pblock_nvinsert("content-type", header_content, rc->rq->srvhdrs);
 	} else {
+		/* to lower case because NSAPI reformats the headers and wants lowercase */
+		for (p=header_name; *p; p++) {
+			*p=tolower(*p);
+		}
+		if (sapi_header->replace) param_free(pblock_remove(header_name, rc->rq->srvhdrs));
 		pblock_nvinsert(header_name, header_content, rc->rq->srvhdrs);
 	}
 
-	*p = ':';	/* restore '*p' */
-
-	efree(sapi_header->header);
+	sapi_free_header(sapi_header);
 
 	return 0;	/* don't use the default SAPI mechanism, NSAPI duplicates this functionality */
 }
@@ -506,13 +504,12 @@ static int sapi_nsapi_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 	int retval;
 	nsapi_request_context *rc = (nsapi_request_context *)SG(server_context);
 
-	/*
-	 * We could probably just do this in the header_handler. But, I
-	 * don't know what the implication of doing it there is.
-	 */
 	if (SG(sapi_headers).send_default_content_type) {
+		char *hd;
 		param_free(pblock_remove("content-type", rc->rq->srvhdrs));
-		pblock_nvinsert("content-type", "text/html", rc->rq->srvhdrs);
+		hd = sapi_get_default_content_type(TSRMLS_C);
+		pblock_nvinsert("content-type", hd, rc->rq->srvhdrs);
+		efree(hd);
 	}
 
 	protocol_status(rc->sn, rc->rq, SG(sapi_headers).http_response_code, NULL);

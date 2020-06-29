@@ -31,6 +31,15 @@
 #include <fcntl.h>
 #include <termios.h>
 
+/* e.g. IRIX does not have CRTSCTS */
+#ifndef CRTSCTS
+# ifdef CNEW_RTSCTS
+#  define CRTSCTS CNEW_RTSCTS
+# else
+#  define CRTSCTS 0
+# endif /* CNEW_RTSCTS */
+#endif /* !CRTSCTS */
+
 #define le_fd_name "Direct I/O File Descriptor"
 static int le_fd;
 
@@ -43,7 +52,7 @@ function_entry dio_functions[] = {
 	PHP_FE(dio_read,      NULL)
 	PHP_FE(dio_write,     NULL)
 	PHP_FE(dio_close,     NULL)
-        PHP_FE(dio_tcsetattr,     NULL)
+	PHP_FE(dio_tcsetattr,     NULL)
 	{NULL, NULL, NULL}
 };
 
@@ -152,6 +161,10 @@ PHP_FUNCTION(dio_open)
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sl|l", &file_name, &file_name_length, &flags, &mode) == FAILURE) {
 		return;
+	}
+
+	if (php_check_open_basedir(file_name TSRMLS_CC) || (PG(safe_mode) && !php_checkuid(file_name, "wb+", CHECKUID_CHECK_MODE_PARAM))) {
+		RETURN_FALSE;
 	}
 
 	if (ZEND_NUM_ARGS() == 3) {
@@ -426,13 +439,13 @@ PHP_FUNCTION(dio_tcsetattr)
 	long BAUD,DATABITS,STOPBITS,PARITYON,PARITY;
 	HashTable      *fh;
 	zval          **element;
-        
+
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rz", &r_fd, &arg) == FAILURE) {
 		return;
 	}
 	ZEND_FETCH_RESOURCE(f, php_fd_t *, &r_fd, -1, le_fd_name, le_fd);
 
- 
+
 	if (Z_TYPE_P(arg) != IS_ARRAY) {
 		zend_error(E_WARNING,"tcsetattr, third argument should be an associative array");
 		return;
@@ -464,8 +477,8 @@ PHP_FUNCTION(dio_tcsetattr)
 		Parity = Z_LVAL_PP(element);
 	} 
 
-    /* assign to correct values... */
-    switch (Baud_Rate)  {
+	/* assign to correct values... */
+	switch (Baud_Rate)  {
 		case 38400:            
 			BAUD = B38400;
 			break;
@@ -561,7 +574,7 @@ PHP_FUNCTION(dio_tcsetattr)
 			zend_error(E_WARNING, "invalid parity %d", Parity);
 			RETURN_FALSE;
 	}   
-        
+
 	newtio.c_cflag = BAUD | CRTSCTS | DATABITS | STOPBITS | PARITYON | PARITY | CLOCAL | CREAD;
 	newtio.c_iflag = IGNPAR;
 	newtio.c_oflag = 0;

@@ -26,7 +26,7 @@
    | PHP 4.0 updates:  Zeev Suraski <zeev@zend.com>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_imap.c,v 1.142.2.20 2003/09/04 07:48:30 jon Exp $ */
+/* $Id: php_imap.c,v 1.142.2.22 2004/01/15 00:36:09 iliaa Exp $ */
 
 #define IMAP41
 
@@ -553,6 +553,17 @@ PHP_MINIT_FUNCTION(imap)
 	REGISTER_LONG_CONSTANT("LATT_MARKED", LATT_MARKED, CONST_PERSISTENT | CONST_CS);
 	REGISTER_LONG_CONSTANT("LATT_UNMARKED", LATT_UNMARKED , CONST_PERSISTENT | CONST_CS);
 
+#ifdef LATT_REFERRAL
+	REGISTER_LONG_CONSTANT("LATT_REFERRAL", LATT_REFERRAL, CONST_PERSISTENT | CONST_CS);
+#endif
+
+#ifdef LATT_HASCHILDREN
+	REGISTER_LONG_CONSTANT("LATT_HASCHILDREN", LATT_HASCHILDREN, CONST_PERSISTENT | CONST_CS);
+#endif
+
+#ifdef LATT_HASNOCHILDREN
+	REGISTER_LONG_CONSTANT("LATT_HASNOCHILDREN", LATT_HASNOCHILDREN, CONST_PERSISTENT | CONST_CS);
+#endif
 
 	/* Sort functions */
 
@@ -3566,8 +3577,12 @@ PHP_FUNCTION(imap_mime_header_decode)
 						add_property_string(myobject, "charset", charset, 1);
 						add_property_string(myobject, "text", decode, 1);
 						zend_hash_next_index_insert(Z_ARRVAL_P(return_value), (void *)&myobject, sizeof(zval *), NULL);
-						fs_give((void**)&decode);
 						
+						/* only free decode if it was allocated by rfc822_qprint or rfc822_base64 */
+						if (decode != text) {
+							fs_give((void**)&decode);
+						}
+
 						offset = end_token+2;
 						for (i = 0; (string[offset + i] == ' ') || (string[offset + i] == 0x0a) || (string[offset + i] == 0x0d); i++);
 						if ((string[offset + i] == '=') && (string[offset + i + 1] == '?') && (offset + i < end)) {

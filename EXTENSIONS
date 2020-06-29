@@ -176,7 +176,7 @@ MAINTENANCE:         Unknown
 STATUS:              Working
 -------------------------------------------------------------------------------
 EXTENSION:           oci8
-PRIMARY MAINTAINER:  Thies C. Arntzen <thies@thieso.net>
+PRIMARY MAINTAINER:  Antony Dovgal <tony2001@php.net>
 MAINTENANCE:         Maintained
 STATUS:              Working
 -------------------------------------------------------------------------------
@@ -187,8 +187,7 @@ STATUS:              Working
 COMMENT:             Working 
 -------------------------------------------------------------------------------
 EXTENSION:           oracle
-PRIMARY MAINTAINER:  Thies C. Arntzen <thies@thieso.net>
-MAINTENANCE:         Maintained
+MAINTENANCE:         Orphaned
 STATUS:              Working
 COMMENT:             Using the new OCI8 driver is encouraged where possible.
 -------------------------------------------------------------------------------

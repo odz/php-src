@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: streams.c,v 1.125.2.82 2003/10/08 10:58:28 wez Exp $ */
+/* $Id: streams.c,v 1.125.2.87 2004/03/16 23:23:25 iliaa Exp $ */
 
 #define _GNU_SOURCE
 #include "php.h"
@@ -659,6 +659,10 @@ PHPAPI int _php_stream_eof(php_stream *stream TSRMLS_DC)
 	if (stream->writepos - stream->readpos > 0)
 		return 0;
 
+	if (!stream->eof && php_stream_is(stream, PHP_STREAM_IS_SOCKET)) {
+		stream->eof = !_php_network_is_stream_alive(stream TSRMLS_CC);
+	}
+	
 	return stream->eof;
 }
 
@@ -2012,6 +2016,16 @@ PHPAPI php_stream *_php_stream_fopen_from_fd(int fd, const char *mode, const cha
 {
 	php_stdio_stream_data *self;
 	php_stream *stream;
+#if defined(S_ISFIFO) || defined(S_ISSOCK)
+	struct stat sb;
+	int stat_ok;
+
+	stat_ok = fd >= 0 && fstat(fd, &sb) == 0;
+
+	if (stat_ok && S_ISSOCK(sb.st_mode)) {
+		return _php_stream_sock_open_from_socket(fd, persistent_id STREAMS_CC TSRMLS_CC);
+	}
+#endif
 
 	self = pemalloc_rel_orig(sizeof(*self), persistent_id);
 	memset(self, 0, sizeof(*self));
@@ -2023,9 +2037,8 @@ PHPAPI php_stream *_php_stream_fopen_from_fd(int fd, const char *mode, const cha
 
 #ifdef S_ISFIFO
 	/* detect if this is a pipe */
-	if (self->fd >= 0) {
-		struct stat sb;
-		self->is_pipe = (fstat(self->fd, &sb) == 0 && S_ISFIFO(sb.st_mode)) ? 1 : 0;
+	if (stat_ok) {
+		self->is_pipe = S_ISFIFO(sb.st_mode) ? 1 : 0;
 	}
 #elif defined(PHP_WIN32)
 	{
@@ -2382,7 +2395,7 @@ static php_stream *php_plain_files_dir_opener(php_stream_wrapper *wrapper, char 
 		return NULL;
 	}
 	
-	if (PG(safe_mode) &&(!php_checkuid(path, NULL, CHECKUID_ALLOW_ONLY_FILE))) {
+	if (PG(safe_mode) &&(!php_checkuid(path, NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
 		return NULL;
 	}
 	
@@ -2882,9 +2895,9 @@ PHPAPI int php_stream_context_set_option(php_stream_context *context,
 	ALLOC_INIT_ZVAL(copied_val);
 	*copied_val = *optionvalue;
 	zval_copy_ctor(copied_val);
-	
+	INIT_PZVAL(copied_val);
+
 	if (FAILURE == zend_hash_find(Z_ARRVAL_P(context->options), (char*)wrappername, strlen(wrappername)+1, (void**)&wrapperhash)) {
-		
 		MAKE_STD_ZVAL(category);
 		array_init(category);
 		

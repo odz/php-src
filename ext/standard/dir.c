@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dir.c,v 1.109.2.11 2003/09/20 02:52:45 iliaa Exp $ */
+/* $Id: dir.c,v 1.109.2.14 2004/03/16 23:23:26 iliaa Exp $ */
 
 /* {{{ includes/startup/misc */
 
@@ -275,7 +275,7 @@ PHP_FUNCTION(chdir)
 		RETURN_FALSE;
 	}
 
-	if (PG(safe_mode) && !php_checkuid(str, NULL, CHECKUID_ALLOW_ONLY_FILE)) {
+	if (PG(safe_mode) && !php_checkuid(str, NULL, CHECKUID_CHECK_FILE_AND_DIR)) {
 		RETURN_FALSE;
 	}
 	ret = VCWD_CHDIR(str);
@@ -396,13 +396,11 @@ PHP_FUNCTION(glob)
 		RETURN_FALSE;
 	}
 
-#ifndef GLOB_NOMATCH
 	/* now catch the FreeBSD style of "no matches" */
-	if (!globbuf.gl_pathc) {
+	if (!globbuf.gl_pathc || !globbuf.gl_pathv) {
 		array_init(return_value);
 		return;
 	}
-#endif
 
 	/* we assume that any glob pattern will match files from one directory only
 	   so checking the dirname of the first match should be sufficient */

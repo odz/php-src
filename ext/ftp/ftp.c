@@ -17,7 +17,11 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ftp.c,v 1.68.2.10 2003/09/09 21:15:20 pollita Exp $ */
+/* $Id: ftp.c,v 1.68.2.16 2004/03/18 17:15:47 iliaa Exp $ */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "php.h"
 
@@ -104,7 +108,7 @@ static char**		ftp_genlist(ftpbuf_t *ftp, const char *cmd, const char *path TSRM
 
 /* IP and port conversion box */
 union ipbox {
-	unsigned long	l[2];
+	struct in_addr	ia[2];
 	unsigned short	s[4];
 	unsigned char	c[8];
 };
@@ -634,9 +638,8 @@ ftp_pasv(ftpbuf_t *ftp, int pasv)
 
 	sin = (struct sockaddr_in *) sa;
 	sin->sin_family = AF_INET;
-	sin->sin_addr.s_addr = ipbox.l[0];
+	sin->sin_addr = ipbox.ia[0];
 	sin->sin_port = ipbox.s[2];
-
 	ftp->pasv = 2;
 
 	return 1;
@@ -649,7 +652,6 @@ int
 ftp_get(ftpbuf_t *ftp, php_stream *outstream, const char *path, ftptype_t type, int resumepos)
 {
 	databuf_t		*data = NULL;
-	char			*ptr;
 	int			lastch;
 	size_t			rcvd;
 	char			arg[11];
@@ -700,12 +702,39 @@ ftp_get(ftpbuf_t *ftp, php_stream *outstream, const char *path, ftptype_t type, 
 		}
 
 		if (type == FTPTYPE_ASCII) {
-			for (ptr = data->buf; rcvd; rcvd--, ptr++) {
-				if (lastch == '\r' && *ptr != '\n')
+			char *s;
+			char *ptr = data->buf;
+			char *e = ptr + rcvd;
+			/* logic depends on the OS EOL
+			 * Win32 -> \r\n
+			 * Everything Else \n
+			 */
+#ifdef PHP_WIN32
+			while ((s = strpbrk(ptr, "\r\n"))) {
+				if (*s == '\n') {
 					php_stream_putc(outstream, '\r');
-				if (*ptr != '\r')
-					php_stream_putc(outstream, *ptr);
-				lastch = *ptr;
+				} else if (*s == '\r' && *(s + 1) == '\n') {
+					s++;
+				}
+				s++;
+				php_stream_write(outstream, ptr, (s - ptr));
+				if (*(s - 1) == '\r') {
+					php_stream_putc(outstream, '\n');
+				}
+				ptr = s;
+			}
+#else 
+			while ((s = memchr(ptr, '\r', (e - ptr)))) {
+				php_stream_write(outstream, ptr, (s - ptr));
+				if (*(s + 1) == '\n') {
+					s++;
+				}
+				php_stream_putc(outstream, '\n');
+				ptr = s + 1;
+			}
+#endif
+			if (ptr < e) {
+				php_stream_write(outstream, ptr, (e - ptr));
 			}
 		}
 		else {
@@ -713,9 +742,6 @@ ftp_get(ftpbuf_t *ftp, php_stream *outstream, const char *path, ftptype_t type, 
 				goto bail;
 		}
 	}
-
-	if (type == FTPTYPE_ASCII && lastch == '\r')
-		php_stream_putc(outstream, '\r');
 
 	ftp->data = data = data_close(ftp, data);
 
@@ -1324,7 +1350,7 @@ ftp_getdata(ftpbuf_t *ftp TSRMLS_DC)
 #endif
 
 	/* send the PORT */
-	ipbox.l[0] = ((struct sockaddr_in*) sa)->sin_addr.s_addr;
+	ipbox.ia[0] = ((struct sockaddr_in*) sa)->sin_addr;
 	ipbox.s[2] = ((struct sockaddr_in*) &addr)->sin_port;
 	sprintf(arg, "%u,%u,%u,%u,%u,%u",
 		ipbox.c[0], ipbox.c[1], ipbox.c[2], ipbox.c[3],
@@ -1450,7 +1476,7 @@ data_close(ftpbuf_t *ftp, databuf_t *data)
 char**
 ftp_genlist(ftpbuf_t *ftp, const char *cmd, const char *path TSRMLS_DC)
 {
-	FILE		*tmpfp = NULL;
+	php_stream	*tmpstream = NULL;
 	databuf_t	*data = NULL;
 	char		*ptr;
 	int		ch, lastch;
@@ -1460,8 +1486,10 @@ ftp_genlist(ftpbuf_t *ftp, const char *cmd, const char *path TSRMLS_DC)
 	char		**entry;
 	char		*text;
 
-	if ((tmpfp = tmpfile()) == NULL)
+	if ((tmpstream = php_stream_fopen_tmpfile()) == NULL) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to create temporary file.  Check permissions in temporary files directory.");
 		return NULL;
+	}
 
 	if (!ftp_type(ftp, FTPTYPE_ASCII))
 		goto bail;
@@ -1486,7 +1514,7 @@ ftp_genlist(ftpbuf_t *ftp, const char *cmd, const char *path TSRMLS_DC)
 		if (rcvd == -1)
 			goto bail;
 
-		fwrite(data->buf, rcvd, 1, tmpfp);
+		php_stream_write(tmpstream, data->buf, rcvd);
 
 		size += rcvd;
 		for (ptr = data->buf; rcvd; rcvd--, ptr++) {
@@ -1500,12 +1528,7 @@ ftp_genlist(ftpbuf_t *ftp, const char *cmd, const char *path TSRMLS_DC)
 
 	ftp->data = data = data_close(ftp, data);
 
-	if (ferror(tmpfp))
-		goto bail;
-
-
-
-	rewind(tmpfp);
+	php_stream_rewind(tmpstream);
 
 	ret = emalloc((lines + 1) * sizeof(char**) + size * sizeof(char*));
 
@@ -1513,7 +1536,7 @@ ftp_genlist(ftpbuf_t *ftp, const char *cmd, const char *path TSRMLS_DC)
 	text = (char*) (ret + lines + 1);
 	*entry = text;
 	lastch = 0;
-	while ((ch = getc(tmpfp)) != EOF) {
+	while ((ch = php_stream_getc(tmpstream)) != EOF) {
 		if (ch == '\n' && lastch == '\r') {
 			*(text - 1) = 0;
 			*++entry = text;
@@ -1525,10 +1548,7 @@ ftp_genlist(ftpbuf_t *ftp, const char *cmd, const char *path TSRMLS_DC)
 	}
 	*entry = NULL;
 
-	if (ferror(tmpfp))
-		goto bail;
-
-	fclose(tmpfp);
+	php_stream_close(tmpstream);
 
 	if (!ftp_getresp(ftp) || (ftp->resp != 226 && ftp->resp != 250)) {
 		efree(ret);
@@ -1538,7 +1558,7 @@ ftp_genlist(ftpbuf_t *ftp, const char *cmd, const char *path TSRMLS_DC)
 	return ret;
 bail:
 	ftp->data = data_close(ftp, data);
-	fclose(tmpfp);
+	php_stream_close(tmpstream);
 	if (ret)
 		efree(ret);
 	return NULL;

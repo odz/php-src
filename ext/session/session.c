@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: session.c,v 1.336.2.29 2003/10/08 10:25:39 sniper Exp $ */
+/* $Id: session.c,v 1.336.2.35 2004/03/16 18:21:02 stas Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -79,7 +79,7 @@ function_entry session_functions[] = {
 };
 /* }}} */
 
-ZEND_DECLARE_MODULE_GLOBALS(ps);
+PHPAPI ZEND_DECLARE_MODULE_GLOBALS(ps);
 
 static ps_module *_php_find_ps_module(char *name TSRMLS_DC);
 static const ps_serializer *_php_find_ps_serializer(char *name TSRMLS_DC);
@@ -596,7 +596,7 @@ static void php_session_initialize(TSRMLS_D)
 
 	/* Open session handler first */
 	if (PS(mod)->s_open(&PS(mod_data), PS(save_path), PS(session_name) TSRMLS_CC) == FAILURE) {
-		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Failed to initialize storage module.");
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Failed to initialize storage module: %s (path: %s)", PS(mod)->s_name, PS(save_path));
 		return;
 	}
 	
@@ -717,7 +717,7 @@ static void strcpy_gmt(char *ubuf, time_t *when)
 	
 	php_gmtime_r(when, &tm);
 	
-	n = sprintf(buf, "%s, %d %s %d %02d:%02d:%02d GMT", /* SAFE */
+	n = sprintf(buf, "%s, %02d %s %d %02d:%02d:%02d GMT", /* SAFE */
 				week_days[tm.tm_wday], tm.tm_mday, 
 				month_names[tm.tm_mon], tm.tm_year + 1900, 
 				tm.tm_hour, tm.tm_min, 
@@ -1369,7 +1369,7 @@ PHP_FUNCTION(session_register)
 	if (argc <= 0)
 		RETURN_FALSE
 	else
-		args = (zval ***)emalloc(argc * sizeof(zval **));
+		args = (zval ***)safe_emalloc(argc, sizeof(zval **), 0);
 	
 	if (zend_get_parameters_array_ex(argc, args) == FAILURE) {
 		efree(args);
@@ -1612,14 +1612,26 @@ PHP_RSHUTDOWN_FUNCTION(session)
 }
 /* }}} */
 
+static void php_minit_session_globals(php_ps_globals *ps_globals)
+{
+	ps_globals->save_path = NULL;
+	ps_globals->session_name = NULL;
+	ps_globals->id = NULL;
+	ps_globals->mod = NULL;
+	ps_globals->mod_data = NULL;
+	ps_globals->session_status = php_session_none;
+	ps_globals->http_session_vars = NULL;
+}
 
 PHP_MINIT_FUNCTION(session)
 {
 #ifdef ZTS
 	php_ps_globals *ps_globals;
 
-	ts_allocate_id(&ps_globals_id, sizeof(php_ps_globals), NULL, NULL);
+	ts_allocate_id(&ps_globals_id, sizeof(php_ps_globals), (ts_allocate_ctor) php_minit_session_globals, NULL);
 	ps_globals = ts_resource(ps_globals_id);
+#else 
+	php_minit_session_globals(&ps_globals);
 #endif
 
 	zend_register_auto_global("_SESSION", sizeof("_SESSION")-1 TSRMLS_CC);

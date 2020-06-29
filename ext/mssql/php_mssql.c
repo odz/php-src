@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_mssql.c,v 1.86.2.25 2003/10/15 03:32:18 iliaa Exp $ */
+/* $Id: php_mssql.c,v 1.86.2.29 2004/03/19 18:47:02 fmk Exp $ */
 
 #ifdef COMPILE_DL_MSSQL
 #define HAVE_MSSQL 1
@@ -162,6 +162,7 @@ static int php_mssql_message_handler(DBPROCESS *dbproc, DBINT msgno,int msgstate
 	}
 	if (MS_SQL_G(server_message)) {
 		STR_FREE(MS_SQL_G(server_message));
+		MS_SQL_G(server_message) = NULL;
 	}
 	MS_SQL_G(server_message) = estrdup(msgtext);
 	return 0;
@@ -345,6 +346,7 @@ PHP_RSHUTDOWN_FUNCTION(mssql)
 	STR_FREE(MS_SQL_G(appname));
 	if (MS_SQL_G(server_message)) {
 		STR_FREE(MS_SQL_G(server_message));
+		MS_SQL_G(server_message) = NULL;
 	}
 	return SUCCESS;
 }
@@ -794,10 +796,13 @@ static void php_mssql_get_column_content_with_type(mssql_link *mssql_ptr,int off
 			Z_TYPE_P(result) = IS_STRING;
 			break;
 		}
+		case SQLMONEY4:
 		case SQLFLT4:
 			Z_DVAL_P(result) = (double) floatcol4(offset);
 			Z_TYPE_P(result) = IS_DOUBLE;
 			break;
+		case SQLMONEY:
+		case SQLMONEYN:
 		case SQLFLT8:
 			Z_DVAL_P(result) = (double) floatcol8(offset);
 			Z_TYPE_P(result) = IS_DOUBLE;
@@ -896,8 +901,19 @@ static void php_mssql_get_column_content_without_type(mssql_link *mssql_ptr,int 
 
 		if ((column_type != SQLDATETIME && column_type != SQLDATETIM4) || MS_SQL_G(datetimeconvert)) {
 
-			if (column_type == SQLDATETIM4) res_length += 14;
-			if (column_type == SQLDATETIME) res_length += 10;
+			switch (column_type) {
+				case SQLDATETIM4 :
+					res_length += 14;
+					break;
+				case SQLDATETIME :
+					res_length += 10;
+					break;
+				case SQLMONEY :
+				case SQLMONEY4 :
+				case SQLMONEYN :
+					res_length += 5;
+					break;
+			}
 			
 			res_buf = (unsigned char *) emalloc(res_length+1);
 			res_length = dbconvert(NULL,coltype(offset),dbdata(mssql_ptr->link,offset), res_length, SQLCHAR, res_buf, -1);
@@ -954,6 +970,9 @@ static void _mssql_get_sp_result(mssql_link *mssql_ptr, mssql_statement *stateme
 						case SQLFLT4:
 						case SQLFLT8:
 						case SQLFLTN:
+						case SQLMONEY4:
+						case SQLMONEY:
+						case SQLMONEYN:
 							convert_to_double_ex(&bind->zval);
 							Z_DVAL_P(bind->zval) = *((double *)(dbretdata(mssql_ptr->link,i)));
 							break;
@@ -994,6 +1013,7 @@ static int _mssql_fetch_batch(mssql_link *mssql_ptr, mssql_result *result, int r
 
 	column_types = (int *) emalloc(sizeof(int) * result->num_fields);
 	for (i=0; i<result->num_fields; i++) {
+		char *source = NULL;
 		char *fname = (char *)dbcolname(mssql_ptr->link,i+1);
 
 		if (*fname) {
@@ -1008,8 +1028,11 @@ static int _mssql_fetch_batch(mssql_link *mssql_ptr, mssql_result *result, int r
 			j++;
 		}
 		result->fields[i].max_length = dbcollen(mssql_ptr->link,i+1);
-		result->fields[i].column_source = estrdup(dbcolsource(mssql_ptr->link,i+1));
-		if (!result->fields[i].column_source) {
+		source = (char *)dbcolsource(mssql_ptr->link,i+1);
+		if (source) {
+			result->fields[i].column_source = estrdup(source);
+		}
+		else {
 			result->fields[i].column_source = empty_string;
 		}
 
@@ -1061,6 +1084,9 @@ static int _mssql_fetch_batch(mssql_link *mssql_ptr, mssql_result *result, int r
 		result->lastresult = retvalue;
 	}
 	efree(column_types);
+	if (result->statement) {
+		_mssql_get_sp_result(mssql_ptr, result->statement TSRMLS_CC);
+	}
 	return i;
 }
 
@@ -1788,9 +1814,6 @@ PHP_FUNCTION(mssql_next_result)
 		RETURN_FALSE;
 	}
 	else if (retvalue == NO_MORE_RESULTS || retvalue == NO_MORE_RPC_RESULTS) {
-		if (result->statement) {
-			_mssql_get_sp_result(result->mssql_ptr, result->statement TSRMLS_CC);
-		}
 		RETURN_FALSE;
 	}
 	else {
@@ -2120,11 +2143,8 @@ PHP_FUNCTION(mssql_execute)
 				result->num_fields = num_fields;
 
 				result->fields = (mssql_field *) emalloc(sizeof(mssql_field)*num_fields);
-				result->num_rows = _mssql_fetch_batch(mssql_ptr, result, retvalue TSRMLS_CC);
 				result->statement = statement;
-			}
-			else {
-				_mssql_get_sp_result(mssql_ptr, statement TSRMLS_CC);
+				result->num_rows = _mssql_fetch_batch(mssql_ptr, result, retvalue TSRMLS_CC);
 			}
 		}
 	}

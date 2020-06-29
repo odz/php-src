@@ -1,4 +1,4 @@
-dnl $Id: acinclude.m4,v 1.218.2.31 2003/10/03 04:29:24 sniper Exp $
+dnl $Id: acinclude.m4,v 1.218.2.35 2004/01/20 01:11:40 sniper Exp $
 dnl
 dnl This file contains local autoconf functions.
 
@@ -1159,6 +1159,7 @@ dnl Basically sets up the link-stage for building module-name
 dnl from object_var in build-dir.
 dnl
 AC_DEFUN([PHP_SHARED_MODULE],[
+  install_modules="install-modules"
   PHP_MODULES="$PHP_MODULES \$(phplibdir)/$1.la"
   PHP_SUBST($2)
   cat >>Makefile.objects<<EOF
@@ -1655,7 +1656,6 @@ AC_DEFUN([PHP_SETUP_OPENSSL],[
     CPPFLAGS=$old_CPPFLAGS
 
     PHP_ADD_INCLUDE($OPENSSL_INCDIR)
-    PHP_ADD_LIBPATH($OPENSSL_LIBDIR, $1)
   
     PHP_CHECK_LIBRARY(crypto, CRYPTO_free, [
       PHP_ADD_LIBRARY(crypto,,$1)
@@ -1664,15 +1664,20 @@ AC_DEFUN([PHP_SETUP_OPENSSL],[
     ],[
       -L$OPENSSL_LIBDIR
     ])
-  
+
+    old_LIBS=$LIBS
+    LIBS="$LIBS -lcrypto"
     PHP_CHECK_LIBRARY(ssl, SSL_CTX_set_ssl_version, [
-      PHP_ADD_LIBRARY(ssl,,$1)
       found_openssl=yes
     ],[
       AC_MSG_ERROR([libssl not found!])
     ],[
       -L$OPENSSL_LIBDIR
     ])
+    LIBS=$old_LIBS
+    PHP_ADD_LIBRARY(ssl,,$1)
+
+    PHP_ADD_LIBPATH($OPENSSL_LIBDIR, $1)
   fi
 
   dnl For apache 1.3.x static build

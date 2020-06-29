@@ -16,7 +16,7 @@
 // | Author: Andrei Zmievski <andrei@php.net>                             |
 // +----------------------------------------------------------------------+
 //
-// $Id: Getopt.php,v 1.21.4.6 2003/09/29 14:06:40 pajoye Exp $
+// $Id: Getopt.php,v 1.21.4.8 2003/12/11 19:28:25 andrei Exp $
 
 require_once 'PEAR.php';
 
@@ -63,7 +63,25 @@ class Console_Getopt {
      * @access public
      *
      */
+    function getopt2($args, $short_options, $long_options = null)
+    {
+        return Console_Getopt::doGetopt(2, $args, $short_options, $long_options);
+    }
+
+    /**
+     * This function expects $args to start with the script name (POSIX-style).
+     * Preserved for backwards compatibility.
+     * @see getopt2()
+     */    
     function getopt($args, $short_options, $long_options = null)
+    {
+        return Console_Getopt::doGetopt(1, $args, $short_options, $long_options);
+    }
+
+    /**
+     * The actual implementation of the argument parsing code.
+     */
+    function doGetopt($version, $args, $short_options, $long_options = null)
     {
         // in case you pass directly readPHPArgv() as the first arg
         if (PEAR::isError($args)) {
@@ -80,9 +98,17 @@ class Console_Getopt {
         if ($long_options) {
             sort($long_options);
         }
-        if (isset($args[0]{0}) && $args[0]{0} != '-') {
-            array_shift($args);
+
+        /*
+         * Preserve backwards compatibility with callers that relied on
+         * erroneous POSIX fix.
+         */
+        if ($version < 2) {
+            if (isset($args[0]{0}) && $args[0]{0} != '-') {
+                array_shift($args);
+            }
         }
+
         reset($args);
         while (list($i, $arg) = each($args)) {
 

@@ -8,7 +8,7 @@
 **  This code is in the public domain and has no copyright.
 */
 
-/* $Id: parsedate.y,v 1.34.2.2 2003/07/28 04:02:55 iliaa Exp $ */
+/* $Id: parsedate.y,v 1.34.2.5 2003/12/10 14:09:42 sniper Exp $ */
 
 #include "php.h"
 
@@ -308,7 +308,11 @@ date	: tUNUMBER '/' tUNUMBER {
 	}
 	| tMONTH tUNUMBER {
 	    ((struct date_yy *)parm)->yyMonth = $1;
-	    ((struct date_yy *)parm)->yyDay = $2;
+	    if ($2 > 1000) {
+		((struct date_yy *)parm)->yyYear = $2;
+	    } else {
+		((struct date_yy *)parm)->yyDay = $2;
+	    }
 	}
 	| tMONTH tUNUMBER ',' tUNUMBER {
 	    ((struct date_yy *)parm)->yyMonth = $1;
@@ -317,7 +321,11 @@ date	: tUNUMBER '/' tUNUMBER {
 	}
 	| tUNUMBER tMONTH {
 	    ((struct date_yy *)parm)->yyMonth = $2;
-	    ((struct date_yy *)parm)->yyDay = $1;
+	    if ($1 > 1000) {
+		((struct date_yy *)parm)->yyYear = $1;
+	    } else {
+		((struct date_yy *)parm)->yyDay = $1;
+	    }
 	}
 	| tUNUMBER tMONTH tUNUMBER {
 	    ((struct date_yy *)parm)->yyMonth = $2;
@@ -505,7 +513,7 @@ static TABLE const OtherTable[] = {
     { "today",		tDAY_UNIT,	0 },
     { "now",		tDAY_UNIT,	0 },
     { "last",		tUNUMBER,	-1 },
-    { "this",		tMINUTE_UNIT,	0 },
+    { "this",		tUNUMBER,	0 },
     { "next",		tUNUMBER,	2 },
     { "first",		tUNUMBER,	1 },
 /*  { "second",		tUNUMBER,	2 }, */
@@ -612,30 +620,30 @@ static TABLE const TimezoneTable[] = {
 
 /* Military timezone table. */
 static TABLE const MilitaryTable[] = {
-    { "a",	tZONE,	HOUR (  1) },
-    { "b",	tZONE,	HOUR (  2) },
-    { "c",	tZONE,	HOUR (  3) },
-    { "d",	tZONE,	HOUR (  4) },
-    { "e",	tZONE,	HOUR (  5) },
-    { "f",	tZONE,	HOUR (  6) },
-    { "g",	tZONE,	HOUR (  7) },
-    { "h",	tZONE,	HOUR (  8) },
-    { "i",	tZONE,	HOUR (  9) },
-    { "k",	tZONE,	HOUR ( 10) },
-    { "l",	tZONE,	HOUR ( 11) },
-    { "m",	tZONE,	HOUR ( 12) },
-    { "n",	tZONE,	HOUR (- 1) },
-    { "o",	tZONE,	HOUR (- 2) },
-    { "p",	tZONE,	HOUR (- 3) },
-    { "q",	tZONE,	HOUR (- 4) },
-    { "r",	tZONE,	HOUR (- 5) },
-    { "s",	tZONE,	HOUR (- 6) },
-    { "t",	tZONE,	HOUR (- 7) },
-    { "u",	tZONE,	HOUR (- 8) },
-    { "v",	tZONE,	HOUR (- 9) },
-    { "w",	tZONE,	HOUR (-10) },
-    { "x",	tZONE,	HOUR (-11) },
-    { "y",	tZONE,	HOUR (-12) },
+    { "a",	tZONE,	HOUR (- 1) },
+    { "b",	tZONE,	HOUR (- 2) },
+    { "c",	tZONE,	HOUR (- 3) },
+    { "d",	tZONE,	HOUR (- 4) },
+    { "e",	tZONE,	HOUR (- 5) },
+    { "f",	tZONE,	HOUR (- 6) },
+    { "g",	tZONE,	HOUR (- 7) },
+    { "h",	tZONE,	HOUR (- 8) },
+    { "i",	tZONE,	HOUR (- 9) },
+    { "k",	tZONE,	HOUR (-10) },
+    { "l",	tZONE,	HOUR (-11) },
+    { "m",	tZONE,	HOUR (-12) },
+    { "n",	tZONE,	HOUR (  1) },
+    { "o",	tZONE,	HOUR (  2) },
+    { "p",	tZONE,	HOUR (  3) },
+    { "q",	tZONE,	HOUR (  4) },
+    { "r",	tZONE,	HOUR (  5) },
+    { "s",	tZONE,	HOUR (  6) },
+    { "t",	tZONE,	HOUR (  7) },
+    { "u",	tZONE,	HOUR (  8) },
+    { "v",	tZONE,	HOUR (  9) },
+    { "w",	tZONE,	HOUR ( 10) },
+    { "x",	tZONE,	HOUR ( 11) },
+    { "y",	tZONE,	HOUR ( 12) },
     { "z",	tZONE,	HOUR (  0) },
     { NULL, 0, 0 }
 };

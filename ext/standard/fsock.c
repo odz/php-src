@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: fsock.c,v 1.106.2.10 2003/08/28 16:01:49 sas Exp $ */
+/* $Id: fsock.c,v 1.106.2.13 2004/01/22 03:25:37 sniper Exp $ */
 
 /* converted to PHP Streams and moved much code to main/network.c [wez] */
 
@@ -95,10 +95,6 @@
 
 #include "php_network.h"
 
-#ifdef ZTS
-static int fsock_globals_id;
-#endif
-
 #ifdef PHP_WIN32
 #define EWOULDBLOCK WSAEWOULDBLOCK
 #elif defined(NETWARE)
@@ -160,11 +156,11 @@ static void php_fsockopen_stream(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 
 		switch(php_stream_from_persistent_id(hashkey, &stream TSRMLS_CC)) {
 			case PHP_STREAM_PERSISTENT_SUCCESS:
-				if (_php_network_is_stream_alive(stream)) {
+				if (_php_network_is_stream_alive(stream TSRMLS_CC)) {
 					php_stream_to_zval(stream, return_value);
 				} else {
 					/* it died; we need to replace it */
-					php_stream_close(stream);
+					php_stream_pclose(stream);
 					break;
 				}
 				

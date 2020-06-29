@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.29.2.3 2003/06/29 00:08:29 andrei Exp $
+dnl $Id: config.m4,v 1.29.2.5 2003/12/16 22:14:55 andrei Exp $
 dnl
 
 dnl By default we'll compile and link against the bundled PCRE library

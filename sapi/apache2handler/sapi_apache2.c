@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sapi_apache2.c,v 1.1.2.23 2003/10/02 03:24:43 iliaa Exp $ */
+/* $Id: sapi_apache2.c,v 1.1.2.30 2004/03/16 22:38:17 iliaa Exp $ */
 
 #include <fcntl.h>
 
@@ -53,7 +53,7 @@
 
 /* UnixWare and Netware define shutdown to _shutdown, which causes problems later
  * on when using a structure member named shutdown. Since this source
- * file does not use the system call shutdown, it is safe to #undef it.
+ * file does not use the system call shutdown, it is safe to #undef it.K
  */
 #undef shutdown
  
@@ -81,7 +81,7 @@ php_apache_sapi_ub_write(const char *str, uint str_length TSRMLS_DC)
 	r = ctx->r;
 	brigade = ctx->brigade;
 	
-	copy_str = apr_pmemdup( r->pool, str, str_length+1);
+	copy_str = apr_pmemdup( r->pool, str, str_length);
 	bucket = apr_bucket_pool_create(copy_str, str_length, r->pool, r->connection->bucket_alloc);
 						 
 	APR_BRIGADE_INSERT_TAIL(brigade, bucket);
@@ -261,6 +261,8 @@ php_apache_sapi_flush(void *server_context)
 	r = ctx->r;
 	brigade = ctx->brigade;
 
+	sapi_send_headers(TSRMLS_C);
+
 	r->status = SG(sapi_headers).http_response_code;
 	SG(headers_sent) = 1;
 
@@ -286,11 +288,18 @@ static void php_apache_sapi_log_message(char *msg)
 	 * with Apache 1.3 -- rbb
 	 */
 	if (ctx == NULL) { /* we haven't initialized our ctx yet, oh well */
-		ap_log_error(APLOG_MARK, APLOG_ERR | APLOG_NOERRNO | APLOG_STARTUP,
-					 0, NULL, "%s", msg);
+		ap_log_error(APLOG_MARK, APLOG_ERR | APLOG_STARTUP, 0, NULL, "%s", msg);
 	} else {
-		ap_log_rerror(APLOG_MARK, APLOG_ERR | APLOG_NOERRNO | APLOG_STARTUP,
-					 0, ctx->r, "%s", msg);
+		ap_log_rerror(APLOG_MARK, APLOG_ERR | APLOG_STARTUP, 0, ctx->r, "%s", msg);
+	}
+}
+
+static void php_apache_sapi_log_message_ex(char *msg, request_rec *r)
+{
+	if (r) {
+		ap_log_rerror(APLOG_MARK, APLOG_ERR | APLOG_STARTUP, 0, r, msg, r->filename);
+	} else {
+		php_apache_sapi_log_message(msg);
 	}
 }
 
@@ -414,6 +423,7 @@ static apr_status_t php_server_context_cleanup(void *data_)
 static void php_apache_request_ctor(request_rec *r, php_struct *ctx TSRMLS_DC)
 {
 	char *content_type;
+	char *content_length;
 	const char *auth;
 
 	SG(sapi_headers).http_response_code = !r->status ? HTTP_OK : r->status;
@@ -428,11 +438,13 @@ static void php_apache_request_ctor(request_rec *r, php_struct *ctx TSRMLS_DC)
 	ap_set_content_type(r, apr_pstrdup(r->pool, content_type));
 	efree(content_type);
 
+	content_length = (char *) apr_table_get(r->headers_in, "Content-Length");
+	SG(request_info).content_length = (content_length ? atoi(content_length) : 0);
+
 	apr_table_unset(r->headers_out, "Content-Length");
 	apr_table_unset(r->headers_out, "Last-Modified");
 	apr_table_unset(r->headers_out, "Expires");
 	apr_table_unset(r->headers_out, "ETag");
-	apr_table_unset(r->headers_in, "Connection");
 	if (!PG(safe_mode) || (PG(safe_mode) && !ap_auth_type(r))) {
 		auth = apr_table_get(r->headers_in, "Authorization");
 		php_handle_auth_data(auth TSRMLS_CC);
@@ -465,21 +477,33 @@ static int php_handler(request_rec *r)
 	if (strcmp(r->handler, PHP_MAGIC_TYPE) && strcmp(r->handler, PHP_SOURCE_MAGIC_TYPE) && strcmp(r->handler, PHP_SCRIPT)) {
 		/* Check for xbithack in this case. */
 		if (!AP2(xbithack) || strcmp(r->handler, "text/html") || !(r->finfo.protection & APR_UEXECUTE)) {
+			zend_try {
+				zend_ini_deactivate(TSRMLS_C);
+			} zend_end_try();
 			return DECLINED;
 		}
 	}
 
 	/* handle situations where user turns the engine off */
 	if (!AP2(engine)) {
+		zend_try {
+			zend_ini_deactivate(TSRMLS_C);
+		} zend_end_try();
 		return DECLINED;
 	}
 
 	if (r->finfo.filetype == 0) {
-		php_apache_sapi_log_message("script not found or unable to stat");
+		php_apache_sapi_log_message_ex("script '%s' not found or unable to stat", r);
+		zend_try {
+				zend_ini_deactivate(TSRMLS_C);
+		} zend_end_try();
 		return HTTP_NOT_FOUND;
 	}
 	if (r->finfo.filetype == APR_DIR) {
-		php_apache_sapi_log_message("attempt to invoke directory as script");
+		php_apache_sapi_log_message_ex("attempt to invoke directory '%s' as script", r);
+		zend_try {
+			zend_ini_deactivate(TSRMLS_C);
+		} zend_end_try();
 		return HTTP_FORBIDDEN;
 	}
 

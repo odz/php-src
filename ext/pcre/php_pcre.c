@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_pcre.c,v 1.132.2.10 2003/09/12 01:32:38 sniper Exp $ */
+/* $Id: php_pcre.c,v 1.132.2.16 2004/02/01 19:56:16 moriyoshi Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -106,6 +106,15 @@ static PHP_MINIT_FUNCTION(pcre)
 	REGISTER_LONG_CONSTANT("PREG_SPLIT_DELIM_CAPTURE", PREG_SPLIT_DELIM_CAPTURE, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("PREG_SPLIT_OFFSET_CAPTURE", PREG_SPLIT_OFFSET_CAPTURE, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("PREG_GREP_INVERT", PREG_GREP_INVERT, CONST_CS | CONST_PERSISTENT);
+
+	pcre_malloc = php_pcre_malloc;
+	pcre_free = php_pcre_free;
+
+#ifdef NO_RECURSE
+	pcre_stack_malloc = php_pcre_malloc;
+	pcre_stack_free = php_pcre_free;
+#endif
+	
 	return SUCCESS;
 }
 /* }}} */
@@ -117,16 +126,6 @@ static PHP_MSHUTDOWN_FUNCTION(pcre)
 	php_pcre_shutdown_globals(&pcre_globals TSRMLS_CC);
 #endif
 
-	return SUCCESS;
-}
-/* }}} */
-
-/* {{{ PHP_RINIT_FUNCTION(pcre) */
-static PHP_RINIT_FUNCTION(pcre)
-{
-	pcre_malloc = php_pcre_malloc;
-	pcre_free = php_pcre_free;
-	
 	return SUCCESS;
 }
 /* }}} */
@@ -174,7 +173,7 @@ PHPAPI pcre* pcre_get_compiled_regex(char *regex, pcre_extra **extra, int *preg_
 	
 	/* Parse through the leading whitespace, and display a warning if we
 	   get to the end without encountering a delimiter. */
-	while (isspace((int)*p)) p++;
+	while (isspace((int)*(unsigned char *)p)) p++;
 	if (*p == 0) {
 		zend_error(E_WARNING, "Empty regular expression");
 		return NULL;
@@ -183,7 +182,7 @@ PHPAPI pcre* pcre_get_compiled_regex(char *regex, pcre_extra **extra, int *preg_
 	/* Get the delimiter and display a warning if it is alphanumeric
 	   or a backslash. */
 	delimiter = *p++;
-	if (isalnum((int)delimiter) || delimiter == '\\') {
+	if (isalnum((int)*(unsigned char *)&delimiter) || delimiter == '\\') {
 		zend_error(E_WARNING, "Delimiter must not be alphanumeric or backslash");
 		return NULL;
 	}
@@ -348,7 +347,7 @@ static void php_pcre_match(INTERNAL_FUNCTION_PARAMETERS, int global)
 	int			     regex_len;
 	int				 subject_len;
 	zval 			*subpats = NULL;	/* Array for subpatterns */
-	int				 flags;				/* Match control flags */
+	long				 flags;				/* Match control flags */
 
 	zval			*result_set,		/* Holds a set of subpatterns after
 										   a global match */
@@ -362,7 +361,7 @@ static void php_pcre_match(INTERNAL_FUNCTION_PARAMETERS, int global)
 	int			 	*offsets;			/* Array of subpattern offsets */
 	int				 num_subpats;		/* Number of captured subpatterns */
 	int			 	 size_offsets;		/* Size of the offsets array */
-	int				 start_offset = 0;	/* Where the new search starts */
+	long				 start_offset = 0;	/* Where the new search starts */
 	int			 	 matched;			/* Has anything matched */
 	int				 subpats_order = 0; /* Order of subpattern matches */
 	int				 offset_capture = 0;/* Capture match offsets: yes/no */
@@ -429,7 +428,7 @@ static void php_pcre_match(INTERNAL_FUNCTION_PARAMETERS, int global)
 	subpat_names = (char **)safe_emalloc(num_subpats, sizeof(char *), 0);
 	memset(subpat_names, 0, sizeof(char *) * num_subpats);
 	{
-		int name_cnt, name_size, ni = 0;
+		int name_cnt = 0, name_size, ni = 0;
 		char *name_table;
 		unsigned short name_idx;
 
@@ -1392,6 +1391,11 @@ PHP_FUNCTION(preg_quote)
 				*q++ = c;
 				break;
 
+			case '\0':
+				*q++ = '\\';
+				*q++ = '0';
+				break;
+
 			default:
 				if (quote_delim && c == delim_char)
 					*q++ = '\\';
@@ -1523,7 +1527,7 @@ zend_module_entry pcre_module_entry = {
 	pcre_functions,
 	PHP_MINIT(pcre),
 	PHP_MSHUTDOWN(pcre),
-	PHP_RINIT(pcre),
+	NULL,
 	NULL,
 	PHP_MINFO(pcre),
 	NO_VERSION_YET,

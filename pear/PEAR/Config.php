@@ -3,7 +3,7 @@
 // +----------------------------------------------------------------------+
 // | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2003 The PHP Group                                |
+// | Copyright (c) 1997-2004 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 3.0 of the PHP license,       |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
 // | Author: Stig Bakken <ssb@php.net>                                    |
 // +----------------------------------------------------------------------+
 //
-// $Id: Config.php,v 1.35.2.13 2003/10/20 15:51:44 cox Exp $
+// $Id: Config.php,v 1.35.2.16 2004/01/26 01:26:46 pajoye Exp $
 
 require_once 'PEAR.php';
 require_once 'System.php';
@@ -615,7 +615,10 @@ class PEAR_Config extends PEAR
             return $this->raiseError("PEAR_Config::readConfigFile fopen('$file','r') failed");
         }
         $size = filesize($file);
+        $rt = get_magic_quotes_runtime();
+        set_magic_quotes_runtime(0);
         $contents = fread($fp, $size);
+        set_magic_quotes_runtime($rt);
         fclose($fp);
         $version = '0.1';
         if (preg_match('/^#PEAR_Config\s+(\S+)\s+/si', $contents, $matches)) {

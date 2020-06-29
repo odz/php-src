@@ -816,17 +816,11 @@
 /* Define if you have the <xmltok.h> header file.  */
 #undef HAVE_XMLTOK_H
 
-/* Define if you have the crypt library (-lcrypt).  */
-#undef HAVE_LIBCRYPT
-
 /* Define if you have the m library (-lm).  */
 #undef HAVE_LIBM
 
 /* Define if you have the nsl library (-lnsl).  */
 #undef HAVE_LIBNSL
-
-/* Define if you have the pam library (-lpam).  */
-#undef HAVE_LIBPAM
 
 /* Define if you have the socket library (-lsocket).  */
 #undef HAVE_LIBSOCKET
@@ -1194,6 +1188,9 @@
 
 /* Whether to build openssl as dynamic module */
 #undef COMPILE_DL_OPENSSL
+
+/*   */
+#undef HAVE_OPENSSL_SHARED_EXT
 
 /*   */
 #undef HAVE_OPENSSL_EXT
@@ -1577,6 +1574,9 @@
 #undef HAVE_GD_CACHE_CREATE
 
 /*   */
+#undef HAVE_GD_THREAD_SAFE
+
+/*   */
 #undef HAVE_LIBGD204
 
 /* Whether to build gd as dynamic module */
@@ -1683,6 +1683,12 @@
 
 /*   */
 #undef HAVE_IMAP2001
+
+/*   */
+#undef HAVE_LIBPAM
+
+/*   */
+#undef HAVE_LIBCRYPT
 
 /*   */
 #undef HAVE_IMAP_KRB
@@ -1977,6 +1983,12 @@
 
 /*   */
 #undef HAVE_OCI8_ATTR_STATEMENT
+
+/*   */
+#undef HAVE_OCI8_ATTR_STATEMENT
+
+/*   */
+#undef HAVE_OCI_9_2
 
 /*   */
 #undef HAVE_OCI8_ATTR_STATEMENT

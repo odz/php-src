@@ -3,7 +3,7 @@
 // +----------------------------------------------------------------------+
 // | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2002 The PHP Group                                |
+// | Copyright (c) 1997-2004 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 3.0 of the PHP license,       |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
 // |                                                                      |
 // +----------------------------------------------------------------------+
 //
-// $Id: pearcmd.php,v 1.1.2.7 2003/10/20 15:51:46 cox Exp $
+// $Id: pearcmd.php,v 1.1.2.12 2004/03/13 17:34:36 cellog Exp $
 
 ob_end_clean();
 /**
@@ -28,12 +28,13 @@ if ('@include_path@' != '@'.'include_path'.'@') {
     ini_set('include_path', '@include_path@');
 }
 ini_set('allow_url_fopen', true);
-set_time_limit(0);
+if (!ini_get('safe_mode')) {
+    set_time_limit(0);
+}
 ob_implicit_flush(true);
 ini_set('track_errors', true);
 ini_set('html_errors', false);
 ini_set('magic_quotes_runtime', false);
-error_reporting(E_ALL & ~E_NOTICE);
 set_error_handler('error_handler');
 
 $pear_package_version = "@pear_version@";
@@ -48,7 +49,8 @@ $all_commands = PEAR_Command::getCommands();
 
 $argv = Console_Getopt::readPHPArgv();
 $progname = basename($argv[0]);
-$options = Console_Getopt::getopt($argv, "c:C:d:D:Gh?sSqu:vV");
+array_shift($argv);
+$options = Console_Getopt::getopt2($argv, "c:C:d:D:Gh?sSqu:vV");
 if (PEAR::isError($options)) {
     usage($options);
 }
@@ -155,7 +157,8 @@ if ($fetype == 'Gtk') {
 
     $short_args = $long_args = null;
     PEAR_Command::getGetoptArgs($command, $short_args, $long_args);
-    if (PEAR::isError($tmp = Console_Getopt::getopt($options[1], $short_args, $long_args))) {
+    array_shift($options[1]);
+    if (PEAR::isError($tmp = Console_Getopt::getopt2($options[1], $short_args, $long_args))) {
         break;
     }
     list($tmpopt, $params) = $tmp;
@@ -263,21 +266,21 @@ function cmdHelp($command)
 // }}}
 
 function error_handler($errno, $errmsg, $file, $line, $vars) {
-    if (error_reporting() == 0) {
+    if ((defined('E_STRICT') && $errno & E_STRICT) || !error_reporting()) {
         return; // @silenced error
     }
     $errortype = array (
-        1   =>  "Error",
-        2   =>  "Warning",
-        4   =>  "Parsing Error",
-        8   =>  "Notice",
-        16  =>  "Core Error",
-        32  =>  "Core Warning",
-        64  =>  "Compile Error",
-        128 =>  "Compile Warning",
-        256 =>  "User Error",
-        512 =>  "User Warning",
-        1024=>  "User Notice"
+        E_ERROR   =>  "Error",
+        E_WARNING   =>  "Warning",
+        E_PARSE   =>  "Parsing Error",
+        E_NOTICE   =>  "Notice",
+        E_CORE_ERROR  =>  "Core Error",
+        E_CORE_WARNING  =>  "Core Warning",
+        E_COMPILE_ERROR  =>  "Compile Error",
+        E_COMPILE_WARNING =>  "Compile Warning",
+        E_USER_ERROR =>  "User Error",
+        E_USER_WARNING =>  "User Warning",
+        E_USER_NOTICE =>  "User Notice"
     );
     $prefix = $errortype[$errno];
     $file = basename($file);

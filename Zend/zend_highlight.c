@@ -134,14 +134,12 @@ ZEND_API void zend_highlight(zend_syntax_highlighter_ini *syntax_highlighter_ini
 				continue;
 				break;
 			default:
-				if (token.type==0) {
+				if (in_string) {
+					next_color = syntax_highlighter_ini->highlight_string;
+				} else if (token.type == 0) {
 					next_color = syntax_highlighter_ini->highlight_keyword;
 				} else {
-					if (in_string) {
-						next_color = syntax_highlighter_ini->highlight_string;
-					} else {
-						next_color = syntax_highlighter_ini->highlight_default;
-					}
+					next_color = syntax_highlighter_ini->highlight_default;
 				}
 				break;
 		}
@@ -177,13 +175,7 @@ ZEND_API void zend_highlight(zend_syntax_highlighter_ini *syntax_highlighter_ini
 					break;
 			}
 		} else if (token_type == T_END_HEREDOC) {
-			zend_bool has_semicolon=(strchr(token.value.str.val, ';')?1:0);
-
 			efree(token.value.str.val);
-			if (has_semicolon) {
-				/* the following semicolon was unput(), ignore it */
-				lex_scan(&token TSRMLS_CC);
-			}
 		}
 		token.type = 0;
 	}

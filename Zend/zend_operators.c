@@ -460,16 +460,16 @@ ZEND_API void _convert_to_string(zval *op ZEND_FILE_LINE_DC)
 			break;
 		}
 		case IS_ARRAY:
+			zend_error(E_NOTICE, "Array to string conversion");
 			zval_dtor(op);
 			op->value.str.val = estrndup_rel("Array", sizeof("Array")-1);
 			op->value.str.len = sizeof("Array")-1;
-			zend_error(E_NOTICE, "Array to string conversion");
 			break;
 		case IS_OBJECT:
+			zend_error(E_NOTICE, "Object to string conversion");
 			zval_dtor(op);
 			op->value.str.val = estrndup_rel("Object", sizeof("Object")-1);
 			op->value.str.len = sizeof("Object")-1;
-			zend_error(E_NOTICE, "Object to string conversion");
 			break;
 		default:
 			zval_dtor(op);
@@ -784,6 +784,11 @@ ZEND_API int mod_function(zval *result, zval *op1, zval *op2 TSRMLS_DC)
 	if (op2->value.lval == 0) {
 		ZVAL_BOOL(result, 0);
 		return FAILURE;			/* modulus by zero */
+	}
+
+	if (abs(op2->value.lval) == 1) {
+		ZVAL_LONG(result, 0);
+		return SUCCESS;
 	}
 
 	result->type = IS_LONG;
@@ -1608,8 +1613,8 @@ ZEND_API int zend_binary_strcasecmp(char *s1, uint len1, char *s2, uint len2)
 	len = MIN(len1, len2);
 
 	while (len--) {
-		c1 = tolower(*s1++);
-		c2 = tolower(*s2++);
+		c1 = tolower((int)*(unsigned char *)s1++);
+		c2 = tolower((int)*(unsigned char *)s2++);
 		if (c1 != c2) {
 			return c1 - c2;
 		}
@@ -1627,8 +1632,8 @@ ZEND_API int zend_binary_strncasecmp(char *s1, uint len1, char *s2, uint len2, u
 	len = MIN(length, MIN(len1, len2));
 
 	while (len--) {
-		c1 = tolower(*s1++);
-		c2 = tolower(*s2++);
+		c1 = tolower((int)*(unsigned char *)s1++);
+		c2 = tolower((int)*(unsigned char *)s2++);
 		if (c1 != c2) {
 			return c1 - c2;
 		}

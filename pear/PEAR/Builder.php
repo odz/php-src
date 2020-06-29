@@ -3,7 +3,7 @@
 // +----------------------------------------------------------------------+
 // | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2003 The PHP Group                                |
+// | Copyright (c) 1997-2004 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 3.0 of the PHP license,       |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
 // | Authors: Stig Sæther Bakken <ssb@php.net>                            |
 // +----------------------------------------------------------------------+
 //
-// $Id: Builder.php,v 1.7.4.9 2003/10/20 15:51:43 cox Exp $
+// $Id: Builder.php,v 1.7.4.11 2004/03/04 13:38:10 chregu Exp $
 
 require_once 'PEAR/Common.php';
 
@@ -218,7 +218,7 @@ class PEAR_Builder extends PEAR_Common
                     ($r == 'yes' || $r == 'autodetect')) {
                     $configure_command .= " --$o[name]";
                 } else {
-                    $configure_command .= " --$o[name]=$r";
+                    $configure_command .= " --$o[name]=".trim($r);
                 }
             }
         }

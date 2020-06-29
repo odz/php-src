@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sapi_apache2.c,v 1.91.2.20 2003/08/03 19:31:13 thetaphi Exp $ */
+/* $Id: sapi_apache2.c,v 1.91.2.24 2004/03/08 03:16:11 iliaa Exp $ */
 
 #include <fcntl.h>
 
@@ -238,7 +238,10 @@ php_apache_sapi_flush(void *server_context)
 	if (!server_context)
 		return;
 
+	sapi_send_headers(TSRMLS_C);
+
 	ctx->r->status = SG(sapi_headers).http_response_code;
+	SG(headers_sent) = 1;
 
 	f = ctx->f;
 
@@ -376,6 +379,7 @@ static int php_input_filter(ap_filter_t *f, apr_bucket_brigade *bb,
 static void php_apache_request_ctor(ap_filter_t *f, php_struct *ctx TSRMLS_DC)
 {
 	char *content_type;
+	char *content_length;
 	const char *auth;
 	
 	PG(during_request_startup) = 0;
@@ -393,11 +397,14 @@ static void php_apache_request_ctor(ap_filter_t *f, php_struct *ctx TSRMLS_DC)
 	SG(request_info).post_data = ctx->post_data;
 	SG(request_info).post_data_length = ctx->post_len;
 	efree(content_type);
+
+	content_length = (char *) apr_table_get(f->r->headers_in, "Content-Length");
+	SG(request_info).content_length = (content_length ? atoi(content_length) : 0);
+	
 	apr_table_unset(f->r->headers_out, "Content-Length");
 	apr_table_unset(f->r->headers_out, "Last-Modified");
 	apr_table_unset(f->r->headers_out, "Expires");
 	apr_table_unset(f->r->headers_out, "ETag");
-	apr_table_unset(f->r->headers_in, "Connection");
 	if (!PG(safe_mode) || (PG(safe_mode) && !ap_auth_type(f->r))) {
 		auth = apr_table_get(f->r->headers_in, "Authorization");
 		php_handle_auth_data(auth TSRMLS_CC);
@@ -430,11 +437,17 @@ static int php_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 	TSRMLS_FETCH();
 
 	if (f->r->proxyreq) {
+		zend_try {
+			zend_ini_deactivate(TSRMLS_C);
+		} zend_end_try();
 		return ap_pass_brigade(f->next, bb);
 	}
 	
 	/* handle situations where user turns the engine off */
 	if (*p == '0') {
+		zend_try {
+			zend_ini_deactivate(TSRMLS_C);
+		} zend_end_try();
 		return ap_pass_brigade(f->next, bb);
 	}
 
@@ -452,11 +465,17 @@ static int php_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 	if (ctx == NULL) {
 		ap_log_rerror(APLOG_MARK, APLOG_ERR|APLOG_NOERRNO, 0, f->r,
 					 "php failed to get server context");
+		zend_try {
+			zend_ini_deactivate(TSRMLS_C);
+		} zend_end_try();
         return HTTP_INTERNAL_SERVER_ERROR;
 	}
 	ctx->f = f; /* save whatever filters are after us in the chain. */
 
 	if (ctx->request_processed) {
+		zend_try {
+			zend_ini_deactivate(TSRMLS_C);
+		} zend_end_try();
 		return ap_pass_brigade(f->next, bb);
 	}
 

@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: interbase.c,v 1.91.2.22 2003/09/03 15:22:24 abies Exp $ */
+/* $Id: interbase.c,v 1.91.2.31 2004/02/17 20:57:26 abies Exp $ */
 
 
 /* TODO: Arrays, roles?
@@ -594,6 +594,25 @@ PHP_RINIT_FUNCTION(ibase)
 
 PHP_MSHUTDOWN_FUNCTION(ibase)
 {
+#ifndef PHP_WIN32
+	/**
+	 * When the Interbase client API library libgds.so is first loaded, it registers a call to 
+	 * gds__cleanup() with atexit(), in order to clean up after itself when the process exits.
+	 * This means that the library is called at process shutdown, and cannot be unloaded beforehand.
+	 * PHP tries to unload modules after every request [dl()'ed modules], and right before the 
+	 * process shuts down [modules loaded from php.ini]. This results in a segfault for this module.
+	 * By NULLing the dlopen() handle in the module entry, Zend omits the call to dlclose(),
+	 * ensuring that the module will remain present until the process exits. However, the functions
+	 * and classes exported by the module will not be available until the module is 'reloaded'. 
+	 * When reloaded, dlopen() will return the handle of the already loaded module. The module will
+	 * be unloaded automatically when the process exits.
+	 */
+	zend_module_entry *ibase_entry;
+	if (SUCCESS == zend_hash_find(&module_registry, ibase_module_entry.name, strlen(ibase_module_entry.name) +1, (void*) &ibase_entry))
+	{
+		ibase_entry->handle = NULL;
+	}
+#endif
 	UNREGISTER_INI_ENTRIES();
 	return SUCCESS;
 }
@@ -624,7 +643,7 @@ PHP_MINFO_FUNCTION(ibase)
 
 	php_info_print_table_start();
 	php_info_print_table_row(2, "Interbase Support", "enabled");
-	php_info_print_table_row(2, "Revision", "$Revision: 1.91.2.22 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.91.2.31 $");
 #ifdef COMPILE_DL_INTERBASE
 	php_info_print_table_row(2, "Dynamic Module", "yes");
 #endif
@@ -926,7 +945,7 @@ PHP_FUNCTION(ibase_connect)
    Open a persistent connection to an InterBase database */
 PHP_FUNCTION(ibase_pconnect)
 {
-	_php_ibase_connect(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1);
+	_php_ibase_connect(INTERNAL_FUNCTION_PARAM_PASSTHRU, IBG(allow_persistent));
 }
 /* }}} */
 
@@ -934,13 +953,14 @@ PHP_FUNCTION(ibase_pconnect)
    Close an InterBase connection */
 PHP_FUNCTION(ibase_close)
 {
-	zval **link_arg;
 	ibase_db_link *ib_link;
 	int link_id;
 	
 	RESET_ERRMSG;
 	
 	switch (ZEND_NUM_ARGS()) {
+		zval **link_arg;
+
 		case 0:
 			link_id = IBG(default_link);
 			break;
@@ -956,7 +976,7 @@ PHP_FUNCTION(ibase_close)
 			break;
 	}
 
-	ZEND_FETCH_RESOURCE2(ib_link, ibase_db_link *, link_arg, link_id, "InterBase link", le_link, le_plink);
+	ZEND_FETCH_RESOURCE2(ib_link, ibase_db_link *, NULL, link_id, "InterBase link", le_link, le_plink);
 	zend_list_delete(link_id);
 	RETURN_TRUE;
 }
@@ -1411,13 +1431,13 @@ static int _php_ibase_exec(ibase_result **ib_resultp, ibase_query *ib_query, int
 	XSQLDA *in_sqlda = NULL, *out_sqlda = NULL;
 	BIND_BUF *bind_buf = NULL;
 	int rv = FAILURE;
-	
+
 	IB_RESULT = NULL;
 
 	if (argc > 0 && args != NULL) {
 		SEPARATE_ZVAL(args);
 	}
-	
+
 	/* allocate sqlda and output buffers */
 	if (ib_query->out_sqlda) { /* output variables in select, select for update */
 		IBDEBUG("Query wants XSQLDA for output");
@@ -1493,13 +1513,11 @@ PHP_FUNCTION(ibase_trans)
 	zval ***args;
 	char tpb[20], *tpbp = NULL;
 	long trans_argl = 0;
-	int tpb_len = 0, argn, link_id, trans_n = 0, i;
+	int tpb_len = 0, argn, link_id, trans_n = 0;
 	ibase_db_link *ib_link;
 	ibase_tr_link *ib_trans;
-	
-	RESET_ERRMSG;
 
-	link_id = IBG(default_link);
+	RESET_ERRMSG;
 
 	/* TODO: multi-databases trans */
 	argn = ZEND_NUM_ARGS();
@@ -1516,9 +1534,9 @@ PHP_FUNCTION(ibase_trans)
 
 		/* Handle all database links, although we don't support multibase
 		   transactions yet, so only the last one is will be used. */
-		for (i = argn-1; i > 0 && Z_TYPE_PP(args[i]) == IS_RESOURCE; i--) {
-			ZEND_FETCH_RESOURCE2(ib_link, ibase_db_link *, args[i], -1, "InterBase link", le_link, le_plink);
-			link_id = Z_LVAL_PP(args[i]);
+		if (argn > 1) {
+			ZEND_FETCH_RESOURCE2(ib_link, ibase_db_link *, args[argn-1], -1, "InterBase link", le_link, le_plink);
+			link_id = Z_LVAL_PP(args[argn-1]);
 		}
 
 		/* First argument is transaction parameters */
@@ -1529,6 +1547,7 @@ PHP_FUNCTION(ibase_trans)
 	}
 
 	if (argn < 2) {
+		link_id = IBG(default_link);
 		ZEND_FETCH_RESOURCE2(ib_link, ibase_db_link *, NULL, link_id, "InterBase link", le_link, le_plink);
 	}
 
@@ -1547,8 +1566,8 @@ PHP_FUNCTION(ibase_trans)
 			if (trans_argl & PHP_IBASE_REC_VERSION) {
 				tpb[tpb_len++] = isc_tpb_rec_version;
 			}else{
-				tpb[tpb_len++] = isc_tpb_no_rec_version; /* default in read_committed  */ 
-			}	
+				tpb[tpb_len++] = isc_tpb_no_rec_version; /* default in read_committed  */
+			}
 		} else if (trans_argl & PHP_IBASE_CONSISTENCY) {
 			tpb[tpb_len++] = isc_tpb_consistency;
 		} else {
@@ -1823,32 +1842,34 @@ static int _php_ibase_var_zval(zval *val, void *data, int type, int len, int sca
 			}
 			break;
 #ifdef SQL_INT64
-		case SQL_INT64:
+		case SQL_INT64: {
+			ISC_INT64 n = *(ISC_INT64 *) data;
 			Z_TYPE_P(val) = IS_STRING;
-			if (scale < 0 ){
-				short j = 0;
-				ISC_INT64 n, f = 1;
-				n = (ISC_INT64) *(ISC_INT64 *) data;
-				for (j = 0; j < -scale; j++) {
+
+			if (scale < 0) {
+				short j;
+				ISC_INT64 f = 1;
+
+				for (j = 0; j < -scale; ++j) {
 					f *= 10;
 				}
-				if ( n >= 0){
-				Z_STRLEN_P(val) = sprintf (string_data, "%" ISC_INT64_FORMAT "d.%0*" ISC_INT64_FORMAT "d",
-											(ISC_INT64) n / f, -scale, (ISC_INT64) n % f );
-				}else if ((n/f) != 0 ){
-				Z_STRLEN_P(val) = sprintf (string_data, "%" ISC_INT64_FORMAT "d.%0*" ISC_INT64_FORMAT "d",
-											(ISC_INT64) n / f, -scale, (ISC_INT64) -(n % f) );
-				}else{
-				Z_STRLEN_P(val) = sprintf (string_data, "%s.%0*" ISC_INT64_FORMAT "d",
-											"-0", -scale, (ISC_INT64) -(n % f) );
+				if (n >= 0) {
+					Z_STRLEN_P(val) = sprintf (string_data, 
+						"%" ISC_INT64_FORMAT "d.%0*" ISC_INT64_FORMAT "d", n / f, -scale, n % f);
+				} else if (n < -f) {
+					Z_STRLEN_P(val) = sprintf (string_data,
+						"%" ISC_INT64_FORMAT "d.%0*" ISC_INT64_FORMAT "d", n / f, -scale, -n % f);
+				} else {
+					Z_STRLEN_P(val) = sprintf (string_data, 
+						"-0.%0*" ISC_INT64_FORMAT "d", -scale, -n % f);
 				}
 			} else {
-				Z_STRLEN_P(val) =sprintf (string_data, "%.0" ISC_INT64_FORMAT "d",
-							                                    (ISC_INT64) *(ISC_INT64 *) data);
+				Z_STRLEN_P(val) = sprintf (string_data, "%" ISC_INT64_FORMAT "d", n);
 			}
 
 			Z_STRVAL_P(val) = estrdup(string_data);
 			break;
+		}
 #endif
 #ifndef SQL_TIMESTAMP
 		case SQL_DATE:

@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: cgi_main.c,v 1.190.2.50 2003/10/17 02:21:34 iliaa Exp $ */
+/* $Id: cgi_main.c,v 1.190.2.59 2004/03/12 14:07:14 iliaa Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -48,6 +48,12 @@
 #if HAVE_SETLOCALE
 #include <locale.h>
 #endif
+#if HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#if HAVE_SYS_WAIT_H
+#include <sys/wait.h>
+#endif
 #include "zend.h"
 #include "zend_extensions.h"
 #include "php_ini.h"
@@ -59,10 +65,6 @@
 #include <io.h>
 #include <fcntl.h>
 #include "win32/php_registry.h"
-#endif
-
-#if HAVE_SIGNAL_H
-#include <signal.h>
 #endif
 
 #ifdef __riscos__
@@ -117,8 +119,8 @@ static pid_t pgroup;
 #define PHP_MODE_LINT		4
 #define PHP_MODE_STRIP		5
 
-static char *optarg = NULL;
-static int optind = 1;
+static char *php_optarg = NULL;
+static int php_optind = 1;
 
 static const opt_struct OPTIONS[] = {
 	{'a', 0, "interactive"},
@@ -275,7 +277,11 @@ static void sapi_cgibin_flush(void *server_context)
 #if PHP_FASTCGI
 	if (!FCGX_IsCGI()) {
 		FCGX_Request *request = (FCGX_Request *)server_context;
-		if(!request || FCGX_FFlush( request->out ) == -1 ) {
+		if (
+#ifndef PHP_WIN32
+		!parent && 
+#endif
+		(!request || FCGX_FFlush(request->out) == -1)) {
 			php_handle_aborted_connection();
 		}
 		return;
@@ -293,7 +299,7 @@ static int sapi_cgi_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 	char buf[SAPI_CGI_MAX_HEADER_LENGTH];
 	sapi_header_struct *h;
 	zend_llist_position pos;
-	long rfc2616_headers = 0;
+	long rfc2616_headers = 0, nph = 0;
 
 	if(SG(request_info).no_headers == 1) {
 		return  SAPI_HEADER_SENT_SUCCESSFULLY;
@@ -307,7 +313,11 @@ static int sapi_cgi_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 		rfc2616_headers = 0;
 	}
 
-	if (SG(sapi_headers).http_response_code != 200) {
+	if (cfg_get_long("cgi.nph", &nph) == FAILURE) {
+		nph = 0;
+	}
+
+	if (nph || SG(sapi_headers).http_response_code != 200) {
 		int len;
 		
 		if (rfc2616_headers && SG(sapi_headers).http_status_line) {
@@ -576,7 +586,7 @@ static void php_cgi_usage(char *argv0)
 	php_printf("Usage: %s [-q] [-h] [-s] [-v] [-i] [-f <file>] \n"
 			   "       %s <file> [args...]\n"
 			   "  -a               Run interactively\n"
-#if PHP_FASTCGI
+#if PHP_FASTCGI && !defined(PHP_WIN32)
 			   "  -b <address:port>|<port> Bind Path for external FASTCGI Server mode\n"
 #endif
 			   "  -C               Do not chdir to the script's directory\n"
@@ -950,8 +960,8 @@ int main(int argc, char *argv[])
 /* temporary locals */
 	int behavior=PHP_MODE_STANDARD;
 	int no_headers=0;
-	int orig_optind=optind;
-	char *orig_optarg=optarg;
+	int orig_optind=php_optind;
+	char *orig_optarg=php_optarg;
 	char *script_file=NULL;
 	zend_llist global_vars;
 	int interactive=0;
@@ -1029,10 +1039,10 @@ int main(int argc, char *argv[])
 		/* allow ini override for fastcgi */
 #endif
 		) {
-		while ((c=php_getopt(argc, argv, OPTIONS, &optarg, &optind, 0))!=-1) {
+		while ((c=php_getopt(argc, argv, OPTIONS, &php_optarg, &php_optind, 0))!=-1) {
 			switch (c) {
 				case 'c':
-					cgi_sapi_module.php_ini_path_override = strdup(optarg);
+					cgi_sapi_module.php_ini_path_override = strdup(php_optarg);
 					break;
 				case 'n':
 					cgi_sapi_module.php_ini_ignore = 1;
@@ -1044,7 +1054,7 @@ int main(int argc, char *argv[])
 				   server by accepting a bindpath parameter. */
 				case 'b':
 					if (!fastcgi) {
-						bindpath = strdup(optarg);
+						bindpath = strdup(php_optarg);
 					}
 					break;
 #endif
@@ -1052,8 +1062,8 @@ int main(int argc, char *argv[])
 			}
 
 		}
-		optind = orig_optind;
-		optarg = orig_optarg;
+		php_optind = orig_optind;
+		php_optarg = orig_optarg;
 	}
 
 #ifdef ZTS
@@ -1096,6 +1106,7 @@ int main(int argc, char *argv[])
 			    in case some server does something different than above */
 			&& (!redirect_status_env || !getenv(redirect_status_env))
 			) {
+			SG(sapi_headers).http_response_code = 400;
 			PUTS("<b>Security Alert!</b> The PHP CGI cannot be accessed directly.\n\n\
 <p>This PHP CGI binary was compiled with force-cgi-redirect enabled.  This\n\
 means that a page will only be served up if the REDIRECT_STATUS CGI variable is\n\
@@ -1259,7 +1270,7 @@ consult the installation file that came with this distribution, or visit \n\
 			&& !fastcgi
 #endif
 			) {
-			while ((c=php_getopt(argc, argv, OPTIONS, &optarg, &optind, 1))!=-1) {
+			while ((c=php_getopt(argc, argv, OPTIONS, &php_optarg, &php_optind, 1))!=-1) {
 				switch (c) {
 					case 'h':
 					case '?':
@@ -1273,8 +1284,8 @@ consult the installation file that came with this distribution, or visit \n\
 						break;
 				}
 			}
-			optind = orig_optind;
-			optarg = orig_optarg;
+			php_optind = orig_optind;
+			php_optarg = orig_optarg;
 		}
 
 #if PHP_FASTCGI
@@ -1324,7 +1335,7 @@ consult the installation file that came with this distribution, or visit \n\
 				exit(1);
 			}
 		
-			while ((c = php_getopt(argc, argv, OPTIONS, &optarg, &optind, 0)) != -1) {
+			while ((c = php_getopt(argc, argv, OPTIONS, &php_optarg, &php_optind, 0)) != -1) {
 				switch (c) {
 					
   				case 'a':	/* interactive mode */
@@ -1336,7 +1347,7 @@ consult the installation file that came with this distribution, or visit \n\
 						SG(options) |= SAPI_OPTION_NO_CHDIR;
 						break;
 				case 'd': /* define ini entries on command line */
-						define_command_line_ini_entry(optarg);
+						define_command_line_ini_entry(php_optarg);
 						break;
 						
   				case 'e': /* enable extended info output */
@@ -1344,16 +1355,16 @@ consult the installation file that came with this distribution, or visit \n\
 						break;
 
   				case 'f': /* parse file */
-						script_file = estrdup(optarg);
+						script_file = estrdup(php_optarg);
 						no_headers = 1;
 						/* arguments after the file are considered script args */
-						SG(request_info).argc = argc - (optind-1);
-						SG(request_info).argv = &argv[optind-1];
+						SG(request_info).argc = argc - (php_optind-1);
+						SG(request_info).argv = &argv[php_optind-1];
 						break;
 
   				case 'g': /* define global variables on command line */
 						{
-							char *arg = estrdup(optarg);
+							char *arg = estrdup(php_optarg);
 
 							zend_llist_add_element(&global_vars, &arg);
 						}
@@ -1416,9 +1427,9 @@ consult the installation file that came with this distribution, or visit \n\
 							SG(request_info).no_headers = 1;
 						}
 #if ZEND_DEBUG
-						php_printf("PHP %s (%s) (built: %s %s) (DEBUG)\nCopyright (c) 1997-2003 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__, __TIME__, get_zend_version());
+						php_printf("PHP %s (%s) (built: %s %s) (DEBUG)\nCopyright (c) 1997-2004 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__, __TIME__, get_zend_version());
 #else
-						php_printf("PHP %s (%s) (built: %s %s)\nCopyright (c) 1997-2003 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__, __TIME__, get_zend_version());
+						php_printf("PHP %s (%s) (built: %s %s)\nCopyright (c) 1997-2004 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__, __TIME__, get_zend_version());
 #endif
 						php_end_ob_buffers(1 TSRMLS_CC);
 						exit(1);
@@ -1429,7 +1440,7 @@ consult the installation file that came with this distribution, or visit \n\
 						break;
 
 				case 'z': /* load extension file */
-						zend_load_extension(optarg);
+						zend_load_extension(php_optarg);
 						break;
 
 					default:
@@ -1439,6 +1450,9 @@ consult the installation file that came with this distribution, or visit \n\
 
 			if (script_file) {
 				/* override path_translated if -f on command line */
+				if (SG(request_info).path_translated) {
+					STR_FREE(SG(request_info).path_translated);
+				}
 				SG(request_info).path_translated = script_file;
 			}
 
@@ -1447,12 +1461,12 @@ consult the installation file that came with this distribution, or visit \n\
 				SG(request_info).no_headers = 1;
 			}
 
-			if (!SG(request_info).path_translated && argc > optind) {
+			if (!SG(request_info).path_translated && argc > php_optind) {
 				/* arguments after the file are considered script args */
-				SG(request_info).argc = argc - optind;
-				SG(request_info).argv = &argv[optind];
+				SG(request_info).argc = argc - php_optind;
+				SG(request_info).argv = &argv[php_optind];
 				/* file is on command line, but not in -f opt */
-				SG(request_info).path_translated = estrdup(argv[optind++]);
+				SG(request_info).path_translated = estrdup(argv[php_optind++]);
 			}
 
 			/* all remaining arguments are part of the query string
@@ -1464,15 +1478,15 @@ consult the installation file that came with this distribution, or visit \n\
 			   test.php "v1=test&v2=hello world!"
 			   test.php v1=test "v2=hello world!"
 			*/
-			if (!SG(request_info).query_string && argc > optind) {
+			if (!SG(request_info).query_string && argc > php_optind) {
 				len = 0;
-				for (i = optind; i < argc; i++) {
+				for (i = php_optind; i < argc; i++) {
 					len += strlen(argv[i]) + 1;
 				}
 
 				s = malloc(len + 1);	/* leak - but only for command line version, so ok */
 				*s = '\0';			/* we are pretending it came from the environment  */
-				for (i = optind, len = 0; i < argc; i++) {
+				for (i = php_optind, len = 0; i < argc; i++) {
 					strcat(s, argv[i]);
 					if (i < (argc - 1)) {
 						strcat(s, PG(arg_separator).input);

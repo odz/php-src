@@ -15,7 +15,7 @@
    | Author: Jim Winstead <jimw@php.net>                                  |
    +----------------------------------------------------------------------+
  */
-/* $Id: url.c,v 1.58.2.9 2003/10/13 04:28:33 iliaa Exp $ */
+/* $Id: url.c,v 1.58.2.12 2003/12/04 00:14:50 iliaa Exp $ */
 
 #include <stdlib.h>
 #include <string.h>
@@ -330,12 +330,12 @@ static int php_htoi(char *s)
 	int value;
 	int c;
 
-	c = s[0];
+	c = ((unsigned char *)s)[0];
 	if (isupper(c))
 		c = tolower(c);
 	value = (c >= '0' && c <= '9' ? c - '0' : c - 'a' + 10) * 16;
 
-	c = s[1];
+	c = ((unsigned char *)s)[1];
 	if (isupper(c))
 		c = tolower(c);
 	value += c >= '0' && c <= '9' ? c - '0' : c - 'a' + 10;

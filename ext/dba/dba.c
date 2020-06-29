@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dba.c,v 1.61.2.22 2003/08/28 17:56:51 iliaa Exp $ */
+/* $Id: dba.c,v 1.61.2.25 2004/01/15 21:28:37 helly Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -27,7 +27,6 @@
 
 #if HAVE_DBA
 
-#include "ext/standard/flock_compat.h" 
 #include "php_ini.h"
 #include <stdio.h> 
 #include <fcntl.h>
@@ -38,6 +37,7 @@
 #include "php_dba.h"
 #include "ext/standard/info.h"
 #include "ext/standard/php_string.h"
+#include "ext/standard/flock_compat.h" 
 
 #include "php_gdbm.h"
 #include "php_ndbm.h"
@@ -651,22 +651,36 @@ static void php_dba_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 		case 'c': 
 			modenr = DBA_CREAT; 
 			lock_mode = (lock_flag & DBA_LOCK_CREAT) ? LOCK_EX : 0;
+			if (lock_mode) {
+				if (lock_dbf) {
+					/* the create/append check will be done on the lock
+					 * when the lib opens the file it is already created
+					 */
+					file_mode = "r+b";       /* read & write, seek 0 */
+					lock_file_mode = "a+b";  /* append */
+				} else {
+					file_mode = "a+b";       /* append */
+					lock_file_mode = "w+b";  /* create/truncate */
+				}
+			} else {
 			file_mode = "a+b";
-			if (!lock_mode || !lock_dbf) {
-				break;
 			}
-			/* When we lock the db file it will be created before the handler
-			 * even tries to open it, hence we must change to truncate mode.
+			/* In case of the 'a+b' append mode, the handler is responsible 
+			 * to handle any rewind problems (see flatfile handler).
 			 */
+			break;
 		case 'n':
 			modenr = DBA_TRUNC;
 			lock_mode = (lock_flag & DBA_LOCK_TRUNC) ? LOCK_EX : 0;
 			file_mode = "w+b";
 			break;
 		default:
-			modenr = 0;
-			lock_mode = 0;
-			file_mode = "";
+			php_error_docref2(NULL TSRMLS_CC, Z_STRVAL_PP(args[0]), Z_STRVAL_PP(args[1]), E_WARNING, "Illegal DBA mode");
+			FREENOW;
+			RETURN_FALSE;
+	}
+	if (!lock_file_mode) {
+		lock_file_mode = file_mode;
 	}
 	if (*pmode=='d' || *pmode=='l' || *pmode=='-') {
 		pmode++; /* done already - skip here */
@@ -692,7 +706,7 @@ static void php_dba_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			lock_mode |= LOCK_NB; /* test =: non blocking */
 		}
 	}
-	if (*pmode || !modenr) {
+	if (*pmode) {
 		php_error_docref2(NULL TSRMLS_CC, Z_STRVAL_PP(args[0]), Z_STRVAL_PP(args[1]), E_WARNING, "Illegal DBA mode");
 		FREENOW;
 		RETURN_FALSE;
@@ -724,7 +738,6 @@ static void php_dba_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 	if (!error && lock_mode) {
 		if (lock_dbf) {
 			info->lock.name = pestrdup(info->path, persistent);
-			lock_file_mode = file_mode;
 		} else {
 			spprintf(&info->lock.name, 0, "%s.lck", info->path);
 			if (!strcmp(file_mode, "r")) {
@@ -747,13 +760,13 @@ static void php_dba_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			FREENOW;
 			RETURN_FALSE;
 		}
-		if (php_stream_cast(info->lock.fp, PHP_STREAM_AS_FD, (void*)&info->lock.fd, 1) == FAILURE)	{
+		if (php_stream_cast(info->lock.fp, PHP_STREAM_AS_FD, (void*)&info->lock.fd, 1) == FAILURE) {
 			dba_close(info TSRMLS_CC);
 			/* stream operation already wrote an error message */
 			FREENOW;
 			RETURN_FALSE;
 		}
-		if (php_flock(info->lock.fd, lock_mode)) {
+		if (php_flock(info->lock.fd, lock_mode)) {		
 			error = "Unable to establish lock"; /* force failure exit */
 		}
 	}
@@ -829,7 +842,7 @@ PHP_FUNCTION(dba_close)
 }
 /* }}} */
 
-/* {{{ proto bool dba_exists(string key, int handle)
+/* {{{ proto bool dba_exists(string key, resource handle)
    Checks, if the specified key exists */
 PHP_FUNCTION(dba_exists)
 {
@@ -844,7 +857,7 @@ PHP_FUNCTION(dba_exists)
 }
 /* }}} */
 
-/* {{{ proto string dba_fetch(string key, [int skip ,] int handle)
+/* {{{ proto string dba_fetch(string key, [int skip ,] resource handle)
    Fetches the data associated with key */
 PHP_FUNCTION(dba_fetch)
 {
@@ -888,7 +901,7 @@ PHP_FUNCTION(dba_fetch)
 }
 /* }}} */
 
-/* {{{ proto string dba_firstkey(int handle)
+/* {{{ proto string dba_firstkey(resource handle)
    Resets the internal key pointer and returns the first key */
 PHP_FUNCTION(dba_firstkey)
 {
@@ -903,7 +916,7 @@ PHP_FUNCTION(dba_firstkey)
 }
 /* }}} */
 
-/* {{{ proto string dba_nextkey(int handle)
+/* {{{ proto string dba_nextkey(resource handle)
    Returns the next key */
 PHP_FUNCTION(dba_nextkey)
 {
@@ -918,7 +931,7 @@ PHP_FUNCTION(dba_nextkey)
 }
 /* }}} */
 
-/* {{{ proto bool dba_delete(string key, int handle)
+/* {{{ proto bool dba_delete(string key, resource handle)
    Deletes the entry associated with key
    If inifile: remove all other key lines */
 PHP_FUNCTION(dba_delete)
@@ -937,7 +950,7 @@ PHP_FUNCTION(dba_delete)
 }
 /* }}} */
 
-/* {{{ proto bool dba_insert(string key, string value, int handle)
+/* {{{ proto bool dba_insert(string key, string value, resource handle)
    If not inifile: Insert value as key, return false, if key exists already 
    If inifile: Add vakue as key (next instance of key) */
 PHP_FUNCTION(dba_insert)
@@ -946,7 +959,7 @@ PHP_FUNCTION(dba_insert)
 }
 /* }}} */
 
-/* {{{ proto bool dba_replace(string key, string value, int handle)
+/* {{{ proto bool dba_replace(string key, string value, resource handle)
    Inserts value as key, replaces key, if key exists already
    If inifile: remove all other key lines */
 PHP_FUNCTION(dba_replace)
@@ -955,7 +968,7 @@ PHP_FUNCTION(dba_replace)
 }
 /* }}} */
 
-/* {{{ proto bool dba_optimize(int handle)
+/* {{{ proto bool dba_optimize(resource handle)
    Optimizes (e.g. clean up, vacuum) database */
 PHP_FUNCTION(dba_optimize)
 {
@@ -969,7 +982,7 @@ PHP_FUNCTION(dba_optimize)
 }
 /* }}} */
 
-/* {{{ proto bool dba_sync(int handle)
+/* {{{ proto bool dba_sync(resource handle)
    Synchronizes database */
 PHP_FUNCTION(dba_sync)
 {

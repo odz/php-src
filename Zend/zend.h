@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend.h,v 1.164.2.15 2003/10/03 22:04:01 moriyoshi Exp $ */
+/* $Id: zend.h,v 1.164.2.21 2004/03/16 17:36:17 sas Exp $ */
 
 #ifndef ZEND_H
 #define ZEND_H
@@ -89,7 +89,11 @@ const char *zend_mh_bundle_error(void);
 #  define RTLD_GLOBAL 0
 # endif
 
-# define DL_LOAD(libname)			dlopen(libname, RTLD_LAZY | RTLD_GLOBAL)
+# if defined(RTLD_GROUP) && defined(RTLD_WORLD) && defined(RTLD_PARENT)
+#  define DL_LOAD(libname)			dlopen(libname, RTLD_LAZY | RTLD_GLOBAL | RTLD_GROUP | RTLD_WORLD | RTLD_PARENT)
+# else
+#  define DL_LOAD(libname)			dlopen(libname, RTLD_LAZY | RTLD_GLOBAL)
+# endif
 # define DL_UNLOAD					dlclose
 # if DLSYM_NEEDS_UNDERSCORE
 #  define DL_FETCH_SYMBOL(h,s)		dlsym((h), "_" s)
@@ -134,6 +138,7 @@ char *alloca ();
 # endif
 #endif
 
+/* GCC x.y.z supplies __GNUC__ = x and __GNUC_MINOR__ = y */
 #ifdef __GNUC__
 # define ZEND_GCC_VERSION (__GNUC__ * 1000 + __GNUC_MINOR__)
 #else
@@ -152,7 +157,7 @@ char *alloca ();
 # define ZEND_ATTRIBUTE_FORMAT(type, idx, first)
 #endif
 
-#if ZEND_GCC_VERSION >= 3000
+#if ZEND_GCC_VERSION >= 3001
 # define ZEND_ATTRIBUTE_PTR_FORMAT(type, idx, first) __attribute__ ((format(type, idx, first)))
 #else
 # define ZEND_ATTRIBUTE_PTR_FORMAT(type, idx, first)

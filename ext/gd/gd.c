@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: gd.c,v 1.221.2.31 2003/08/28 20:25:31 andrey Exp $ */
+/* $Id: gd.c,v 1.221.2.36 2004/02/22 18:03:24 iliaa Exp $ */
 
 /* gd 1.2 is copyright 1994, 1995, Quest Protein Database Center, 
    Cold Spring Harbor Labs. */
@@ -379,14 +379,18 @@ PHP_MINIT_FUNCTION(gd)
 #if HAVE_LIBGD20 && HAVE_GD_STRINGFT
 PHP_RSHUTDOWN_FUNCTION(gd)
 {
+#if defined(HAVE_GD_THREAD_SAFE) || defined(HAVE_GD_BUNDLED)
+	gdFontCacheShutdown();
+#else 
 	gdFreeFontCache();
+#endif
 	return SUCCESS;
 }
 #endif
 /* }}} */
 
 #if HAVE_GD_BUNDLED
-#define PHP_GD_VERSION_STRING "bundled (2.0.15 compatible)"
+#define PHP_GD_VERSION_STRING "bundled (2.0.17 compatible)"
 #elif HAVE_LIBGD20
 #define PHP_GD_VERSION_STRING "2.0 or higher"
 #elif HAVE_GDIMAGECOLORRESOLVE
@@ -963,7 +967,7 @@ PHP_FUNCTION(imagelayereffect)
 PHP_FUNCTION(imagecolorallocatealpha)
 {
 	zval *IM;
-	int red, green, blue, alpha;
+	long red, green, blue, alpha;
 	gdImagePtr im;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zllll", &IM, &red, &green, &blue, &alpha) == FAILURE) {
@@ -1613,9 +1617,14 @@ static void _php_image_output(INTERNAL_FUNCTION_PARAMETERS, int image_type, char
 
 		switch(image_type) {
 			case PHP_GDIMG_CONVERT_WBM:
-				if(q<0||q>255) {
+				if (q == -1) {
+ 					q = 0;
+ 				} else if (q < 0 || q > 255) {
 					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid threshold value '%d'. It must be between 0 and 255", q);
+					q = 0;
 				}
+				gdImageWBMP(im, q, fp);
+				break;
 			case PHP_GDIMG_TYPE_JPG:
 				(*func_p)(im, fp, q);
 				break;
@@ -1655,9 +1664,14 @@ static void _php_image_output(INTERNAL_FUNCTION_PARAMETERS, int image_type, char
 
 		switch(image_type) {
 			case PHP_GDIMG_CONVERT_WBM:
-				if(q<0||q>255) {
+				if (q == -1) {
+ 					q = 0;
+ 				} else if (q < 0 || q > 255) {
 					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid threshold value '%d'. It must be between 0 and 255", q);
+					q = 0;
 				}
+				gdImageWBMP(im, q, tmp);
+				break;
 			case PHP_GDIMG_TYPE_JPG:
 				(*func_p)(im, tmp, q);
 				break;
@@ -2960,7 +2974,7 @@ static void php_imagettftext_common(INTERNAL_FUNCTION_PARAMETERS, int mode, int 
 	char *error = NULL;
 	int argc;
 #if HAVE_GD_STRINGFTEX
-	gdFTStringExtra strex;
+	gdFTStringExtra strex = {0};
 #endif
 
 #if !HAVE_GD_STRINGFTEX
@@ -2970,13 +2984,11 @@ static void php_imagettftext_common(INTERNAL_FUNCTION_PARAMETERS, int mode, int 
 	argc = ZEND_NUM_ARGS();
 
 	if (mode == TTFTEXT_BBOX) {
-		if ((extended && argc != 5) || (!extended && argc != 4) ||
-			  	zend_get_parameters_ex(argc, &PTSIZE, &ANGLE, &FONTNAME, &C, &EXT) == FAILURE) {
+		if (argc < 4 || argc > 5 || zend_get_parameters_ex(argc, &PTSIZE, &ANGLE, &FONTNAME, &C, &EXT) == FAILURE) {
 			ZEND_WRONG_PARAM_COUNT();
 		}
 	} else {
-		if ((extended && argc != 9) || (!extended && argc != 8) ||
-			  	zend_get_parameters_ex(argc, &IM, &PTSIZE, &ANGLE, &X, &Y, &COL, &FONTNAME, &C, &EXT) == FAILURE) {
+		if (argc < 8 || argc > 9 || zend_get_parameters_ex(argc, &IM, &PTSIZE, &ANGLE, &X, &Y, &COL, &FONTNAME, &C, &EXT) == FAILURE) {
 			ZEND_WRONG_PARAM_COUNT();
 		}
 		ZEND_FETCH_RESOURCE(im, gdImagePtr, IM, -1, "Image", le_gd);
@@ -3005,7 +3017,6 @@ static void php_imagettftext_common(INTERNAL_FUNCTION_PARAMETERS, int mode, int 
 			HashPosition pos;
 
 			convert_to_array_ex(EXT);
-			memset(&strex, 0, sizeof(strex));
 
 			/* walk the assoc array */
 			zend_hash_internal_pointer_reset_ex(HASH_OF(*EXT), &pos);
@@ -3038,14 +3049,18 @@ static void php_imagettftext_common(INTERNAL_FUNCTION_PARAMETERS, int mode, int 
 	str = (unsigned char *) Z_STRVAL_PP(C);
 	l = strlen(str);
 
+/*	VCWD_REALPATH(Z_STRVAL_PP(FONTNAME), fontname); */
+
 #ifdef VIRTUAL_DIR
-	if(virtual_filepath(Z_STRVAL_PP(FONTNAME), (char**)&fontname TSRMLS_CC)) {
-		fontname = (unsigned char*)Z_STRVAL_PP(FONTNAME);
+ 	{
+ 		char tmp_font_path[MAXPATHLEN];
+ 		if (VCWD_REALPATH(Z_STRVAL_PP(FONTNAME), tmp_font_path)) {
+ 			fontname = (unsigned char *) Z_STRVAL_PP(FONTNAME);
+ 		}
 	}
 #else
 	fontname = (unsigned char*)Z_STRVAL_PP(FONTNAME);
 #endif
-
 
 #ifdef USE_GD_IMGSTRTTF
 # if HAVE_GD_STRINGFTEX
@@ -3301,7 +3316,7 @@ PHP_FUNCTION(imagepstext)
 {
 	zval *img, *fnt;
 	int i, j;
-	int _fg, _bg, x, y, size, space = 0, aa_steps = 4, width = 0;
+	long _fg, _bg, x, y, size, space = 0, aa_steps = 4, width = 0;
 	int *f_ind;
 	int h_lines, v_lines, c_ind;
 	int rd, gr, bl, fg_rd, fg_gr, fg_bl, bg_rd, bg_gr, bg_bl;
@@ -3618,6 +3633,10 @@ static void _php_image_bw_convert( gdImagePtr im_org, gdIOCtx *out, int threshol
 	if (black == -1) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to allocate the colors for the destination buffer");
 		return;
+	}
+
+	if (im_org->trueColor) {
+		gdImageTrueColorToPalette(im_org, 1, 256);
 	}
 
 	for (y = 0; y < dest_height; y++) {

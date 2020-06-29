@@ -93,7 +93,7 @@ ZEND_API zval zval_used_for_init; /* True global variable */
 /* version information */
 static char *zend_version_info;
 static uint zend_version_info_length;
-#define ZEND_CORE_VERSION_INFO	"Zend Engine v" ZEND_VERSION ", Copyright (c) 1998-2003 Zend Technologies\n"
+#define ZEND_CORE_VERSION_INFO	"Zend Engine v" ZEND_VERSION ", Copyright (c) 1998-2004 Zend Technologies\n"
 
 
 #define PRINT_ZVAL_INDENT 4
@@ -365,6 +365,9 @@ static void executor_globals_dtor(zend_executor_globals *executor_globals TSRMLS
 {
 	zend_shutdown_constants(TSRMLS_C);
 	zend_destroy_rsrc_list(&EG(persistent_list) TSRMLS_CC);
+#ifdef ZTS
+	zend_destroy_rsrc_list_dtors();
+#endif
 	zend_ini_shutdown(TSRMLS_C);
 }
 
@@ -375,18 +378,17 @@ static void zend_new_thread_end_handler(THREAD_T thread_id TSRMLS_DC)
 	zend_ini_refresh_caches(ZEND_INI_STAGE_STARTUP TSRMLS_CC);
 }
 
-#endif
-
-
-static void alloc_globals_ctor(zend_alloc_globals *alloc_globals_p TSRMLS_DC)
-{
-	start_memory_manager(TSRMLS_C);
-}
-
 
 static void alloc_globals_dtor(zend_alloc_globals *alloc_globals_p TSRMLS_DC)
 {
 	shutdown_memory_manager(0, 1 TSRMLS_CC);
+}
+
+#endif
+
+static void alloc_globals_ctor(zend_alloc_globals *alloc_globals_p TSRMLS_DC)
+{
+	start_memory_manager(TSRMLS_C);
 }
 
 
@@ -553,8 +555,8 @@ void zend_shutdown(TSRMLS_D)
 #endif
 #ifndef ZTS
 	zend_destroy_rsrc_list(&EG(persistent_list) TSRMLS_CC);
-#endif
 	zend_destroy_rsrc_list_dtors();
+#endif	
 	zend_hash_graceful_reverse_destroy(&module_registry);
 	zend_hash_destroy(GLOBAL_FUNCTION_TABLE);
 	free(GLOBAL_FUNCTION_TABLE);
@@ -566,6 +568,9 @@ void zend_shutdown(TSRMLS_D)
 	free(zend_version_info);
 #ifndef ZTS
 	zend_shutdown_constants();
+#else
+	zend_hash_destroy(GLOBAL_CONSTANTS_TABLE);
+	free(GLOBAL_CONSTANTS_TABLE);
 #endif
 }
 

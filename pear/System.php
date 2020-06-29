@@ -1,9 +1,9 @@
 <?php
 //
 // +----------------------------------------------------------------------+
-// | PHP Version 4                                                        |
+// | PHP Version 5                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2003 The PHP Group                                |
+// | Copyright (c) 1997-2004 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.0 of the PHP license,       |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
 // | Authors: Tomas V.V.Cox <cox@idecnet.com>                             |
 // +----------------------------------------------------------------------+
 //
-// $Id: System.php,v 1.21.2.10 2003/10/20 15:51:43 cox Exp $
+// $Id: System.php,v 1.21.2.15 2004/01/26 01:26:43 pajoye Exp $
 //
 
 require_once 'PEAR.php';
@@ -48,7 +48,7 @@ $GLOBALS['_System_temp_files'] = array();
 *
 * @package  System
 * @author   Tomas V.V.Cox <cox@idecnet.com>
-* @version  $Revision: 1.21.2.10 $
+* @version  $Revision: 1.21.2.15 $
 * @access   public
 * @see      http://pear.php.net/manual/
 */
@@ -66,9 +66,9 @@ class System
     function _parseArgs($argv, $short_options, $long_options = null)
     {
         if (!is_array($argv) && $argv !== null) {
-            $argv = preg_split('/\s+/', ': '.$argv);
+            $argv = preg_split('/\s+/', $argv);
         }
-        return Console_Getopt::getopt($argv, $short_options);
+        return Console_Getopt::getopt2($argv, $short_options);
     }
 
     /**
@@ -226,6 +226,14 @@ class System
             if ($opt[0] == 'p') {
                 $create_parents = true;
             } elseif($opt[0] == 'm') {
+                // if the mode is clearly an octal number (starts with 0)
+                // convert it to decimal
+                if (strlen($opt[1]) && $opt[1]{0} == '0') {
+                    $opt[1] = octdec($opt[1]);
+                } else {
+                    // convert to int
+                    $opt[1] += 0;
+                }
                 $mode = $opt[1];
             }
         }
@@ -289,7 +297,8 @@ class System
         }
         if (isset($mode)) {
             if (!$outputfd = fopen($outputfile, $mode)) {
-                return System::raiseError("Could not open $outputfile");
+                $err = System::raiseError("Could not open $outputfile");
+                return $err;
             }
             $ret = true;
         }

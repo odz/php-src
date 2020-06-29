@@ -15,7 +15,7 @@
    | Author: Jim Winstead <jimw@php.net>                                  |
    +----------------------------------------------------------------------+
  */
-/* $Id: base64.c,v 1.33.4.4 2003/06/24 15:26:10 iliaa Exp $ */
+/* $Id: base64.c,v 1.33.4.6 2004/03/06 19:06:12 iliaa Exp $ */
 
 #include <string.h>
 
@@ -54,7 +54,7 @@ static const short base64_reverse_table[256] = {
 /* }}} */
 
 /* {{{ php_base64_encode */
-unsigned char *php_base64_encode(const unsigned char *str, int length, int *ret_length)
+PHPAPI unsigned char *php_base64_encode(const unsigned char *str, int length, int *ret_length)
 {
 	const unsigned char *current = str;
 	unsigned char *p;
@@ -137,7 +137,7 @@ void php_base64_init()
 
 /* {{{ php_base64_decode */
 /* as above, but backwards. :) */
-unsigned char *php_base64_decode(const unsigned char *str, int length, int *ret_length)
+PHPAPI unsigned char *php_base64_decode(const unsigned char *str, int length, int *ret_length)
 {
 	const unsigned char *current = str;
 	int ch, i = 0, j = 0, k;
@@ -188,7 +188,6 @@ unsigned char *php_base64_decode(const unsigned char *str, int length, int *ret_
 	/* mop things up if we ended on a boundary */
 	if (ch == base64_pad) {
 		switch(i % 4) {
-		case 0:
 		case 1:
 			efree(result);
 			return NULL;

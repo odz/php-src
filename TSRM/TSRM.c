@@ -157,7 +157,10 @@ TSRM_API void tsrm_shutdown(void)
 				int j;
 
 				next_p = p->next;
-				for (j=0; j<id_count; j++) {
+				for (j=0; j<p->count; j++) {
+					if (resource_types_table && resource_types_table[j].dtor) {
+						resource_types_table[j].dtor(p->storage[j], &p->storage);
+					}
 					free(p->storage[j]);
 				}
 				free(p->storage);
@@ -482,6 +485,7 @@ TSRM_API void tsrm_mutex_free(MUTEX_T mutexp)
 	if (mutexp) {
 #ifdef TSRM_WIN32
 		DeleteCriticalSection(mutexp);
+		free(mutexp);
 #elif defined(NETWARE)
 		NXMutexFree(mutexp);
 #elif defined(GNUPTH)

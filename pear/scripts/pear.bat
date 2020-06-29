@@ -1,9 +1,9 @@
 @ECHO OFF
 
 REM ----------------------------------------------------------------------
-REM PHP version 4.0
+REM PHP version 5
 REM ----------------------------------------------------------------------
-REM Copyright (c) 1997-2002 The PHP Group
+REM Copyright (c) 1997-2004 The PHP Group
 REM ----------------------------------------------------------------------
 REM  This source file is subject to version 3.0 of the PHP license, 
 REM  that is bundled with this package in the file LICENSE, and is
@@ -16,7 +16,7 @@ REM ----------------------------------------------------------------------
 REM  Authors:     Alexander Merz (alexmerz@php.net)
 REM ----------------------------------------------------------------------
 REM
-REM  $Id: pear.bat,v 1.10.4.9 2003/10/20 15:51:46 cox Exp $
+REM  Last updated 3/13/2004 ($Id$ is not replaced if the file is binary)
 
 REM change this lines to match the paths of your system
 REM -------------------
@@ -64,6 +64,6 @@ ECHO The current value is:
 ECHO %PHP_PEAR_PHP_BIN%
 GOTO END
 :RUN
-"%PHP_PEAR_PHP_BIN%" -C -d output_buffering=1 -d include_path="%PHP_PEAR_INSTALL_DIR%" -f "%PHP_PEAR_INSTALL_DIR%\pearcmd.php" -- %1 %2 %3 %4 %5 %6 %7 %8 %9
+"%PHP_PEAR_PHP_BIN%" -C -d output_buffering=1 -d register_argc_argv=On -d include_path="%PHP_PEAR_INSTALL_DIR%" -f "%PHP_PEAR_INSTALL_DIR%\pearcmd.php" -- %1 %2 %3 %4 %5 %6 %7 %8 %9
 :END
 @ECHO ON

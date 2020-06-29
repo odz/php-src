@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: main.c,v 1.512.2.50 2003/10/09 02:59:03 iliaa Exp $ */
+/* $Id: main.c,v 1.512.2.53 2004/02/09 04:05:56 iliaa Exp $ */
 
 /* {{{ includes
  */
@@ -165,23 +165,22 @@ static PHP_INI_MH(OnChangeMemoryLimit)
  */
 static void php_disable_functions(TSRMLS_D)
 {
-	char *s = NULL;
-	char *e = INI_STR("disable_functions");
-	char p;
+	char *s = NULL, *e;
 
-	if (!*e) {
+	if (!*(INI_STR("disable_functions"))) {
 		return;
 	}
+
+	/* Intentional one time memory leak on startup */
+	e = strdup(INI_STR("disable_functions"));
 
 	while (*e) {
 		switch (*e) {
 			case ' ':
 			case ',':
 				if (s) {
-					p = *e;
 					*e = '\0';
 					zend_disable_function(s, e-s TSRMLS_CC);
-					*e = p;
 					s = NULL;
 				}
 				break;
@@ -203,23 +202,22 @@ static void php_disable_functions(TSRMLS_D)
  */
 static void php_disable_classes(TSRMLS_D)
 {
-	char *s = NULL;
-	char *e = INI_STR("disable_classes");
-	char p;
+	char *s = NULL, *e;
 
-	if (!*e) {
+	if (!*(INI_STR("disable_classes"))) {
 		return;
 	}
+
+	/* Intentional one time memory leak on startup */
+	e = strdup(INI_STR("disable_classes"));
 
 	while (*e) {
 		switch (*e) {
 			case ' ':
 			case ',':
 				if (s) {
-					p = *e;
 					*e = '\0';
 					zend_disable_class(s, e-s TSRMLS_CC);
-					*e = p;
 					s = NULL;
 				}
 				break;
@@ -362,7 +360,7 @@ PHP_INI_BEGIN()
 	PHP_INI_ENTRY("disable_functions",			"",			PHP_INI_SYSTEM,		NULL)
 	PHP_INI_ENTRY("disable_classes",			"",			PHP_INI_SYSTEM,		NULL)
 
-	STD_PHP_INI_BOOLEAN("allow_url_fopen",		"1",		PHP_INI_ALL,		OnUpdateBool,			allow_url_fopen,			php_core_globals,	core_globals)
+	STD_PHP_INI_BOOLEAN("allow_url_fopen",		"1",		PHP_INI_SYSTEM,		OnUpdateBool,			allow_url_fopen,			php_core_globals,	core_globals)
 	STD_PHP_INI_BOOLEAN("always_populate_raw_post_data",		"0",		PHP_INI_SYSTEM|PHP_INI_PERDIR,		OnUpdateBool,			always_populate_raw_post_data,			php_core_globals,	core_globals)
 
 PHP_INI_END()
@@ -1138,6 +1136,10 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 
 #if HAVE_SETLOCALE
 	setlocale(LC_CTYPE, "");
+#endif
+
+#if HAVE_TZSET
+	tzset();
 #endif
 
 #if defined(PHP_WIN32) || (defined(NETWARE) && defined(USE_WINSOCK))

@@ -3111,8 +3111,7 @@ ZEND_API zend_op_array *compile_file(zend_file_handle *file_handle, int type TSR
 		zend_do_return(&retval_znode, 0 TSRMLS_CC);
 		CG(in_compilation) = original_in_compilation;
 		if (compiler_result==1) { /* parser error */
-			CG(unclean_shutdown) = 1;
-			retval = NULL;
+			zend_bailout();
 		}
 		compilation_successful=1;
 #ifdef ZEND_MULTIBYTE
@@ -3577,9 +3576,20 @@ YY_MALLOC_DECL
 			YY_FATAL_ERROR( "input in flex scanner failed" ); \
 		result = n; \
 		} \
-	else if ( ((result = fread( buf, 1, max_size, yyin )) == 0) \
-		  && ferror( yyin ) ) \
-		YY_FATAL_ERROR( "input in flex scanner failed" );
+	else \
+		{ \
+		errno=0; \
+		while ( (result = fread(buf, 1, max_size, yyin))==0 && ferror(yyin)) \
+			{ \
+			if( errno != EINTR) \
+				{ \
+				YY_FATAL_ERROR( "input in flex scanner failed" ); \
+				break; \
+				} \
+			errno=0; \
+			clearerr(yyin); \
+			} \
+		}
 #endif
 
 /* No semi-colon after return; correct usage is to write "yyterminate();" -
@@ -4816,8 +4826,8 @@ YY_RULE_SETUP
 	}
 
 	if (label_len==CG(heredoc_len) && !memcmp(yytext, CG(heredoc), label_len)) {
-		zendlval->value.str.val = estrndup(yytext, yyleng); /* unput destroys yytext */
-		zendlval->value.str.len = yyleng;
+		zendlval->value.str.val = estrndup(yytext, label_len); /* unput destroys yytext */
+		zendlval->value.str.len = label_len;
 		if (unput_semicolon) {
 			unput(';');
 		}
