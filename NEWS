@@ -1,5 +1,45 @@
 PHP                                                                        NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+29 May 2014, PHP 5.4.29 
+
+- COM:
+  . Fixed bug #66431 (Special Character via COM Interface (CP_UTF8)). (Anatol)
+
+- Core:
+  . Fixed bug #65701 (copy() doesn't work when destination filename is created 
+    by tempnam()). (Boro Sitnikovski)
+  . Fixed bug #67072 (Echoing unserialized "SplFileObject" crash). (Anatol)
+  . Fixed bug #67245 (usage of memcpy() with overlapping src and dst in
+    zend_exceptions.c). (Bob)
+  . Fixed bug #67247 (spl_fixedarray_resize integer overflow). (Stas)
+  . Fixed bug #67249 (printf out-of-bounds read). (Stas)
+  . Fixed bug #67250 (iptcparse out-of-bounds read). (Stas)
+  . Fixed bug #67252 (convert_uudecode out-of-bounds read). (Stas)
+
+- Date:
+  . Fixed bug #67118 (DateTime constructor crash with invalid data). (Anatol)
+  . Fixed bug #67251 (date_parse_from_format out-of-bounds read). (Stas)
+  . Fixed bug #67253 (timelib_meridian_with_check out-of-bounds read). (Stas)
+
+- DOM:
+  . Fixed bug #67081 (DOMDocumentType->internalSubset returns entire DOCTYPE tag,
+    not only the subset). (Anatol)
+
+ - Fileinfo:
+   . Fixed bug #66307 (Fileinfo crashes with powerpoint files). (Anatol)
+   . Fixed bug #67327 (fileinfo: CDF infinite loop in nelements DoS).
+     (CVE-2014-0238)
+   . Fixed bug #67328 (fileinfo: fileinfo: numerous file_printf calls resulting in
+     performance degradation). (CVE-2014-0237)
+
+- FPM:
+  . Fixed bug #66908 (php-fpm reload leaks epoll_create() file descriptor). 
+    (Julio Pintos)
+
+- Phar:
+  . Fix bug #64498 ($phar->buildFromDirectory can't compress file with an accent 
+    in its name). (PR #588) 
+
 01 May 2014, PHP 5.4.28
 
 - Core:
@@ -12,6 +52,7 @@ PHP                                                                        NEWS
   . Fixed bug #66736 (fpassthru broken). (Mike)
   . Fixed bug #67024 (getimagesize should recognize BMP files with negative 
     height). (Gabor Buella)
+  . Fixed bug #67033 (Remove reference to Windows 95). (Anatol)
 
 - cURL:
   . Fixed bug #66562 (curl_exec returns differently than curl_multi_getcontent).
@@ -694,7 +735,8 @@ PHP                                                                        NEWS
   . Fixed bug #63999 (php with fpm fails to build on Solaris 10 or 11). (Adam)
 
 - Litespeed:
-  . Fixed bug #63228 (-Werror=format-security error in lsapi code). (George)
+  . Fixed bug #63228 (-Werror=format-security error in lsapi code).
+    (Elan Ruusamäe, George)
 
 - ext/sqlite3:
   . Fixed bug #63921 (sqlite3::bindvalue and relative PHP functions aren't
