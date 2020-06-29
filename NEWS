@@ -1,6 +1,34 @@
 PHP                                                                        NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-14 Nov 2013, PHP 5.4.22 
+28 Nov 2013, PHP 5.4.23
+
+- Core:
+  . Fixed bug #66094 (unregister_tick_function tries to cast a Closure to a 
+    string). (Laruence)
+  . Fixed bug #65947 (basename is no more working after fgetcsv in certain 
+    situation). (Laruence)
+
+- JSON
+  . Fixed whitespace part of bug #64874 ("json_decode handles whitespace and
+    case-sensitivity incorrectly"). (Andrea Faulds)
+
+- MySQLi:
+  . Fixed bug #66043 (Segfault calling bind_param() on mysqli). (Laruence)
+
+- mysqlnd:
+  . Fixed bug #66124 (mysqli under mysqlnd loses precision when bind_param
+    with 'i'). (Andrey)
+  . Fixed bug #66141 (mysqlnd quote function is wrong with NO_BACKSLASH_ESCAPES
+    after failed query). (Andrey)
+
+- OpenSSL:
+  . Fixed memory corruption in openssl_x509_parse() (CVE-2013-6420). 
+    (Stefan Esser).
+
+- PDO
+  . Fixed bug 65946 (sql_parser permanently converts values bound to strings)
+
+14 Nov 2013, PHP 5.4.22
 
 - Core:
   . Fixed bug #65911 (scope resolution operator - strange behavior with $this).
@@ -16,9 +44,13 @@ PHP                                                                        NEWS
 - FTP:
   . Fixed bug #65667 (ftp_nb_continue produces segfault). (Philip Hofstetter)
 
-- ODBC
+- ODBC:
   . Fixed bug #65950 (Field name truncation if the field name is bigger than 
     32 characters). (patch submitted by: michael dot y at zend dot com, Yasuo)
+
+- PDO:
+  . Fixed bug #66033 (Segmentation Fault when constructor of PDO statement 
+    throws an exception). (Laruence)
 
 - Sockets:
   . Fixed bug #65808 (the socket_connect() won't work with IPv6 address).
