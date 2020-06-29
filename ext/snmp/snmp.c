@@ -551,35 +551,60 @@ static void php_snmp_error(zval *object, const char *docref TSRMLS_DC, int type,
 static void php_snmp_getvalue(struct variable_list *vars, zval *snmpval TSRMLS_DC, int valueretrieval)
 {
 	zval *val;
-#ifdef BUGGY_SNMPRINT_VALUE
-	char sbuf[2048];
-#else
-	char sbuf[64];
-#endif
+	char sbuf[512];
 	char *buf = &(sbuf[0]);
 	char *dbuf = (char *)NULL;
 	int buflen = sizeof(sbuf) - 1;
 	int val_len = vars->val_len;
 	
-	if ((valueretrieval & SNMP_VALUE_PLAIN) == 0) {
-		val_len += 32; /* snprint_value will add type info into value, make some space for it */
+	/* use emalloc() for large values, use static array otherwize */
+
+	/* There is no way to know the size of buffer snprint_value() needs in order to print a value there.
+	 * So we are forced to probe it
+	 */
+	while ((valueretrieval & SNMP_VALUE_PLAIN) == 0) {
+		*buf = '\0';
+		if (snprint_value(buf, buflen, vars->name, vars->name_length, vars) == -1) {
+			if (val_len > 512*1024) {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "snprint_value() asks for a buffer more than 512k, Net-SNMP bug?");
+				break;
+			}
+			 /* buffer is not long enough to hold full output, double it */
+			val_len *= 2;
+		} else {
+			break;
+		}
+
+		if (buf == dbuf) {
+			dbuf = (char *)erealloc(dbuf, val_len + 1);
+		} else {
+			dbuf = (char *)emalloc(val_len + 1);
+		}
+
+		if (!dbuf) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "emalloc() failed: %s, fallback to static buffer", strerror(errno));
+			buf = &(sbuf[0]);
+			buflen = sizeof(sbuf) - 1;
+			break;
+		}
+
+		buf = dbuf;
+		buflen = val_len;
 	}
 
-	/* use emalloc() for large values, use static array otherwize */
-	if(val_len > buflen){
+	if((valueretrieval & SNMP_VALUE_PLAIN) && val_len > buflen){
 		if ((dbuf = (char *)emalloc(val_len + 1))) {
 			buf = dbuf;
 			buflen = val_len;
 		} else {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "emalloc() failed: %s, fallback to static array", strerror(errno));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "emalloc() failed: %s, fallback to static buffer", strerror(errno));
 		}
 	}
-
-	*buf = 0;
 
 	MAKE_STD_ZVAL(val);
 
 	if (valueretrieval & SNMP_VALUE_PLAIN) {
+		*buf = 0;
 		switch (vars->type) {
 		case ASN_BIT_STR:		/* 0x03, asn1.h */
 			ZVAL_STRINGL(val, (char *)vars->val.bitstring, vars->val_len, 1);
@@ -652,7 +677,7 @@ static void php_snmp_getvalue(struct variable_list *vars, zval *snmpval TSRMLS_D
 			break;
 		}
 	} else /* use Net-SNMP value translation */ {
-		snprint_value(buf, buflen, vars->name, vars->name_length, vars);
+		/* we have desired string in buffer, just use it */
 		ZVAL_STRING(val, buf, 1);
 	}
 
@@ -1162,9 +1187,10 @@ static int netsnmp_session_init(php_snmp_session **session_p, int version, char 
 			continue;
 		}
 		if ((*res)->sa_family == AF_INET6) {
-			strcpy(session->peername, "udp6:");
+			strcpy(session->peername, "udp6:[");
 			pptr = session->peername + strlen(session->peername);
 			inet_ntop((*res)->sa_family, &(((struct sockaddr_in6*)(*res))->sin6_addr), pptr, MAX_NAME_LEN);
+			strcat(pptr, "]");
 		} else if ((*res)->sa_family == AF_INET) {
 			inet_ntop((*res)->sa_family, &(((struct sockaddr_in*)(*res))->sin_addr), pptr, MAX_NAME_LEN);
 		} else {

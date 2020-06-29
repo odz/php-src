@@ -25,9 +25,6 @@
 #undef BETHREADS
 
 /* */
-#undef BUGGY_SNMPRINT_VALUE
-
-/* */
 #undef CDB_INCLUDE_FILE
 
 /* Define if system uses EBCDIC */
@@ -1807,6 +1804,12 @@
 /* Define to 1 if you have the <syslog.h> header file. */
 #undef HAVE_SYSLOG_H
 
+/* FPM use systemd integration */
+#undef HAVE_SYSTEMD
+
+/* Define to 1 if you have the <systemd/sd-daemon.h> header file. */
+#undef HAVE_SYSTEMD_SD_DAEMON_H
+
 /* */
 #undef HAVE_SYSVMSG
 
@@ -2155,6 +2158,9 @@
 
 /* fpm group name */
 #undef PHP_FPM_GROUP
+
+/* fpm systemd service type */
+#undef PHP_FPM_SYSTEMD
 
 /* fpm user name */
 #undef PHP_FPM_USER
