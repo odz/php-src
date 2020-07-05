@@ -461,7 +461,7 @@ PHP_FUNCTION(gzgetc) {
 	ZEND_FETCH_RESOURCE(zp, gzFile *, arg1, -1, "Zlib file", le_zp);
 
 	buf = emalloc(sizeof(char) * 2);
-	if ((c=gzgetc(zp)) == (-1)) {
+	if ((c=gzgetc((gzFile) zp)) == (-1)) {
 		efree(buf);
 		RETVAL_FALSE;
 	} else {
