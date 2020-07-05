@@ -86,6 +86,10 @@ static int le_result,le_link,le_plink;
 	(mysql_field_count(mysql)>0)
 #endif
 
+#if !defined(MYSQL_PORT) && defined(MARIADB_PORT)
+#define MYSQL_PORT	MARIADB_PORT
+#endif
+
 function_entry mysql_functions[] = {
 	PHP_FE(mysql_connect,								NULL)
 	PHP_FE(mysql_pconnect,								NULL)
