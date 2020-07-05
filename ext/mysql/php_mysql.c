@@ -91,8 +91,6 @@ function_entry mysql_functions[] = {
 	PHP_FE(mysql_pconnect,								NULL)
 	PHP_FE(mysql_close,									NULL)
 	PHP_FE(mysql_select_db,								NULL)
-	PHP_FE(mysql_create_db,								NULL)
-	PHP_FE(mysql_drop_db,								NULL)
 	PHP_FE(mysql_query,									NULL)
 	PHP_FE(mysql_db_query,								NULL)
 	PHP_FE(mysql_list_dbs,								NULL)
@@ -129,8 +127,6 @@ function_entry mysql_functions[] = {
 	PHP_FALIAS(mysql_fieldtype,		mysql_field_type,	NULL)
 	PHP_FALIAS(mysql_fieldflags,	mysql_field_flags,	NULL)
 	PHP_FALIAS(mysql_selectdb,		mysql_select_db,	NULL)
-	PHP_FALIAS(mysql_createdb,		mysql_create_db,	NULL)
-	PHP_FALIAS(mysql_dropdb,		mysql_drop_db,		NULL)
 	PHP_FALIAS(mysql_freeresult,	mysql_free_result,	NULL)
 	PHP_FALIAS(mysql_numfields,		mysql_num_fields,	NULL)
 	PHP_FALIAS(mysql_numrows,		mysql_num_rows,		NULL)
@@ -640,87 +636,6 @@ PHP_FUNCTION(mysql_select_db)
 		RETURN_FALSE;
 	} else {
 		RETURN_TRUE;
-	}
-}
-/* }}} */
-
-
-/* {{{ proto int mysql_create_db(string database_name [, int link_identifier])
-   Create a MySQL database */
-PHP_FUNCTION(mysql_create_db)
-{
-	pval **db,**mysql_link;
-	int id;
-	MYSQL *mysql;
-	MySLS_FETCH();
-	
-	switch(ARG_COUNT(ht)) {
-		case 1:
-			if (zend_get_parameters_ex(1, &db)==FAILURE) {
-				RETURN_FALSE;
-			}
-			id = php_mysql_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU MySLS_CC);
-			CHECK_LINK(id);
-			break;
-		case 2:
-			if (zend_get_parameters_ex(2, &db, &mysql_link)==FAILURE) {
-				RETURN_FALSE;
-			}
-			id = -1;
-			break;
-		default:
-			WRONG_PARAM_COUNT;
-			break;
-	}
-	
-	ZEND_FETCH_RESOURCE2(mysql, MYSQL *, mysql_link, id, "MySQL-Link", le_link, le_plink);
-	
-	convert_to_string_ex(db);
-	if (mysql_create_db(mysql, (*db)->value.str.val)==0) {
-		RETURN_TRUE;
-	} else {
-		RETURN_FALSE;
-	}
-}
-/* }}} */
-
-
-/* {{{ proto int mysql_drop_db(string database_name [, int link_identifier])
-   Drop (delete) a MySQL database */
-PHP_FUNCTION(mysql_drop_db)
-{
-	pval **db, **mysql_link;
-	int id;
-	MYSQL *mysql;
-	MySLS_FETCH();
-	
-	switch(ARG_COUNT(ht)) {
-		case 1:
-			if (zend_get_parameters_ex(1, &db)==FAILURE) {
-				RETURN_FALSE;
-			}
-			id = php_mysql_get_default_link(INTERNAL_FUNCTION_PARAM_PASSTHRU MySLS_CC);
-			CHECK_LINK(id);
-			break;
-		case 2:
-			if (zend_get_parameters_ex(2, &db, &mysql_link)==FAILURE) {
-				RETURN_FALSE;
-			}
-			id = -1;
-			break;
-		default:
-			WRONG_PARAM_COUNT;
-			break;
-	}
-	
-	
-	ZEND_FETCH_RESOURCE2(mysql, MYSQL *, mysql_link, id, "MySQL-Link", le_link, le_plink);
-	
-	convert_to_string_ex(db);
-	if (mysql_drop_db(mysql, (*db)->value.str.val)==0) {
-		RETURN_TRUE;
-	} else {
-		RETURN_FALSE;
 	}
 }
 /* }}} */
