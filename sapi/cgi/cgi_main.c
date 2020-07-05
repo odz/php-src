@@ -179,7 +179,7 @@ static int sapi_cgi_deactivate(SLS_D)
 
 
 
-static sapi_module_struct sapi_module = {
+static sapi_module_struct cgi_sapi_module = {
 	"CGI",							/* name */
 									
 	php_module_startup,				/* startup */
@@ -380,7 +380,7 @@ int main(int argc, char *argv[])
 	tsrm_startup(1,1,0);
 #endif
 
-	sapi_startup(&sapi_module);
+	sapi_startup(&cgi_sapi_module);
 
 #ifdef PHP_WIN32
 	_fmode = _O_BINARY;			/*sets default for file streams to binary */
@@ -426,7 +426,7 @@ any .htaccess restrictions anywhere on your site you can leave doc_root undefine
 #endif							/* FORCE_CGI_REDIRECT */
 	}
 
-	if (php_module_startup(&sapi_module)==FAILURE) {
+	if (php_module_startup(&cgi_sapi_module)==FAILURE) {
 		return FAILURE;
 	}
 #ifdef ZTS
